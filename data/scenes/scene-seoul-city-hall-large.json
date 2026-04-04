@@ -1,0 +1,158 @@
+{
+  "requestKey": "seoul city hall large::LARGE",
+  "query": "Seoul City Hall Large",
+  "scale": "LARGE",
+  "attempts": 1,
+  "scene": {
+    "sceneId": "scene-seoul-city-hall-large",
+    "placeId": "google-place-id",
+    "name": "Seoul City Hall",
+    "centerLat": 37.5665,
+    "centerLng": 126.978,
+    "radiusM": 1000,
+    "status": "READY",
+    "metaUrl": "/api/scenes/scene-seoul-city-hall-large/meta",
+    "assetUrl": "/api/scenes/scene-seoul-city-hall-large/assets/base.glb",
+    "createdAt": "2026-04-04T09:15:18.624Z",
+    "updatedAt": "2026-04-04T09:15:18.624Z",
+    "failureReason": null
+  },
+  "place": {
+    "provider": "GOOGLE_PLACES",
+    "placeId": "google-place-id",
+    "displayName": "Seoul City Hall",
+    "formattedAddress": "110 Sejong-daero, Jung-gu, Seoul",
+    "location": {
+      "lat": 37.5665,
+      "lng": 126.978
+    },
+    "primaryType": "city_hall",
+    "types": [
+      "city_hall",
+      "point_of_interest"
+    ],
+    "googleMapsUri": "https://maps.google.com",
+    "viewport": {
+      "northEast": {
+        "lat": 37.567,
+        "lng": 126.979
+      },
+      "southWest": {
+        "lat": 37.566,
+        "lng": 126.977
+      }
+    },
+    "utcOffsetMinutes": 540
+  },
+  "meta": {
+    "sceneId": "scene-seoul-city-hall-large",
+    "placeId": "google-place-id",
+    "name": "Seoul City Hall",
+    "generatedAt": "2026-04-04T00:00:00Z",
+    "origin": {
+      "lat": 37.5665,
+      "lng": 126.978
+    },
+    "camera": {
+      "topView": {
+        "x": 0,
+        "y": 120,
+        "z": 65.57
+      },
+      "walkViewStart": {
+        "x": 0,
+        "y": 1.7,
+        "z": 0
+      }
+    },
+    "bounds": {
+      "radiusM": 1000,
+      "northEast": {
+        "lat": 37.57548311174991,
+        "lng": 126.98933306533732
+      },
+      "southWest": {
+        "lat": 37.557516888250085,
+        "lng": 126.96666693466267
+      }
+    },
+    "stats": {
+      "buildingCount": 1,
+      "roadCount": 1,
+      "walkwayCount": 0,
+      "poiCount": 1
+    },
+    "diagnostics": {
+      "droppedBuildings": 0,
+      "droppedRoads": 0,
+      "droppedWalkways": 0,
+      "droppedPois": 0
+    },
+    "roads": [
+      {
+        "objectId": "road-22",
+        "osmWayId": "way_22",
+        "name": "Sejong-daero",
+        "laneCount": 4,
+        "roadClass": "primary",
+        "widthMeters": 14,
+        "direction": "TWO_WAY",
+        "path": [
+          {
+            "lat": 37.5661,
+            "lng": 126.9778
+          },
+          {
+            "lat": 37.5665,
+            "lng": 126.978
+          },
+          {
+            "lat": 37.5669,
+            "lng": 126.9782
+          }
+        ],
+        "center": {
+          "lat": 37.5665,
+          "lng": 126.978
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "objectId": "building-11",
+        "osmWayId": "way_11",
+        "name": "City Hall",
+        "heightMeters": 40,
+        "footprint": [
+          {
+            "lat": 37.5661,
+            "lng": 126.9778
+          },
+          {
+            "lat": 37.5662,
+            "lng": 126.9781
+          },
+          {
+            "lat": 37.566,
+            "lng": 126.9782
+          }
+        ],
+        "usage": "PUBLIC"
+      }
+    ],
+    "walkways": [],
+    "pois": [
+      {
+        "objectId": "poi-33",
+        "name": "Info Center",
+        "type": "SHOP",
+        "location": {
+          "lat": 37.5664,
+          "lng": 126.9781
+        },
+        "category": "shop",
+        "isLandmark": false
+      }
+    ]
+  }
+}

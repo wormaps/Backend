@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { StoredScene } from './scene.types';
+import { getSceneDataDir } from './scene-storage.utils';
 
 @Injectable()
 export class SceneRepository {
   private readonly scenes = new Map<string, StoredScene>();
   private readonly requestIndex = new Map<string, string>();
-  private readonly baseDir = join(process.cwd(), 'data', 'scenes');
+  private readonly baseDir = getSceneDataDir();
   private readonly indexPath = join(this.baseDir, 'index.json');
 
   async save(scene: StoredScene, requestKey?: string): Promise<StoredScene> {
@@ -22,6 +23,7 @@ export class SceneRepository {
       JSON.stringify(scene, null, 2),
       'utf8',
     );
+    await this.persistArtifacts(scene);
 
     return scene;
   }
@@ -92,11 +94,49 @@ export class SceneRepository {
     return join(this.baseDir, `${sceneId}.json`);
   }
 
+  private buildMetaPath(sceneId: string): string {
+    return join(this.baseDir, `${sceneId}.meta.json`);
+  }
+
+  private buildDetailPath(sceneId: string): string {
+    return join(this.baseDir, `${sceneId}.detail.json`);
+  }
+
   private async persistIndex(): Promise<void> {
     await writeFile(
       this.indexPath,
       JSON.stringify(Object.fromEntries(this.requestIndex), null, 2),
       'utf8',
     );
+  }
+
+  private async persistArtifacts(scene: StoredScene): Promise<void> {
+    if (scene.meta) {
+      await writeFile(
+        this.buildMetaPath(scene.scene.sceneId),
+        JSON.stringify(scene.meta, null, 2),
+        'utf8',
+      );
+    } else {
+      await this.safeUnlink(this.buildMetaPath(scene.scene.sceneId));
+    }
+
+    if (scene.detail) {
+      await writeFile(
+        this.buildDetailPath(scene.scene.sceneId),
+        JSON.stringify(scene.detail, null, 2),
+        'utf8',
+      );
+    } else {
+      await this.safeUnlink(this.buildDetailPath(scene.scene.sceneId));
+    }
+  }
+
+  private async safeUnlink(path: string): Promise<void> {
+    try {
+      await unlink(path);
+    } catch {
+      return;
+    }
   }
 }

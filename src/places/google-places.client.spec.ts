@@ -22,7 +22,7 @@ describe('GooglePlacesClient', () => {
                 id: 'abc123',
                 displayName: { text: 'Gangnam Station' },
                 formattedAddress: 'Gangnam-daero, Seoul',
-                location: { lat: 37.4979, lng: 127.0276 },
+                location: { latitude: 37.4979, longitude: 127.0276 },
                 primaryType: 'subway_station',
                 types: ['subway_station', 'transit_station'],
                 googleMapsUri: 'https://maps.google.com/?cid=1',
@@ -42,8 +42,41 @@ describe('GooglePlacesClient', () => {
         provider: 'GOOGLE_PLACES',
         placeId: 'abc123',
         displayName: 'Gangnam Station',
+        location: { lat: 37.4979, lng: 127.0276 },
         primaryType: 'subway_station',
       }),
     ]);
+  });
+
+  it('should normalize place detail viewport fallback to lat/lng', async () => {
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            id: 'abc123',
+            displayName: { text: 'Gangnam Station' },
+            formattedAddress: 'Gangnam-daero, Seoul',
+            location: { latitude: 37.4979, longitude: 127.0276 },
+            primaryType: 'subway_station',
+            types: ['subway_station', 'transit_station'],
+            googleMapsUri: 'https://maps.google.com/?cid=1',
+            viewport: {
+              high: { latitude: 37.4981, longitude: 127.0279 },
+            },
+          }),
+        ),
+    });
+
+    const client = new GooglePlacesClient().withFetcher(
+      fetcher as typeof fetch,
+    );
+    const result = await client.getPlaceDetail('abc123');
+
+    expect(result.location).toEqual({ lat: 37.4979, lng: 127.0276 });
+    expect(result.viewport?.northEast.lat).toBeCloseTo(37.4981, 6);
+    expect(result.viewport?.northEast.lng).toBeCloseTo(127.0279, 6);
+    expect(result.viewport?.southWest.lat).toBeCloseTo(37.4959, 6);
+    expect(result.viewport?.southWest.lng).toBeCloseTo(127.0256, 6);
   });
 });

@@ -63,7 +63,9 @@ POST /api/scenes
 GET /api/scenes/{sceneId}
 GET /api/scenes/{sceneId}/status
 GET /api/scenes/{sceneId}/meta
+GET /api/scenes/{sceneId}/detail
 GET /api/scenes/{sceneId}/bootstrap
+GET /api/scenes/{sceneId}/assets/base.glb
 GET /api/scenes/{sceneId}/traffic
 GET /api/scenes/{sceneId}/weather
 GET /api/scenes/{sceneId}/places
@@ -178,8 +180,16 @@ GET /api/scenes/{sceneId}/places
   - 상태는 `PENDING | READY | FAILED` 입니다.
 - `GET /api/scenes/{sceneId}/meta`
   - `READY` 상태에서만 정상 조회됩니다.
+- `GET /api/scenes/{sceneId}/detail`
+  - `READY` 상태에서만 정상 조회됩니다.
+  - 시각 디테일 계층(`crossings`, `roadMarkings`, `streetFurniture`, `vegetation`, `facadeHints`, `signageClusters`)을 제공합니다.
 - `GET /api/scenes/{sceneId}/bootstrap`
   - `READY` 상태에서만 정상 조회됩니다.
+  - `detailUrl`, `detailStatus`, `assetProfile`이 포함됩니다.
+- `GET /api/scenes/{sceneId}/assets/base.glb`
+  - 현재 구현은 로컬에 생성된 `.glb` 파일을 직접 내려줍니다.
+  - S3 / CloudFront는 아직 연결하지 않았습니다.
+  - `.glb`는 `scene-meta + scene-detail + hero override`를 merge한 결과입니다.
 
 # Domain Schemas
 

@@ -1,9 +1,14 @@
 import {
   BuildingData,
   Coordinate,
+  CrossingData,
+  LandCoverData,
+  LinearFeatureData,
   PlacePackage,
   PoiData,
   RoadData,
+  StreetFurnitureData,
+  VegetationData,
   WalkwayData,
 } from '../places/place.types';
 import { ExternalPlaceDetail } from '../places/external-place.types';
@@ -12,6 +17,8 @@ import { TimeOfDay } from '../places/place.types';
 export const SCENE_SCALE_VALUES = ['SMALL', 'MEDIUM', 'LARGE'] as const;
 export type SceneScale = (typeof SCENE_SCALE_VALUES)[number];
 export type SceneStatus = 'PENDING' | 'READY' | 'FAILED';
+export type SceneDetailStatus = 'FULL' | 'PARTIAL' | 'OSM_ONLY';
+export type MaterialClass = 'glass' | 'concrete' | 'brick' | 'metal' | 'mixed';
 
 export interface SceneEntity {
   sceneId: string;
@@ -22,18 +29,15 @@ export interface SceneEntity {
   radiusM: number;
   status: SceneStatus;
   metaUrl: string;
+  assetUrl: string | null;
   createdAt: string;
   updatedAt: string;
   failureReason?: string | null;
 }
 
-export interface SceneRoadMeta {
+export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
   objectId: string;
   osmWayId: string;
-  name: string;
-  laneCount: number;
-  direction: RoadData['direction'];
-  path: Coordinate[];
   center: Coordinate;
 }
 
@@ -55,6 +59,81 @@ export interface ScenePoiMeta extends Omit<PoiData, 'id' | 'location'> {
   isLandmark: boolean;
 }
 
+export interface SceneCrossingDetail extends Omit<CrossingData, 'id'> {
+  objectId: string;
+  principal: boolean;
+  style: 'zebra' | 'signalized' | 'unknown';
+}
+
+export interface SceneRoadMarkingDetail {
+  objectId: string;
+  type: 'LANE_LINE' | 'STOP_LINE' | 'CROSSWALK';
+  color: string;
+  path: Coordinate[];
+}
+
+export interface SceneStreetFurnitureDetail extends Omit<StreetFurnitureData, 'id'> {
+  objectId: string;
+  principal: boolean;
+}
+
+export interface SceneVegetationDetail extends Omit<VegetationData, 'id'> {
+  objectId: string;
+}
+
+export interface SceneFacadeHint {
+  objectId: string;
+  anchor: Coordinate;
+  palette: string[];
+  materialClass: MaterialClass;
+  signageDensity: 'low' | 'medium' | 'high';
+  emissiveStrength: number;
+  glazingRatio: number;
+}
+
+export interface SceneSignageCluster {
+  objectId: string;
+  anchor: Coordinate;
+  panelCount: number;
+  palette: string[];
+  emissiveStrength: number;
+  widthMeters: number;
+  heightMeters: number;
+}
+
+export interface SceneLandmarkAnchor {
+  objectId: string;
+  name: string;
+  location: Coordinate;
+  kind: 'BUILDING' | 'CROSSING' | 'PLAZA';
+}
+
+export interface SceneMaterialClassSummary {
+  className: MaterialClass;
+  palette: string[];
+  buildingCount: number;
+}
+
+export interface SceneVisualCoverage {
+  structure: number;
+  streetDetail: number;
+  landmark: number;
+  signage: number;
+}
+
+export interface SceneAssetCounts {
+  buildingCount: number;
+  roadCount: number;
+  walkwayCount: number;
+  poiCount: number;
+  crossingCount: number;
+  trafficLightCount: number;
+  streetLightCount: number;
+  signPoleCount: number;
+  treeClusterCount: number;
+  billboardPanelCount: number;
+}
+
 export interface SceneMeta {
   sceneId: string;
   placeId: string;
@@ -73,15 +152,68 @@ export interface SceneMeta {
     walkwayCount: number;
     poiCount: number;
   };
+  diagnostics: {
+    droppedBuildings: number;
+    droppedRoads: number;
+    droppedWalkways: number;
+    droppedPois: number;
+    droppedCrossings: number;
+    droppedStreetFurniture: number;
+    droppedVegetation: number;
+    droppedLandCovers: number;
+    droppedLinearFeatures: number;
+  };
+  detailStatus: SceneDetailStatus;
+  visualCoverage: SceneVisualCoverage;
+  materialClasses: SceneMaterialClassSummary[];
+  landmarkAnchors: SceneLandmarkAnchor[];
+  assetProfile: {
+    preset: SceneScale;
+    budget: SceneAssetCounts;
+    selected: SceneAssetCounts;
+  };
   roads: SceneRoadMeta[];
   buildings: SceneBuildingMeta[];
   walkways: SceneWalkwayMeta[];
   pois: ScenePoiMeta[];
 }
 
+export interface SceneDetail {
+  sceneId: string;
+  placeId: string;
+  generatedAt: string;
+  detailStatus: SceneDetailStatus;
+  crossings: SceneCrossingDetail[];
+  roadMarkings: SceneRoadMarkingDetail[];
+  streetFurniture: SceneStreetFurnitureDetail[];
+  vegetation: SceneVegetationDetail[];
+  landCovers: LandCoverData[];
+  linearFeatures: LinearFeatureData[];
+  facadeHints: SceneFacadeHint[];
+  signageClusters: SceneSignageCluster[];
+  heroOverridesApplied: string[];
+  provenance: {
+    mapillaryUsed: boolean;
+    mapillaryImageCount: number;
+    mapillaryFeatureCount: number;
+    osmTagCoverage: {
+      coloredBuildings: number;
+      materialBuildings: number;
+      crossings: number;
+      streetFurniture: number;
+      vegetation: number;
+    };
+    overrideCount: number;
+  };
+}
+
 export interface BootstrapResponse {
   sceneId: string;
+  assetUrl: string;
   metaUrl: string;
+  detailUrl: string;
+  detailStatus: SceneDetailStatus;
+  assetProfile: SceneMeta['assetProfile'];
   liveEndpoints: {
     traffic: string;
     weather: string;
@@ -124,6 +256,7 @@ export interface StoredScene {
   attempts: number;
   scene: SceneEntity;
   meta?: SceneMeta;
+  detail?: SceneDetail;
   place?: ExternalPlaceDetail;
 }
 
@@ -131,3 +264,4 @@ export interface SceneWeatherQuery {
   date: string;
   timeOfDay: TimeOfDay;
 }
+

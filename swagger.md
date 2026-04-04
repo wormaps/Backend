@@ -28,7 +28,9 @@ http://localhost:3000/docs-json
 - `GET /api/scenes/{sceneId}`
 - `GET /api/scenes/{sceneId}/status`
 - `GET /api/scenes/{sceneId}/meta`
+- `GET /api/scenes/{sceneId}/detail`
 - `GET /api/scenes/{sceneId}/bootstrap`
+- `GET /api/scenes/{sceneId}/assets/base.glb`
 - `GET /api/scenes/{sceneId}/traffic`
 - `GET /api/scenes/{sceneId}/weather`
 - `GET /api/scenes/{sceneId}/places`
@@ -61,3 +63,4 @@ bun run start:dev
 - 현재 Swagger는 응답 스키마와 주요 query/path parameter를 문서화합니다.
 - 외부 API 헤더 자체는 서버 내부 구현이므로 Swagger 요청 파라미터로 노출하지 않습니다.
 - Scene traffic/weather/places 엔드포인트는 `scene-meta.json` 기반 FE 바인딩용 계약으로 추가되었습니다.
+- Scene detail 엔드포인트는 `scene-detail.json` 기반 시각 디테일 계층 계약입니다.

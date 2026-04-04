@@ -161,6 +161,12 @@ export class RoadDto {
   @ApiProperty({ example: 5 })
   laneCount!: number;
 
+  @ApiProperty({ example: 'primary' })
+  roadClass!: string;
+
+  @ApiProperty({ example: 14 })
+  widthMeters!: number;
+
   @ApiProperty({ type: [CoordinateDto] })
   path!: CoordinateDto[];
 
@@ -180,6 +186,9 @@ export class WalkwayDto {
 
   @ApiProperty({ example: 7 })
   widthMeters!: number;
+
+  @ApiProperty({ example: 'footway' })
+  walkwayType!: string;
 }
 
 export class PoiDto {
@@ -355,6 +364,9 @@ export class SceneEntityDto {
   @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/meta' })
   metaUrl!: string;
 
+  @ApiProperty({ nullable: true, example: '/api/scenes/scene-seoul-city-hall/assets/base.glb' })
+  assetUrl!: string | null;
+
   @ApiProperty({ example: '2026-04-04T08:40:21Z' })
   createdAt!: string;
 
@@ -377,6 +389,12 @@ export class SceneRoadMetaDto {
 
   @ApiProperty({ example: 4 })
   laneCount!: number;
+
+  @ApiProperty({ example: 'primary' })
+  roadClass!: string;
+
+  @ApiProperty({ example: 14 })
+  widthMeters!: number;
 
   @ApiProperty({ enum: ['ONE_WAY', 'TWO_WAY'] })
   direction!: string;
@@ -406,6 +424,21 @@ export class SceneBuildingMetaDto {
 
   @ApiProperty({ enum: ['COMMERCIAL', 'TRANSIT', 'MIXED', 'PUBLIC'] })
   usage!: string;
+
+  @ApiProperty({ nullable: true, example: '#8eb7d9' })
+  facadeColor!: string | null;
+
+  @ApiProperty({ nullable: true, example: 'glass' })
+  facadeMaterial!: string | null;
+
+  @ApiProperty({ nullable: true, example: '#dfe8f4' })
+  roofColor!: string | null;
+
+  @ApiProperty({ nullable: true, example: 'metal' })
+  roofMaterial!: string | null;
+
+  @ApiProperty({ nullable: true, example: 'flat' })
+  roofShape!: string | null;
 }
 
 export class SceneWalkwayMetaDto {
@@ -423,6 +456,12 @@ export class SceneWalkwayMetaDto {
 
   @ApiProperty({ example: 4 })
   widthMeters!: number;
+
+  @ApiProperty({ example: 'footway' })
+  walkwayType!: string;
+
+  @ApiProperty({ nullable: true, example: 'paving_stones' })
+  surface!: string | null;
 }
 
 export class ScenePoiMetaDto {
@@ -473,6 +512,63 @@ export class SceneMetaStatsDto {
   poiCount!: number;
 }
 
+export class SceneMetaDiagnosticsDto {
+  @ApiProperty({ example: 2 })
+  droppedBuildings!: number;
+
+  @ApiProperty({ example: 1 })
+  droppedRoads!: number;
+
+  @ApiProperty({ example: 3 })
+  droppedWalkways!: number;
+
+  @ApiProperty({ example: 4 })
+  droppedPois!: number;
+}
+
+export class SceneAssetCountsDto {
+  @ApiProperty({ example: 700 })
+  buildingCount!: number;
+
+  @ApiProperty({ example: 220 })
+  roadCount!: number;
+
+  @ApiProperty({ example: 320 })
+  walkwayCount!: number;
+
+  @ApiProperty({ example: 220 })
+  poiCount!: number;
+
+  @ApiProperty({ example: 24 })
+  crossingCount!: number;
+
+  @ApiProperty({ example: 60 })
+  trafficLightCount!: number;
+
+  @ApiProperty({ example: 90 })
+  streetLightCount!: number;
+
+  @ApiProperty({ example: 120 })
+  signPoleCount!: number;
+
+  @ApiProperty({ example: 80 })
+  treeClusterCount!: number;
+
+  @ApiProperty({ example: 160 })
+  billboardPanelCount!: number;
+}
+
+export class SceneAssetProfileDto {
+  @ApiProperty({ enum: ['SMALL', 'MEDIUM', 'LARGE'] })
+  preset!: string;
+
+  @ApiProperty({ type: SceneAssetCountsDto })
+  budget!: SceneAssetCountsDto;
+
+  @ApiProperty({ type: SceneAssetCountsDto })
+  selected!: SceneAssetCountsDto;
+}
+
 export class SceneMetaDto {
   @ApiProperty({ example: 'scene-seoul-city-hall' })
   sceneId!: string;
@@ -497,6 +593,44 @@ export class SceneMetaDto {
 
   @ApiProperty({ type: SceneMetaStatsDto })
   stats!: SceneMetaStatsDto;
+
+  @ApiProperty({ type: SceneMetaDiagnosticsDto })
+  diagnostics!: SceneMetaDiagnosticsDto;
+
+  @ApiProperty({ enum: ['FULL', 'PARTIAL', 'OSM_ONLY'] })
+  detailStatus!: string;
+
+  @ApiProperty({
+    example: {
+      structure: 1,
+      streetDetail: 0.68,
+      landmark: 0.74,
+      signage: 0.71,
+    },
+  })
+  visualCoverage!: Record<string, number>;
+
+  @ApiProperty({
+    example: [
+      { className: 'glass', palette: ['#8eb7d9'], buildingCount: 23 },
+    ],
+  })
+  materialClasses!: Array<Record<string, unknown>>;
+
+  @ApiProperty({
+    example: [
+      {
+        objectId: 'override-landmark-crossing',
+        name: 'Shibuya Scramble Crossing',
+        kind: 'CROSSING',
+        location: { lat: 35.659482, lng: 139.7005596 },
+      },
+    ],
+  })
+  landmarkAnchors!: Array<Record<string, unknown>>;
+
+  @ApiProperty({ type: SceneAssetProfileDto })
+  assetProfile!: SceneAssetProfileDto;
 
   @ApiProperty({ type: [SceneRoadMetaDto] })
   roads!: SceneRoadMetaDto[];
@@ -526,11 +660,193 @@ export class BootstrapResponseDto {
   @ApiProperty({ example: 'scene-seoul-city-hall' })
   sceneId!: string;
 
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/assets/base.glb' })
+  assetUrl!: string;
+
   @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/meta' })
   metaUrl!: string;
 
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
+  detailUrl!: string;
+
+  @ApiProperty({ enum: ['FULL', 'PARTIAL', 'OSM_ONLY'] })
+  detailStatus!: string;
+
+  @ApiProperty({ type: SceneAssetProfileDto })
+  assetProfile!: SceneAssetProfileDto;
+
   @ApiProperty({ type: BootstrapEndpointsDto })
   liveEndpoints!: BootstrapEndpointsDto;
+}
+
+export class SceneCrossingDetailDto {
+  @ApiProperty({ example: 'crossing-1' })
+  objectId!: string;
+
+  @ApiProperty({ example: 'Main Crossing' })
+  name!: string;
+
+  @ApiProperty({ enum: ['CROSSING'] })
+  type!: string;
+
+  @ApiProperty({ nullable: true, example: 'zebra' })
+  crossing!: string | null;
+
+  @ApiProperty({ nullable: true, example: 'zebra' })
+  crossingRef!: string | null;
+
+  @ApiProperty({ example: true })
+  signalized!: boolean;
+
+  @ApiProperty({ type: [CoordinateDto] })
+  path!: CoordinateDto[];
+
+  @ApiProperty({ type: CoordinateDto })
+  center!: CoordinateDto;
+
+  @ApiProperty({ example: true })
+  principal!: boolean;
+
+  @ApiProperty({ enum: ['zebra', 'signalized', 'unknown'] })
+  style!: string;
+}
+
+export class SceneRoadMarkingDetailDto {
+  @ApiProperty({ example: 'road-1-lane-line' })
+  objectId!: string;
+
+  @ApiProperty({ enum: ['LANE_LINE', 'STOP_LINE', 'CROSSWALK'] })
+  type!: string;
+
+  @ApiProperty({ example: '#ffffff' })
+  color!: string;
+
+  @ApiProperty({ type: [CoordinateDto] })
+  path!: CoordinateDto[];
+}
+
+export class SceneStreetFurnitureDetailDto {
+  @ApiProperty({ example: 'street-furniture-1' })
+  objectId!: string;
+
+  @ApiProperty({ example: 'signal-1' })
+  name!: string;
+
+  @ApiProperty({ enum: ['TRAFFIC_LIGHT', 'STREET_LIGHT', 'SIGN_POLE', 'BOLLARD'] })
+  type!: string;
+
+  @ApiProperty({ type: CoordinateDto })
+  location!: CoordinateDto;
+
+  @ApiProperty({ example: true })
+  principal!: boolean;
+}
+
+export class SceneVegetationDetailDto {
+  @ApiProperty({ example: 'vegetation-1' })
+  objectId!: string;
+
+  @ApiProperty({ example: 'tree-1' })
+  name!: string;
+
+  @ApiProperty({ enum: ['TREE', 'PLANTER', 'GREEN_PATCH'] })
+  type!: string;
+
+  @ApiProperty({ type: CoordinateDto })
+  location!: CoordinateDto;
+
+  @ApiProperty({ example: 2.4 })
+  radiusMeters!: number;
+}
+
+export class SceneFacadeHintDto {
+  @ApiProperty({ example: 'building-1' })
+  objectId!: string;
+
+  @ApiProperty({ type: CoordinateDto })
+  anchor!: CoordinateDto;
+
+  @ApiProperty({ type: [String], example: ['#8eb7d9', '#d9ebf5'] })
+  palette!: string[];
+
+  @ApiProperty({ enum: ['glass', 'concrete', 'brick', 'metal', 'mixed'] })
+  materialClass!: string;
+
+  @ApiProperty({ enum: ['low', 'medium', 'high'] })
+  signageDensity!: string;
+
+  @ApiProperty({ example: 0.85 })
+  emissiveStrength!: number;
+
+  @ApiProperty({ example: 0.42 })
+  glazingRatio!: number;
+}
+
+export class SceneSignageClusterDto {
+  @ApiProperty({ example: 'signage-cluster-1' })
+  objectId!: string;
+
+  @ApiProperty({ type: CoordinateDto })
+  anchor!: CoordinateDto;
+
+  @ApiProperty({ example: 6 })
+  panelCount!: number;
+
+  @ApiProperty({ type: [String], example: ['#f44336', '#ffffff'] })
+  palette!: string[];
+
+  @ApiProperty({ example: 1 })
+  emissiveStrength!: number;
+
+  @ApiProperty({ example: 6 })
+  widthMeters!: number;
+
+  @ApiProperty({ example: 3 })
+  heightMeters!: number;
+}
+
+export class SceneDetailDto {
+  @ApiProperty({ example: 'scene-shibuya-scramble-crossing' })
+  sceneId!: string;
+
+  @ApiProperty({ example: 'google-place-id' })
+  placeId!: string;
+
+  @ApiProperty({ example: '2026-04-04T08:40:21Z' })
+  generatedAt!: string;
+
+  @ApiProperty({ enum: ['FULL', 'PARTIAL', 'OSM_ONLY'] })
+  detailStatus!: string;
+
+  @ApiProperty({ type: [SceneCrossingDetailDto] })
+  crossings!: SceneCrossingDetailDto[];
+
+  @ApiProperty({ type: [SceneRoadMarkingDetailDto] })
+  roadMarkings!: SceneRoadMarkingDetailDto[];
+
+  @ApiProperty({ type: [SceneStreetFurnitureDetailDto] })
+  streetFurniture!: SceneStreetFurnitureDetailDto[];
+
+  @ApiProperty({ type: [SceneVegetationDetailDto] })
+  vegetation!: SceneVegetationDetailDto[];
+
+  @ApiProperty({ example: [{ id: 'land-cover-1', type: 'PARK' }] })
+  landCovers!: Array<Record<string, unknown>>;
+
+  @ApiProperty({ example: [{ id: 'linear-feature-1', type: 'RAILWAY' }] })
+  linearFeatures!: Array<Record<string, unknown>>;
+
+  @ApiProperty({ type: [SceneFacadeHintDto] })
+  facadeHints!: SceneFacadeHintDto[];
+
+  @ApiProperty({ type: [SceneSignageClusterDto] })
+  signageClusters!: SceneSignageClusterDto[];
+
+  @ApiProperty({ type: [String] })
+  heroOverridesApplied!: string[];
+
+  @ApiProperty({ example: { mapillaryUsed: true, mapillaryImageCount: 12 } })
+  provenance!: Record<string, unknown>;
 }
 
 export class TrafficSegmentDto {

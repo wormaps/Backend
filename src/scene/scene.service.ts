@@ -1,24 +1,33 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { access } from 'node:fs/promises';
+import { join } from 'node:path';
+import { GlbBuilderService } from '../assets/glb-builder.service';
 import { TtlCacheService } from '../cache/ttl-cache.service';
 import { ERROR_CODES } from '../common/constants/error-codes';
 import { AppException } from '../common/errors/app.exception';
+import { GooglePlacesClient } from '../places/google-places.client';
+import { midpoint, isFiniteCoordinate } from '../places/geo.utils';
 import { OpenMeteoClient } from '../places/open-meteo.client';
 import { OverpassClient } from '../places/overpass.client';
-import { GooglePlacesClient } from '../places/google-places.client';
-import { TomTomTrafficClient } from '../places/tomtom-traffic.client';
 import {
   Coordinate,
+  GeoBounds,
   PlacePackage,
-  TimeOfDay,
 } from '../places/place.types';
+import { TomTomTrafficClient } from '../places/tomtom-traffic.client';
 import { SceneRepository } from './scene.repository';
+import { buildSceneAssetSelection } from './scene-asset-profile.utils';
+import { computeSceneCamera, resolveSceneBounds } from './scene-geometry.utils';
+import { SceneHeroOverrideService } from './scene-hero-override.service';
+import { getSceneDataDir } from './scene-storage.utils';
+import { SceneVisionService } from './scene-vision.service';
 import {
   BootstrapResponse,
+  SceneDetail,
   SceneEntity,
   SceneMeta,
   ScenePlacesResponse,
   SceneScale,
-  SceneStatus,
   SceneTrafficResponse,
   SceneWeatherQuery,
   SceneWeatherResponse,
@@ -37,16 +46,23 @@ export class SceneService {
   constructor(
     private readonly sceneRepository: SceneRepository,
     private readonly ttlCacheService: TtlCacheService,
+    private readonly glbBuilderService: GlbBuilderService,
     private readonly googlePlacesClient: GooglePlacesClient,
     private readonly overpassClient: OverpassClient,
     private readonly openMeteoClient: OpenMeteoClient,
     private readonly tomTomTrafficClient: TomTomTrafficClient,
+    private readonly sceneVisionService: SceneVisionService,
+    private readonly sceneHeroOverrideService: SceneHeroOverrideService,
   ) {}
 
   async createScene(query: string, scale: SceneScale): Promise<SceneEntity> {
     const requestKey = this.buildRequestKey(query, scale);
     const existing = await this.sceneRepository.findByRequestKey(requestKey);
-    if (existing) {
+    if (
+      existing &&
+      existing.scene.status !== 'FAILED' &&
+      (await this.isReusableScene(existing))
+    ) {
       return existing.scene;
     }
 
@@ -62,6 +78,7 @@ export class SceneService {
       radiusM: this.resolveRadius(scale),
       status: 'PENDING',
       metaUrl,
+      assetUrl: null,
       createdAt,
       updatedAt: createdAt,
       failureReason: null,
@@ -87,16 +104,24 @@ export class SceneService {
   }
 
   async getSceneMeta(sceneId: string): Promise<SceneMeta> {
-    const storedScene = await this.getReadyScene(sceneId);
-    return storedScene.meta;
+    return (await this.getReadyScene(sceneId)).meta;
+  }
+
+  async getSceneDetail(sceneId: string): Promise<SceneDetail> {
+    return (await this.getReadyScene(sceneId)).detail;
   }
 
   async getBootstrap(sceneId: string): Promise<BootstrapResponse> {
-    const scene = (await this.getReadyScene(sceneId)).scene;
+    const stored = await this.getReadyScene(sceneId);
+    const scene = stored.scene;
 
     return {
       sceneId: scene.sceneId,
+      assetUrl: scene.assetUrl ?? `/api/scenes/${scene.sceneId}/assets/base.glb`,
       metaUrl: scene.metaUrl,
+      detailUrl: `/api/scenes/${scene.sceneId}/detail`,
+      detailStatus: stored.detail.detailStatus,
+      assetProfile: stored.meta.assetProfile,
       liveEndpoints: {
         traffic: `/api/scenes/${scene.sceneId}/traffic`,
         weather: `/api/scenes/${scene.sceneId}/weather`,
@@ -107,7 +132,6 @@ export class SceneService {
 
   async getPlaces(sceneId: string): Promise<ScenePlacesResponse> {
     const storedScene = await this.getReadyScene(sceneId);
-
     return {
       pois: storedScene.meta.pois,
     };
@@ -163,15 +187,19 @@ export class SceneService {
     );
   }
 
+  async waitForIdle(): Promise<void> {
+    while (this.isProcessingQueue || this.generationQueue.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   private async getStoredScene(sceneId: string): Promise<StoredScene> {
     const storedScene = await this.sceneRepository.findById(sceneId);
     if (!storedScene) {
       throw new AppException({
         code: ERROR_CODES.SCENE_NOT_FOUND,
         message: 'Scene을 찾을 수 없습니다.',
-        detail: {
-          sceneId,
-        },
+        detail: { sceneId },
         status: HttpStatus.NOT_FOUND,
       });
     }
@@ -181,11 +209,18 @@ export class SceneService {
 
   private async getReadyScene(
     sceneId: string,
-  ): Promise<StoredScene & { meta: SceneMeta; place: NonNullable<StoredScene['place']> }> {
+  ): Promise<
+    StoredScene & {
+      meta: SceneMeta;
+      detail: SceneDetail;
+      place: NonNullable<StoredScene['place']>;
+    }
+  > {
     const storedScene = await this.getStoredScene(sceneId);
     if (
       storedScene.scene.status !== 'READY' ||
       storedScene.meta === undefined ||
+      storedScene.detail === undefined ||
       storedScene.place === undefined
     ) {
       throw new AppException({
@@ -201,6 +236,7 @@ export class SceneService {
 
     return storedScene as StoredScene & {
       meta: SceneMeta;
+      detail: SceneDetail;
       place: NonNullable<StoredScene['place']>;
     };
   }
@@ -245,26 +281,54 @@ export class SceneService {
         throw new AppException({
           code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
           message: '검색 결과에 해당하는 장소를 찾을 수 없습니다.',
-          detail: {
-            query: storedScene.query,
-          },
+          detail: { query: storedScene.query },
           status: HttpStatus.NOT_FOUND,
         });
       }
 
       const place = await this.googlePlacesClient.getPlaceDetail(selected.placeId);
-      const placePackage = await this.overpassClient.buildPlacePackage(place);
-      const meta = this.buildSceneMeta(
+      const radiusM = this.resolveRadius(storedScene.scale);
+      const bounds = resolveSceneBounds(place.location, radiusM);
+      const placePackage = await this.overpassClient.buildPlacePackage(place, {
+        bounds,
+      });
+      const vision = await this.sceneVisionService.buildSceneVision(
         sceneId,
-        this.resolveRadius(storedScene.scale),
+        place,
+        bounds,
+        placePackage,
+      );
+      const baseMeta = this.buildSceneMeta(
+        sceneId,
+        storedScene.scale,
+        radiusM,
         placePackage,
         place,
+        bounds,
+        vision.detail,
+        vision.metaPatch,
       );
+      const merged = this.sceneHeroOverrideService.applyOverrides(
+        place,
+        baseMeta,
+        vision.detail,
+      );
+      const finalizedMeta = this.finalizeAssetProfile(
+        merged.meta,
+        merged.detail,
+        storedScene.scale,
+      );
+      const assetPath = await this.glbBuilderService.build(
+        finalizedMeta,
+        merged.detail,
+      );
+
       await this.sceneRepository.update(sceneId, (current) => ({
         ...current,
         attempts: current.attempts + 1,
         place,
-        meta,
+        meta: finalizedMeta,
+        detail: merged.detail,
         scene: {
           ...current.scene,
           placeId: place.placeId,
@@ -272,6 +336,7 @@ export class SceneService {
           centerLat: place.location.lat,
           centerLng: place.location.lng,
           status: 'READY',
+          assetUrl: assetPath ? `/api/scenes/${sceneId}/assets/base.glb` : null,
           failureReason: null,
           updatedAt: new Date().toISOString(),
         },
@@ -317,12 +382,6 @@ export class SceneService {
     }));
   }
 
-  async waitForIdle(): Promise<void> {
-    while (this.isProcessingQueue || this.generationQueue.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-  }
-
   private buildWeatherCacheKey(
     sceneId: string,
     query: SceneWeatherQuery,
@@ -336,62 +395,146 @@ export class SceneService {
 
   private buildSceneMeta(
     sceneId: string,
+    scale: SceneScale,
     radiusM: number,
     placePackage: PlacePackage,
     place: NonNullable<StoredScene['place']>,
+    bounds: GeoBounds,
+    detail: SceneDetail,
+    metaPatch: Pick<
+      SceneMeta,
+      'detailStatus' | 'visualCoverage' | 'materialClasses' | 'landmarkAnchors'
+    >,
   ): SceneMeta {
+    const buildings = placePackage.buildings.map((building) => ({
+      objectId: building.id,
+      osmWayId: this.normalizeOsmId(building.id),
+      name: building.name,
+      heightMeters: building.heightMeters,
+      footprint: building.footprint,
+      usage: building.usage,
+      facadeColor: building.facadeColor ?? null,
+      facadeMaterial: building.facadeMaterial ?? null,
+      roofColor: building.roofColor ?? null,
+      roofMaterial: building.roofMaterial ?? null,
+      roofShape: building.roofShape ?? null,
+    }));
+    const roads = placePackage.roads.map((road) => ({
+      objectId: road.id,
+      osmWayId: this.normalizeOsmId(road.id),
+      name: road.name,
+      laneCount: road.laneCount,
+      roadClass: road.roadClass,
+      widthMeters: road.widthMeters,
+      direction: road.direction,
+      path: road.path,
+      center: this.resolveCenter(road.path),
+      surface: road.surface ?? null,
+      bridge: road.bridge ?? false,
+    }));
+    const walkways = placePackage.walkways.map((walkway) => ({
+      objectId: walkway.id,
+      osmWayId: this.normalizeOsmId(walkway.id),
+      name: walkway.name,
+      path: walkway.path,
+      widthMeters: walkway.widthMeters,
+      walkwayType: walkway.walkwayType,
+      surface: walkway.surface ?? null,
+    }));
+    const pois = placePackage.pois.map((poi) => ({
+      objectId: poi.id,
+      name: poi.name,
+      type: poi.type,
+      location: poi.location,
+      category: poi.type.toLowerCase(),
+      isLandmark: placePackage.landmarks.some((landmark) => landmark.id === poi.id),
+    }));
+    const camera = computeSceneCamera(place.location, bounds, {
+      buildings,
+      roads,
+      walkways,
+    });
+
     return {
       sceneId,
       placeId: place.placeId,
       name: place.displayName,
       generatedAt: placePackage.generatedAt,
       origin: place.location,
-      camera: placePackage.camera,
+      camera,
       bounds: {
         radiusM,
-        northEast: placePackage.bounds.northEast,
-        southWest: placePackage.bounds.southWest,
+        northEast: bounds.northEast,
+        southWest: bounds.southWest,
       },
       stats: {
-        buildingCount: placePackage.buildings.length,
-        roadCount: placePackage.roads.length,
-        walkwayCount: placePackage.walkways.length,
-        poiCount: placePackage.pois.length,
+        buildingCount: buildings.length,
+        roadCount: roads.length,
+        walkwayCount: walkways.length,
+        poiCount: pois.length,
       },
-      roads: placePackage.roads.map((road) => ({
-        objectId: road.id,
-        osmWayId: this.normalizeOsmId(road.id),
-        name: road.name,
-        laneCount: road.laneCount,
-        direction: road.direction,
-        path: road.path,
-        center: this.resolveCenter(road.path),
-      })),
-      buildings: placePackage.buildings.map((building) => ({
-        objectId: building.id,
-        osmWayId: this.normalizeOsmId(building.id),
-        name: building.name,
-        heightMeters: building.heightMeters,
-        footprint: building.footprint,
-        usage: building.usage,
-      })),
-      walkways: placePackage.walkways.map((walkway) => ({
-        objectId: walkway.id,
-        osmWayId: this.normalizeOsmId(walkway.id),
-        name: walkway.name,
-        path: walkway.path,
-        widthMeters: walkway.widthMeters,
-      })),
-      pois: placePackage.pois.map((poi) => ({
-        objectId: poi.id,
-        name: poi.name,
-        type: poi.type,
-        location: poi.location,
-        category: poi.type.toLowerCase(),
-        isLandmark: placePackage.landmarks.some(
-          (landmark) => landmark.id === poi.id,
-        ),
-      })),
+      diagnostics: placePackage.diagnostics ?? {
+        droppedBuildings: 0,
+        droppedRoads: 0,
+        droppedWalkways: 0,
+        droppedPois: 0,
+        droppedCrossings: 0,
+        droppedStreetFurniture: 0,
+        droppedVegetation: 0,
+        droppedLandCovers: 0,
+        droppedLinearFeatures: 0,
+      },
+      detailStatus: metaPatch.detailStatus,
+      visualCoverage: metaPatch.visualCoverage,
+      materialClasses: metaPatch.materialClasses,
+      landmarkAnchors: metaPatch.landmarkAnchors,
+      assetProfile: {
+        preset: scale,
+        budget: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+        selected: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+      },
+      roads,
+      buildings,
+      walkways,
+      pois,
+    };
+  }
+
+  private finalizeAssetProfile(
+    meta: SceneMeta,
+    detail: SceneDetail,
+    scale: SceneScale,
+  ): SceneMeta {
+    const assetSelection = buildSceneAssetSelection(meta, detail, scale);
+    return {
+      ...meta,
+      assetProfile: {
+        preset: scale,
+        budget: assetSelection.budget,
+        selected: assetSelection.selected,
+      },
     };
   }
 
@@ -410,11 +553,9 @@ export class SceneService {
     if (scale === 'SMALL') {
       return 300;
     }
-
     if (scale === 'LARGE') {
       return 1000;
     }
-
     return 600;
   }
 
@@ -424,12 +565,12 @@ export class SceneService {
   }
 
   private resolveCenter(path: Coordinate[]): Coordinate {
-    if (path.length === 0) {
+    const center = midpoint(path);
+    if (!center || !isFiniteCoordinate(center)) {
       return { lat: 0, lng: 0 };
     }
 
-    const midpoint = path[Math.floor(path.length / 2)];
-    return midpoint ?? path[0];
+    return center;
   }
 
   private mapTrafficSegment(
@@ -463,15 +604,12 @@ export class SceneService {
     if (congestionScore >= 0.8) {
       return 'jammed';
     }
-
     if (congestionScore >= 0.5) {
       return 'slow';
     }
-
     if (congestionScore >= 0.2) {
       return 'moderate';
     }
-
     return 'free';
   }
 
@@ -479,19 +617,40 @@ export class SceneService {
     if (weather === 'CLOUDY') {
       return 3;
     }
-
     if (weather === 'RAIN') {
       return 61;
     }
-
     if (weather === 'SNOW') {
       return 71;
     }
-
     if (weather === 'CLEAR') {
       return 0;
     }
-
     return null;
   }
+
+  private async isReusableScene(storedScene: StoredScene): Promise<boolean> {
+    if (storedScene.scene.status !== 'READY' || !storedScene.scene.assetUrl) {
+      return false;
+    }
+
+    if (
+      !storedScene.place ||
+      !storedScene.meta ||
+      !storedScene.detail ||
+      !isFiniteCoordinate(storedScene.place.location) ||
+      !isFiniteCoordinate(storedScene.meta.origin)
+    ) {
+      return false;
+    }
+
+    try {
+      await access(join(getSceneDataDir(), `${storedScene.scene.sceneId}.glb`));
+      await access(join(getSceneDataDir(), `${storedScene.scene.sceneId}.detail.json`));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
+

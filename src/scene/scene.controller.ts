@@ -6,7 +6,10 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { join } from 'node:path';
 import {
   ApiBody,
   ApiOperation,
@@ -26,6 +29,7 @@ import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/swagger.decorators
 import {
   BootstrapResponseDto,
   CreateSceneRequestDto,
+  SceneDetailDto,
   SceneEntityDto,
   SceneMetaDto,
   ScenePlacesResponseDto,
@@ -34,8 +38,10 @@ import {
 } from '../docs/swagger.dto';
 import { TIME_OF_DAY_VALUES } from '../places/place.types';
 import { SceneService } from './scene.service';
+import { getSceneDataDir } from './scene-storage.utils';
 import {
   BootstrapResponse,
+  SceneDetail,
   SceneEntity,
   SceneMeta,
   ScenePlacesResponse,
@@ -102,6 +108,20 @@ export class SceneController {
     return this.getScene(sceneId);
   }
 
+  @Get(':sceneId/assets/base.glb')
+  @ApiOperation({ summary: 'Scene base GLB 다운로드' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  async getSceneAsset(
+    @Param('sceneId') sceneId: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    const validatedSceneId = validatePlaceId(sceneId);
+    await this.sceneService.getBootstrap(validatedSceneId);
+    response.sendFile(
+      join(getSceneDataDir(), `${validatedSceneId}.glb`),
+    );
+  }
+
   @Get(':sceneId/meta')
   @ApiOperation({ summary: 'Scene meta 조회' })
   @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
@@ -128,6 +148,21 @@ export class SceneController {
 
     return this.sceneService.getBootstrap(validatedSceneId).then((data) => ({
       message: 'Scene bootstrap 조회에 성공했습니다.',
+      data,
+    }));
+  }
+
+  @Get(':sceneId/detail')
+  @ApiOperation({ summary: 'Scene detail 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiSuccessEnvelope({ model: SceneDetailDto })
+  getDetail(
+    @Param('sceneId') sceneId: string,
+  ): Promise<ResponsePayload<SceneDetail>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+
+    return this.sceneService.getSceneDetail(validatedSceneId).then((data) => ({
+      message: 'Scene detail 조회에 성공했습니다.',
       data,
     }));
   }

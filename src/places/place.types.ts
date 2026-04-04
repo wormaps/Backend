@@ -12,6 +12,11 @@ export interface Coordinate {
   lng: number;
 }
 
+export interface GeoBounds {
+  northEast: Coordinate;
+  southWest: Coordinate;
+}
+
 export interface Vector3 {
   x: number;
   y: number;
@@ -35,14 +40,23 @@ export interface BuildingData {
   heightMeters: number;
   footprint: Coordinate[];
   usage: 'COMMERCIAL' | 'TRANSIT' | 'MIXED' | 'PUBLIC';
+  facadeColor?: string | null;
+  facadeMaterial?: string | null;
+  roofColor?: string | null;
+  roofMaterial?: string | null;
+  roofShape?: string | null;
 }
 
 export interface RoadData {
   id: string;
   name: string;
   laneCount: number;
+  roadClass: string;
+  widthMeters: number;
   path: Coordinate[];
   direction: 'ONE_WAY' | 'TWO_WAY';
+  surface?: string | null;
+  bridge?: boolean;
 }
 
 export interface WalkwayData {
@@ -50,6 +64,8 @@ export interface WalkwayData {
   name: string;
   path: Coordinate[];
   widthMeters: number;
+  walkwayType: string;
+  surface?: string | null;
 }
 
 export interface PoiData {
@@ -57,6 +73,44 @@ export interface PoiData {
   name: string;
   type: 'LANDMARK' | 'ENTRANCE' | 'SIGNAL' | 'SHOP';
   location: Coordinate;
+}
+
+export interface CrossingData {
+  id: string;
+  name: string;
+  type: 'CROSSING';
+  crossing: string | null;
+  crossingRef: string | null;
+  signalized: boolean;
+  path: Coordinate[];
+  center: Coordinate;
+}
+
+export interface StreetFurnitureData {
+  id: string;
+  name: string;
+  type: 'TRAFFIC_LIGHT' | 'STREET_LIGHT' | 'SIGN_POLE' | 'BOLLARD';
+  location: Coordinate;
+}
+
+export interface VegetationData {
+  id: string;
+  name: string;
+  type: 'TREE' | 'PLANTER' | 'GREEN_PATCH';
+  location: Coordinate;
+  radiusMeters: number;
+}
+
+export interface LandCoverData {
+  id: string;
+  type: 'PARK' | 'WATER' | 'PLAZA';
+  polygon: Coordinate[];
+}
+
+export interface LinearFeatureData {
+  id: string;
+  type: 'RAILWAY' | 'BRIDGE' | 'WATERWAY';
+  path: Coordinate[];
 }
 
 export interface PlacePackage {
@@ -67,15 +121,28 @@ export interface PlacePackage {
     topView: Vector3;
     walkViewStart: Vector3;
   };
-  bounds: {
-    northEast: Coordinate;
-    southWest: Coordinate;
-  };
+  bounds: GeoBounds;
   buildings: BuildingData[];
   roads: RoadData[];
   walkways: WalkwayData[];
   pois: PoiData[];
   landmarks: PoiData[];
+  crossings: CrossingData[];
+  streetFurniture: StreetFurnitureData[];
+  vegetation: VegetationData[];
+  landCovers: LandCoverData[];
+  linearFeatures: LinearFeatureData[];
+  diagnostics?: {
+    droppedBuildings: number;
+    droppedRoads: number;
+    droppedWalkways: number;
+    droppedPois: number;
+    droppedCrossings: number;
+    droppedStreetFurniture: number;
+    droppedVegetation: number;
+    droppedLandCovers: number;
+    droppedLinearFeatures: number;
+  };
 }
 
 export interface LightingState {

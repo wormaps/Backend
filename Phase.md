@@ -1,5 +1,17 @@
 # 디지털 트윈 BE Phase 문서
 
+## 현재 구현 상태
+
+현재는 초기 문서보다 한 단계 더 진행된 상태입니다.
+
+* `scene-meta.json` 생성
+* `scene-detail.json` 생성
+* semantic `base.glb` 생성
+* `GET /api/scenes/{sceneId}/detail` 제공
+* 시부야 전용 hero override 적용
+
+즉, 현재 MVP는 `scene-meta + scene-detail + base.glb + live API` 조합으로 동작합니다.
+
 ## 목표
 
 MVP 단계에서는 4개의 외부 API를 모두 하나의 3D 자산 파일에 넣는 것이 아니라,

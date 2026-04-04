@@ -4,6 +4,7 @@ import { AppException } from '../common/errors/app.exception';
 import { fetchJson } from '../common/http/fetch-json';
 import type { FetchLike } from '../common/http/fetch-json';
 import { Coordinate } from './place.types';
+import { normalizeCoordinate } from './geo.utils';
 import {
   ExternalPlaceDetail,
   ExternalPlaceSearchItem,
@@ -17,7 +18,10 @@ interface GooglePlace {
   id: string;
   displayName?: { text?: string };
   formattedAddress?: string;
-  location?: Coordinate;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+  };
   primaryType?: string;
   types?: string[];
   googleMapsUri?: string;
@@ -89,7 +93,11 @@ export class GooglePlacesClient {
       this.fetcher,
     );
 
-    if (!response.id || !response.displayName?.text || !response.location) {
+    const location = response.location
+      ? normalizeCoordinate(response.location)
+      : null;
+
+    if (!response.id || !response.displayName?.text || !location) {
       throw new AppException({
         code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
         message: 'Google Places 상세 정보를 찾을 수 없습니다.',
@@ -107,18 +115,18 @@ export class GooglePlacesClient {
             northEast: {
               lat:
                 response.viewport.high?.latitude ??
-                response.location.lat + 0.002,
+                location.lat + 0.002,
               lng:
                 response.viewport.high?.longitude ??
-                response.location.lng + 0.002,
+                location.lng + 0.002,
             },
             southWest: {
               lat:
                 response.viewport.low?.latitude ??
-                response.location.lat - 0.002,
+                location.lat - 0.002,
               lng:
                 response.viewport.low?.longitude ??
-                response.location.lng - 0.002,
+                location.lng - 0.002,
             },
           }
         : null,
@@ -127,12 +135,24 @@ export class GooglePlacesClient {
   }
 
   private mapSearchItem(place: GooglePlace): ExternalPlaceSearchItem {
+    const location = place.location ? normalizeCoordinate(place.location) : null;
+    if (!location) {
+      throw new AppException({
+        code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
+        message: 'Google Places 위치 정보를 해석할 수 없습니다.',
+        detail: {
+          googlePlaceId: place.id,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+
     return {
       provider: 'GOOGLE_PLACES',
       placeId: place.id,
       displayName: place.displayName?.text ?? place.id,
       formattedAddress: place.formattedAddress ?? null,
-      location: place.location as Coordinate,
+      location,
       primaryType: place.primaryType ?? null,
       types: place.types ?? [],
       googleMapsUri: place.googleMapsUri ?? null,
