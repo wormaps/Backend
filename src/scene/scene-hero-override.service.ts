@@ -104,6 +104,7 @@ export class SceneHeroOverrideService {
 
     const mergedMeta: SceneMeta = {
       ...meta,
+      buildings: this.applyBuildingOverrides(meta.buildings, manifest),
       detailStatus: mergedDetail.detailStatus,
       landmarkAnchors,
       materialClasses: summarizeMaterialClasses(facadeHints),
@@ -128,11 +129,17 @@ export class SceneHeroOverrideService {
   ): SceneFacadeHint[] {
     const overridden = manifest.facadeOverrides.map((override) => {
       const nearestBuilding = findNearest(meta.buildings, override.anchor, (item) =>
-        averageCoordinate(item.footprint) ?? item.footprint[0],
+        averageCoordinate(item.outerRing) ?? item.outerRing[0],
       );
       return {
         objectId: nearestBuilding?.objectId ?? override.id,
         anchor: override.anchor,
+        facadeEdgeIndex:
+          override.facadeEdgeIndex ?? (nearestBuilding ? 0 : null),
+        windowBands: nearestBuilding
+          ? Math.max(2, Math.floor((nearestBuilding.heightMeters * (override.heightMultiplier ?? 1)) / 3.4))
+          : 4,
+        billboardEligible: override.billboardEligible ?? false,
         palette: override.palette,
         materialClass: override.materialClass,
         signageDensity: override.signageDensity,
@@ -142,6 +149,34 @@ export class SceneHeroOverrideService {
     });
 
     return mergeByObjectId(detail.facadeHints, overridden);
+  }
+
+  private applyBuildingOverrides(
+    buildings: SceneMeta['buildings'],
+    manifest: HeroOverrideManifest,
+  ): SceneMeta['buildings'] {
+    return buildings.map((building) => {
+      const anchor = averageCoordinate(building.outerRing) ?? building.outerRing[0];
+      const override = findNearest(
+        manifest.facadeOverrides,
+        anchor,
+        (item) => item.anchor,
+      );
+      if (
+        !override ||
+        squaredDistance(override.anchor, anchor) > 90 ** 2 / 111_320 ** 2
+      ) {
+        return building;
+      }
+
+      const multiplier = override.heightMultiplier ?? 1;
+      return {
+        ...building,
+        heightMeters: Number((building.heightMeters * multiplier).toFixed(2)),
+        preset: override.preset ?? building.preset,
+        roofType: override.roofType ?? building.roofType,
+      };
+    });
   }
 
   private findManifest(place: ExternalPlaceDetail): HeroOverrideManifest | null {
@@ -240,4 +275,3 @@ function summarizeMaterialClasses(facadeHints: SceneFacadeHint[]) {
 function clampCoverage(value: number): number {
   return Math.max(0, Math.min(1, Number(value.toFixed(2))));
 }
-

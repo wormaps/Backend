@@ -62,6 +62,12 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
         name: 'Shibuya 109',
         heightMeters: 45,
         usage: 'COMMERCIAL',
+        outerRing: [
+          { lat: 35.6599, lng: 139.6999 },
+          { lat: 35.66, lng: 139.7001 },
+          { lat: 35.6598, lng: 139.7002 },
+        ],
+        holes: [],
         footprint: [
           { lat: 35.6599, lng: 139.6999 },
           { lat: 35.66, lng: 139.7001 },
@@ -73,6 +79,12 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
         name: 'QFRONT',
         heightMeters: 38,
         usage: 'COMMERCIAL',
+        outerRing: [
+          { lat: 35.6596, lng: 139.7004 },
+          { lat: 35.6597, lng: 139.7007 },
+          { lat: 35.6595, lng: 139.7008 },
+        ],
+        holes: [],
         footprint: [
           { lat: 35.6596, lng: 139.7004 },
           { lat: 35.6597, lng: 139.7007 },
@@ -165,6 +177,12 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
         name: 'One Times Square',
         heightMeters: 110,
         usage: 'COMMERCIAL',
+        outerRing: [
+          { lat: 40.7581, lng: -73.9857 },
+          { lat: 40.7582, lng: -73.9855 },
+          { lat: 40.7579, lng: -73.9854 },
+        ],
+        holes: [],
         footprint: [
           { lat: 40.7581, lng: -73.9857 },
           { lat: 40.7582, lng: -73.9855 },
@@ -250,6 +268,12 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
         name: 'Gangnam Commercial Block',
         heightMeters: 62,
         usage: 'MIXED',
+        outerRing: [
+          { lat: 37.4981, lng: 127.0275 },
+          { lat: 37.4982, lng: 127.0279 },
+          { lat: 37.4978, lng: 127.028 },
+        ],
+        holes: [],
         footprint: [
           { lat: 37.4981, lng: 127.0275 },
           { lat: 37.4982, lng: 127.0279 },
@@ -335,6 +359,12 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
         name: 'Government Complex Seoul',
         heightMeters: 70,
         usage: 'PUBLIC',
+        outerRing: [
+          { lat: 37.5719, lng: 126.9772 },
+          { lat: 37.572, lng: 126.9776 },
+          { lat: 37.5716, lng: 126.9777 },
+        ],
+        holes: [],
         footprint: [
           { lat: 37.5719, lng: 126.9772 },
           { lat: 37.572, lng: 126.9776 },

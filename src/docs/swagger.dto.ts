@@ -420,10 +420,33 @@ export class SceneBuildingMetaDto {
   heightMeters!: number;
 
   @ApiProperty({ type: [CoordinateDto] })
+  outerRing!: CoordinateDto[];
+
+  @ApiProperty({
+    example: [[{ lat: 35.6597, lng: 139.7008 }]],
+  })
+  holes!: CoordinateDto[][];
+
+  @ApiProperty({ type: [CoordinateDto] })
   footprint!: CoordinateDto[];
 
   @ApiProperty({ enum: ['COMMERCIAL', 'TRANSIT', 'MIXED', 'PUBLIC'] })
   usage!: string;
+
+  @ApiProperty({
+    enum: [
+      'glass_tower',
+      'office_midrise',
+      'mall_block',
+      'station_block',
+      'mixed_midrise',
+      'small_lowrise',
+    ],
+  })
+  preset!: string;
+
+  @ApiProperty({ enum: ['flat', 'stepped', 'gable'] })
+  roofType!: string;
 
   @ApiProperty({ nullable: true, example: '#8eb7d9' })
   facadeColor!: string | null;
@@ -765,6 +788,15 @@ export class SceneFacadeHintDto {
 
   @ApiProperty({ type: CoordinateDto })
   anchor!: CoordinateDto;
+
+  @ApiProperty({ nullable: true, example: 1 })
+  facadeEdgeIndex!: number | null;
+
+  @ApiProperty({ example: 8 })
+  windowBands!: number;
+
+  @ApiProperty({ example: true })
+  billboardEligible!: boolean;
 
   @ApiProperty({ type: [String], example: ['#8eb7d9', '#d9ebf5'] })
   palette!: string[];

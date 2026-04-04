@@ -38,7 +38,7 @@ export function buildSceneAssetSelection(
   const buildings = selectSpatialSample(
     sceneMeta.buildings,
     budget.buildingCount,
-    (building) => averageCoordinate(building.footprint) ?? sceneMeta.origin,
+    (building) => averageCoordinate(building.outerRing) ?? sceneMeta.origin,
     sceneMeta,
   );
   const roads = selectSpatialSample(
@@ -294,4 +294,3 @@ function toLocalPoint(origin: Coordinate, point: Coordinate): { x: number; z: nu
 function clampCell(value: number, grid: number): number {
   return Math.max(0, Math.min(grid - 1, value));
 }
-

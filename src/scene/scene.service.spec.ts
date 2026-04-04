@@ -62,6 +62,12 @@ describe('SceneService', () => {
         id: 'building-11',
         name: 'City Hall',
         heightMeters: 40,
+        outerRing: [
+          { lat: 37.5661, lng: 126.9778 },
+          { lat: 37.5662, lng: 126.9781 },
+          { lat: 37.566, lng: 126.9782 },
+        ],
+        holes: [],
         footprint: [
           { lat: 37.5661, lng: 126.9778 },
           { lat: 37.5662, lng: 126.9781 },
@@ -274,7 +280,7 @@ describe('SceneService', () => {
     expect(meta.roads[0]?.path).toHaveLength(3);
     expect(meta.roads[0]?.roadClass).toBe('primary');
     expect(meta.roads[0]?.widthMeters).toBe(14);
-    expect(meta.buildings[0]?.osmWayId).toBe('way_11');
+    expect(meta.buildings[0]?.osmWayId).toBe('building_11');
     expect(meta.buildings[0]?.footprint).toHaveLength(3);
     expect(meta.camera.topView.y).toBeGreaterThan(0);
     expect(meta.stats.poiCount).toBe(1);

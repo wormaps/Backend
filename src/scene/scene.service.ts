@@ -17,6 +17,7 @@ import {
 import { TomTomTrafficClient } from '../places/tomtom-traffic.client';
 import { SceneRepository } from './scene.repository';
 import { buildSceneAssetSelection } from './scene-asset-profile.utils';
+import { resolveBuildingStyle } from './scene-building-style.utils';
 import { computeSceneCamera, resolveSceneBounds } from './scene-geometry.utils';
 import { SceneHeroOverrideService } from './scene-hero-override.service';
 import { getSceneDataDir } from './scene-storage.utils';
@@ -407,10 +408,13 @@ export class SceneService {
     >,
   ): SceneMeta {
     const buildings = placePackage.buildings.map((building) => ({
+      ...resolveBuildingStyle(building),
       objectId: building.id,
       osmWayId: this.normalizeOsmId(building.id),
       name: building.name,
       heightMeters: building.heightMeters,
+      outerRing: building.outerRing,
+      holes: building.holes,
       footprint: building.footprint,
       usage: building.usage,
       facadeColor: building.facadeColor ?? null,
@@ -418,6 +422,7 @@ export class SceneService {
       roofColor: building.roofColor ?? null,
       roofMaterial: building.roofMaterial ?? null,
       roofShape: building.roofShape ?? null,
+      buildingPart: building.buildingPart ?? null,
     }));
     const roads = placePackage.roads.map((road) => ({
       objectId: road.id,
@@ -560,8 +565,11 @@ export class SceneService {
   }
 
   private normalizeOsmId(id: string): string {
-    const [, rawId] = id.split('-');
-    return rawId ? `way_${rawId}` : id;
+    const [prefix, rawId] = id.split('-');
+    if (!rawId) {
+      return id;
+    }
+    return `${prefix}_${rawId}`;
   }
 
   private resolveCenter(path: Coordinate[]): Coordinate {
@@ -653,4 +661,3 @@ export class SceneService {
     }
   }
 }
-

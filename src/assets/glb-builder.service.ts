@@ -470,18 +470,42 @@ export class GlbBuilderService {
       if (!this.isFiniteVec3(center)) {
         continue;
       }
-      const poleHeight = type === 'TRAFFIC_LIGHT' ? 5.8 : type === 'STREET_LIGHT' ? 7 : 3;
+      const poleHeight =
+        type === 'TRAFFIC_LIGHT' ? 6.8 : type === 'STREET_LIGHT' ? 8.5 : 3.6;
       this.pushBox(
         geometry,
-        [center[0] - 0.06, 0, center[2] - 0.06],
-        [center[0] + 0.06, poleHeight, center[2] + 0.06],
+        [center[0] - 0.08, 0, center[2] - 0.08],
+        [center[0] + 0.08, poleHeight, center[2] + 0.08],
       );
-      const headSize = type === 'STREET_LIGHT' ? 0.24 : 0.34;
-      this.pushBox(
-        geometry,
-        [center[0] - headSize, poleHeight - 0.4, center[2] - headSize],
-        [center[0] + headSize, poleHeight, center[2] + headSize],
-      );
+      if (type === 'TRAFFIC_LIGHT') {
+        this.pushBox(
+          geometry,
+          [center[0] - 1.1, poleHeight - 0.32, center[2] - 0.05],
+          [center[0] + 0.1, poleHeight - 0.12, center[2] + 0.05],
+        );
+        this.pushBox(
+          geometry,
+          [center[0] - 1.08, poleHeight - 0.7, center[2] - 0.18],
+          [center[0] - 0.78, poleHeight - 0.24, center[2] + 0.18],
+        );
+      } else if (type === 'STREET_LIGHT') {
+        this.pushBox(
+          geometry,
+          [center[0] - 0.15, poleHeight - 0.2, center[2] - 0.15],
+          [center[0] + 0.9, poleHeight, center[2] + 0.15],
+        );
+        this.pushBox(
+          geometry,
+          [center[0] + 0.65, poleHeight - 0.18, center[2] - 0.22],
+          [center[0] + 1.02, poleHeight + 0.08, center[2] + 0.22],
+        );
+      } else {
+        this.pushBox(
+          geometry,
+          [center[0] - 0.28, poleHeight - 0.7, center[2] - 0.04],
+          [center[0] + 0.28, poleHeight - 0.1, center[2] + 0.04],
+        );
+      }
     }
     return geometry;
   }
@@ -502,11 +526,29 @@ export class GlbBuilderService {
         [center[0] - 0.08, 0, center[2] - 0.08],
         [center[0] + 0.08, 1.4, center[2] + 0.08],
       );
-      this.pushBox(
-        geometry,
-        [center[0] - radius, 1.1, center[2] - radius],
-        [center[0] + radius, 2.8, center[2] + radius],
-      );
+      if (geometry.indices.length % 2 === 0) {
+        this.pushBox(
+          geometry,
+          [center[0] - radius, 1.1, center[2] - radius * 0.85],
+          [center[0] + radius, 2.5, center[2] + radius * 0.85],
+        );
+        this.pushBox(
+          geometry,
+          [center[0] - radius * 0.72, 2.15, center[2] - radius * 0.72],
+          [center[0] + radius * 0.72, 3.2, center[2] + radius * 0.72],
+        );
+      } else {
+        this.pushBox(
+          geometry,
+          [center[0] - radius * 0.7, 1.2, center[2] - radius],
+          [center[0] + radius * 0.7, 2.7, center[2] + radius],
+        );
+        this.pushBox(
+          geometry,
+          [center[0] - radius, 1.8, center[2] - radius * 0.55],
+          [center[0] + radius, 2.9, center[2] + radius * 0.55],
+        );
+      }
     }
     return geometry;
   }
@@ -519,38 +561,40 @@ export class GlbBuilderService {
     const geometry = this.createEmptyGeometry();
 
     for (const building of buildings) {
-      const points = this.toLocalPolygon(origin, building.footprint);
-      if (points.length < 3) {
+      const outerRing = this.toLocalRing(origin, building.outerRing);
+      const holes = building.holes
+        .map((ring) => this.toLocalRing(origin, ring))
+        .filter((ring) => ring.length >= 3);
+      if (outerRing.length < 3) {
         continue;
       }
 
       const height = Math.max(4, building.heightMeters);
-      const triangles = this.triangulatePolygon(points, triangulate);
-      for (const [aIndex, bIndex, cIndex] of triangles) {
-        this.pushTriangle(
-          geometry,
-          [points[aIndex][0], height, points[aIndex][2]],
-          [points[bIndex][0], height, points[bIndex][2]],
-          [points[cIndex][0], height, points[cIndex][2]],
-        );
-        this.pushTriangle(
-          geometry,
-          [points[aIndex][0], 0, points[aIndex][2]],
-          [points[cIndex][0], 0, points[cIndex][2]],
-          [points[bIndex][0], 0, points[bIndex][2]],
-        );
+      const roofBaseHeight =
+        building.roofType === 'stepped'
+          ? height * 0.78
+          : building.roofType === 'gable'
+            ? height * 0.74
+            : height;
+      const triangulated = this.triangulateRings(outerRing, holes, triangulate);
+      if (triangulated.length === 0) {
+        continue;
       }
 
-      for (let i = 0; i < points.length; i += 1) {
-        const current = points[i];
-        const next = points[(i + 1) % points.length];
-        this.pushQuad(
-          geometry,
-          [current[0], 0, current[2]],
-          [next[0], 0, next[2]],
-          [next[0], height, next[2]],
-          [current[0], height, current[2]],
-        );
+      for (const [a, b, c] of triangulated) {
+        this.pushTriangle(geometry, [a[0], roofBaseHeight, a[2]], [b[0], roofBaseHeight, b[2]], [c[0], roofBaseHeight, c[2]]);
+        this.pushTriangle(geometry, [a[0], 0, a[2]], [c[0], 0, c[2]], [b[0], 0, b[2]]);
+      }
+
+      this.pushRingWalls(geometry, outerRing, roofBaseHeight, false);
+      for (const hole of holes) {
+        this.pushRingWalls(geometry, hole, roofBaseHeight, true);
+      }
+
+      if (building.roofType === 'stepped') {
+        this.pushSteppedRoof(geometry, outerRing, roofBaseHeight, height, triangulate);
+      } else if (building.roofType === 'gable') {
+        this.pushGableRoof(geometry, outerRing, roofBaseHeight, height);
       }
     }
 
@@ -571,17 +615,51 @@ export class GlbBuilderService {
         continue;
       }
 
-      const anchor = this.toLocalPoint(origin, hint.anchor);
-      const panelWidth = hint.signageDensity === 'high' ? 5 : 3.2;
-      const panelHeight = hint.signageDensity === 'high' ? 2.6 : 1.8;
-      const elevation = Math.max(4, Math.min(building.heightMeters * 0.6, 18));
-      this.pushQuad(
-        geometry,
-        [anchor[0] - panelWidth / 2, elevation, anchor[2] + 0.18],
-        [anchor[0] + panelWidth / 2, elevation, anchor[2] + 0.18],
-        [anchor[0] + panelWidth / 2, elevation + panelHeight, anchor[2] + 0.18],
-        [anchor[0] - panelWidth / 2, elevation + panelHeight, anchor[2] + 0.18],
+      const outerRing = this.toLocalRing(origin, building.outerRing);
+      const edgeIndex =
+        hint.facadeEdgeIndex !== null &&
+        hint.facadeEdgeIndex >= 0 &&
+        hint.facadeEdgeIndex < outerRing.length
+          ? hint.facadeEdgeIndex
+          : this.resolveLongestEdgeIndex(outerRing);
+      const frame = this.buildFacadeFrame(
+        outerRing,
+        edgeIndex,
+        Math.max(6, building.heightMeters * 0.78),
       );
+      if (!frame) {
+        continue;
+      }
+
+      const bandCount = Math.max(1, hint.windowBands);
+      const margin = 0.6;
+      const step = Math.max(1.4, (frame.height - margin * 2) / bandCount);
+      for (let band = 0; band < bandCount; band += 1) {
+        const y0 = Math.min(frame.height - 0.7, margin + band * step);
+        const y1 = Math.min(frame.height - 0.2, y0 + Math.min(0.95, step * 0.45));
+        if (y1 <= y0 + 0.1) {
+          continue;
+        }
+        this.pushQuad(
+          geometry,
+          [frame.a[0], y0, frame.a[2]],
+          [frame.b[0], y0, frame.b[2]],
+          [frame.b[0], y1, frame.b[2]],
+          [frame.a[0], y1, frame.a[2]],
+        );
+      }
+
+      if (hint.billboardEligible) {
+        const topStart = Math.max(frame.height * 0.58, frame.height - 4.2);
+        const topEnd = Math.min(frame.height - 0.4, topStart + 2.8);
+        this.pushQuad(
+          geometry,
+          [frame.a[0], topStart, frame.a[2]],
+          [frame.b[0], topStart, frame.b[2]],
+          [frame.b[0], topEnd, frame.b[2]],
+          [frame.a[0], topEnd, frame.a[2]],
+        );
+      }
     }
 
     return geometry;
@@ -794,27 +872,7 @@ export class GlbBuilderService {
     };
   }
 
-  private triangulatePolygon(
-    points: Vec3[],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
-  ): Array<[number, number, number]> {
-    const flattened = points.flatMap((point) => [point[0], point[2]]);
-    const indices = triangulate(flattened);
-    const triangles: Array<[number, number, number]> = [];
-    for (let i = 0; i < indices.length; i += 3) {
-      const triangle: [number, number, number] = [
-        indices[i],
-        indices[i + 1],
-        indices[i + 2],
-      ];
-      if (new Set(triangle).size === 3) {
-        triangles.push(triangle);
-      }
-    }
-    return triangles;
-  }
-
-  private toLocalPolygon(origin: Coordinate, points: Coordinate[]): Vec3[] {
+  private toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
     const deduped = points.filter((point, index) => {
       const prev = points[index - 1];
       return !prev || prev.lat !== point.lat || prev.lng !== point.lng;
@@ -831,6 +889,235 @@ export class GlbBuilderService {
     return normalized
       .map((point) => this.toLocalPoint(origin, point))
       .filter((point) => this.isFiniteVec3(point));
+  }
+
+  private triangulateRings(
+    outerRing: Vec3[],
+    holes: Vec3[][],
+    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  ): Array<[Vec3, Vec3, Vec3]> {
+    const vertices: number[] = [];
+    const points: Vec3[] = [];
+    const holeIndices: number[] = [];
+
+    const pushRing = (ring: Vec3[]) => {
+      for (const point of ring) {
+        points.push(point);
+        vertices.push(point[0], point[2]);
+      }
+    };
+
+    pushRing(outerRing);
+    for (const hole of holes) {
+      holeIndices.push(points.length);
+      pushRing(hole);
+    }
+
+    const indices = triangulate(vertices, holeIndices, 2);
+    const triangles: Array<[Vec3, Vec3, Vec3]> = [];
+    for (let index = 0; index < indices.length; index += 3) {
+      const a = points[indices[index]];
+      const b = points[indices[index + 1]];
+      const c = points[indices[index + 2]];
+      if (!a || !b || !c) {
+        continue;
+      }
+      if (this.samePointXZ(a, b) || this.samePointXZ(b, c) || this.samePointXZ(a, c)) {
+        continue;
+      }
+      triangles.push([a, b, c]);
+    }
+
+    return triangles;
+  }
+
+  private pushRingWalls(
+    geometry: GeometryBuffers,
+    ring: Vec3[],
+    height: number,
+    invert: boolean,
+  ): void {
+    this.pushRingWallsBetween(geometry, ring, 0, height, invert);
+  }
+
+  private pushRingWallsBetween(
+    geometry: GeometryBuffers,
+    ring: Vec3[],
+    minHeight: number,
+    maxHeight: number,
+    invert: boolean,
+  ): void {
+    for (let index = 0; index < ring.length; index += 1) {
+      const current = ring[index];
+      const next = ring[(index + 1) % ring.length];
+      if (invert) {
+        this.pushQuad(
+          geometry,
+          [next[0], minHeight, next[2]],
+          [current[0], minHeight, current[2]],
+          [current[0], maxHeight, current[2]],
+          [next[0], maxHeight, next[2]],
+        );
+      } else {
+        this.pushQuad(
+          geometry,
+          [current[0], minHeight, current[2]],
+          [next[0], minHeight, next[2]],
+          [next[0], maxHeight, next[2]],
+          [current[0], maxHeight, current[2]],
+        );
+      }
+    }
+  }
+
+  private pushSteppedRoof(
+    geometry: GeometryBuffers,
+    outerRing: Vec3[],
+    roofBaseHeight: number,
+    topHeight: number,
+    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  ): void {
+    const insetRing = this.insetRing(outerRing, 0.16);
+    if (insetRing.length < 3) {
+      return;
+    }
+    const roofTriangles = this.triangulateRings(insetRing, [], triangulate);
+    for (const [a, b, c] of roofTriangles) {
+      this.pushTriangle(geometry, [a[0], topHeight, a[2]], [b[0], topHeight, b[2]], [c[0], topHeight, c[2]]);
+    }
+    this.pushRingWallsBetween(
+      geometry,
+      insetRing,
+      roofBaseHeight,
+      topHeight,
+      false,
+    );
+    for (let index = 0; index < outerRing.length; index += 1) {
+      const current = outerRing[index];
+      const next = outerRing[(index + 1) % outerRing.length];
+      const insetCurrent = insetRing[index % insetRing.length];
+      const insetNext = insetRing[(index + 1) % insetRing.length];
+      this.pushQuad(
+        geometry,
+        [current[0], roofBaseHeight, current[2]],
+        [next[0], roofBaseHeight, next[2]],
+        [insetNext[0], topHeight, insetNext[2]],
+        [insetCurrent[0], topHeight, insetCurrent[2]],
+      );
+    }
+  }
+
+  private pushGableRoof(
+    geometry: GeometryBuffers,
+    outerRing: Vec3[],
+    roofBaseHeight: number,
+    topHeight: number,
+  ): void {
+    const bounds = this.computeBounds(outerRing);
+    const ridgeAlongX = bounds.width >= bounds.depth;
+    const ridgeHeight = Math.max(topHeight, roofBaseHeight + 1.1);
+    const ridgeA: Vec3 = ridgeAlongX
+      ? [bounds.minX, ridgeHeight, (bounds.minZ + bounds.maxZ) / 2]
+      : [(bounds.minX + bounds.maxX) / 2, ridgeHeight, bounds.minZ];
+    const ridgeB: Vec3 = ridgeAlongX
+      ? [bounds.maxX, ridgeHeight, (bounds.minZ + bounds.maxZ) / 2]
+      : [(bounds.minX + bounds.maxX) / 2, ridgeHeight, bounds.maxZ];
+
+    for (let index = 0; index < outerRing.length; index += 1) {
+      const current = outerRing[index];
+      const next = outerRing[(index + 1) % outerRing.length];
+      const currentRidge = ridgeAlongX
+        ? [current[0], ridgeHeight, ridgeA[2]] as Vec3
+        : [ridgeA[0], ridgeHeight, current[2]] as Vec3;
+      const nextRidge = ridgeAlongX
+        ? [next[0], ridgeHeight, ridgeA[2]] as Vec3
+        : [ridgeA[0], ridgeHeight, next[2]] as Vec3;
+      this.pushQuad(
+        geometry,
+        [current[0], roofBaseHeight, current[2]],
+        [next[0], roofBaseHeight, next[2]],
+        nextRidge,
+        currentRidge,
+      );
+    }
+
+    this.pushTriangle(geometry, [bounds.minX, roofBaseHeight, bounds.minZ], [bounds.minX, roofBaseHeight, bounds.maxZ], ridgeA);
+    this.pushTriangle(geometry, [bounds.maxX, roofBaseHeight, bounds.maxZ], [bounds.maxX, roofBaseHeight, bounds.minZ], ridgeB);
+  }
+
+  private insetRing(points: Vec3[], ratio: number): Vec3[] {
+    const center = this.averagePoint(points);
+    return points.map((point) => [
+      center[0] + (point[0] - center[0]) * (1 - ratio),
+      0,
+      center[2] + (point[2] - center[2]) * (1 - ratio),
+    ]);
+  }
+
+  private averagePoint(points: Vec3[]): Vec3 {
+    const total = points.reduce(
+      (acc, point) => [acc[0] + point[0], acc[1] + point[1], acc[2] + point[2]] as Vec3,
+      [0, 0, 0],
+    );
+    return [total[0] / points.length, 0, total[2] / points.length];
+  }
+
+  private resolveLongestEdgeIndex(points: Vec3[]): number {
+    let longestIndex = 0;
+    let longestLength = 0;
+    for (let index = 0; index < points.length; index += 1) {
+      const current = points[index];
+      const next = points[(index + 1) % points.length];
+      const length = Math.hypot(next[0] - current[0], next[2] - current[2]);
+      if (length > longestLength) {
+        longestLength = length;
+        longestIndex = index;
+      }
+    }
+    return longestIndex;
+  }
+
+  private buildFacadeFrame(
+    ring: Vec3[],
+    edgeIndex: number,
+    facadeHeight: number,
+  ): { a: Vec3; b: Vec3; height: number } | null {
+    const current = ring[edgeIndex];
+    const next = ring[(edgeIndex + 1) % ring.length];
+    if (!current || !next) {
+      return null;
+    }
+    const centroid = this.averagePoint(ring);
+    const edge = [next[0] - current[0], 0, next[2] - current[2]] as Vec3;
+    const edgeLength = Math.hypot(edge[0], edge[2]);
+    if (edgeLength <= 0.4) {
+      return null;
+    }
+    let normal: Vec3 = [-edge[2] / edgeLength, 0, edge[0] / edgeLength];
+    const midpoint: Vec3 = [(current[0] + next[0]) / 2, 0, (current[2] + next[2]) / 2];
+    const toCentroid: Vec3 = [centroid[0] - midpoint[0], 0, centroid[2] - midpoint[2]];
+    if (normal[0] * toCentroid[0] + normal[2] * toCentroid[2] > 0) {
+      normal = [-normal[0], 0, -normal[2]];
+    }
+    const offset = 0.18;
+    return {
+      a: [current[0] + normal[0] * offset, 0, current[2] + normal[2] * offset],
+      b: [next[0] + normal[0] * offset, 0, next[2] + normal[2] * offset],
+      height: facadeHeight,
+    };
+  }
+
+  private computeBounds(points: Vec3[]) {
+    const xs = points.map((point) => point[0]);
+    const zs = points.map((point) => point[2]);
+    return {
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      minZ: Math.min(...zs),
+      maxZ: Math.max(...zs),
+      width: Math.max(...xs) - Math.min(...xs),
+      depth: Math.max(...zs) - Math.min(...zs),
+    };
   }
 
   private toLocalPoint(origin: Coordinate, point: Coordinate): Vec3 {
@@ -933,4 +1220,3 @@ export class GlbBuilderService {
     return Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[2] - b[2]) < 1e-6;
   }
 }
-

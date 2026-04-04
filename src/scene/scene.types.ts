@@ -19,6 +19,14 @@ export type SceneScale = (typeof SCENE_SCALE_VALUES)[number];
 export type SceneStatus = 'PENDING' | 'READY' | 'FAILED';
 export type SceneDetailStatus = 'FULL' | 'PARTIAL' | 'OSM_ONLY';
 export type MaterialClass = 'glass' | 'concrete' | 'brick' | 'metal' | 'mixed';
+export type BuildingPreset =
+  | 'glass_tower'
+  | 'office_midrise'
+  | 'mall_block'
+  | 'station_block'
+  | 'mixed_midrise'
+  | 'small_lowrise';
+export type RoofType = 'flat' | 'stepped' | 'gable';
 
 export interface SceneEntity {
   sceneId: string;
@@ -44,6 +52,8 @@ export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
 export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
   objectId: string;
   osmWayId: string;
+  preset: BuildingPreset;
+  roofType: RoofType;
 }
 
 export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {
@@ -84,6 +94,9 @@ export interface SceneVegetationDetail extends Omit<VegetationData, 'id'> {
 export interface SceneFacadeHint {
   objectId: string;
   anchor: Coordinate;
+  facadeEdgeIndex: number | null;
+  windowBands: number;
+  billboardEligible: boolean;
   palette: string[];
   materialClass: MaterialClass;
   signageDensity: 'low' | 'medium' | 'high';
@@ -264,4 +277,3 @@ export interface SceneWeatherQuery {
   date: string;
   timeOfDay: TimeOfDay;
 }
-

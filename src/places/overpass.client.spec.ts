@@ -79,6 +79,8 @@ describe('OverpassClient', () => {
 
     expect(result.placeId).toBe('abc123');
     expect(result.buildings).toHaveLength(1);
+    expect(result.buildings[0]?.outerRing).toHaveLength(3);
+    expect(result.buildings[0]?.holes).toHaveLength(0);
     expect(result.roads).toHaveLength(1);
     expect(result.roads[0]?.roadClass).toBe('primary');
     expect(result.roads[0]?.widthMeters).toBe(14);
@@ -172,6 +174,62 @@ describe('OverpassClient', () => {
       droppedLandCovers: 0,
       droppedLinearFeatures: 0,
     });
+  });
+
+  it('should convert multipolygon building relations into outerRing + holes', async () => {
+    const response = {
+      elements: [
+        {
+          type: 'relation',
+          id: 501,
+          tags: {
+            type: 'multipolygon',
+            building: 'yes',
+            name: 'Courtyard Complex',
+            height: '28',
+          },
+          members: [
+            {
+              type: 'way',
+              ref: 11,
+              role: 'outer',
+              geometry: [
+                { lat: 37.1, lon: 127.1 },
+                { lat: 37.1, lon: 127.1005 },
+                { lat: 37.1005, lon: 127.1005 },
+                { lat: 37.1005, lon: 127.1 },
+                { lat: 37.1, lon: 127.1 },
+              ],
+            },
+            {
+              type: 'way',
+              ref: 12,
+              role: 'inner',
+              geometry: [
+                { lat: 37.10015, lon: 127.10015 },
+                { lat: 37.10015, lon: 127.10035 },
+                { lat: 37.10035, lon: 127.10035 },
+                { lat: 37.10035, lon: 127.10015 },
+                { lat: 37.10015, lon: 127.10015 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify(response)),
+    });
+
+    const client = new OverpassClient().withFetcher(fetcher as typeof fetch);
+    const result = await client.buildPlacePackage(place);
+
+    expect(result.buildings).toHaveLength(1);
+    expect(result.buildings[0]?.outerRing).toHaveLength(4);
+    expect(result.buildings[0]?.holes).toHaveLength(1);
+    expect(result.buildings[0]?.holes[0]).toHaveLength(4);
+    expect(result.buildings[0]?.footprint).toEqual(result.buildings[0]?.outerRing);
   });
 
   it('should fallback to the next overpass endpoint when the first one fails', async () => {

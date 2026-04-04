@@ -38,6 +38,12 @@ describe('SceneVisionService', () => {
         name: 'Building 1',
         heightMeters: 40,
         usage: 'COMMERCIAL',
+        outerRing: [
+          { lat: 37.5661, lng: 126.9778 },
+          { lat: 37.5662, lng: 126.9781 },
+          { lat: 37.566, lng: 126.9782 },
+        ],
+        holes: [],
         footprint: [
           { lat: 37.5661, lng: 126.9778 },
           { lat: 37.5662, lng: 126.9781 },
@@ -118,7 +124,8 @@ describe('SceneVisionService', () => {
 
     expect(result.detail.detailStatus).toBe('PARTIAL');
     expect(result.detail.crossings[0]?.style).toBe('signalized');
+    expect(result.detail.facadeHints[0]?.facadeEdgeIndex).toBe(2);
+    expect(result.detail.facadeHints[0]?.windowBands).toBeGreaterThan(0);
     expect(result.metaPatch.materialClasses[0]?.className).toBe('glass');
   });
 });
-

@@ -27,11 +27,17 @@ interface OverpassResponse {
 }
 
 interface OverpassElement {
-  type: 'node' | 'way';
+  type: 'node' | 'way' | 'relation';
   id: number;
   lat?: number;
   lon?: number;
   geometry?: Array<{ lat: number; lon: number }>;
+  members?: Array<{
+    type: 'way' | 'node';
+    ref: number;
+    role?: string;
+    geometry?: Array<{ lat: number; lon: number }>;
+  }>;
   tags?: Record<string, string>;
 }
 
@@ -74,11 +80,26 @@ export class OverpassClient {
     const elements = dedupeElements(
       responses.flatMap((response) => response.elements ?? []),
     );
+    const buildingRelations = elements.filter(
+      (element) =>
+        element.type === 'relation' &&
+        element.tags?.building &&
+        element.tags?.type === 'multipolygon' &&
+        element.members?.length,
+    );
+    const relationMemberWayIds = new Set(
+      buildingRelations.flatMap((relation) =>
+        (relation.members ?? [])
+          .filter((member) => member.type === 'way')
+          .map((member) => member.ref),
+      ),
+    );
 
     const buildingWays = elements.filter(
       (element) =>
         element.type === 'way' &&
         element.tags?.building &&
+        !relationMemberWayIds.has(element.id) &&
         element.geometry?.length,
     );
     const roadWays = elements.filter(
@@ -149,8 +170,8 @@ export class OverpassClient {
           Boolean(element.tags?.bridge)),
     );
 
-    const buildings = buildingWays
-      .map((way) => this.mapBuilding(way))
+    const buildings = [...buildingWays, ...buildingRelations]
+      .map((wayOrRelation) => this.mapBuilding(wayOrRelation))
       .filter((value): value is PlacePackage['buildings'][number] => value !== null);
     const roads = roadWays
       .map((way) => this.mapRoad(way))
@@ -196,9 +217,9 @@ export class OverpassClient {
       streetFurniture,
       vegetation,
       landCovers,
-      linearFeatures,
+        linearFeatures,
       diagnostics: {
-        droppedBuildings: buildingWays.length - buildings.length,
+        droppedBuildings: buildingWays.length + buildingRelations.length - buildings.length,
         droppedRoads: roadWays.length - roads.length,
         droppedWalkways: walkwayWays.length - walkways.length,
         droppedPois: poiNodes.length - pois.length,
@@ -220,6 +241,7 @@ export class OverpassClient {
       scope === 'core'
         ? [
             `way["building"]${bbox};`,
+            `relation["building"]${bbox};`,
             `way["highway"]${bbox};`,
             `way["footway"="crossing"]${bbox};`,
             `way["highway"]["crossing"]${bbox};`,
@@ -332,25 +354,24 @@ out geom;
     };
   }
 
-  private mapBuilding(way: OverpassElement): PlacePackage['buildings'][number] | null {
-    const footprint = this.sanitizeRing(this.mapGeometry(way.geometry ?? []));
-    if (footprint === null) {
+  private mapBuilding(
+    element: OverpassElement,
+  ): PlacePackage['buildings'][number] | null {
+    if (element.type === 'relation') {
+      return this.mapBuildingRelation(element);
+    }
+
+    const outerRing = this.sanitizeRing(this.mapGeometry(element.geometry ?? []));
+    if (outerRing === null) {
       return null;
     }
 
-    return {
-      id: `building-${way.id}`,
-      name: way.tags?.name ?? `building-${way.id}`,
-      heightMeters: this.resolveHeight(way.tags),
-      usage: this.resolveUsage(way.tags),
-      footprint,
-      facadeColor:
-        way.tags?.['building:colour'] ?? way.tags?.['building:color'] ?? null,
-      facadeMaterial: way.tags?.['building:material'] ?? null,
-      roofColor: way.tags?.['roof:colour'] ?? way.tags?.['roof:color'] ?? null,
-      roofMaterial: way.tags?.['roof:material'] ?? null,
-      roofShape: way.tags?.['roof:shape'] ?? null,
-    };
+    return this.buildBuildingRecord(
+      `building-${element.id}`,
+      element.tags,
+      outerRing,
+      [],
+    );
   }
 
   private mapRoad(way: OverpassElement): PlacePackage['roads'][number] | null {
@@ -524,6 +545,129 @@ out geom;
     }
 
     return sanitized;
+  }
+
+  private mapBuildingRelation(
+    relation: OverpassElement,
+  ): PlacePackage['buildings'][number] | null {
+    const outerRings = this.buildRingsFromMembers(
+      (relation.members ?? []).filter((member) => (member.role ?? 'outer') === 'outer'),
+    );
+    if (outerRings.length === 0) {
+      return null;
+    }
+
+    const primaryOuter = [...outerRings].sort(
+      (left, right) =>
+        Math.abs(polygonSignedArea(right)) - Math.abs(polygonSignedArea(left)),
+    )[0];
+    const holes = this.buildRingsFromMembers(
+      (relation.members ?? []).filter((member) => member.role === 'inner'),
+    ).filter((ring) => {
+      const sample = ring[0];
+      return sample ? this.isPointInsideRing(sample, primaryOuter) : false;
+    });
+
+    return this.buildBuildingRecord(
+      `building-${relation.id}`,
+      relation.tags,
+      primaryOuter,
+      holes,
+    );
+  }
+
+  private buildBuildingRecord(
+    id: string,
+    tags: Record<string, string> | undefined,
+    outerRing: Coordinate[],
+    holes: Coordinate[][],
+  ): PlacePackage['buildings'][number] {
+    return {
+      id,
+      name: tags?.name ?? id,
+      heightMeters: this.resolveHeight(tags),
+      usage: this.resolveUsage(tags),
+      outerRing,
+      holes,
+      footprint: outerRing,
+      facadeColor: tags?.['building:colour'] ?? tags?.['building:color'] ?? null,
+      facadeMaterial: tags?.['building:material'] ?? null,
+      roofColor: tags?.['roof:colour'] ?? tags?.['roof:color'] ?? null,
+      roofMaterial: tags?.['roof:material'] ?? null,
+      roofShape: tags?.['roof:shape'] ?? null,
+      buildingPart: tags?.['building:part'] ?? null,
+    };
+  }
+
+  private buildRingsFromMembers(
+    members: NonNullable<OverpassElement['members']>,
+  ): Coordinate[][] {
+    const remaining = members
+      .map((member) => this.mapGeometry(member.geometry ?? []))
+      .map((segment) => this.dedupeCoordinates(segment).filter(isFiniteCoordinate))
+      .filter((segment) => segment.length >= 2);
+    const rings: Coordinate[][] = [];
+
+    while (remaining.length > 0) {
+      let ring = [...remaining.shift()!];
+      let progressed = true;
+
+      while (progressed) {
+        progressed = false;
+        if (coordinatesEqual(ring[0], ring[ring.length - 1])) {
+          break;
+        }
+
+        for (let index = 0; index < remaining.length; index += 1) {
+          const segment = remaining[index];
+          const start = segment[0];
+          const end = segment[segment.length - 1];
+          const ringStart = ring[0];
+          const ringEnd = ring[ring.length - 1];
+
+          if (coordinatesEqual(ringEnd, start)) {
+            ring = [...ring, ...segment.slice(1)];
+          } else if (coordinatesEqual(ringEnd, end)) {
+            ring = [...ring, ...segment.slice(0, -1).reverse()];
+          } else if (coordinatesEqual(ringStart, end)) {
+            ring = [...segment.slice(0, -1), ...ring];
+          } else if (coordinatesEqual(ringStart, start)) {
+            ring = [...segment.slice(1).reverse(), ...ring];
+          } else {
+            continue;
+          }
+
+          remaining.splice(index, 1);
+          progressed = true;
+          break;
+        }
+      }
+
+      const sanitized = this.sanitizeRing(ring);
+      if (sanitized) {
+        rings.push(sanitized);
+      }
+    }
+
+    return rings;
+  }
+
+  private isPointInsideRing(point: Coordinate, ring: Coordinate[]): boolean {
+    let inside = false;
+    for (let index = 0, prev = ring.length - 1; index < ring.length; prev = index, index += 1) {
+      const current = ring[index];
+      const previous = ring[prev];
+      const intersects =
+        current.lat > point.lat !== previous.lat > point.lat &&
+        point.lng <
+          ((previous.lng - current.lng) * (point.lat - current.lat)) /
+            (previous.lat - current.lat + Number.EPSILON) +
+            current.lng;
+      if (intersects) {
+        inside = !inside;
+      }
+    }
+    return inside;
   }
 
   private sanitizePath(points: Coordinate[]): Coordinate[] | null {

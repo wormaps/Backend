@@ -1,5 +1,5 @@
 import { Coordinate } from '../../places/place.types';
-import { MaterialClass } from '../scene.types';
+import { BuildingPreset, MaterialClass, RoofType } from '../scene.types';
 
 export interface HeroOverrideManifest {
   id: string;
@@ -32,11 +32,16 @@ export interface HeroOverrideManifest {
   facadeOverrides: Array<{
     id: string;
     anchor: Coordinate;
+    preset?: BuildingPreset;
+    roofType?: RoofType;
+    heightMultiplier?: number;
     palette: string[];
     materialClass: MaterialClass;
     signageDensity: 'low' | 'medium' | 'high';
     emissiveStrength: number;
     glazingRatio: number;
+    billboardEligible?: boolean;
+    facadeEdgeIndex?: number | null;
   }>;
   landmarkAnchors: Array<{
     id: string;
@@ -149,29 +154,139 @@ export const SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE: HeroOverrideManifest = {
     {
       id: 'override-facade-tsutaya',
       anchor: { lat: 35.65976, lng: 139.70082 },
+      preset: 'glass_tower',
+      roofType: 'stepped',
+      heightMultiplier: 1.18,
       palette: ['#2d3a4b', '#5b6b7f', '#dce5f2'],
       materialClass: 'glass',
       signageDensity: 'high',
       emissiveStrength: 1.05,
       glazingRatio: 0.7,
+      billboardEligible: true,
     },
     {
       id: 'override-facade-qfront',
       anchor: { lat: 35.65938, lng: 139.70096 },
+      preset: 'glass_tower',
+      roofType: 'flat',
+      heightMultiplier: 1.1,
       palette: ['#4c5968', '#8ba0b8', '#d6dee8'],
       materialClass: 'glass',
       signageDensity: 'high',
       emissiveStrength: 0.95,
       glazingRatio: 0.62,
+      billboardEligible: true,
     },
     {
       id: 'override-facade-center-gai',
       anchor: { lat: 35.6595, lng: 139.69994 },
+      preset: 'mall_block',
+      roofType: 'flat',
+      heightMultiplier: 1.05,
       palette: ['#7e4b3a', '#b87957', '#e8d2b7'],
       materialClass: 'mixed',
       signageDensity: 'high',
       emissiveStrength: 0.85,
       glazingRatio: 0.25,
+      billboardEligible: true,
+    },
+    {
+      id: 'override-facade-east-tower',
+      anchor: { lat: 35.65962, lng: 139.70114 },
+      preset: 'glass_tower',
+      roofType: 'stepped',
+      heightMultiplier: 1.16,
+      palette: ['#53708d', '#8ea8c0', '#dfeaf4'],
+      materialClass: 'glass',
+      signageDensity: 'medium',
+      emissiveStrength: 0.72,
+      glazingRatio: 0.68,
+    },
+    {
+      id: 'override-facade-west-mall',
+      anchor: { lat: 35.65956, lng: 139.69974 },
+      preset: 'mall_block',
+      roofType: 'flat',
+      heightMultiplier: 1.08,
+      palette: ['#d8d8d4', '#bbbbbb', '#5d676f'],
+      materialClass: 'concrete',
+      signageDensity: 'high',
+      emissiveStrength: 0.82,
+      glazingRatio: 0.22,
+      billboardEligible: true,
+    },
+    {
+      id: 'override-facade-station-edge',
+      anchor: { lat: 35.65915, lng: 139.70096 },
+      preset: 'station_block',
+      roofType: 'stepped',
+      heightMultiplier: 1.1,
+      palette: ['#8b8f95', '#c4c7c9', '#f0f1f2'],
+      materialClass: 'metal',
+      signageDensity: 'medium',
+      emissiveStrength: 0.54,
+      glazingRatio: 0.4,
+    },
+    {
+      id: 'override-facade-south-corner',
+      anchor: { lat: 35.65905, lng: 139.70045 },
+      preset: 'office_midrise',
+      roofType: 'flat',
+      heightMultiplier: 1.06,
+      palette: ['#65717d', '#a8b2bc', '#dde2e7'],
+      materialClass: 'glass',
+      signageDensity: 'medium',
+      emissiveStrength: 0.66,
+      glazingRatio: 0.52,
+    },
+    {
+      id: 'override-facade-northwest-tower',
+      anchor: { lat: 35.65996, lng: 139.70006 },
+      preset: 'glass_tower',
+      roofType: 'stepped',
+      heightMultiplier: 1.14,
+      palette: ['#6b8199', '#a9c0d4', '#e9f1f7'],
+      materialClass: 'glass',
+      signageDensity: 'medium',
+      emissiveStrength: 0.7,
+      glazingRatio: 0.64,
+    },
+    {
+      id: 'override-facade-hachiko-side',
+      anchor: { lat: 35.65912, lng: 139.70118 },
+      preset: 'mall_block',
+      roofType: 'flat',
+      heightMultiplier: 1.02,
+      palette: ['#7a6352', '#b0927f', '#e6d7ca'],
+      materialClass: 'mixed',
+      signageDensity: 'high',
+      emissiveStrength: 0.74,
+      glazingRatio: 0.18,
+      billboardEligible: true,
+    },
+    {
+      id: 'override-facade-central-midrise',
+      anchor: { lat: 35.65944, lng: 139.70042 },
+      preset: 'mixed_midrise',
+      roofType: 'flat',
+      heightMultiplier: 1.04,
+      palette: ['#969a9e', '#c7c9cb', '#ececec'],
+      materialClass: 'concrete',
+      signageDensity: 'medium',
+      emissiveStrength: 0.46,
+      glazingRatio: 0.24,
+    },
+    {
+      id: 'override-facade-southwest-lowrise',
+      anchor: { lat: 35.6591, lng: 139.69986 },
+      preset: 'small_lowrise',
+      roofType: 'gable',
+      heightMultiplier: 1.08,
+      palette: ['#7b4a3b', '#aa765d', '#d6bea7'],
+      materialClass: 'brick',
+      signageDensity: 'medium',
+      emissiveStrength: 0.38,
+      glazingRatio: 0.16,
     },
   ],
   landmarkAnchors: [
@@ -195,4 +310,3 @@ export const SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE: HeroOverrideManifest = {
     },
   ],
 };
-

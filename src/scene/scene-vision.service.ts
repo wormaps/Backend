@@ -14,6 +14,10 @@ import {
   SceneStreetFurnitureDetail,
   SceneVegetationDetail,
 } from './scene.types';
+import {
+  estimateFacadeEdgeIndex,
+  resolveBuildingStyle,
+} from './scene-building-style.utils';
 
 interface SceneVisionResult {
   detail: SceneDetail;
@@ -204,28 +208,25 @@ export class SceneVisionService {
     const imageDensity = densityFromCount(mapillaryImages.length, 12, 40);
 
     return placePackage.buildings.map((building) => {
-      const anchor = averageCoordinate(building.footprint) ?? building.footprint[0];
-      const palette = uniquePalette([
-        building.facadeColor,
-        building.roofColor,
-        defaultPaletteForMaterial(building.facadeMaterial)[0],
-      ]);
-      const materialClass = resolveMaterialClass(building);
+      const style = resolveBuildingStyle(building);
+      const anchor = averageCoordinate(building.outerRing) ?? building.outerRing[0];
       return {
         objectId: building.id,
         anchor,
-        palette,
-        materialClass,
+        facadeEdgeIndex: estimateFacadeEdgeIndex(building.outerRing),
+        windowBands: style.windowBands,
+        billboardEligible: style.billboardEligible,
+        palette: uniquePalette(style.palette),
+        materialClass: style.materialClass,
         signageDensity:
           building.usage === 'COMMERCIAL' ? imageDensity : 'low',
         emissiveStrength:
           building.usage === 'COMMERCIAL'
             ? imageDensity === 'high'
               ? 1
-              : 0.65
-            : 0.15,
-        glazingRatio:
-          materialClass === 'glass' ? 0.65 : materialClass === 'metal' ? 0.35 : 0.2,
+              : style.emissiveStrength
+            : Math.min(style.emissiveStrength, 0.2),
+        glazingRatio: style.glazingRatio,
       };
     });
   }
@@ -288,44 +289,6 @@ function averageCoordinate(points: Coordinate[]): Coordinate | null {
     lat: total.lat / points.length,
     lng: total.lng / points.length,
   };
-}
-
-function resolveMaterialClass(building: PlacePackage['buildings'][number]): MaterialClass {
-  const rawMaterial = `${building.facadeMaterial ?? ''} ${building.roofMaterial ?? ''}`.toLowerCase();
-
-  if (rawMaterial.includes('glass')) {
-    return 'glass';
-  }
-  if (rawMaterial.includes('brick')) {
-    return 'brick';
-  }
-  if (rawMaterial.includes('metal') || rawMaterial.includes('steel')) {
-    return 'metal';
-  }
-  if (rawMaterial.includes('concrete') || rawMaterial.includes('cement')) {
-    return 'concrete';
-  }
-
-  if (building.usage === 'COMMERCIAL') {
-    return 'glass';
-  }
-
-  return 'mixed';
-}
-
-function defaultPaletteForMaterial(material: string | null | undefined): string[] {
-  const normalized = material?.toLowerCase() ?? '';
-  if (normalized.includes('glass')) {
-    return ['#8eb7d9', '#d9ebf5'];
-  }
-  if (normalized.includes('brick')) {
-    return ['#a65b42', '#d89b7a'];
-  }
-  if (normalized.includes('metal')) {
-    return ['#87929a', '#c8d1d9'];
-  }
-
-  return ['#9ea4aa', '#d3d6da'];
 }
 
 function summarizeMaterialClasses(facadeHints: SceneFacadeHint[]) {
@@ -422,4 +385,3 @@ function densityFromCount(
 function clampCoverage(value: number): number {
   return Math.max(0, Math.min(1, Number(value.toFixed(2))));
 }
-

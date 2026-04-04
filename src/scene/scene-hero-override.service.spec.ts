@@ -108,12 +108,20 @@ describe('SceneHeroOverrideService', () => {
         osmWayId: 'way_11',
         name: 'building',
         heightMeters: 40,
+        outerRing: [
+          { lat: 35.6597, lng: 139.7008 },
+          { lat: 35.6598, lng: 139.7009 },
+          { lat: 35.6596, lng: 139.701 },
+        ],
+        holes: [],
         footprint: [
           { lat: 35.6597, lng: 139.7008 },
           { lat: 35.6598, lng: 139.7009 },
           { lat: 35.6596, lng: 139.701 },
         ],
         usage: 'COMMERCIAL',
+        preset: 'glass_tower',
+        roofType: 'flat',
         facadeColor: null,
         facadeMaterial: null,
         roofColor: null,
@@ -163,6 +171,6 @@ describe('SceneHeroOverrideService', () => {
     expect(result.detail.signageClusters.length).toBeGreaterThan(0);
     expect(result.meta.detailStatus).toBe('PARTIAL');
     expect(result.meta.landmarkAnchors.length).toBeGreaterThan(0);
+    expect(result.meta.buildings[0]?.preset).toBeDefined();
   });
 });
-

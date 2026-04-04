@@ -38,6 +38,8 @@ export interface BuildingData {
   id: string;
   name: string;
   heightMeters: number;
+  outerRing: Coordinate[];
+  holes: Coordinate[][];
   footprint: Coordinate[];
   usage: 'COMMERCIAL' | 'TRANSIT' | 'MIXED' | 'PUBLIC';
   facadeColor?: string | null;
@@ -45,6 +47,7 @@ export interface BuildingData {
   roofColor?: string | null;
   roofMaterial?: string | null;
   roofShape?: string | null;
+  buildingPart?: string | null;
 }
 
 export interface RoadData {
