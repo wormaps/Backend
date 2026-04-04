@@ -7,6 +7,15 @@ import {
   PLACE_REGISTRY_FIXTURES,
 } from './place.fixtures';
 import {
+  ExternalPlaceDetail,
+  ExternalPlacePackageResponse,
+  ExternalPlaceSearchItem,
+  ExternalSceneSnapshotResponse,
+} from './external-place.types';
+import { GooglePlacesClient } from './google-places.client';
+import { OpenMeteoClient } from './open-meteo.client';
+import { OverpassClient } from './overpass.client';
+import {
   PlaceDetail,
   PlacePackage,
   RegistryInfo,
@@ -18,7 +27,12 @@ import { SnapshotBuilderService } from './snapshot-builder.service';
 
 @Injectable()
 export class PlacesService {
-  constructor(private readonly snapshotBuilderService: SnapshotBuilderService) {}
+  constructor(
+    private readonly snapshotBuilderService: SnapshotBuilderService,
+    private readonly googlePlacesClient: GooglePlacesClient,
+    private readonly overpassClient: OverpassClient,
+    private readonly openMeteoClient: OpenMeteoClient,
+  ) {}
 
   getPlaces(): RegistryInfo[] {
     return PLACE_REGISTRY_FIXTURES;
@@ -51,6 +65,65 @@ export class PlacesService {
     return this.snapshotBuilderService.build(place, timeOfDay, weather);
   }
 
+  searchExternalPlaces(query: string, limit: number): Promise<ExternalPlaceSearchItem[]> {
+    return this.googlePlacesClient.searchText(query, limit);
+  }
+
+  getExternalPlaceDetail(googlePlaceId: string): Promise<ExternalPlaceDetail> {
+    return this.googlePlacesClient.getPlaceDetail(googlePlaceId);
+  }
+
+  async getExternalPlacePackage(googlePlaceId: string): Promise<ExternalPlacePackageResponse> {
+    const place = await this.googlePlacesClient.getPlaceDetail(googlePlaceId);
+    const placePackage = await this.overpassClient.buildPlacePackage(place);
+
+    return {
+      place,
+      package: placePackage,
+    };
+  }
+
+  async getExternalSceneSnapshot(
+    googlePlaceId: string,
+    timeOfDay: TimeOfDay,
+    weather: WeatherType | undefined,
+    date: string,
+  ): Promise<ExternalSceneSnapshotResponse> {
+    const place = await this.googlePlacesClient.getPlaceDetail(googlePlaceId);
+    const weatherObservation =
+      weather === undefined
+        ? await this.openMeteoClient.getHistoricalObservation(place, date, timeOfDay)
+        : null;
+
+    const resolvedWeather = weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
+    const registryLikePlace: RegistryInfo = {
+      id: place.placeId,
+      slug: place.placeId,
+      name: place.displayName,
+      country: 'Unknown',
+      city: 'Unknown',
+      location: place.location,
+      placeType: this.resolvePlaceType(place),
+      tags: place.types,
+    };
+    const snapshot = this.snapshotBuilderService.build(registryLikePlace, timeOfDay, resolvedWeather);
+    snapshot.sourceDetail = weatherObservation
+      ? {
+          provider: weatherObservation.source,
+          date: weatherObservation.date,
+          localTime: weatherObservation.localTime,
+        }
+      : {
+          provider: 'MVP_SYNTHETIC_RULES',
+        };
+
+    return {
+      place,
+      snapshot,
+      weatherObservation,
+    };
+  }
+
   private placeNotFound(placeId: string): AppException {
     return new AppException({
       code: ERROR_CODES.PLACE_NOT_FOUND,
@@ -60,5 +133,23 @@ export class PlacesService {
       },
       status: HttpStatus.NOT_FOUND,
     });
+  }
+
+  private resolvePlaceType(place: ExternalPlaceDetail): RegistryInfo['placeType'] {
+    const types = new Set(place.types);
+
+    if (types.has('train_station') || types.has('subway_station') || types.has('transit_station')) {
+      return 'STATION';
+    }
+
+    if (types.has('tourist_attraction') || types.has('plaza')) {
+      return 'PLAZA';
+    }
+
+    if (types.has('intersection')) {
+      return 'CROSSING';
+    }
+
+    return 'SQUARE';
   }
 }

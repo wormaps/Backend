@@ -15,9 +15,13 @@
 
 - `GET /api/health`
 - `GET /api/places`
+- `GET /api/places/search`
 - `GET /api/places/{placeId}`
 - `GET /api/places/{placeId}/package`
 - `GET /api/places/{placeId}/snapshot`
+- `GET /api/places/google/{googlePlaceId}`
+- `GET /api/places/google/{googlePlaceId}/package`
+- `GET /api/places/google/{googlePlaceId}/snapshot`
 
 ## Swagger 반영 예정 규칙
 
@@ -89,6 +93,12 @@ Swagger를 붙일 때 아래 기준을 그대로 유지해야 합니다.
 - `INVALID_PLACE_ID`
 - `INVALID_TIME_OF_DAY`
 - `INVALID_WEATHER`
+- `INVALID_QUERY`
+- `INVALID_LIMIT`
+- `INVALID_DATE`
+- `EXTERNAL_API_NOT_CONFIGURED`
+- `EXTERNAL_API_REQUEST_FAILED`
+- `GOOGLE_PLACE_NOT_FOUND`
 - `INTERNAL_SERVER_ERROR`
 
 ## Swagger 적용 작업 순서
@@ -106,3 +116,6 @@ Swagger를 붙일 때 아래 기준을 그대로 유지해야 합니다.
 - `meta.requestId`, `meta.timestamp`는 문서에서 optional로 두면 안 됩니다.
 - 에러 응답의 `error.detail` 구조는 상황별로 달라도 되지만, 필드 자체는 항상 존재해야 합니다.
 - 프론트 전달 기준 문서는 `api.md`를 원본으로 보고, Swagger는 이를 자동화한 결과물이어야 합니다.
+- Google Places New는 `X-Goog-Api-Key`, `X-Goog-FieldMask` 헤더를 사용한다는 점을 Swagger 예시에 반영해야 합니다.
+- Overpass API는 `POST https://overpass-api.de/api/interpreter` 형태라는 점을 구현 노트에 남겨야 합니다.
+- TomTom Flow Segment는 현재 코드에 클라이언트만 있으며, 기본 엔드포인트에는 아직 노출하지 않았습니다.

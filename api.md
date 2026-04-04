@@ -14,6 +14,11 @@ BE 스택은 다음 기준으로 개발합니다.
   - 선택 사항입니다. Place Package / Scene Snapshot 캐싱 최적화 지점으로 고려합니다.
 - AWS
   - 추후 배포/호스팅 대상입니다.
+- 외부 API
+  - Google Places API: 장소 검색 및 외부 장소 상세 조회
+  - Overpass API: 도로/건물/보행로/POI 구조 수집
+  - Open-Meteo Historical Weather API: 날짜/시간대 기반 날씨 관측값 조회
+  - TomTom Traffic API: 현재는 클라이언트만 준비, MVP 기본 흐름에는 미연동
 
 </aside>
 
@@ -47,9 +52,13 @@ Base API Prefix
 
 예시
 GET /api/places
+GET /api/places/search?q=gangnam station
 GET /api/places/{placeId}
 GET /api/places/{placeId}/package
 GET /api/places/{placeId}/snapshot
+GET /api/places/google/{googlePlaceId}
+GET /api/places/google/{googlePlaceId}/package
+GET /api/places/google/{googlePlaceId}/snapshot
 ```
 
 ## Response 구조
@@ -130,6 +139,12 @@ GET /api/places/{placeId}/snapshot
 | INVALID_PLACE_ID | 400 | placeId 형식이 잘못됨 |
 | INVALID_TIME_OF_DAY | 400 | 지원하지 않는 시간대 값 |
 | INVALID_WEATHER | 400 | 지원하지 않는 날씨 값 |
+| INVALID_QUERY | 400 | 필수 검색어 누락 |
+| INVALID_LIMIT | 400 | limit 범위 또는 형식 오류 |
+| INVALID_DATE | 400 | date 형식 오류 |
+| EXTERNAL_API_NOT_CONFIGURED | 500 | 외부 API 환경 변수 미설정 |
+| EXTERNAL_API_REQUEST_FAILED | 502 | 외부 API 호출 실패 |
+| GOOGLE_PLACE_NOT_FOUND | 404 | Google Places 상세 결과를 찾을 수 없음 |
 
 # Domain Schemas
 
@@ -252,6 +267,29 @@ GET /api/places/{placeId}/snapshot
 - `source: MVP_SYNTHETIC_RULES`
 - 추후 외부 API 연동 시 `source` 값과 `detail` 스키마 확장 예정
 
+## ExternalPlaceDetail
+
+```json
+{
+  "provider": "GOOGLE_PLACES",
+  "placeId": "ChIJ...",
+  "displayName": "Gangnam Station",
+  "formattedAddress": "Gangnam-daero, Seoul, South Korea",
+  "location": {
+    "lat": 37.4979,
+    "lng": 127.0276
+  },
+  "primaryType": "subway_station",
+  "types": ["subway_station", "transit_station"],
+  "googleMapsUri": "https://maps.google.com/?cid=...",
+  "viewport": {
+    "northEast": { "lat": 37.4985, "lng": 127.0285 },
+    "southWest": { "lat": 37.4972, "lng": 127.0267 }
+  },
+  "utcOffsetMinutes": 540
+}
+```
+
 # API
 
 ## 1. 헬스 체크
@@ -355,6 +393,138 @@ FE 렌더링에 필요한 구조 데이터를 조회합니다.
   }
 }
 ```
+
+## 6. 외부 장소 검색
+
+### `GET /api/places/search`
+
+Google Places Text Search 기반 장소 검색 API 입니다.
+
+### Query Parameter
+
+| Field | Type | Required | 설명 |
+| --- | --- | --- | --- |
+| q | string | Y | 검색어 |
+| limit | number | N | 1~10, 기본값 5 |
+
+### Response
+
+`data`는 `ExternalPlaceSearchItem[]` 입니다.
+
+## 7. 외부 장소 상세 조회
+
+### `GET /api/places/google/{googlePlaceId}`
+
+Google Place ID를 기준으로 상세 정보를 조회합니다.
+
+### Response
+
+`data`는 `ExternalPlaceDetail` 입니다.
+
+## 8. 외부 Place Package 조회
+
+### `GET /api/places/google/{googlePlaceId}/package`
+
+Google Places로 좌표/viewport를 얻고, Overpass API로 구조 데이터를 수집합니다.
+
+### Response
+
+```json
+{
+  "place": {
+    "provider": "GOOGLE_PLACES",
+    "placeId": "ChIJ..."
+  },
+  "package": {
+    "placeId": "ChIJ...",
+    "version": "2026.04-external",
+    "generatedAt": "2026-04-04T08:40:21Z",
+    "camera": {
+      "topView": { "x": 0, "y": 180, "z": 140 },
+      "walkViewStart": { "x": 0, "y": 1.7, "z": 12 }
+    },
+    "bounds": {
+      "northEast": { "lat": 37.4985, "lng": 127.0285 },
+      "southWest": { "lat": 37.4972, "lng": 127.0267 }
+    },
+    "buildings": [],
+    "roads": [],
+    "walkways": [],
+    "pois": [],
+    "landmarks": []
+  }
+}
+```
+
+## 9. 외부 Scene Snapshot 조회
+
+### `GET /api/places/google/{googlePlaceId}/snapshot`
+
+외부 장소 기준 Scene Snapshot을 생성합니다.
+
+### Query Parameter
+
+| Field | Type | Required | 설명 |
+| --- | --- | --- | --- |
+| timeOfDay | string | N | `DAY`, `EVENING`, `NIGHT` |
+| weather | string | N | 수동 날씨 override. 미입력 시 Open-Meteo 조회 |
+| date | string | N | `YYYY-MM-DD`, 미입력 시 오늘 날짜(UTC) |
+
+### 동작 규칙
+
+- `weather`가 있으면 그 값을 사용합니다.
+- `weather`가 없으면 Open-Meteo historical 데이터로 관측값을 조회해 날씨를 추론합니다.
+- 현재 교통량은 TomTom을 기본 흐름에 반영하지 않습니다.
+
+### Response
+
+```json
+{
+  "place": {
+    "provider": "GOOGLE_PLACES",
+    "placeId": "ChIJ..."
+  },
+  "snapshot": {
+    "placeId": "ChIJ...",
+    "timeOfDay": "NIGHT",
+    "weather": "SNOW",
+    "generatedAt": "2026-04-04T08:40:21Z",
+    "source": "MVP_SYNTHETIC_RULES",
+    "sourceDetail": {
+      "provider": "OPEN_METEO_HISTORICAL",
+      "date": "2026-04-04",
+      "localTime": "2026-04-04T22:00"
+    }
+  },
+  "weatherObservation": {
+    "date": "2026-04-04",
+    "localTime": "2026-04-04T22:00",
+    "temperatureCelsius": -2,
+    "precipitationMm": 1,
+    "rainMm": 0,
+    "snowfallCm": 1.4,
+    "cloudCoverPercent": 98,
+    "resolvedWeather": "SNOW",
+    "source": "OPEN_METEO_HISTORICAL"
+  }
+}
+```
+
+# 환경 변수
+
+현재 구현에서 실제로 사용하는 값은 다음입니다.
+
+| Env | Required | 설명 |
+| --- | --- | --- |
+| GOOGLE_API_KEY | Y | Google Places API 호출 |
+| TOMTOM_API_KEY | N | TomTom Traffic API 클라이언트용 |
+
+아래 값은 현재 코드에서 사용하지 않습니다.
+
+| Env | 설명 |
+| --- | --- |
+| GOOGLE_OAUTH_CLIENT | 현재 미사용 |
+| GOOGLE_CLIENT_SECRET_KEY | 현재 미사용 |
 
 # 향후 확장 포인트
 

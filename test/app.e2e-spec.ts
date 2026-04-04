@@ -51,6 +51,10 @@ describe('AppModule integration', () => {
       AppException,
     );
   });
+
+  it('should validate external search query requirement', async () => {
+    await expect(placesController.searchPlaces(undefined, undefined)).rejects.toThrow(AppException);
+  });
 });
 
 describe('HTTP envelope integration', () => {

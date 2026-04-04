@@ -111,6 +111,11 @@ export interface SceneSnapshot {
     pedestrianAnimationRate: number;
     vehicleAnimationRate: number;
   };
+  sourceDetail?: {
+    provider: 'MVP_SYNTHETIC_RULES' | 'OPEN_METEO_HISTORICAL';
+    date?: string;
+    localTime?: string;
+  };
 }
 
 export interface PlaceDetail {

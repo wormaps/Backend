@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppException } from '../common/errors/app.exception';
+import { GooglePlacesClient } from './google-places.client';
+import { OpenMeteoClient } from './open-meteo.client';
+import { OverpassClient } from './overpass.client';
 import { PlacesService } from './places.service';
 import { SnapshotBuilderService } from './snapshot-builder.service';
 
@@ -8,7 +11,29 @@ describe('PlacesService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PlacesService, SnapshotBuilderService],
+      providers: [
+        PlacesService,
+        SnapshotBuilderService,
+        {
+          provide: GooglePlacesClient,
+          useValue: {
+            searchText: jest.fn(),
+            getPlaceDetail: jest.fn(),
+          },
+        },
+        {
+          provide: OverpassClient,
+          useValue: {
+            buildPlacePackage: jest.fn(),
+          },
+        },
+        {
+          provide: OpenMeteoClient,
+          useValue: {
+            getHistoricalObservation: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<PlacesService>(PlacesService);
