@@ -12,10 +12,12 @@ import {
 } from './../src/common/http/api-response.interceptor';
 import { HealthController } from './../src/health/health.controller';
 import { PlacesController } from './../src/places/places.controller';
+import { SceneController } from './../src/scene/scene.controller';
 
 describe('AppModule integration', () => {
   let healthController: HealthController;
   let placesController: PlacesController;
+  let sceneController: SceneController;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,6 +26,7 @@ describe('AppModule integration', () => {
 
     healthController = moduleFixture.get<HealthController>(HealthController);
     placesController = moduleFixture.get<PlacesController>(PlacesController);
+    sceneController = moduleFixture.get<SceneController>(SceneController);
   });
 
   it('should expose health data', () => {
@@ -63,6 +66,10 @@ describe('AppModule integration', () => {
     await expect(
       placesController.searchPlaces(undefined, undefined),
     ).rejects.toThrow(AppException);
+  });
+
+  it('should expose scene controller', () => {
+    expect(sceneController).toBeDefined();
   });
 });
 

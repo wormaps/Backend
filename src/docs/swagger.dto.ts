@@ -318,6 +318,274 @@ export class SceneSnapshotDto {
   sourceDetail?: SourceDetailDto;
 }
 
+export class CreateSceneRequestDto {
+  @ApiProperty({ example: 'Seoul City Hall' })
+  query!: string;
+
+  @ApiProperty({
+    required: false,
+    enum: ['SMALL', 'MEDIUM', 'LARGE'],
+    example: 'MEDIUM',
+  })
+  scale?: string;
+}
+
+export class SceneEntityDto {
+  @ApiProperty({ example: 'scene-seoul-city-hall' })
+  sceneId!: string;
+
+  @ApiProperty({ example: 'ChIJ123456789' })
+  placeId!: string;
+
+  @ApiProperty({ example: 'Seoul City Hall' })
+  name!: string;
+
+  @ApiProperty({ example: 37.5665 })
+  centerLat!: number;
+
+  @ApiProperty({ example: 126.978 })
+  centerLng!: number;
+
+  @ApiProperty({ example: 600 })
+  radiusM!: number;
+
+  @ApiProperty({ enum: ['READY'] })
+  status!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/meta' })
+  metaUrl!: string;
+
+  @ApiProperty({ example: '2026-04-04T08:40:21Z' })
+  createdAt!: string;
+
+  @ApiProperty({ example: '2026-04-04T08:40:21Z' })
+  updatedAt!: string;
+}
+
+export class SceneRoadMetaDto {
+  @ApiProperty({ example: 'road-123' })
+  objectId!: string;
+
+  @ApiProperty({ example: 'way_123' })
+  osmWayId!: string;
+
+  @ApiProperty({ example: 'Teheran-ro' })
+  name!: string;
+
+  @ApiProperty({ example: 4 })
+  laneCount!: number;
+
+  @ApiProperty({ enum: ['ONE_WAY', 'TWO_WAY'] })
+  direction!: string;
+
+  @ApiProperty({ type: [CoordinateDto] })
+  path!: CoordinateDto[];
+
+  @ApiProperty({ type: CoordinateDto })
+  center!: CoordinateDto;
+}
+
+export class SceneBuildingMetaDto {
+  @ApiProperty({ example: 'building-456' })
+  objectId!: string;
+
+  @ApiProperty({ example: 'way_456' })
+  osmWayId!: string;
+
+  @ApiProperty({ required: false, example: 'City Hall' })
+  name?: string;
+
+  @ApiProperty({ example: 40 })
+  heightMeters!: number;
+
+  @ApiProperty({ type: [CoordinateDto] })
+  footprint!: CoordinateDto[];
+
+  @ApiProperty({ enum: ['COMMERCIAL', 'TRANSIT', 'MIXED', 'PUBLIC'] })
+  usage!: string;
+}
+
+export class SceneWalkwayMetaDto {
+  @ApiProperty({ example: 'walkway-11' })
+  objectId!: string;
+
+  @ApiProperty({ example: 'way_11' })
+  osmWayId!: string;
+
+  @ApiProperty({ example: 'Main Walkway' })
+  name!: string;
+
+  @ApiProperty({ type: [CoordinateDto] })
+  path!: CoordinateDto[];
+
+  @ApiProperty({ example: 4 })
+  widthMeters!: number;
+}
+
+export class ScenePoiMetaDto {
+  @ApiProperty({ example: 'poi-1' })
+  objectId!: string;
+
+  @ApiProperty({ required: false, example: 'google-place-id' })
+  placeId?: string;
+
+  @ApiProperty({ example: 'Cafe Example' })
+  name!: string;
+
+  @ApiProperty({ enum: ['LANDMARK', 'ENTRANCE', 'SIGNAL', 'SHOP'] })
+  type!: string;
+
+  @ApiProperty({ type: CoordinateDto })
+  location!: CoordinateDto;
+
+  @ApiProperty({ required: false, example: 'shop' })
+  category?: string;
+
+  @ApiProperty({ example: false })
+  isLandmark!: boolean;
+}
+
+export class SceneMetaBoundsDto {
+  @ApiProperty({ example: 600 })
+  radiusM!: number;
+
+  @ApiProperty({ type: CoordinateDto })
+  northEast!: CoordinateDto;
+
+  @ApiProperty({ type: CoordinateDto })
+  southWest!: CoordinateDto;
+}
+
+export class SceneMetaStatsDto {
+  @ApiProperty({ example: 24 })
+  buildingCount!: number;
+
+  @ApiProperty({ example: 8 })
+  roadCount!: number;
+
+  @ApiProperty({ example: 5 })
+  walkwayCount!: number;
+
+  @ApiProperty({ example: 18 })
+  poiCount!: number;
+}
+
+export class SceneMetaDto {
+  @ApiProperty({ example: 'scene-seoul-city-hall' })
+  sceneId!: string;
+
+  @ApiProperty({ example: 'google-place-id' })
+  placeId!: string;
+
+  @ApiProperty({ example: 'Seoul City Hall' })
+  name!: string;
+
+  @ApiProperty({ example: '2026-04-04T08:40:21Z' })
+  generatedAt!: string;
+
+  @ApiProperty({ type: CoordinateDto })
+  origin!: CoordinateDto;
+
+  @ApiProperty({ type: CameraDto })
+  camera!: CameraDto;
+
+  @ApiProperty({ type: SceneMetaBoundsDto })
+  bounds!: SceneMetaBoundsDto;
+
+  @ApiProperty({ type: SceneMetaStatsDto })
+  stats!: SceneMetaStatsDto;
+
+  @ApiProperty({ type: [SceneRoadMetaDto] })
+  roads!: SceneRoadMetaDto[];
+
+  @ApiProperty({ type: [SceneBuildingMetaDto] })
+  buildings!: SceneBuildingMetaDto[];
+
+  @ApiProperty({ type: [SceneWalkwayMetaDto] })
+  walkways!: SceneWalkwayMetaDto[];
+
+  @ApiProperty({ type: [ScenePoiMetaDto] })
+  pois!: ScenePoiMetaDto[];
+}
+
+export class BootstrapEndpointsDto {
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/traffic' })
+  traffic!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/weather' })
+  weather!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/places' })
+  places!: string;
+}
+
+export class BootstrapResponseDto {
+  @ApiProperty({ example: 'scene-seoul-city-hall' })
+  sceneId!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/meta' })
+  metaUrl!: string;
+
+  @ApiProperty({ type: BootstrapEndpointsDto })
+  liveEndpoints!: BootstrapEndpointsDto;
+}
+
+export class TrafficSegmentDto {
+  @ApiProperty({ example: 'road-1' })
+  objectId!: string;
+
+  @ApiProperty({ example: 11 })
+  currentSpeed!: number;
+
+  @ApiProperty({ example: 17 })
+  freeFlowSpeed!: number;
+
+  @ApiProperty({ example: 0.35 })
+  congestionScore!: number;
+
+  @ApiProperty({ enum: ['free', 'moderate', 'slow', 'jammed'] })
+  status!: string;
+
+  @ApiProperty({ nullable: true, example: 0.92 })
+  confidence!: number | null;
+
+  @ApiProperty({ example: false })
+  roadClosure!: boolean;
+}
+
+export class SceneTrafficResponseDto {
+  @ApiProperty({ example: '2026-04-04T13:00:00Z' })
+  updatedAt!: string;
+
+  @ApiProperty({ type: [TrafficSegmentDto] })
+  segments!: TrafficSegmentDto[];
+}
+
+export class SceneWeatherResponseDto {
+  @ApiProperty({ example: '2026-04-04T13:00:00Z' })
+  updatedAt!: string;
+
+  @ApiProperty({ nullable: true, example: 3 })
+  weatherCode!: number | null;
+
+  @ApiProperty({ nullable: true, example: 13.2 })
+  temperature!: number | null;
+
+  @ApiProperty({ example: 'cloudy' })
+  preset!: string;
+
+  @ApiProperty({ enum: ['OPEN_METEO_HISTORICAL'] })
+  source!: string;
+
+  @ApiProperty({ nullable: true, example: '2026-04-04T12:00' })
+  observedAt!: string | null;
+}
+
+export class ScenePlacesResponseDto {
+  @ApiProperty({ type: [ScenePoiMetaDto] })
+  pois!: ScenePoiMetaDto[];
+}
+
 export class HealthDataDto {
   @ApiProperty({ example: 'wormapb' })
   service!: string;

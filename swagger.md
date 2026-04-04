@@ -24,6 +24,13 @@ http://localhost:3000/docs-json
 - `GET /api/places/google/{googlePlaceId}`
 - `GET /api/places/google/{googlePlaceId}/package`
 - `GET /api/places/google/{googlePlaceId}/snapshot`
+- `POST /api/scenes`
+- `GET /api/scenes/{sceneId}`
+- `GET /api/scenes/{sceneId}/meta`
+- `GET /api/scenes/{sceneId}/bootstrap`
+- `GET /api/scenes/{sceneId}/traffic`
+- `GET /api/scenes/{sceneId}/weather`
+- `GET /api/scenes/{sceneId}/places`
 
 ## 문서 원칙
 
@@ -52,4 +59,4 @@ bun run start:dev
 
 - 현재 Swagger는 응답 스키마와 주요 query/path parameter를 문서화합니다.
 - 외부 API 헤더 자체는 서버 내부 구현이므로 Swagger 요청 파라미터로 노출하지 않습니다.
-- TomTom Flow Segment는 아직 공개 엔드포인트로 노출하지 않았고, 내부 클라이언트만 존재합니다.
+- Scene traffic/weather/places 엔드포인트는 `scene-meta.json` 기반 FE 바인딩용 계약으로 추가되었습니다.

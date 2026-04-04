@@ -17,5 +17,11 @@ import { TomTomTrafficClient } from './tomtom-traffic.client';
     OpenMeteoClient,
     TomTomTrafficClient,
   ],
+  exports: [
+    GooglePlacesClient,
+    OverpassClient,
+    OpenMeteoClient,
+    TomTomTrafficClient,
+  ],
 })
 export class PlacesModule {}

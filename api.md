@@ -59,6 +59,13 @@ GET /api/places/{placeId}/snapshot
 GET /api/places/google/{googlePlaceId}
 GET /api/places/google/{googlePlaceId}/package
 GET /api/places/google/{googlePlaceId}/snapshot
+POST /api/scenes
+GET /api/scenes/{sceneId}
+GET /api/scenes/{sceneId}/meta
+GET /api/scenes/{sceneId}/bootstrap
+GET /api/scenes/{sceneId}/traffic
+GET /api/scenes/{sceneId}/weather
+GET /api/scenes/{sceneId}/places
 ```
 
 ## Response 구조
@@ -142,9 +149,22 @@ GET /api/places/google/{googlePlaceId}/snapshot
 | INVALID_QUERY | 400 | 필수 검색어 누락 |
 | INVALID_LIMIT | 400 | limit 범위 또는 형식 오류 |
 | INVALID_DATE | 400 | date 형식 오류 |
+| INVALID_SCENE_SCALE | 400 | 지원하지 않는 scene scale 값 |
 | EXTERNAL_API_NOT_CONFIGURED | 500 | 외부 API 환경 변수 미설정 |
 | EXTERNAL_API_REQUEST_FAILED | 502 | 외부 API 호출 실패 |
 | GOOGLE_PLACE_NOT_FOUND | 404 | Google Places 상세 결과를 찾을 수 없음 |
+| SCENE_NOT_FOUND | 404 | sceneId에 해당하는 Scene을 찾을 수 없음 |
+
+# Scene 캐시 메모
+
+- `GET /api/scenes/{sceneId}/traffic`
+  - 현재 구현은 인메모리 TTL 캐시를 사용합니다.
+  - TTL: 약 2분
+- `GET /api/scenes/{sceneId}/weather`
+  - 현재 구현은 인메모리 TTL 캐시를 사용합니다.
+  - TTL: 약 10분
+- Redis는 아직 붙지 않았습니다.
+  - 추후 `TtlCacheService` 대체 방식으로 이전할 수 있도록 구조를 분리했습니다.
 
 # Domain Schemas
 
