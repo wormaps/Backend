@@ -4,9 +4,12 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { map, Observable } from 'rxjs';
-import { ensureRequestContext, REQUEST_ID_HEADER } from './request-context.util';
+import {
+  ensureRequestContext,
+  REQUEST_ID_HEADER,
+} from './request-context.util';
 
 interface SuccessEnvelope<T> {
   ok: true;
@@ -25,12 +28,16 @@ export interface ResponsePayload<T> {
 }
 
 @Injectable()
-export class ApiResponseInterceptor<T>
-  implements NestInterceptor<ResponsePayload<T>, SuccessEnvelope<T>>
-{
-  intercept(context: ExecutionContext, next: CallHandler): Observable<SuccessEnvelope<T>> {
+export class ApiResponseInterceptor<T> implements NestInterceptor<
+  ResponsePayload<T>,
+  SuccessEnvelope<T>
+> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler<ResponsePayload<T>>,
+  ): Observable<SuccessEnvelope<T>> {
     const http = context.switchToHttp();
-    const request = http.getRequest();
+    const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();
     const requestContext = ensureRequestContext(request);
 

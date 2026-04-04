@@ -328,20 +328,21 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
   },
 };
 
-export const PLACE_DETAILS_FIXTURES: PlaceDetail[] = PLACE_REGISTRY_FIXTURES.map((registry) => {
-  const placePackage = PLACE_PACKAGE_FIXTURES[registry.id];
+export const PLACE_DETAILS_FIXTURES: PlaceDetail[] =
+  PLACE_REGISTRY_FIXTURES.map((registry) => {
+    const placePackage = PLACE_PACKAGE_FIXTURES[registry.id];
 
-  return {
-    registry,
-    packageSummary: {
-      version: placePackage.version,
-      generatedAt: placePackage.generatedAt,
-      buildingCount: placePackage.buildings.length,
-      roadCount: placePackage.roads.length,
-      walkwayCount: placePackage.walkways.length,
-      poiCount: placePackage.pois.length + placePackage.landmarks.length,
-    },
-    supportedTimeOfDay: ['DAY', 'EVENING', 'NIGHT'],
-    supportedWeather: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'],
-  };
-});
+    return {
+      registry,
+      packageSummary: {
+        version: placePackage.version,
+        generatedAt: placePackage.generatedAt,
+        buildingCount: placePackage.buildings.length,
+        roadCount: placePackage.roads.length,
+        walkwayCount: placePackage.walkways.length,
+        poiCount: placePackage.pois.length + placePackage.landmarks.length,
+      },
+      supportedTimeOfDay: ['DAY', 'EVENING', 'NIGHT'],
+      supportedWeather: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'],
+    };
+  });

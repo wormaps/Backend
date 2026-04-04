@@ -4,7 +4,10 @@ import { AppException } from '../common/errors/app.exception';
 import { fetchJson } from '../common/http/fetch-json';
 import type { FetchLike } from '../common/http/fetch-json';
 import { Coordinate } from './place.types';
-import { ExternalPlaceDetail, ExternalPlaceSearchItem } from './external-place.types';
+import {
+  ExternalPlaceDetail,
+  ExternalPlaceSearchItem,
+} from './external-place.types';
 
 interface GoogleTextSearchResponse {
   places?: GooglePlace[];
@@ -34,7 +37,10 @@ export class GooglePlacesClient {
     return this;
   }
 
-  async searchText(query: string, limit: number): Promise<ExternalPlaceSearchItem[]> {
+  async searchText(
+    query: string,
+    limit: number,
+  ): Promise<ExternalPlaceSearchItem[]> {
     const apiKey = this.getApiKey();
     const response = await fetchJson<GoogleTextSearchResponse>(
       {
@@ -99,12 +105,20 @@ export class GooglePlacesClient {
       viewport: response.viewport
         ? {
             northEast: {
-              lat: response.viewport.high?.latitude ?? response.location.lat + 0.002,
-              lng: response.viewport.high?.longitude ?? response.location.lng + 0.002,
+              lat:
+                response.viewport.high?.latitude ??
+                response.location.lat + 0.002,
+              lng:
+                response.viewport.high?.longitude ??
+                response.location.lng + 0.002,
             },
             southWest: {
-              lat: response.viewport.low?.latitude ?? response.location.lat - 0.002,
-              lng: response.viewport.low?.longitude ?? response.location.lng - 0.002,
+              lat:
+                response.viewport.low?.latitude ??
+                response.location.lat - 0.002,
+              lng:
+                response.viewport.low?.longitude ??
+                response.location.lng - 0.002,
             },
           }
         : null,

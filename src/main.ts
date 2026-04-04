@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ApiExceptionFilter } from './common/http/api-exception.filter';
 import { ApiResponseInterceptor } from './common/http/api-response.interceptor';
+import { setupSwagger } from './docs/swagger.setup';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -9,10 +10,11 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalInterceptors(new ApiResponseInterceptor());
   app.useGlobalFilters(new ApiExceptionFilter());
+  setupSwagger(app);
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
 
   Logger.log(`WorMap BE listening on port ${port}`, 'Bootstrap');
 }
-bootstrap();
+void bootstrap();

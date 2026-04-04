@@ -18,7 +18,7 @@ BE 스택은 다음 기준으로 개발합니다.
   - Google Places API: 장소 검색 및 외부 장소 상세 조회
   - Overpass API: 도로/건물/보행로/POI 구조 수집
   - Open-Meteo Historical Weather API: 날짜/시간대 기반 날씨 관측값 조회
-  - TomTom Traffic API: 현재는 클라이언트만 준비, MVP 기본 흐름에는 미연동
+  - TomTom Traffic API: 한국 좌표는 `kr-api.tomtom.com` 사용
 
 </aside>
 
@@ -525,6 +525,12 @@ Google Places로 좌표/viewport를 얻고, Overpass API로 구조 데이터를 
 | --- | --- |
 | GOOGLE_OAUTH_CLIENT | 현재 미사용 |
 | GOOGLE_CLIENT_SECRET_KEY | 현재 미사용 |
+
+## TomTom 메모
+
+- `point`는 `latitude,longitude` 순서를 사용합니다.
+- 한국 좌표는 `https://kr-api.tomtom.com`를 사용합니다.
+- 현재 코드 기준 기본 zoom은 `14` 입니다.
 
 # 향후 확장 포인트
 

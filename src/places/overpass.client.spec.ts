@@ -5,37 +5,43 @@ describe('OverpassClient', () => {
   it('should convert overpass response to place package', async () => {
     const fetcher = jest.fn().mockResolvedValue({
       ok: true,
-      text: async () =>
-        JSON.stringify({
-          elements: [
-            {
-              type: 'way',
-              id: 1,
-              tags: { building: 'yes', name: 'Tower', 'building:levels': '10' },
-              geometry: [
-                { lat: 37.1, lon: 127.1 },
-                { lat: 37.2, lon: 127.1 },
-                { lat: 37.2, lon: 127.2 },
-              ],
-            },
-            {
-              type: 'way',
-              id: 2,
-              tags: { highway: 'primary', name: 'Main Road', lanes: '4' },
-              geometry: [
-                { lat: 37.1, lon: 127.1 },
-                { lat: 37.2, lon: 127.2 },
-              ],
-            },
-            {
-              type: 'node',
-              id: 3,
-              lat: 37.15,
-              lon: 127.15,
-              tags: { tourism: 'attraction', name: 'Landmark' },
-            },
-          ],
-        }),
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            elements: [
+              {
+                type: 'way',
+                id: 1,
+                tags: {
+                  building: 'yes',
+                  name: 'Tower',
+                  'building:levels': '10',
+                },
+                geometry: [
+                  { lat: 37.1, lon: 127.1 },
+                  { lat: 37.2, lon: 127.1 },
+                  { lat: 37.2, lon: 127.2 },
+                ],
+              },
+              {
+                type: 'way',
+                id: 2,
+                tags: { highway: 'primary', name: 'Main Road', lanes: '4' },
+                geometry: [
+                  { lat: 37.1, lon: 127.1 },
+                  { lat: 37.2, lon: 127.2 },
+                ],
+              },
+              {
+                type: 'node',
+                id: 3,
+                lat: 37.15,
+                lon: 127.15,
+                tags: { tourism: 'attraction', name: 'Landmark' },
+              },
+            ],
+          }),
+        ),
     });
     const client = new OverpassClient().withFetcher(fetcher as typeof fetch);
     const place: ExternalPlaceDetail = {

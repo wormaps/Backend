@@ -14,23 +14,27 @@ describe('GooglePlacesClient', () => {
   it('should map text search results', async () => {
     const fetcher = jest.fn().mockResolvedValue({
       ok: true,
-      text: async () =>
-        JSON.stringify({
-          places: [
-            {
-              id: 'abc123',
-              displayName: { text: 'Gangnam Station' },
-              formattedAddress: 'Gangnam-daero, Seoul',
-              location: { lat: 37.4979, lng: 127.0276 },
-              primaryType: 'subway_station',
-              types: ['subway_station', 'transit_station'],
-              googleMapsUri: 'https://maps.google.com/?cid=1',
-            },
-          ],
-        }),
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            places: [
+              {
+                id: 'abc123',
+                displayName: { text: 'Gangnam Station' },
+                formattedAddress: 'Gangnam-daero, Seoul',
+                location: { lat: 37.4979, lng: 127.0276 },
+                primaryType: 'subway_station',
+                types: ['subway_station', 'transit_station'],
+                googleMapsUri: 'https://maps.google.com/?cid=1',
+              },
+            ],
+          }),
+        ),
     });
 
-    const client = new GooglePlacesClient().withFetcher(fetcher as typeof fetch);
+    const client = new GooglePlacesClient().withFetcher(
+      fetcher as typeof fetch,
+    );
     const result = await client.searchText('gangnam station', 5);
 
     expect(result).toEqual([

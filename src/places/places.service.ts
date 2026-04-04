@@ -39,7 +39,9 @@ export class PlacesService {
   }
 
   getPlaceDetail(placeId: string): PlaceDetail {
-    const placeDetail = PLACE_DETAILS_FIXTURES.find((place) => place.registry.id === placeId);
+    const placeDetail = PLACE_DETAILS_FIXTURES.find(
+      (place) => place.registry.id === placeId,
+    );
     if (!placeDetail) {
       throw this.placeNotFound(placeId);
     }
@@ -56,7 +58,11 @@ export class PlacesService {
     return placePackage;
   }
 
-  getSceneSnapshot(placeId: string, timeOfDay: TimeOfDay, weather: WeatherType): SceneSnapshot {
+  getSceneSnapshot(
+    placeId: string,
+    timeOfDay: TimeOfDay,
+    weather: WeatherType,
+  ): SceneSnapshot {
     const place = PLACE_REGISTRY_FIXTURES.find((entry) => entry.id === placeId);
     if (!place) {
       throw this.placeNotFound(placeId);
@@ -65,7 +71,10 @@ export class PlacesService {
     return this.snapshotBuilderService.build(place, timeOfDay, weather);
   }
 
-  searchExternalPlaces(query: string, limit: number): Promise<ExternalPlaceSearchItem[]> {
+  searchExternalPlaces(
+    query: string,
+    limit: number,
+  ): Promise<ExternalPlaceSearchItem[]> {
     return this.googlePlacesClient.searchText(query, limit);
   }
 
@@ -73,7 +82,9 @@ export class PlacesService {
     return this.googlePlacesClient.getPlaceDetail(googlePlaceId);
   }
 
-  async getExternalPlacePackage(googlePlaceId: string): Promise<ExternalPlacePackageResponse> {
+  async getExternalPlacePackage(
+    googlePlaceId: string,
+  ): Promise<ExternalPlacePackageResponse> {
     const place = await this.googlePlacesClient.getPlaceDetail(googlePlaceId);
     const placePackage = await this.overpassClient.buildPlacePackage(place);
 
@@ -92,10 +103,15 @@ export class PlacesService {
     const place = await this.googlePlacesClient.getPlaceDetail(googlePlaceId);
     const weatherObservation =
       weather === undefined
-        ? await this.openMeteoClient.getHistoricalObservation(place, date, timeOfDay)
+        ? await this.openMeteoClient.getHistoricalObservation(
+            place,
+            date,
+            timeOfDay,
+          )
         : null;
 
-    const resolvedWeather = weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
+    const resolvedWeather =
+      weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
     const registryLikePlace: RegistryInfo = {
       id: place.placeId,
       slug: place.placeId,
@@ -106,7 +122,11 @@ export class PlacesService {
       placeType: this.resolvePlaceType(place),
       tags: place.types,
     };
-    const snapshot = this.snapshotBuilderService.build(registryLikePlace, timeOfDay, resolvedWeather);
+    const snapshot = this.snapshotBuilderService.build(
+      registryLikePlace,
+      timeOfDay,
+      resolvedWeather,
+    );
     snapshot.sourceDetail = weatherObservation
       ? {
           provider: weatherObservation.source,
@@ -135,10 +155,16 @@ export class PlacesService {
     });
   }
 
-  private resolvePlaceType(place: ExternalPlaceDetail): RegistryInfo['placeType'] {
+  private resolvePlaceType(
+    place: ExternalPlaceDetail,
+  ): RegistryInfo['placeType'] {
     const types = new Set(place.types);
 
-    if (types.has('train_station') || types.has('subway_station') || types.has('transit_station')) {
+    if (
+      types.has('train_station') ||
+      types.has('subway_station') ||
+      types.has('transit_station')
+    ) {
       return 'STATION';
     }
 

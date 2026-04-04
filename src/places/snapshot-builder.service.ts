@@ -8,20 +8,27 @@ import {
   WeatherType,
 } from './place.types';
 
-const PLACE_TYPE_BASELINES: Record<PlaceType, { crowd: number; vehicles: number }> = {
+const PLACE_TYPE_BASELINES: Record<
+  PlaceType,
+  { crowd: number; vehicles: number }
+> = {
   CROSSING: { crowd: 160, vehicles: 70 },
   SQUARE: { crowd: 140, vehicles: 55 },
   STATION: { crowd: 180, vehicles: 85 },
   PLAZA: { crowd: 100, vehicles: 40 },
 };
 
-const TIME_MULTIPLIERS: Record<TimeOfDay, { crowd: number; vehicles: number }> = {
-  DAY: { crowd: 1, vehicles: 1 },
-  EVENING: { crowd: 1.2, vehicles: 1.1 },
-  NIGHT: { crowd: 0.75, vehicles: 0.55 },
-};
+const TIME_MULTIPLIERS: Record<TimeOfDay, { crowd: number; vehicles: number }> =
+  {
+    DAY: { crowd: 1, vehicles: 1 },
+    EVENING: { crowd: 1.2, vehicles: 1.1 },
+    NIGHT: { crowd: 0.75, vehicles: 0.55 },
+  };
 
-const WEATHER_MULTIPLIERS: Record<WeatherType, { crowd: number; vehicles: number }> = {
+const WEATHER_MULTIPLIERS: Record<
+  WeatherType,
+  { crowd: number; vehicles: number }
+> = {
   CLEAR: { crowd: 1, vehicles: 1 },
   CLOUDY: { crowd: 0.95, vehicles: 0.95 },
   RAIN: { crowd: 0.7, vehicles: 0.85 },
@@ -30,17 +37,25 @@ const WEATHER_MULTIPLIERS: Record<WeatherType, { crowd: number; vehicles: number
 
 @Injectable()
 export class SnapshotBuilderService {
-  build(place: RegistryInfo, timeOfDay: TimeOfDay, weather: WeatherType): SceneSnapshot {
+  build(
+    place: RegistryInfo,
+    timeOfDay: TimeOfDay,
+    weather: WeatherType,
+  ): SceneSnapshot {
     if (!PLACE_TYPES.includes(place.placeType)) {
       throw new Error(`Unsupported place type: ${place.placeType}`);
     }
 
     const base = PLACE_TYPE_BASELINES[place.placeType];
     const crowdCount = this.roundCount(
-      base.crowd * TIME_MULTIPLIERS[timeOfDay].crowd * WEATHER_MULTIPLIERS[weather].crowd,
+      base.crowd *
+        TIME_MULTIPLIERS[timeOfDay].crowd *
+        WEATHER_MULTIPLIERS[weather].crowd,
     );
     const vehicleCount = this.roundCount(
-      base.vehicles * TIME_MULTIPLIERS[timeOfDay].vehicles * WEATHER_MULTIPLIERS[weather].vehicles,
+      base.vehicles *
+        TIME_MULTIPLIERS[timeOfDay].vehicles *
+        WEATHER_MULTIPLIERS[weather].vehicles,
     );
 
     return {
@@ -61,7 +76,8 @@ export class SnapshotBuilderService {
         ambient: this.resolveAmbient(timeOfDay),
         neon: timeOfDay !== 'DAY',
         buildingLights: timeOfDay !== 'DAY',
-        vehicleLights: timeOfDay !== 'DAY' || weather === 'RAIN' || weather === 'SNOW',
+        vehicleLights:
+          timeOfDay !== 'DAY' || weather === 'RAIN' || weather === 'SNOW',
       },
       surface: {
         wetRoad: weather === 'RAIN',
@@ -71,7 +87,8 @@ export class SnapshotBuilderService {
       playback: {
         recommendedSpeed: this.resolveSpeed(timeOfDay),
         pedestrianAnimationRate: timeOfDay === 'NIGHT' ? 0.85 : 1,
-        vehicleAnimationRate: weather === 'SNOW' ? 0.7 : weather === 'RAIN' ? 0.85 : 1,
+        vehicleAnimationRate:
+          weather === 'SNOW' ? 0.7 : weather === 'RAIN' ? 0.85 : 1,
       },
     };
   }
@@ -80,7 +97,10 @@ export class SnapshotBuilderService {
     return Math.max(0, Math.round(value));
   }
 
-  private resolveLevel(value: number, thresholds: [number, number]): 'LOW' | 'MEDIUM' | 'HIGH' {
+  private resolveLevel(
+    value: number,
+    thresholds: [number, number],
+  ): 'LOW' | 'MEDIUM' | 'HIGH' {
     if (value < thresholds[0]) {
       return 'LOW';
     }

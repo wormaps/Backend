@@ -69,13 +69,18 @@ out geom;
 
     const elements = response.elements ?? [];
     const buildingWays = elements.filter(
-      (element) => element.type === 'way' && element.tags?.building && element.geometry?.length,
+      (element) =>
+        element.type === 'way' &&
+        element.tags?.building &&
+        element.geometry?.length,
     );
     const roadWays = elements.filter(
       (element) =>
         element.type === 'way' &&
         element.tags?.highway &&
-        !['footway', 'pedestrian', 'path', 'steps', 'corridor'].includes(element.tags.highway) &&
+        !['footway', 'pedestrian', 'path', 'steps', 'corridor'].includes(
+          element.tags.highway,
+        ) &&
         element.geometry?.length,
     );
     const walkwayWays = elements.filter(
@@ -91,11 +96,16 @@ out geom;
         element.type === 'node' &&
         element.lat !== undefined &&
         element.lon !== undefined &&
-        (element.tags?.amenity || element.tags?.tourism || element.tags?.shop || element.tags?.public_transport),
+        (element.tags?.amenity ||
+          element.tags?.tourism ||
+          element.tags?.shop ||
+          element.tags?.public_transport),
     );
 
     const pois = poiNodes.slice(0, 30).map((node) => this.mapPoi(node));
-    const landmarks = pois.filter((poi) => poi.type === 'LANDMARK').slice(0, 10);
+    const landmarks = pois
+      .filter((poi) => poi.type === 'LANDMARK')
+      .slice(0, 10);
 
     return {
       placeId: place.placeId,
@@ -131,7 +141,9 @@ out geom;
     };
   }
 
-  private mapGeometry(geometry: Array<{ lat: number; lon: number }>): Coordinate[] {
+  private mapGeometry(
+    geometry: Array<{ lat: number; lon: number }>,
+  ): Coordinate[] {
     return geometry.map((point) => ({
       lat: point.lat,
       lng: point.lon,
@@ -144,7 +156,10 @@ out geom;
       lat: node.lat as number,
       lng: node.lon as number,
     };
-    const isLandmark = Boolean(tags.tourism) || tags.historic === 'yes' || tags.memorial === 'yes';
+    const isLandmark =
+      Boolean(tags.tourism) ||
+      tags.historic === 'yes' ||
+      tags.memorial === 'yes';
 
     return {
       id: `poi-${node.id}`,

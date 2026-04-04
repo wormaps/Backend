@@ -6,7 +6,10 @@ import { AppModule } from './../src/app.module';
 import { ERROR_CODES } from './../src/common/constants/error-codes';
 import { AppException } from './../src/common/errors/app.exception';
 import { ApiExceptionFilter } from './../src/common/http/api-exception.filter';
-import { ApiResponseInterceptor } from './../src/common/http/api-response.interceptor';
+import {
+  ApiResponseInterceptor,
+  ResponsePayload,
+} from './../src/common/http/api-response.interceptor';
 import { HealthController } from './../src/health/health.controller';
 import { PlacesController } from './../src/places/places.controller';
 
@@ -38,7 +41,11 @@ describe('AppModule integration', () => {
   });
 
   it('should build scene snapshot through controller query flow', () => {
-    const response = placesController.getSceneSnapshot('gangnam-station', 'night', 'snow');
+    const response = placesController.getSceneSnapshot(
+      'gangnam-station',
+      'night',
+      'snow',
+    );
 
     expect(response.data.placeId).toBe('gangnam-station');
     expect(response.data.timeOfDay).toBe('NIGHT');
@@ -47,13 +54,15 @@ describe('AppModule integration', () => {
   });
 
   it('should throw standardized app exception inputs before service call', () => {
-    expect(() => placesController.getSceneSnapshot('gangnam-station', 'dawn', 'clear')).toThrow(
-      AppException,
-    );
+    expect(() =>
+      placesController.getSceneSnapshot('gangnam-station', 'dawn', 'clear'),
+    ).toThrow(AppException);
   });
 
   it('should validate external search query requirement', async () => {
-    await expect(placesController.searchPlaces(undefined, undefined)).rejects.toThrow(AppException);
+    await expect(
+      placesController.searchPlaces(undefined, undefined),
+    ).rejects.toThrow(AppException);
   });
 });
 
@@ -73,7 +82,7 @@ describe('HTTP envelope integration', () => {
         getResponse: () => response,
       }),
     } as ExecutionContext;
-    const next: CallHandler = {
+    const next: CallHandler<ResponsePayload<{ service: string }>> = {
       handle: () =>
         of({
           message: 'ok',
@@ -120,18 +129,21 @@ describe('HTTP envelope integration', () => {
     );
 
     expect(response.status).toHaveBeenCalledWith(400);
-    expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ok: false,
-        status: 400,
-        error: expect.objectContaining({
-          code: 'PLACE_NOT_FOUND',
-          message: '장소를 찾을 수 없습니다.',
-          detail: {
-            placeId: 'unknown-place',
-          },
-        }),
-      }),
-    );
+    const [payload] = json.mock.calls[0] as [
+      {
+        ok: boolean;
+        status: number;
+        error: {
+          code: string;
+          message: string;
+          detail: { placeId: string };
+        };
+      },
+    ];
+    expect(payload.ok).toBe(false);
+    expect(payload.status).toBe(400);
+    expect(payload.error.code).toBe('PLACE_NOT_FOUND');
+    expect(payload.error.message).toBe('장소를 찾을 수 없습니다.');
+    expect(payload.error.detail.placeId).toBe('unknown-place');
   });
 });

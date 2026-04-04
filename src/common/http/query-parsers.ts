@@ -61,7 +61,10 @@ export function validateGooglePlaceId(placeId: string): string {
   return placeId;
 }
 
-export function parseRequiredQuery(value: string | undefined, fieldName: string): string {
+export function parseRequiredQuery(
+  value: string | undefined,
+  fieldName: string,
+): string {
   if (!value || value.trim().length === 0) {
     throw new AppException({
       code: ERROR_CODES.INVALID_QUERY,
@@ -76,7 +79,10 @@ export function parseRequiredQuery(value: string | undefined, fieldName: string)
   return value.trim();
 }
 
-export function parseOptionalLimit(value: string | undefined, defaultValue = 5): number {
+export function parseOptionalLimit(
+  value: string | undefined,
+  defaultValue = 5,
+): number {
   if (value === undefined) {
     return defaultValue;
   }
@@ -98,7 +104,9 @@ export function parseOptionalLimit(value: string | undefined, defaultValue = 5):
   return parsed;
 }
 
-export function parseOptionalIsoDate(value: string | undefined): string | undefined {
+export function parseOptionalIsoDate(
+  value: string | undefined,
+): string | undefined {
   if (value === undefined) {
     return undefined;
   }

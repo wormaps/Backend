@@ -25,7 +25,9 @@ export class TomTomTrafficClient {
     return this;
   }
 
-  async getFlowSegment(point: Coordinate): Promise<TomTomFlowSegmentResponse | null> {
+  async getFlowSegment(
+    point: Coordinate,
+  ): Promise<TomTomFlowSegmentResponse | null> {
     const apiKey = process.env.TOMTOM_API_KEY;
     if (!apiKey) {
       throw new AppException({
@@ -42,11 +44,25 @@ export class TomTomTrafficClient {
       {
         provider: 'TomTom Traffic Flow Segment',
         url:
-          'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json' +
+          `https://${this.resolveBaseHost(point)}/traffic/services/4/flowSegmentData/absolute/14/json` +
           `?key=${encodeURIComponent(apiKey)}` +
           `&point=${point.lat},${point.lng}`,
       },
       this.fetcher,
+    );
+  }
+
+  private resolveBaseHost(point: Coordinate): string {
+    if (this.isKoreaCoordinate(point)) {
+      return 'kr-api.tomtom.com';
+    }
+
+    return 'api.tomtom.com';
+  }
+
+  private isKoreaCoordinate(point: Coordinate): boolean {
+    return (
+      point.lat >= 33 && point.lat <= 39 && point.lng >= 124 && point.lng <= 132
     );
   }
 }

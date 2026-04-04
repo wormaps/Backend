@@ -5,16 +5,19 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ERROR_CODES } from '../constants/error-codes';
 import { AppException } from '../errors/app.exception';
-import { ensureRequestContext, REQUEST_ID_HEADER } from './request-context.util';
+import {
+  ensureRequestContext,
+  REQUEST_ID_HEADER,
+} from './request-context.util';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
-    const request = http.getRequest();
+    const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();
     const requestContext = ensureRequestContext(request);
 
@@ -43,7 +46,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   private resolveError(
     exception: unknown,
-    status: number,
+    status: HttpStatus,
   ): { code: string; message: string; detail: unknown } {
     if (exception instanceof AppException) {
       return {
@@ -58,7 +61,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
       if (typeof response === 'object' && response !== null) {
         const serialized = response as Record<string, unknown>;
         return {
-          code: typeof serialized.code === 'string' ? serialized.code : ERROR_CODES.INVALID_REQUEST,
+          code:
+            typeof serialized.code === 'string'
+              ? serialized.code
+              : ERROR_CODES.INVALID_REQUEST,
           message:
             typeof serialized.message === 'string'
               ? serialized.message
@@ -69,7 +75,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
       return {
         code: ERROR_CODES.INVALID_REQUEST,
-        message: typeof response === 'string' ? response : '요청을 처리할 수 없습니다.',
+        message:
+          typeof response === 'string'
+            ? response
+            : '요청을 처리할 수 없습니다.',
         detail: null,
       };
     }

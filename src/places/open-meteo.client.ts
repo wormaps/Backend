@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { fetchJson } from '../common/http/fetch-json';
 import type { FetchLike } from '../common/http/fetch-json';
-import { ExternalPlaceDetail, WeatherObservation } from './external-place.types';
+import {
+  ExternalPlaceDetail,
+  WeatherObservation,
+} from './external-place.types';
 import { TimeOfDay, WeatherType } from './place.types';
 
 interface OpenMeteoResponse {
@@ -45,7 +48,9 @@ export class OpenMeteoClient {
     const targetHour = this.resolveHour(timeOfDay);
     const hourly = response.hourly;
     const times = hourly?.time ?? [];
-    const index = times.findIndex((value) => value.endsWith(`T${targetHour}:00`));
+    const index = times.findIndex((value) =>
+      value.endsWith(`T${targetHour}:00`),
+    );
     if (index < 0) {
       return null;
     }
@@ -57,13 +62,18 @@ export class OpenMeteoClient {
 
     return {
       date,
-      localTime: times[index] as string,
+      localTime: times[index],
       temperatureCelsius: hourly?.temperature_2m?.[index] ?? null,
       precipitationMm: precipitation,
       rainMm: rain,
       snowfallCm: snowfall,
       cloudCoverPercent: cloudCover,
-      resolvedWeather: this.resolveWeather(rain, snowfall, precipitation, cloudCover),
+      resolvedWeather: this.resolveWeather(
+        rain,
+        snowfall,
+        precipitation,
+        cloudCover,
+      ),
       source: 'OPEN_METEO_HISTORICAL',
     };
   }
