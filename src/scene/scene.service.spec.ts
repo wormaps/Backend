@@ -129,17 +129,25 @@ describe('SceneService', () => {
     ttlCacheService.clear();
   });
 
+  afterEach(async () => {
+    await service.waitForIdle();
+  });
+
   it('creates a scene and stores bootstrap-compatible metadata', async () => {
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
 
     const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
+    expect(scene.status).toBe('PENDING');
+    await service.waitForIdle();
+    const refreshed = await service.getScene(scene.sceneId);
     const bootstrap = await service.getBootstrap(scene.sceneId);
     const meta = await service.getSceneMeta(scene.sceneId);
 
-    expect(scene.sceneId).toBe('scene-seoul-city-hall');
-    expect(scene.radiusM).toBe(600);
+    expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
+    expect(refreshed.radiusM).toBe(600);
+    expect(refreshed.status).toBe('READY');
     expect(bootstrap.metaUrl).toBe('/api/scenes/scene-seoul-city-hall/meta');
     expect(meta.roads[0]?.objectId).toBe('road-22');
     expect(meta.roads[0]?.path).toHaveLength(3);
@@ -168,6 +176,7 @@ describe('SceneService', () => {
     });
 
     const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
+    await service.waitForIdle();
     const weather = await service.getWeather(scene.sceneId, {
       date: '2026-04-04',
       timeOfDay: 'DAY',
@@ -195,6 +204,7 @@ describe('SceneService', () => {
     });
 
     const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
+    await service.waitForIdle();
     const first = await service.getWeather(scene.sceneId, {
       date: '2026-04-04',
       timeOfDay: 'DAY',
@@ -222,6 +232,7 @@ describe('SceneService', () => {
     });
 
     const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
+    await service.waitForIdle();
     const traffic = await service.getTraffic(scene.sceneId);
 
     expect(traffic.segments).toHaveLength(1);
@@ -243,6 +254,7 @@ describe('SceneService', () => {
     });
 
     const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
+    await service.waitForIdle();
     const first = await service.getTraffic(scene.sceneId);
     const second = await service.getTraffic(scene.sceneId);
 
@@ -260,5 +272,17 @@ describe('SceneService', () => {
 
     expect(second.sceneId).toBe(first.sceneId);
     expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks scene as failed after retry exhaustion', async () => {
+    googlePlacesClient.searchText.mockResolvedValue([]);
+
+    const scene = await service.createScene('Unknown Place', 'MEDIUM');
+    await service.waitForIdle();
+    const failed = await service.getScene(scene.sceneId);
+
+    expect(failed.status).toBe('FAILED');
+    expect(failed.failureReason).toBe('검색 결과에 해당하는 장소를 찾을 수 없습니다.');
+    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(2);
   });
 });

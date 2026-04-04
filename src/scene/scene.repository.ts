@@ -26,6 +26,16 @@ export class SceneRepository {
     return scene;
   }
 
+  async update(sceneId: string, updater: (scene: StoredScene) => StoredScene): Promise<StoredScene | undefined> {
+    const existing = await this.findById(sceneId);
+    if (!existing) {
+      return undefined;
+    }
+
+    const updated = updater(existing);
+    return this.save(updated, updated.requestKey);
+  }
+
   async findById(sceneId: string): Promise<StoredScene | undefined> {
     const cached = this.scenes.get(sceneId);
     if (cached) {
@@ -67,7 +77,15 @@ export class SceneRepository {
   async clear(): Promise<void> {
     this.scenes.clear();
     this.requestIndex.clear();
-    await rm(this.baseDir, { recursive: true, force: true });
+    try {
+      await rm(this.baseDir, { recursive: true, force: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOTEMPTY') {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await rm(this.baseDir, { recursive: true, force: true });
+    }
   }
 
   private buildScenePath(sceneId: string): string {

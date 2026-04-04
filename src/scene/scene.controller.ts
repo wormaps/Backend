@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
@@ -42,6 +50,7 @@ export class SceneController {
   constructor(private readonly sceneService: SceneService) {}
 
   @Post()
+  @HttpCode(202)
   @ApiOperation({ summary: 'Scene 생성' })
   @ApiBody({ type: CreateSceneRequestDto })
   @ApiSuccessEnvelope({ model: SceneEntityDto })
@@ -81,6 +90,16 @@ export class SceneController {
       message: 'Scene 기본 정보 조회에 성공했습니다.',
       data,
     }));
+  }
+
+  @Get(':sceneId/status')
+  @ApiOperation({ summary: 'Scene 상태 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiSuccessEnvelope({ model: SceneEntityDto })
+  getSceneStatus(
+    @Param('sceneId') sceneId: string,
+  ): Promise<ResponsePayload<SceneEntity>> {
+    return this.getScene(sceneId);
   }
 
   @Get(':sceneId/meta')

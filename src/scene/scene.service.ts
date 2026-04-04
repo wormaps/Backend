@@ -18,6 +18,7 @@ import {
   SceneMeta,
   ScenePlacesResponse,
   SceneScale,
+  SceneStatus,
   SceneTrafficResponse,
   SceneWeatherQuery,
   SceneWeatherResponse,
@@ -29,6 +30,9 @@ import {
 export class SceneService {
   private readonly trafficTtlMs = 2 * 60 * 1000;
   private readonly weatherTtlMs = 10 * 60 * 1000;
+  private readonly maxGenerationAttempts = 2;
+  private readonly generationQueue: string[] = [];
+  private isProcessingQueue = false;
 
   constructor(
     private readonly sceneRepository: SceneRepository,
@@ -46,47 +50,34 @@ export class SceneService {
       return existing.scene;
     }
 
-    const candidates = await this.googlePlacesClient.searchText(query, 1);
-    const selected = candidates[0];
-    if (!selected) {
-      throw new AppException({
-        code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
-        message: '검색 결과에 해당하는 장소를 찾을 수 없습니다.',
-        detail: {
-          query,
-        },
-        status: HttpStatus.NOT_FOUND,
-      });
-    }
-
-    const place = await this.googlePlacesClient.getPlaceDetail(selected.placeId);
-    const placePackage = await this.overpassClient.buildPlacePackage(place);
-    const radiusM = this.resolveRadius(scale);
-    const sceneId = this.buildSceneId(place.displayName);
+    const sceneId = this.buildSceneId(query);
     const createdAt = new Date().toISOString();
     const metaUrl = `/api/scenes/${sceneId}/meta`;
-    const meta = this.buildSceneMeta(sceneId, radiusM, placePackage, place);
     const scene: SceneEntity = {
       sceneId,
-      placeId: place.placeId,
-      name: place.displayName,
-      centerLat: place.location.lat,
-      centerLng: place.location.lng,
-      radiusM,
-      status: 'READY',
+      placeId: null,
+      name: query,
+      centerLat: 0,
+      centerLng: 0,
+      radiusM: this.resolveRadius(scale),
+      status: 'PENDING',
       metaUrl,
       createdAt,
       updatedAt: createdAt,
+      failureReason: null,
     };
 
     await this.sceneRepository.save(
       {
+        requestKey,
+        query,
+        scale,
+        attempts: 0,
         scene,
-        meta,
-        place,
       },
       requestKey,
     );
+    this.enqueueGeneration(sceneId);
 
     return scene;
   }
@@ -96,11 +87,12 @@ export class SceneService {
   }
 
   async getSceneMeta(sceneId: string): Promise<SceneMeta> {
-    return (await this.getStoredScene(sceneId)).meta;
+    const storedScene = await this.getReadyScene(sceneId);
+    return storedScene.meta;
   }
 
   async getBootstrap(sceneId: string): Promise<BootstrapResponse> {
-    const scene = await this.getScene(sceneId);
+    const scene = (await this.getReadyScene(sceneId)).scene;
 
     return {
       sceneId: scene.sceneId,
@@ -114,7 +106,7 @@ export class SceneService {
   }
 
   async getPlaces(sceneId: string): Promise<ScenePlacesResponse> {
-    const storedScene = await this.getStoredScene(sceneId);
+    const storedScene = await this.getReadyScene(sceneId);
 
     return {
       pois: storedScene.meta.pois,
@@ -129,7 +121,7 @@ export class SceneService {
       this.buildWeatherCacheKey(sceneId, query),
       this.weatherTtlMs,
       async () => {
-        const storedScene = await this.getStoredScene(sceneId);
+        const storedScene = await this.getReadyScene(sceneId);
         const observation = await this.openMeteoClient.getHistoricalObservation(
           storedScene.place,
           query.date,
@@ -153,7 +145,7 @@ export class SceneService {
       this.buildTrafficCacheKey(sceneId),
       this.trafficTtlMs,
       async () => {
-        const storedScene = await this.getStoredScene(sceneId);
+        const storedScene = await this.getReadyScene(sceneId);
         const segments = await Promise.all(
           storedScene.meta.roads.map(async (road) => {
             const segment = await this.tomTomTrafficClient.getFlowSegment(
@@ -187,8 +179,148 @@ export class SceneService {
     return storedScene;
   }
 
+  private async getReadyScene(
+    sceneId: string,
+  ): Promise<StoredScene & { meta: SceneMeta; place: NonNullable<StoredScene['place']> }> {
+    const storedScene = await this.getStoredScene(sceneId);
+    if (
+      storedScene.scene.status !== 'READY' ||
+      storedScene.meta === undefined ||
+      storedScene.place === undefined
+    ) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_NOT_READY,
+        message: 'Scene 생성이 아직 완료되지 않았습니다.',
+        detail: {
+          sceneId,
+          status: storedScene.scene.status,
+        },
+        status: HttpStatus.CONFLICT,
+      });
+    }
+
+    return storedScene as StoredScene & {
+      meta: SceneMeta;
+      place: NonNullable<StoredScene['place']>;
+    };
+  }
+
   private buildRequestKey(query: string, scale: SceneScale): string {
     return `${query.trim().toLowerCase()}::${scale}`;
+  }
+
+  private enqueueGeneration(sceneId: string): void {
+    this.generationQueue.push(sceneId);
+    void this.processQueue();
+  }
+
+  private async processQueue(): Promise<void> {
+    if (this.isProcessingQueue) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    try {
+      while (this.generationQueue.length > 0) {
+        const sceneId = this.generationQueue.shift();
+        if (!sceneId) {
+          continue;
+        }
+        await this.processGeneration(sceneId);
+      }
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+
+  private async processGeneration(sceneId: string): Promise<void> {
+    const storedScene = await this.getStoredScene(sceneId);
+    try {
+      const candidates = await this.googlePlacesClient.searchText(
+        storedScene.query,
+        1,
+      );
+      const selected = candidates[0];
+      if (!selected) {
+        throw new AppException({
+          code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
+          message: '검색 결과에 해당하는 장소를 찾을 수 없습니다.',
+          detail: {
+            query: storedScene.query,
+          },
+          status: HttpStatus.NOT_FOUND,
+        });
+      }
+
+      const place = await this.googlePlacesClient.getPlaceDetail(selected.placeId);
+      const placePackage = await this.overpassClient.buildPlacePackage(place);
+      const meta = this.buildSceneMeta(
+        sceneId,
+        this.resolveRadius(storedScene.scale),
+        placePackage,
+        place,
+      );
+      await this.sceneRepository.update(sceneId, (current) => ({
+        ...current,
+        attempts: current.attempts + 1,
+        place,
+        meta,
+        scene: {
+          ...current.scene,
+          placeId: place.placeId,
+          name: place.displayName,
+          centerLat: place.location.lat,
+          centerLng: place.location.lng,
+          status: 'READY',
+          failureReason: null,
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+    } catch (error) {
+      await this.handleGenerationFailure(sceneId, storedScene, error);
+    }
+  }
+
+  private async handleGenerationFailure(
+    sceneId: string,
+    storedScene: StoredScene,
+    error: unknown,
+  ): Promise<void> {
+    const attempts = storedScene.attempts + 1;
+    const failureReason =
+      error instanceof Error ? error.message : 'Scene generation failed';
+
+    if (attempts < this.maxGenerationAttempts) {
+      await this.sceneRepository.update(sceneId, (current) => ({
+        ...current,
+        attempts,
+        scene: {
+          ...current.scene,
+          status: 'PENDING',
+          failureReason,
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+      this.enqueueGeneration(sceneId);
+      return;
+    }
+
+    await this.sceneRepository.update(sceneId, (current) => ({
+      ...current,
+      attempts,
+      scene: {
+        ...current.scene,
+        status: 'FAILED',
+        failureReason,
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+  }
+
+  async waitForIdle(): Promise<void> {
+    while (this.isProcessingQueue || this.generationQueue.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
   }
 
   private buildWeatherCacheKey(
@@ -206,7 +338,7 @@ export class SceneService {
     sceneId: string,
     radiusM: number,
     placePackage: PlacePackage,
-    place: StoredScene['place'],
+    place: NonNullable<StoredScene['place']>,
   ): SceneMeta {
     return {
       sceneId,

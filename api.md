@@ -61,6 +61,7 @@ GET /api/places/google/{googlePlaceId}/package
 GET /api/places/google/{googlePlaceId}/snapshot
 POST /api/scenes
 GET /api/scenes/{sceneId}
+GET /api/scenes/{sceneId}/status
 GET /api/scenes/{sceneId}/meta
 GET /api/scenes/{sceneId}/bootstrap
 GET /api/scenes/{sceneId}/traffic
@@ -154,6 +155,7 @@ GET /api/scenes/{sceneId}/places
 | EXTERNAL_API_REQUEST_FAILED | 502 | 외부 API 호출 실패 |
 | GOOGLE_PLACE_NOT_FOUND | 404 | Google Places 상세 결과를 찾을 수 없음 |
 | SCENE_NOT_FOUND | 404 | sceneId에 해당하는 Scene을 찾을 수 없음 |
+| SCENE_NOT_READY | 409 | scene 생성이 아직 완료되지 않아 meta/bootstrap/live API를 사용할 수 없음 |
 
 # Scene 캐시 메모
 
@@ -165,6 +167,19 @@ GET /api/scenes/{sceneId}/places
   - TTL: 약 10분
 - Redis는 아직 붙지 않았습니다.
   - 추후 `TtlCacheService` 대체 방식으로 이전할 수 있도록 구조를 분리했습니다.
+
+# Scene 생성 흐름 메모
+
+- `POST /api/scenes`
+  - 현재 구현은 즉시 `PENDING` 상태를 반환합니다.
+  - 서버 내부 in-memory queue가 백그라운드에서 scene 생성을 진행합니다.
+- `GET /api/scenes/{sceneId}` 또는 `GET /api/scenes/{sceneId}/status`
+  - FE polling 용도로 사용할 수 있습니다.
+  - 상태는 `PENDING | READY | FAILED` 입니다.
+- `GET /api/scenes/{sceneId}/meta`
+  - `READY` 상태에서만 정상 조회됩니다.
+- `GET /api/scenes/{sceneId}/bootstrap`
+  - `READY` 상태에서만 정상 조회됩니다.
 
 # Domain Schemas
 

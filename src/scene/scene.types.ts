@@ -11,18 +11,20 @@ import { TimeOfDay } from '../places/place.types';
 
 export const SCENE_SCALE_VALUES = ['SMALL', 'MEDIUM', 'LARGE'] as const;
 export type SceneScale = (typeof SCENE_SCALE_VALUES)[number];
+export type SceneStatus = 'PENDING' | 'READY' | 'FAILED';
 
 export interface SceneEntity {
   sceneId: string;
-  placeId: string;
+  placeId: string | null;
   name: string;
   centerLat: number;
   centerLng: number;
   radiusM: number;
-  status: 'READY';
+  status: SceneStatus;
   metaUrl: string;
   createdAt: string;
   updatedAt: string;
+  failureReason?: string | null;
 }
 
 export interface SceneRoadMeta {
@@ -116,9 +118,13 @@ export interface ScenePlacesResponse {
 }
 
 export interface StoredScene {
+  requestKey: string;
+  query: string;
+  scale: SceneScale;
+  attempts: number;
   scene: SceneEntity;
-  meta: SceneMeta;
-  place: ExternalPlaceDetail;
+  meta?: SceneMeta;
+  place?: ExternalPlaceDetail;
 }
 
 export interface SceneWeatherQuery {

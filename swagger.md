@@ -26,6 +26,7 @@ http://localhost:3000/docs-json
 - `GET /api/places/google/{googlePlaceId}/snapshot`
 - `POST /api/scenes`
 - `GET /api/scenes/{sceneId}`
+- `GET /api/scenes/{sceneId}/status`
 - `GET /api/scenes/{sceneId}/meta`
 - `GET /api/scenes/{sceneId}/bootstrap`
 - `GET /api/scenes/{sceneId}/traffic`

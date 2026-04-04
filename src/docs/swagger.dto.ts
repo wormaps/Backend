@@ -334,8 +334,8 @@ export class SceneEntityDto {
   @ApiProperty({ example: 'scene-seoul-city-hall' })
   sceneId!: string;
 
-  @ApiProperty({ example: 'ChIJ123456789' })
-  placeId!: string;
+  @ApiProperty({ nullable: true, example: 'ChIJ123456789' })
+  placeId!: string | null;
 
   @ApiProperty({ example: 'Seoul City Hall' })
   name!: string;
@@ -349,7 +349,7 @@ export class SceneEntityDto {
   @ApiProperty({ example: 600 })
   radiusM!: number;
 
-  @ApiProperty({ enum: ['READY'] })
+  @ApiProperty({ enum: ['PENDING', 'READY', 'FAILED'] })
   status!: string;
 
   @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/meta' })
@@ -360,6 +360,9 @@ export class SceneEntityDto {
 
   @ApiProperty({ example: '2026-04-04T08:40:21Z' })
   updatedAt!: string;
+
+  @ApiProperty({ nullable: true, example: null })
+  failureReason?: string | null;
 }
 
 export class SceneRoadMetaDto {

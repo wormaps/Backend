@@ -1,0 +1,19 @@
+{
+  "requestKey": "unknown place::MEDIUM",
+  "query": "Unknown Place",
+  "scale": "MEDIUM",
+  "attempts": 2,
+  "scene": {
+    "sceneId": "scene-unknown-place",
+    "placeId": null,
+    "name": "Unknown Place",
+    "centerLat": 0,
+    "centerLng": 0,
+    "radiusM": 600,
+    "status": "FAILED",
+    "metaUrl": "/api/scenes/scene-unknown-place/meta",
+    "createdAt": "2026-04-04T08:22:43.685Z",
+    "updatedAt": "2026-04-04T08:22:43.687Z",
+    "failureReason": "검색 결과에 해당하는 장소를 찾을 수 없습니다."
+  }
+}
