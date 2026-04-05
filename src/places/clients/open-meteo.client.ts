@@ -8,6 +8,14 @@ import {
 import { TimeOfDay, WeatherType } from '../types/place.types';
 
 interface OpenMeteoResponse {
+  current?: {
+    time?: string;
+    temperature_2m?: number;
+    precipitation?: number;
+    rain?: number;
+    snowfall?: number;
+    cloud_cover?: number;
+  };
   hourly?: {
     time?: string[];
     temperature_2m?: number[];
@@ -78,6 +86,64 @@ export class OpenMeteoClient {
     };
   }
 
+  async getObservation(
+    place: ExternalPlaceDetail,
+    date: string,
+    timeOfDay: TimeOfDay,
+  ): Promise<WeatherObservation | null> {
+    if (this.isTodayForPlace(place, date)) {
+      const current = await this.getCurrentObservation(place);
+      if (current) {
+        return current;
+      }
+    }
+
+    return this.getHistoricalObservation(place, date, timeOfDay);
+  }
+
+  async getCurrentObservation(
+    place: ExternalPlaceDetail,
+  ): Promise<WeatherObservation | null> {
+    const response = await fetchJson<OpenMeteoResponse>(
+      {
+        provider: 'Open-Meteo Current Weather',
+        url:
+          `https://api.open-meteo.com/v1/forecast?latitude=${place.location.lat}` +
+          `&longitude=${place.location.lng}` +
+          '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+          '&timezone=auto',
+      },
+      this.fetcher,
+    );
+
+    const current = response.current;
+    if (!current?.time) {
+      return null;
+    }
+
+    const rain = current.rain ?? null;
+    const snowfall = current.snowfall ?? null;
+    const precipitation = current.precipitation ?? null;
+    const cloudCover = current.cloud_cover ?? null;
+
+    return {
+      date: current.time.slice(0, 10),
+      localTime: current.time,
+      temperatureCelsius: current.temperature_2m ?? null,
+      precipitationMm: precipitation,
+      rainMm: rain,
+      snowfallCm: snowfall,
+      cloudCoverPercent: cloudCover,
+      resolvedWeather: this.resolveWeather(
+        rain,
+        snowfall,
+        precipitation,
+        cloudCover,
+      ),
+      source: 'OPEN_METEO_CURRENT',
+    };
+  }
+
   private resolveHour(timeOfDay: TimeOfDay): string {
     if (timeOfDay === 'DAY') {
       return '12';
@@ -109,5 +175,19 @@ export class OpenMeteoClient {
     }
 
     return 'CLEAR';
+  }
+
+  private isTodayForPlace(place: ExternalPlaceDetail, date: string): boolean {
+    const now = new Date();
+    const offsetMinutes = place.utcOffsetMinutes;
+    if (offsetMinutes === null) {
+      return date === now.toISOString().slice(0, 10);
+    }
+
+    const shifted = new Date(now.getTime() + offsetMinutes * 60 * 1000);
+    const year = shifted.getUTCFullYear();
+    const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(shifted.getUTCDate()).padStart(2, '0');
+    return date === `${year}-${month}-${day}`;
   }
 }

@@ -239,6 +239,32 @@ export interface BootstrapResponse {
     weather: string;
     places: string;
   };
+  renderContract: {
+    glbCoverage: {
+      buildings: boolean;
+      roads: boolean;
+      walkways: boolean;
+      crosswalks: boolean;
+      streetFurniture: boolean;
+      vegetation: boolean;
+      pois: boolean;
+      landCovers: boolean;
+      linearFeatures: boolean;
+    };
+    overlaySources: {
+      pois: string;
+      crossings: string;
+      streetFurniture: string;
+      vegetation: string;
+      landCovers: string;
+      linearFeatures: string;
+    };
+    liveDataModes: {
+      traffic: 'LIVE_BEST_EFFORT';
+      weather: 'HISTORICAL_OBSERVATION';
+      state: 'SYNTHETIC_RULES';
+    };
+  };
 }
 
 export interface SceneStateResponse {
@@ -257,7 +283,10 @@ export interface SceneStateResponse {
     vehicleAnimationRate: number;
   };
   sourceDetail?: {
-    provider: 'MVP_SYNTHETIC_RULES' | 'OPEN_METEO_HISTORICAL';
+    provider:
+      | 'MVP_SYNTHETIC_RULES'
+      | 'OPEN_METEO_CURRENT'
+      | 'OPEN_METEO_HISTORICAL';
     date?: string;
     localTime?: string;
   };
@@ -276,6 +305,8 @@ export interface TrafficSegment {
 export interface SceneTrafficResponse {
   updatedAt: string;
   segments: TrafficSegment[];
+  degraded: boolean;
+  failedSegmentCount: number;
 }
 
 export interface SceneWeatherResponse {
@@ -283,12 +314,20 @@ export interface SceneWeatherResponse {
   weatherCode: number | null;
   temperature: number | null;
   preset: string;
-  source: 'OPEN_METEO_HISTORICAL';
+  source: 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL';
   observedAt: string | null;
+}
+
+export interface ScenePlaceCategorySummary {
+  category: string;
+  count: number;
+  landmarkCount: number;
 }
 
 export interface ScenePlacesResponse {
   pois: ScenePoiMeta[];
+  landmarks: ScenePoiMeta[];
+  categories: ScenePlaceCategorySummary[];
 }
 
 export interface StoredScene {

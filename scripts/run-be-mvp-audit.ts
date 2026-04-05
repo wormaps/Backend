@@ -136,6 +136,7 @@ async function main() {
           weather,
           traffic,
           placesCount: places.pois.length,
+          placeCategories: places.categories,
         },
         glbInspection,
         checks,
@@ -230,13 +231,17 @@ function buildChecks(input: {
       input.bootstrap.metaUrl &&
       input.bootstrap.detailUrl &&
       input.meta.camera &&
-      input.meta.roads.length > 0
+      input.meta.roads.length > 0 &&
+      Boolean(input.bootstrap.renderContract.overlaySources.landCovers) &&
+      input.placesCount >= 0
         ? 'PASS'
         : 'FAIL',
     evidence: [
       `assetUrl=${input.scene.assetUrl ?? 'null'}`,
       `camera.topView=${JSON.stringify(input.meta.camera.topView)}`,
       `placesCount=${input.placesCount}`,
+      `weatherMode=${input.bootstrap.renderContract.liveDataModes.weather}`,
+      `poiOverlay=${input.bootstrap.renderContract.overlaySources.pois}`,
     ],
   });
 

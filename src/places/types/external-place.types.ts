@@ -33,7 +33,7 @@ export interface WeatherObservation {
   snowfallCm: number | null;
   cloudCoverPercent: number | null;
   resolvedWeather: 'CLEAR' | 'CLOUDY' | 'RAIN' | 'SNOW';
-  source: 'OPEN_METEO_HISTORICAL';
+  source: 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL';
 }
 
 export interface ExternalSceneSnapshotResponse {

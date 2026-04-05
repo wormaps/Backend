@@ -76,20 +76,39 @@ export class OverpassClient {
         ? createBoundsFromCenterRadius(place.location, options.radiusM)
         : place.viewport ?? createBoundsFromCenterRadius(place.location, 300));
 
-    const scopes: Array<'core' | 'street' | 'environment'> = [
-      'core',
-      'street',
-      'environment',
+    const scopes: Array<{
+      name: 'core' | 'street' | 'environment';
+      required: boolean;
+    }> = [
+      { name: 'core', required: true },
+      { name: 'street', required: false },
+      { name: 'environment', required: false },
     ];
     const responses: OverpassResponse[] = [];
     for (const [index, scope] of scopes.entries()) {
-      responses.push(
-        await this.fetchScopeResponse(bounds, scope, {
+      try {
+        responses.push(
+          await this.fetchScopeResponse(bounds, scope.name, {
+            requestId: options.requestId ?? null,
+            sceneId: options.sceneId,
+            batch: index,
+          }),
+        );
+      } catch (error) {
+        if (scope.required) {
+          throw error;
+        }
+        this.appLoggerService.warn('overpass.scope.degraded', {
           requestId: options.requestId ?? null,
           sceneId: options.sceneId,
+          provider: 'overpass',
+          step: 'overpass_scope',
           batch: index,
-        }),
-      );
+          scope: scope.name,
+          error,
+        });
+        responses.push({ elements: [] });
+      }
     }
     const elements = dedupeElements(
       responses.flatMap((response) => response.elements ?? []),
@@ -231,7 +250,7 @@ export class OverpassClient {
       streetFurniture,
       vegetation,
       landCovers,
-        linearFeatures,
+      linearFeatures,
       diagnostics: {
         droppedBuildings: buildingWays.length + buildingRelations.length - buildings.length,
         droppedRoads: roadWays.length - roads.length,

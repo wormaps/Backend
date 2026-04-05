@@ -39,7 +39,7 @@ export class SceneLiveDataService {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
         const weatherObservation =
           query.weather === undefined
-            ? await this.openMeteoClient.getHistoricalObservation(
+            ? await this.openMeteoClient.getObservation(
                 storedScene.place,
                 query.date,
                 query.timeOfDay,
@@ -87,7 +87,7 @@ export class SceneLiveDataService {
       this.weatherTtlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
-        const observation = await this.openMeteoClient.getHistoricalObservation(
+        const observation = await this.openMeteoClient.getObservation(
           storedScene.place,
           query.date,
           query.timeOfDay,
@@ -98,7 +98,7 @@ export class SceneLiveDataService {
           weatherCode: this.resolveWeatherCode(observation?.resolvedWeather),
           temperature: observation?.temperatureCelsius ?? null,
           preset: observation?.resolvedWeather.toLowerCase() ?? 'clear',
-          source: 'OPEN_METEO_HISTORICAL',
+          source: observation?.source ?? 'OPEN_METEO_HISTORICAL',
           observedAt: observation?.localTime ?? null,
         };
       },
@@ -111,18 +111,29 @@ export class SceneLiveDataService {
       this.trafficTtlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
+        let failedSegmentCount = 0;
         const segments = await Promise.all(
           storedScene.meta.roads.map(async (road) => {
-            const segment = await this.tomTomTrafficClient.getFlowSegment(
-              road.center,
-            );
-            return this.mapTrafficSegment(road.objectId, segment?.flowSegmentData);
+            try {
+              const segment = await this.tomTomTrafficClient.getFlowSegment(
+                road.center,
+              );
+              return this.mapTrafficSegment(
+                road.objectId,
+                segment?.flowSegmentData,
+              );
+            } catch {
+              failedSegmentCount += 1;
+              return this.mapTrafficSegment(road.objectId);
+            }
           }),
         );
 
         return {
           updatedAt: new Date().toISOString(),
           segments,
+          degraded: failedSegmentCount > 0,
+          failedSegmentCount,
         };
       },
     );

@@ -36,12 +36,14 @@ export class SceneReadService {
   async getBootstrap(sceneId: string): Promise<BootstrapResponse> {
     const stored = await this.getReadyScene(sceneId);
     const scene = stored.scene;
+    const detailUrl = `/api/scenes/${scene.sceneId}/detail`;
+    const placesUrl = `/api/scenes/${scene.sceneId}/places`;
 
     return {
       sceneId: scene.sceneId,
       assetUrl: scene.assetUrl ?? `/api/scenes/${scene.sceneId}/assets/base.glb`,
       metaUrl: scene.metaUrl,
-      detailUrl: `/api/scenes/${scene.sceneId}/detail`,
+      detailUrl,
       detailStatus: stored.detail.detailStatus,
       glbSources: {
         googlePlaces: true,
@@ -55,15 +57,65 @@ export class SceneReadService {
         state: `/api/scenes/${scene.sceneId}/state`,
         traffic: `/api/scenes/${scene.sceneId}/traffic`,
         weather: `/api/scenes/${scene.sceneId}/weather`,
-        places: `/api/scenes/${scene.sceneId}/places`,
+        places: placesUrl,
+      },
+      renderContract: {
+        glbCoverage: {
+          buildings: true,
+          roads: true,
+          walkways: true,
+          crosswalks: true,
+          streetFurniture: true,
+          vegetation: true,
+          pois: true,
+          landCovers: true,
+          linearFeatures: true,
+        },
+        overlaySources: {
+          pois: placesUrl,
+          crossings: detailUrl,
+          streetFurniture: detailUrl,
+          vegetation: detailUrl,
+          landCovers: detailUrl,
+          linearFeatures: detailUrl,
+        },
+        liveDataModes: {
+          traffic: 'LIVE_BEST_EFFORT',
+          weather: 'HISTORICAL_OBSERVATION',
+          state: 'SYNTHETIC_RULES',
+        },
       },
     };
   }
 
   async getPlaces(sceneId: string): Promise<ScenePlacesResponse> {
     const storedScene = await this.getReadyScene(sceneId);
+    const pois = storedScene.meta.pois;
+    const categories = [...pois]
+      .reduce((acc, poi) => {
+        const key = poi.category ?? poi.type.toLowerCase();
+        const current = acc.get(key) ?? {
+          category: key,
+          count: 0,
+          landmarkCount: 0,
+        };
+        current.count += 1;
+        if (poi.isLandmark) {
+          current.landmarkCount += 1;
+        }
+        acc.set(key, current);
+        return acc;
+      }, new Map<string, ScenePlacesResponse['categories'][number]>());
+
     return {
-      pois: storedScene.meta.pois,
+      pois,
+      landmarks: pois.filter((poi) => poi.isLandmark),
+      categories: [...categories.values()].sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        return left.category.localeCompare(right.category);
+      }),
     };
   }
 

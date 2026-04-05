@@ -329,4 +329,63 @@ describe('OverpassClient', () => {
       ),
     ).toBe(true);
   });
+
+  it('should continue with empty optional scopes when non-core batches fail', async () => {
+    const coreResponse = {
+      ok: true,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            elements: [
+              {
+                type: 'way',
+                id: 30,
+                tags: { building: 'yes', name: 'Core Tower' },
+                geometry: [
+                  { lat: 37.1, lon: 127.1 },
+                  { lat: 37.2, lon: 127.1 },
+                  { lat: 37.2, lon: 127.2 },
+                ],
+              },
+              {
+                type: 'way',
+                id: 31,
+                tags: { highway: 'primary', name: 'Core Road' },
+                geometry: [
+                  { lat: 37.1, lon: 127.1 },
+                  { lat: 37.2, lon: 127.2 },
+                ],
+              },
+              {
+                type: 'node',
+                id: 32,
+                lat: 37.15,
+                lon: 127.15,
+                tags: { shop: 'convenience', name: 'Core Shop' },
+              },
+            ],
+          }),
+        ),
+    };
+    const fetcher = jest
+      .fn()
+      .mockResolvedValueOnce(coreResponse)
+      .mockRejectedValue(new Error('optional-scope-down'));
+
+    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const result = await client.buildPlacePackage(place);
+
+    expect(result.buildings).toHaveLength(1);
+    expect(result.roads).toHaveLength(1);
+    expect(result.pois).toHaveLength(1);
+    expect(result.streetFurniture).toHaveLength(0);
+    expect(result.vegetation).toHaveLength(0);
+    expect(result.landCovers).toHaveLength(0);
+    expect(result.linearFeatures).toHaveLength(0);
+    expect(
+      (logger.warn as jest.Mock).mock.calls.some(
+        (call) => call[0] === 'overpass.scope.degraded',
+      ),
+    ).toBe(true);
+  });
 });

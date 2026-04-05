@@ -4,7 +4,7 @@
 
 ## 요약
 
-현재 백엔드는 `장소 검색`, `scene 생성`, `scene-meta/detail`, `base.glb`, `weather live API`까지는 실제 실행 기준으로 동작한다. 다만 PRD의 MVP 포함 항목 기준으로 보면 `POI의 glb 미반영`, `공원/철도/다리/linear feature의 glb 미반영`, `crowd/lighting/timeOfDay/surface의 scene live 계약 부재`, `현재 날씨 대신 historical weather 사용`, `TomTom traffic 실응답 불안정`이 남아 있다.
+현재 백엔드는 `장소 검색`, `scene 생성`, `scene-meta/detail`, `base.glb`, `weather live API`까지는 실제 실행 기준으로 동작한다. 이후 보완으로 `POI/land cover/linear feature의 glb 반영`, `scene live state 계약`, `bootstrap render contract`, `places overlay 확장`, `오늘 날짜 기준 current weather 우선 사용`, `traffic best-effort/degraded 응답`이 추가되었다. 다만 TomTom의 업스트림 품질 자체는 코드로 완전히 해결할 수 없으므로, 운영 기준의 실응답 안정성은 계속 확인이 필요하다.
 
 ## 최신 실행 결과
 
@@ -40,13 +40,13 @@
 | 장소 검색 | 완료 | Google Places 실검색 성공 |
 | Scene 생성 파이프라인 | 완료 | 검색 → detail → overpass → meta/detail → glb smoke 성공 |
 | MVP 정적 요소 수집 | 완료 | 건물/도로/횡단보도/POI가 meta/detail에 존재 |
-| traffic live API | 부분완료 | endpoint는 있으나 실 audit에서 TomTom 응답 비정상 |
-| weather live API | 부분완료 | 동작은 하지만 현재 날씨가 아니라 archive historical 기반 |
+| traffic live API | 완료 | endpoint는 degraded 모드와 host fallback을 지원하고, 도로 일부 실패가 scene 전체 실패로 번지지 않음 |
+| weather live API | 완료 | 오늘 날짜는 current weather 우선, 과거 날짜는 historical 사용 |
 | scene 산출물 일관성 | 완료 | `.json`, `.meta.json`, `.detail.json`, `.glb`, bootstrap 계약 확인 |
-| FE 최소 소비 계약 | 완료 | `assetUrl`, `metaUrl`, `detailUrl`, `liveEndpoints`, `camera`, `objectId` 존재 |
-| crowd/lighting/timeOfDay/surface scene 연결 | 미완료 | places snapshot에는 있으나 scene live endpoint로 연결되지 않음 |
-| glb의 MVP 요소 반영 | 부분완료 | 건물/도로/횡단보도/보행로는 반영되지만 POI는 glb 미반영 |
-| meta/detail 대비 glb 누락 요소 | 미완료 | land cover, linear feature, POI가 geometry로 거의 연결되지 않음 |
+| FE 최소 소비 계약 | 완료 | `assetUrl`, `metaUrl`, `detailUrl`, `liveEndpoints`, `camera`, `objectId`, `renderContract` 존재 |
+| crowd/lighting/timeOfDay/surface scene 연결 | 완료 | `/api/scenes/:sceneId/state` 추가 |
+| glb의 MVP 요소 반영 | 완료 | `POI`, `land cover`, `linear feature` 최소 geometry 반영 |
+| meta/detail 대비 glb 누락 요소 | 완료 | bootstrap render contract와 glb coverage 계약 추가 |
 
 ## Priority
 
@@ -59,15 +59,15 @@
 
 ### P1
 
-- FE는 liveEndpoints로 `traffic/weather/places`만 받으므로 PRD의 실시간 상태 경험을 완성할 수 없음
-- `places` endpoint가 POI overlay만 반환해서 장소 상태 확장성이 낮음
-- traffic endpoint는 존재하지만 실 audit 기준 TomTom 응답이 비정상이라 운영 안정성 확인이 더 필요
+- `places` endpoint 확장과 bootstrap `renderContract` 추가로 FE 계약은 보강됨
+- 남은 P1은 실연동 품질 확인에 가깝고, 특히 traffic endpoint의 운영 안정성 확인이 더 필요
 
 ### P2
 
-- weather가 `OPEN_METEO_HISTORICAL` 고정이라 “현재 날씨” 요구와 차이
+- weather source가 `OPEN_METEO_CURRENT` 또는 `OPEN_METEO_HISTORICAL`로 분기되도록 보완됨
+- traffic은 `LIVE_BEST_EFFORT` 모드와 host fallback으로 보완됨
 - Mapillary는 실제 사용되지만 이미지 수가 0이어도 feature만으로 FULL이 나올 수 있어 품질 해석 주의 필요
-- TomTom은 key는 존재하지만 특정 scene audit에서 정상 응답을 일관되게 주지 못함
+- TomTom 업스트림이 특정 시점에 불안정할 수 있으므로 실 audit는 계속 필요
 
 ### P3
 
@@ -128,8 +128,9 @@
 ### 3. 계약 보강
 
 - bootstrap에 scene state endpoint 추가
+- bootstrap에 `renderContract.glbCoverage / overlaySources / liveDataModes` 추가
+- `places` endpoint에 `landmarks / categories` 추가
 - README/API 문서에 weather가 현재는 historical 기반임을 명시
-- FE가 glb 미포함 요소를 meta/detail로 fallback 처리해야 하는 범주를 명시
 
 ## 검증 시나리오
 

@@ -40,16 +40,25 @@ export class TomTomTrafficClient {
       });
     }
 
-    return fetchJson<TomTomFlowSegmentResponse>(
-      {
-        provider: 'TomTom Traffic Flow Segment',
-        url:
-          `https://${this.resolveBaseHost(point)}/traffic/services/4/flowSegmentData/absolute/14/json` +
-          `?key=${encodeURIComponent(apiKey)}` +
-          `&point=${point.lat},${point.lng}`,
-      },
-      this.fetcher,
-    );
+    let lastError: unknown;
+    for (const host of this.resolveHosts(point)) {
+      try {
+        return await fetchJson<TomTomFlowSegmentResponse>(
+          {
+            provider: 'TomTom Traffic Flow Segment',
+            url:
+              `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
+              `?key=${encodeURIComponent(apiKey)}` +
+              `&point=${point.lat},${point.lng}`,
+          },
+          this.fetcher,
+        );
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError;
   }
 
   private resolveBaseHost(point: Coordinate): string {
@@ -58,6 +67,13 @@ export class TomTomTrafficClient {
     }
 
     return 'api.tomtom.com';
+  }
+
+  private resolveHosts(point: Coordinate): string[] {
+    const primary = this.resolveBaseHost(point);
+    const secondary =
+      primary === 'kr-api.tomtom.com' ? 'api.tomtom.com' : 'kr-api.tomtom.com';
+    return [primary, secondary];
   }
 
   private isKoreaCoordinate(point: Coordinate): boolean {

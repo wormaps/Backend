@@ -164,6 +164,7 @@ describe('Scene Services', () => {
         {
           provide: OpenMeteoClient,
           useValue: {
+            getObservation: jest.fn(),
             getHistoricalObservation: jest.fn(),
           },
         },
@@ -303,6 +304,13 @@ describe('Scene Services', () => {
     expect(bootstrap.detailStatus).toBe('OSM_ONLY');
     expect(bootstrap.assetUrl).toBe('/api/scenes/scene-seoul-city-hall/assets/base.glb');
     expect(bootstrap.liveEndpoints.state).toBe('/api/scenes/scene-seoul-city-hall/state');
+    expect(bootstrap.renderContract.glbCoverage.pois).toBe(true);
+    expect(bootstrap.renderContract.overlaySources.landCovers).toBe(
+      '/api/scenes/scene-seoul-city-hall/detail',
+    );
+    expect(bootstrap.renderContract.liveDataModes.weather).toBe(
+      'HISTORICAL_OBSERVATION',
+    );
     expect(bootstrap.glbSources).toEqual({
       googlePlaces: true,
       overpass: true,
@@ -336,6 +344,15 @@ describe('Scene Services', () => {
     expect(detail.crossings).toEqual([]);
     expect(meta.pois[0]?.category).toBe('shop');
     expect(meta.pois[0]?.location.lat).toBe(37.5664);
+    const places = await readService.getPlaces(scene.sceneId);
+    expect(places.landmarks).toEqual([]);
+    expect(places.categories).toEqual([
+      {
+        category: 'shop',
+        count: 1,
+        landmarkCount: 0,
+      },
+    ]);
     expect(glbBuilderService.build).toHaveBeenCalledTimes(1);
     expect(overpassClient.buildPlacePackage).toHaveBeenCalledWith(
       placeDetail,
@@ -385,6 +402,17 @@ describe('Scene Services', () => {
       resolvedWeather: 'CLOUDY',
       source: 'OPEN_METEO_HISTORICAL',
     });
+    openMeteoClient.getObservation.mockResolvedValue({
+      date: '2026-04-04',
+      localTime: '2026-04-04T12:00',
+      temperatureCelsius: 13.2,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 70,
+      resolvedWeather: 'CLOUDY',
+      source: 'OPEN_METEO_HISTORICAL',
+    });
 
     const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
     await generationService.waitForIdle();
@@ -403,6 +431,17 @@ describe('Scene Services', () => {
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
     openMeteoClient.getHistoricalObservation.mockResolvedValue({
+      date: '2026-04-04',
+      localTime: '2026-04-04T18:00',
+      temperatureCelsius: 11.4,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 20,
+      resolvedWeather: 'CLEAR',
+      source: 'OPEN_METEO_HISTORICAL',
+    });
+    openMeteoClient.getObservation.mockResolvedValue({
       date: '2026-04-04',
       localTime: '2026-04-04T18:00',
       temperatureCelsius: 11.4,
@@ -449,6 +488,17 @@ describe('Scene Services', () => {
       resolvedWeather: 'CLOUDY',
       source: 'OPEN_METEO_HISTORICAL',
     });
+    openMeteoClient.getObservation.mockResolvedValue({
+      date: '2026-04-04',
+      localTime: '2026-04-04T12:00',
+      temperatureCelsius: 13.2,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 70,
+      resolvedWeather: 'CLOUDY',
+      source: 'OPEN_METEO_HISTORICAL',
+    });
 
     const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
     await generationService.waitForIdle();
@@ -462,7 +512,7 @@ describe('Scene Services', () => {
     });
 
     expect(second).toEqual(first);
-    expect(openMeteoClient.getHistoricalObservation).toHaveBeenCalledTimes(1);
+    expect(openMeteoClient.getObservation).toHaveBeenCalledTimes(1);
   });
 
   it('maps traffic flow to congestion response', async () => {
@@ -485,6 +535,8 @@ describe('Scene Services', () => {
     expect(traffic.segments).toHaveLength(1);
     expect(traffic.segments[0]?.congestionScore).toBe(0.5);
     expect(traffic.segments[0]?.status).toBe('slow');
+    expect(traffic.degraded).toBe(false);
+    expect(traffic.failedSegmentCount).toBe(0);
   });
 
   it('caches traffic responses by scene id', async () => {
@@ -507,6 +559,24 @@ describe('Scene Services', () => {
 
     expect(second).toEqual(first);
     expect(tomTomTrafficClient.getFlowSegment).toHaveBeenCalledTimes(1);
+  });
+
+  it('degrades traffic response instead of failing the entire scene', async () => {
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    tomTomTrafficClient.getFlowSegment.mockRejectedValue(
+      new Error('upstream failed'),
+    );
+
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const traffic = await liveDataService.getTraffic(scene.sceneId);
+
+    expect(traffic.segments).toHaveLength(1);
+    expect(traffic.segments[0]?.currentSpeed).toBe(0);
+    expect(traffic.degraded).toBe(true);
+    expect(traffic.failedSegmentCount).toBe(1);
   });
 
   it('reuses the same scene for identical query and scale', async () => {

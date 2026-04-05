@@ -282,7 +282,9 @@ export class PlaybackDto {
 }
 
 export class SourceDetailDto {
-  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES', 'OPEN_METEO_HISTORICAL'] })
+  @ApiProperty({
+    enum: ['MVP_SYNTHETIC_RULES', 'OPEN_METEO_CURRENT', 'OPEN_METEO_HISTORICAL'],
+  })
   provider!: string;
 
   @ApiProperty({ nullable: true, example: '2026-04-04' })
@@ -689,6 +691,77 @@ export class BootstrapEndpointsDto {
   places!: string;
 }
 
+export class GlbCoverageDto {
+  @ApiProperty({ example: true })
+  buildings!: boolean;
+
+  @ApiProperty({ example: true })
+  roads!: boolean;
+
+  @ApiProperty({ example: true })
+  walkways!: boolean;
+
+  @ApiProperty({ example: true })
+  crosswalks!: boolean;
+
+  @ApiProperty({ example: true })
+  streetFurniture!: boolean;
+
+  @ApiProperty({ example: true })
+  vegetation!: boolean;
+
+  @ApiProperty({ example: true })
+  pois!: boolean;
+
+  @ApiProperty({ example: true })
+  landCovers!: boolean;
+
+  @ApiProperty({ example: true })
+  linearFeatures!: boolean;
+}
+
+export class OverlaySourcesDto {
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/places' })
+  pois!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
+  crossings!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
+  streetFurniture!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
+  vegetation!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
+  landCovers!: string;
+
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
+  linearFeatures!: string;
+}
+
+export class LiveDataModesDto {
+  @ApiProperty({ enum: ['LIVE_BEST_EFFORT'] })
+  traffic!: string;
+
+  @ApiProperty({ enum: ['HISTORICAL_OBSERVATION'] })
+  weather!: string;
+
+  @ApiProperty({ enum: ['SYNTHETIC_RULES'] })
+  state!: string;
+}
+
+export class RenderContractDto {
+  @ApiProperty({ type: GlbCoverageDto })
+  glbCoverage!: GlbCoverageDto;
+
+  @ApiProperty({ type: OverlaySourcesDto })
+  overlaySources!: OverlaySourcesDto;
+
+  @ApiProperty({ type: LiveDataModesDto })
+  liveDataModes!: LiveDataModesDto;
+}
+
 export class GlbSourcesDto {
   @ApiProperty({ example: true })
   googlePlaces!: boolean;
@@ -730,6 +803,9 @@ export class BootstrapResponseDto {
 
   @ApiProperty({ type: BootstrapEndpointsDto })
   liveEndpoints!: BootstrapEndpointsDto;
+
+  @ApiProperty({ type: RenderContractDto })
+  renderContract!: RenderContractDto;
 }
 
 export class SceneCrossingDetailDto {
@@ -940,6 +1016,12 @@ export class SceneTrafficResponseDto {
 
   @ApiProperty({ type: [TrafficSegmentDto] })
   segments!: TrafficSegmentDto[];
+
+  @ApiProperty({ example: false })
+  degraded!: boolean;
+
+  @ApiProperty({ example: 0 })
+  failedSegmentCount!: number;
 }
 
 export class SceneWeatherResponseDto {
@@ -955,7 +1037,7 @@ export class SceneWeatherResponseDto {
   @ApiProperty({ example: 'cloudy' })
   preset!: string;
 
-  @ApiProperty({ enum: ['OPEN_METEO_HISTORICAL'] })
+  @ApiProperty({ enum: ['OPEN_METEO_CURRENT', 'OPEN_METEO_HISTORICAL'] })
   source!: string;
 
   @ApiProperty({ nullable: true, example: '2026-04-04T12:00' })
@@ -1000,6 +1082,17 @@ export class SceneStateResponseDto {
 export class ScenePlacesResponseDto {
   @ApiProperty({ type: [ScenePoiMetaDto] })
   pois!: ScenePoiMetaDto[];
+
+  @ApiProperty({ type: [ScenePoiMetaDto] })
+  landmarks!: ScenePoiMetaDto[];
+
+  @ApiProperty({
+    example: [
+      { category: 'shop', count: 12, landmarkCount: 1 },
+      { category: 'signal', count: 4, landmarkCount: 0 },
+    ],
+  })
+  categories!: Array<Record<string, unknown>>;
 }
 
 export class HealthDataDto {

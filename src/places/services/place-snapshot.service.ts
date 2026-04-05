@@ -42,7 +42,7 @@ export class PlaceSnapshotService {
     const place = await this.googlePlacesClient.getPlaceDetail(googlePlaceId);
     const weatherObservation =
       weather === undefined
-        ? await this.openMeteoClient.getHistoricalObservation(
+        ? await this.openMeteoClient.getObservation(
             place,
             date,
             timeOfDay,
