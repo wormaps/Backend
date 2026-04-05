@@ -1,4 +1,4 @@
-import { GooglePlacesClient } from '../src/places/google-places.client';
+import { GooglePlacesClient } from '../src/places/clients/google-places.client';
 
 async function main() {
   const client = new GooglePlacesClient();

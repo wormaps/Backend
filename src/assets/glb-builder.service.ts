@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { Coordinate } from '../places/place.types';
-import { buildSceneAssetSelection } from '../scene/scene-asset-profile.utils';
-import { getSceneDataDir } from '../scene/scene-storage.utils';
+import { Coordinate } from '../places/types/place.types';
+import { getSceneDataDir } from '../scene/storage/scene-storage.utils';
+import { buildSceneAssetSelection } from '../scene/utils/scene-asset-profile.utils';
 import {
   MaterialClass,
   SceneCrossingDetail,
@@ -13,7 +13,7 @@ import {
   SceneSignageCluster,
   SceneStreetFurnitureDetail,
   SceneVegetationDetail,
-} from '../scene/scene.types';
+} from '../scene/types/scene.types';
 
 type Vec3 = [number, number, number];
 

@@ -175,6 +175,7 @@ GET /api/scenes/{sceneId}/places
 - `POST /api/scenes`
   - 현재 구현은 즉시 `PENDING` 상태를 반환합니다.
   - 서버 내부 in-memory queue가 백그라운드에서 scene 생성을 진행합니다.
+  - `forceRegenerate=true`를 보내면 기존 READY scene이 있어도 재사용하지 않습니다.
 - `GET /api/scenes/{sceneId}` 또는 `GET /api/scenes/{sceneId}/status`
   - FE polling 용도로 사용할 수 있습니다.
   - 상태는 `PENDING | READY | FAILED` 입니다.
@@ -185,11 +186,13 @@ GET /api/scenes/{sceneId}/places
   - 시각 디테일 계층(`crossings`, `roadMarkings`, `streetFurniture`, `vegetation`, `facadeHints`, `signageClusters`)을 제공합니다.
 - `GET /api/scenes/{sceneId}/bootstrap`
   - `READY` 상태에서만 정상 조회됩니다.
-  - `detailUrl`, `detailStatus`, `assetProfile`이 포함됩니다.
+  - `detailUrl`, `detailStatus`, `assetProfile`, `glbSources`가 포함됩니다.
 - `GET /api/scenes/{sceneId}/assets/base.glb`
   - 현재 구현은 로컬에 생성된 `.glb` 파일을 직접 내려줍니다.
   - S3 / CloudFront는 아직 연결하지 않았습니다.
   - `.glb`는 `scene-meta + scene-detail + hero override`를 merge한 결과입니다.
+  - 현재 `.glb`에는 weather/traffic가 bake되지 않습니다.
+  - weather/traffic는 live overlay 전용입니다.
 
 # Domain Schemas
 

@@ -5,7 +5,7 @@ import {
   ApiResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { ErrorResponseDto, MetaDto } from './swagger.dto';
+import { ErrorResponseDto, MetaDto } from './common.dto';
 
 type SingleOrArray = { model: Type<unknown>; isArray?: boolean };
 

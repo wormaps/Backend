@@ -1,19 +1,32 @@
 import { Test } from '@nestjs/testing';
-import { access, readFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { AppModule } from '../src/app.module';
 import { SceneService } from '../src/scene/scene.service';
-import { getSceneDataDir } from '../src/scene/scene-storage.utils';
+import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
 
 async function main() {
+  const originalSceneDataDir = process.env.SCENE_DATA_DIR;
+  const smokeDataDir =
+    originalSceneDataDir ??
+    (await mkdtemp(join(tmpdir(), 'wormapb-shibuya-smoke-')));
+  process.env.SCENE_DATA_DIR = smokeDataDir;
+
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
 
   const sceneService = moduleRef.get(SceneService);
+  const forceRegenerate = process.env.SCENE_FORCE_REGENERATE !== 'false';
   const created = await sceneService.createScene(
     'Shibuya Scramble Crossing',
     'MEDIUM',
+    {
+      forceRegenerate,
+      source: 'smoke',
+      requestId: `smoke_${Date.now().toString(36)}`,
+    },
   );
 
   await sceneService.waitForIdle();
@@ -22,6 +35,11 @@ async function main() {
   const result: Record<string, unknown> = {
     created,
     scene,
+    smoke: {
+      dataDir: smokeDataDir,
+      forceRegenerate,
+      reused: forceRegenerate ? false : created.status === 'READY',
+    },
   };
 
   if (scene.status === 'READY') {
@@ -43,6 +61,11 @@ async function main() {
     }
 
     result.bootstrap = bootstrap;
+    result.provenance = {
+      glbSources: bootstrap.glbSources,
+      weatherBaked: false,
+      trafficBaked: false,
+    };
     result.meta = {
       sceneId: meta.sceneId,
       name: meta.name,

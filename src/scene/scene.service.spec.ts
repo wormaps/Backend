@@ -4,20 +4,27 @@ import { tmpdir } from 'node:os';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TtlCacheService } from '../cache/ttl-cache.service';
 import { GlbBuilderService } from '../assets/glb-builder.service';
-import { GooglePlacesClient } from '../places/google-places.client';
-import { MapillaryClient } from '../places/mapillary.client';
-import { OpenMeteoClient } from '../places/open-meteo.client';
-import { OverpassClient } from '../places/overpass.client';
-import { TomTomTrafficClient } from '../places/tomtom-traffic.client';
-import { ExternalPlaceDetail } from '../places/external-place.types';
-import { PlacePackage } from '../places/place.types';
-import { SceneHeroOverrideService } from './scene-hero-override.service';
-import { SceneRepository } from './scene.repository';
+import { AppLoggerService } from '../common/logging/app-logger.service';
+import { GooglePlacesClient } from '../places/clients/google-places.client';
+import { MapillaryClient } from '../places/clients/mapillary.client';
+import { OpenMeteoClient } from '../places/clients/open-meteo.client';
+import { OverpassClient } from '../places/clients/overpass.client';
+import { TomTomTrafficClient } from '../places/clients/tomtom-traffic.client';
+import { ExternalPlaceDetail } from '../places/types/external-place.types';
+import { PlacePackage } from '../places/types/place.types';
 import { SceneService } from './scene.service';
-import { SceneVisionService } from './scene-vision.service';
+import { SceneGenerationService } from './services/scene-generation.service';
+import { SceneLiveDataService } from './services/scene-live-data.service';
+import { SceneReadService } from './services/scene-read.service';
+import { SceneHeroOverrideService } from './services/scene-hero-override.service';
+import { SceneRepository } from './storage/scene.repository';
+import { SceneVisionService } from './services/scene-vision.service';
 
-describe('SceneService', () => {
+describe('Scene Services', () => {
   let service: SceneService;
+  let generationService: SceneGenerationService;
+  let readService: SceneReadService;
+  let liveDataService: SceneLiveDataService;
   let repository: SceneRepository;
   let ttlCacheService: TtlCacheService;
   let glbBuilderService: jest.Mocked<GlbBuilderService>;
@@ -27,6 +34,7 @@ describe('SceneService', () => {
   let tomTomTrafficClient: jest.Mocked<TomTomTrafficClient>;
   let sceneVisionService: jest.Mocked<SceneVisionService>;
   let sceneHeroOverrideService: jest.Mocked<SceneHeroOverrideService>;
+  let appLoggerService: jest.Mocked<AppLoggerService>;
   const originalSceneDataDir = process.env.SCENE_DATA_DIR;
 
   const placeDetail: ExternalPlaceDetail = {
@@ -127,6 +135,9 @@ describe('SceneService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SceneService,
+        SceneGenerationService,
+        SceneReadService,
+        SceneLiveDataService,
         SceneRepository,
         TtlCacheService,
         {
@@ -178,10 +189,22 @@ describe('SceneService', () => {
             isConfigured: jest.fn().mockReturnValue(false),
           },
         },
+        {
+          provide: AppLoggerService,
+          useValue: {
+            info: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
+            fromRequest: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(SceneService);
+    generationService = module.get(SceneGenerationService);
+    readService = module.get(SceneReadService);
+    liveDataService = module.get(SceneLiveDataService);
     repository = module.get(SceneRepository);
     ttlCacheService = module.get(TtlCacheService);
     glbBuilderService = module.get(GlbBuilderService);
@@ -191,6 +214,7 @@ describe('SceneService', () => {
     tomTomTrafficClient = module.get(TomTomTrafficClient);
     sceneVisionService = module.get(SceneVisionService);
     sceneHeroOverrideService = module.get(SceneHeroOverrideService);
+    appLoggerService = module.get(AppLoggerService);
     await repository.clear();
     ttlCacheService.clear();
 
@@ -242,7 +266,7 @@ describe('SceneService', () => {
   });
 
   afterEach(async () => {
-    await service.waitForIdle();
+    await generationService.waitForIdle();
     delete process.env.SCENE_DATA_DIR;
   });
 
@@ -260,13 +284,13 @@ describe('SceneService', () => {
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
 
-    const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
     expect(scene.status).toBe('PENDING');
-    await service.waitForIdle();
-    const refreshed = await service.getScene(scene.sceneId);
-    const bootstrap = await service.getBootstrap(scene.sceneId);
-    const meta = await service.getSceneMeta(scene.sceneId);
-    const detail = await service.getSceneDetail(scene.sceneId);
+    await generationService.waitForIdle();
+    const refreshed = await readService.getScene(scene.sceneId);
+    const bootstrap = await readService.getBootstrap(scene.sceneId);
+    const meta = await readService.getSceneMeta(scene.sceneId);
+    const detail = await readService.getSceneDetail(scene.sceneId);
 
     expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
     expect(refreshed.radiusM).toBe(600);
@@ -276,6 +300,13 @@ describe('SceneService', () => {
     expect(bootstrap.detailUrl).toBe('/api/scenes/scene-seoul-city-hall/detail');
     expect(bootstrap.detailStatus).toBe('OSM_ONLY');
     expect(bootstrap.assetUrl).toBe('/api/scenes/scene-seoul-city-hall/assets/base.glb');
+    expect(bootstrap.glbSources).toEqual({
+      googlePlaces: true,
+      overpass: true,
+      mapillary: false,
+      weatherBaked: false,
+      trafficBaked: false,
+    });
     expect(meta.roads[0]?.objectId).toBe('road-22');
     expect(meta.roads[0]?.path).toHaveLength(3);
     expect(meta.roads[0]?.roadClass).toBe('primary');
@@ -327,6 +358,13 @@ describe('SceneService', () => {
       placeDetail.location.lat,
     );
     expect(meta.bounds.radiusM).toBe(600);
+    expect(appLoggerService.info).toHaveBeenCalledWith(
+      'scene.ready',
+      expect.objectContaining({
+        sceneId: scene.sceneId,
+        status: 'READY',
+      }),
+    );
   });
 
   it('maps historical weather to scene weather response', async () => {
@@ -345,9 +383,9 @@ describe('SceneService', () => {
       source: 'OPEN_METEO_HISTORICAL',
     });
 
-    const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
-    await service.waitForIdle();
-    const weather = await service.getWeather(scene.sceneId, {
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const weather = await liveDataService.getWeather(scene.sceneId, {
       date: '2026-04-04',
       timeOfDay: 'DAY',
     });
@@ -373,13 +411,13 @@ describe('SceneService', () => {
       source: 'OPEN_METEO_HISTORICAL',
     });
 
-    const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
-    await service.waitForIdle();
-    const first = await service.getWeather(scene.sceneId, {
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const first = await liveDataService.getWeather(scene.sceneId, {
       date: '2026-04-04',
       timeOfDay: 'DAY',
     });
-    const second = await service.getWeather(scene.sceneId, {
+    const second = await liveDataService.getWeather(scene.sceneId, {
       date: '2026-04-04',
       timeOfDay: 'DAY',
     });
@@ -401,9 +439,9 @@ describe('SceneService', () => {
       },
     });
 
-    const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
-    await service.waitForIdle();
-    const traffic = await service.getTraffic(scene.sceneId);
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const traffic = await liveDataService.getTraffic(scene.sceneId);
 
     expect(traffic.segments).toHaveLength(1);
     expect(traffic.segments[0]?.congestionScore).toBe(0.5);
@@ -423,10 +461,10 @@ describe('SceneService', () => {
       },
     });
 
-    const scene = await service.createScene('Seoul City Hall', 'MEDIUM');
-    await service.waitForIdle();
-    const first = await service.getTraffic(scene.sceneId);
-    const second = await service.getTraffic(scene.sceneId);
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const first = await liveDataService.getTraffic(scene.sceneId);
+    const second = await liveDataService.getTraffic(scene.sceneId);
 
     expect(second).toEqual(first);
     expect(tomTomTrafficClient.getFlowSegment).toHaveBeenCalledTimes(1);
@@ -437,19 +475,38 @@ describe('SceneService', () => {
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
 
-    const first = await service.createScene('Seoul City Hall', 'MEDIUM');
-    const second = await service.createScene('Seoul City Hall', 'MEDIUM');
+    const first = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    const second = await generationService.createScene('Seoul City Hall', 'MEDIUM');
 
     expect(second.sceneId).toBe(first.sceneId);
     expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(1);
   });
 
+  it('creates a fresh scene when forceRegenerate is enabled', async () => {
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+
+    const first = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const second = await generationService.createScene('Seoul City Hall', 'MEDIUM', {
+      forceRegenerate: true,
+      requestId: 'req_force',
+      source: 'smoke',
+    });
+
+    expect(second.sceneId).not.toBe(first.sceneId);
+    expect(second.status).toBe('PENDING');
+    await generationService.waitForIdle();
+    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(2);
+  });
+
   it('marks scene as failed after retry exhaustion', async () => {
     googlePlacesClient.searchText.mockResolvedValue([]);
 
-    const scene = await service.createScene('Unknown Place', 'MEDIUM');
-    await service.waitForIdle();
-    const failed = await service.getScene(scene.sceneId);
+    const scene = await generationService.createScene('Unknown Place', 'MEDIUM');
+    await generationService.waitForIdle();
+    const failed = await readService.getScene(scene.sceneId);
 
     expect(failed.status).toBe('FAILED');
     expect(failed.failureReason).toBe('검색 결과에 해당하는 장소를 찾을 수 없습니다.');
@@ -461,14 +518,14 @@ describe('SceneService', () => {
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
 
-    const small = await service.createScene('Seoul City Hall Small', 'SMALL');
-    await service.waitForIdle();
+    const small = await generationService.createScene('Seoul City Hall Small', 'SMALL');
+    await generationService.waitForIdle();
     const smallBounds = overpassClient.buildPlacePackage.mock.calls[0]?.[1]?.bounds;
 
     overpassClient.buildPlacePackage.mockClear();
 
-    const large = await service.createScene('Seoul City Hall Large', 'LARGE');
-    await service.waitForIdle();
+    const large = await generationService.createScene('Seoul City Hall Large', 'LARGE');
+    await generationService.waitForIdle();
     const largeBounds = overpassClient.buildPlacePackage.mock.calls[0]?.[1]?.bounds;
 
     expect(small.sceneId).toBe('scene-seoul-city-hall-small');

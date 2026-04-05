@@ -337,6 +337,13 @@ export class CreateSceneRequestDto {
     example: 'MEDIUM',
   })
   scale?: string;
+
+  @ApiProperty({
+    required: false,
+    example: false,
+    description: 'true이면 동일 query/scale의 READY scene이 있어도 재사용하지 않습니다.',
+  })
+  forceRegenerate?: boolean;
 }
 
 export class SceneEntityDto {
@@ -679,6 +686,23 @@ export class BootstrapEndpointsDto {
   places!: string;
 }
 
+export class GlbSourcesDto {
+  @ApiProperty({ example: true })
+  googlePlaces!: boolean;
+
+  @ApiProperty({ example: true })
+  overpass!: boolean;
+
+  @ApiProperty({ example: true })
+  mapillary!: boolean;
+
+  @ApiProperty({ example: false })
+  weatherBaked!: false;
+
+  @ApiProperty({ example: false })
+  trafficBaked!: false;
+}
+
 export class BootstrapResponseDto {
   @ApiProperty({ example: 'scene-seoul-city-hall' })
   sceneId!: string;
@@ -694,6 +718,9 @@ export class BootstrapResponseDto {
 
   @ApiProperty({ enum: ['FULL', 'PARTIAL', 'OSM_ONLY'] })
   detailStatus!: string;
+
+  @ApiProperty({ type: GlbSourcesDto })
+  glbSources!: GlbSourcesDto;
 
   @ApiProperty({ type: SceneAssetProfileDto })
   assetProfile!: SceneAssetProfileDto;

@@ -19,7 +19,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "scene:shibuya": "bun run scripts/run-shibuya-scene.ts"
+    "scene:shibuya": "bun run scripts/run-shibuya-scene.ts",
+    "audit:mvp": "node -r ts-node/register/transpile-only scripts/run-be-mvp-audit.ts"
   },
   "dependencies": {
     "@gltf-transform/core": "^4.3.0",

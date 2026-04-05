@@ -46,7 +46,10 @@ http://localhost:3000/docs-json
 ## 구현 위치
 
 - Swagger 설정: [`src/docs/swagger.setup.ts`](/Users/user/wormapb/src/docs/swagger.setup.ts)
-- Swagger DTO: [`src/docs/swagger.dto.ts`](/Users/user/wormapb/src/docs/swagger.dto.ts)
+- Swagger 공통 DTO: [`src/docs/common.dto.ts`](/Users/user/wormapb/src/docs/common.dto.ts)
+- Swagger scene DTO: [`src/docs/scene.dto.ts`](/Users/user/wormapb/src/docs/scene.dto.ts)
+- Swagger places DTO: [`src/docs/places.dto.ts`](/Users/user/wormapb/src/docs/places.dto.ts)
+- 기존 Swagger DTO 정의: [`src/docs/swagger.dto.ts`](/Users/user/wormapb/src/docs/swagger.dto.ts)
 - 공통 envelope 데코레이터: [`src/docs/swagger.decorators.ts`](/Users/user/wormapb/src/docs/swagger.decorators.ts)
 - 부트스트랩 연결: [`src/main.ts`](/Users/user/wormapb/src/main.ts)
 
@@ -64,3 +67,4 @@ bun run start:dev
 - 외부 API 헤더 자체는 서버 내부 구현이므로 Swagger 요청 파라미터로 노출하지 않습니다.
 - Scene traffic/weather/places 엔드포인트는 `scene-meta.json` 기반 FE 바인딩용 계약으로 추가되었습니다.
 - Scene detail 엔드포인트는 `scene-detail.json` 기반 시각 디테일 계층 계약입니다.
+- Scene bootstrap에는 `glbSources`가 포함되며, 현재 weather/traffic는 bake되지 않고 live overlay로만 제공됩니다.

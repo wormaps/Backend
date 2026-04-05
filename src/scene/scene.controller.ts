@@ -6,9 +6,10 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { join } from 'node:path';
 import {
   ApiBody,
@@ -19,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { ERROR_CODES } from '../common/constants/error-codes';
 import type { ResponsePayload } from '../common/http/api-response.interceptor';
+import { ensureRequestContext } from '../common/http/request-context.util';
 import {
   parseOptionalEnum,
   parseOptionalIsoDate,
@@ -35,10 +37,10 @@ import {
   ScenePlacesResponseDto,
   SceneTrafficResponseDto,
   SceneWeatherResponseDto,
-} from '../docs/swagger.dto';
-import { TIME_OF_DAY_VALUES } from '../places/place.types';
+} from '../docs/scene.dto';
+import { TIME_OF_DAY_VALUES } from '../places/types/place.types';
 import { SceneService } from './scene.service';
-import { getSceneDataDir } from './scene-storage.utils';
+import { getSceneDataDir } from './storage/scene-storage.utils';
 import {
   BootstrapResponse,
   SceneDetail,
@@ -48,7 +50,7 @@ import {
   SCENE_SCALE_VALUES,
   SceneTrafficResponse,
   SceneWeatherResponse,
-} from './scene.types';
+} from './types/scene.types';
 
 @ApiTags('scenes')
 @Controller('scenes')
@@ -66,8 +68,10 @@ export class SceneController {
     detail: { field: 'query' },
   })
   async createScene(
+    @Req() request: Request,
     @Body('query') query?: string,
     @Body('scale') rawScale?: string,
+    @Body('forceRegenerate') rawForceRegenerate?: boolean | string,
   ): Promise<ResponsePayload<SceneEntity>> {
     const validatedQuery = parseRequiredQuery(query, 'query');
     const scale = parseOptionalEnum(
@@ -76,10 +80,21 @@ export class SceneController {
       ERROR_CODES.INVALID_SCENE_SCALE,
       'scale',
     );
+    const requestContext = ensureRequestContext(request);
+    const forceRegenerate =
+      rawForceRegenerate === true || rawForceRegenerate === 'true';
 
     return {
       message: 'Scene 생성에 성공했습니다.',
-      data: await this.sceneService.createScene(validatedQuery, scale ?? 'MEDIUM'),
+      data: await this.sceneService.createScene(
+        validatedQuery,
+        scale ?? 'MEDIUM',
+        {
+          forceRegenerate,
+          requestId: requestContext.requestId,
+          source: 'api',
+        },
+      ),
     };
   }
 
@@ -117,9 +132,7 @@ export class SceneController {
   ): Promise<void> {
     const validatedSceneId = validatePlaceId(sceneId);
     await this.sceneService.getBootstrap(validatedSceneId);
-    response.sendFile(
-      join(getSceneDataDir(), `${validatedSceneId}.glb`),
-    );
+    response.sendFile(join(getSceneDataDir(), `${validatedSceneId}.glb`));
   }
 
   @Get(':sceneId/meta')
@@ -161,10 +174,12 @@ export class SceneController {
   ): Promise<ResponsePayload<SceneDetail>> {
     const validatedSceneId = validatePlaceId(sceneId);
 
-    return this.sceneService.getSceneDetail(validatedSceneId).then((data) => ({
-      message: 'Scene detail 조회에 성공했습니다.',
-      data,
-    }));
+    return this.sceneService
+      .getSceneDetail(validatedSceneId)
+      .then((data) => ({
+        message: 'Scene detail 조회에 성공했습니다.',
+        data,
+      }));
   }
 
   @Get(':sceneId/places')
