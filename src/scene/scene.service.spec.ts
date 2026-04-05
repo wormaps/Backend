@@ -10,6 +10,7 @@ import { MapillaryClient } from '../places/clients/mapillary.client';
 import { OpenMeteoClient } from '../places/clients/open-meteo.client';
 import { OverpassClient } from '../places/clients/overpass.client';
 import { TomTomTrafficClient } from '../places/clients/tomtom-traffic.client';
+import { SnapshotBuilderService } from '../places/snapshot/snapshot-builder.service';
 import { ExternalPlaceDetail } from '../places/types/external-place.types';
 import { PlacePackage } from '../places/types/place.types';
 import { SceneService } from './scene.service';
@@ -140,6 +141,7 @@ describe('Scene Services', () => {
         SceneLiveDataService,
         SceneRepository,
         TtlCacheService,
+        SnapshotBuilderService,
         {
           provide: GlbBuilderService,
           useValue: {
@@ -300,6 +302,7 @@ describe('Scene Services', () => {
     expect(bootstrap.detailUrl).toBe('/api/scenes/scene-seoul-city-hall/detail');
     expect(bootstrap.detailStatus).toBe('OSM_ONLY');
     expect(bootstrap.assetUrl).toBe('/api/scenes/scene-seoul-city-hall/assets/base.glb');
+    expect(bootstrap.liveEndpoints.state).toBe('/api/scenes/scene-seoul-city-hall/state');
     expect(bootstrap.glbSources).toEqual({
       googlePlaces: true,
       overpass: true,
@@ -393,6 +396,42 @@ describe('Scene Services', () => {
     expect(weather.weatherCode).toBe(3);
     expect(weather.preset).toBe('cloudy');
     expect(weather.temperature).toBe(13.2);
+  });
+
+  it('builds scene live state from snapshot rules and weather observation', async () => {
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    openMeteoClient.getHistoricalObservation.mockResolvedValue({
+      date: '2026-04-04',
+      localTime: '2026-04-04T18:00',
+      temperatureCelsius: 11.4,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 20,
+      resolvedWeather: 'CLEAR',
+      source: 'OPEN_METEO_HISTORICAL',
+    });
+
+    const scene = await generationService.createScene('Seoul City Hall', 'MEDIUM');
+    await generationService.waitForIdle();
+    const state = await liveDataService.getState(scene.sceneId, {
+      date: '2026-04-04',
+      timeOfDay: 'EVENING',
+    });
+
+    expect(state.placeId).toBe(placeDetail.placeId);
+    expect(state.timeOfDay).toBe('EVENING');
+    expect(state.weather).toBe('CLEAR');
+    expect(state.source).toBe('MVP_SYNTHETIC_RULES');
+    expect(state.crowd.count).toBeGreaterThan(0);
+    expect(state.lighting.neon).toBe(true);
+    expect(state.sourceDetail).toEqual({
+      provider: 'OPEN_METEO_HISTORICAL',
+      date: '2026-04-04',
+      localTime: '2026-04-04T18:00',
+    });
   });
 
   it('caches weather responses by scene/date/timeOfDay', async () => {

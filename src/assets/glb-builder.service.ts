@@ -140,6 +140,96 @@ export class GlbBuilderService {
       this.createVegetationGeometry(sceneMeta.origin, assetSelection.vegetation),
       materials.tree,
     );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'poi_markers',
+      this.createPoiGeometry(sceneMeta.origin, assetSelection.pois),
+      materials.poi,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'landcover_parks',
+      this.createLandCoverGeometry(
+        sceneMeta.origin,
+        sceneDetail.landCovers,
+        'PARK',
+        triangulate,
+      ),
+      materials.landCoverPark,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'landcover_water',
+      this.createLandCoverGeometry(
+        sceneMeta.origin,
+        sceneDetail.landCovers,
+        'WATER',
+        triangulate,
+      ),
+      materials.landCoverWater,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'landcover_plazas',
+      this.createLandCoverGeometry(
+        sceneMeta.origin,
+        sceneDetail.landCovers,
+        'PLAZA',
+        triangulate,
+      ),
+      materials.landCoverPlaza,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'linear_railways',
+      this.createLinearFeatureGeometry(
+        sceneMeta.origin,
+        sceneDetail.linearFeatures,
+        'RAILWAY',
+      ),
+      materials.linearRailway,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'linear_bridges',
+      this.createLinearFeatureGeometry(
+        sceneMeta.origin,
+        sceneDetail.linearFeatures,
+        'BRIDGE',
+      ),
+      materials.linearBridge,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'linear_waterways',
+      this.createLinearFeatureGeometry(
+        sceneMeta.origin,
+        sceneDetail.linearFeatures,
+        'WATERWAY',
+      ),
+      materials.linearWaterway,
+    );
 
     const materialHintMap = new Map(
       sceneDetail.facadeHints.map((hint) => [hint.objectId, hint]),
@@ -263,6 +353,42 @@ export class GlbBuilderService {
         .setBaseColorFactor([0.28, 0.47, 0.27, 1])
         .setMetallicFactor(0)
         .setRoughnessFactor(1),
+      poi: doc
+        .createMaterial('poi')
+        .setBaseColorFactor([0.93, 0.39, 0.18, 1])
+        .setEmissiveFactor([0.22, 0.08, 0.03])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.8),
+      landCoverPark: doc
+        .createMaterial('landcover-park')
+        .setBaseColorFactor([0.48, 0.67, 0.38, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(1),
+      landCoverWater: doc
+        .createMaterial('landcover-water')
+        .setBaseColorFactor([0.32, 0.55, 0.72, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.4),
+      landCoverPlaza: doc
+        .createMaterial('landcover-plaza')
+        .setBaseColorFactor([0.79, 0.75, 0.66, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.95),
+      linearRailway: doc
+        .createMaterial('linear-railway')
+        .setBaseColorFactor([0.42, 0.42, 0.44, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.85),
+      linearBridge: doc
+        .createMaterial('linear-bridge')
+        .setBaseColorFactor([0.58, 0.58, 0.6, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.82),
+      linearWaterway: doc
+        .createMaterial('linear-waterway')
+        .setBaseColorFactor([0.25, 0.49, 0.68, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.45),
       buildingShells: {
         glass: this.makeColorMaterial(doc, 'building-shell-glass', '#8eb7d9'),
         concrete: this.makeColorMaterial(
@@ -550,6 +676,87 @@ export class GlbBuilderService {
         );
       }
     }
+    return geometry;
+  }
+
+  private createPoiGeometry(
+    origin: Coordinate,
+    pois: SceneMeta['pois'],
+  ): GeometryBuffers {
+    const geometry = this.createEmptyGeometry();
+
+    for (const poi of pois) {
+      const center = this.toLocalPoint(origin, poi.location);
+      if (!this.isFiniteVec3(center)) {
+        continue;
+      }
+      const size = poi.isLandmark ? 0.65 : 0.35;
+      const height = poi.isLandmark ? 3.4 : 2;
+      this.pushBox(
+        geometry,
+        [center[0] - 0.08, 0, center[2] - 0.08],
+        [center[0] + 0.08, height, center[2] + 0.08],
+      );
+      this.pushBox(
+        geometry,
+        [center[0] - size, height, center[2] - size],
+        [center[0] + size, height + 0.9, center[2] + size],
+      );
+    }
+
+    return geometry;
+  }
+
+  private createLandCoverGeometry(
+    origin: Coordinate,
+    covers: SceneDetail['landCovers'],
+    type: SceneDetail['landCovers'][number]['type'],
+    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  ): GeometryBuffers {
+    const geometry = this.createEmptyGeometry();
+    const y =
+      type === 'WATER' ? -0.01 : type === 'PLAZA' ? 0.006 : 0.01;
+
+    for (const cover of covers) {
+      if (cover.type !== type) {
+        continue;
+      }
+      const ring = this.toLocalRing(origin, cover.polygon);
+      if (ring.length < 3) {
+        continue;
+      }
+      const triangles = this.triangulateRings(ring, [], triangulate);
+      for (const [a, b, c] of triangles) {
+        this.pushTriangle(
+          geometry,
+          [a[0], y, a[2]],
+          [b[0], y, b[2]],
+          [c[0], y, c[2]],
+        );
+      }
+    }
+
+    return geometry;
+  }
+
+  private createLinearFeatureGeometry(
+    origin: Coordinate,
+    features: SceneDetail['linearFeatures'],
+    type: SceneDetail['linearFeatures'][number]['type'],
+  ): GeometryBuffers {
+    const geometry = this.createEmptyGeometry();
+
+    for (const feature of features) {
+      if (feature.type !== type) {
+        continue;
+      }
+      const width =
+        type === 'RAILWAY' ? 3.2 : type === 'BRIDGE' ? 4.6 : 2.8;
+      const y =
+        type === 'BRIDGE' ? 0.34 : type === 'WATERWAY' ? -0.005 : 0.025;
+      this.pushPathStrips(origin, geometry, feature.path, width, y);
+    }
+
     return geometry;
   }
 

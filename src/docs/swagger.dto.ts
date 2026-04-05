@@ -676,6 +676,9 @@ export class SceneMetaDto {
 }
 
 export class BootstrapEndpointsDto {
+  @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/state' })
+  state!: string;
+
   @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/traffic' })
   traffic!: string;
 
@@ -957,6 +960,41 @@ export class SceneWeatherResponseDto {
 
   @ApiProperty({ nullable: true, example: '2026-04-04T12:00' })
   observedAt!: string | null;
+}
+
+export class SceneStateResponseDto {
+  @ApiProperty({ example: 'google-place-id' })
+  placeId!: string;
+
+  @ApiProperty({ example: '2026-04-04T13:00:00Z' })
+  updatedAt!: string;
+
+  @ApiProperty({ enum: ['DAY', 'EVENING', 'NIGHT'] })
+  timeOfDay!: string;
+
+  @ApiProperty({ enum: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'] })
+  weather!: string;
+
+  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES'] })
+  source!: string;
+
+  @ApiProperty({ type: DensityMetricDto })
+  crowd!: DensityMetricDto;
+
+  @ApiProperty({ type: DensityMetricDto })
+  vehicles!: DensityMetricDto;
+
+  @ApiProperty({ type: LightingStateDto })
+  lighting!: LightingStateDto;
+
+  @ApiProperty({ type: SurfaceStateDto })
+  surface!: SurfaceStateDto;
+
+  @ApiProperty({ type: PlaybackDto })
+  playback!: PlaybackDto;
+
+  @ApiProperty({ type: SourceDetailDto, required: false })
+  sourceDetail?: SourceDetailDto;
 }
 
 export class ScenePlacesResponseDto {

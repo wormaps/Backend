@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { TtlCacheService } from '../../cache/ttl-cache.service';
 import { OpenMeteoClient } from '../../places/clients/open-meteo.client';
+import { SnapshotBuilderService } from '../../places/snapshot/snapshot-builder.service';
+import { toRegistryLikePlace } from '../../places/utils/place-registry.utils';
 import { TomTomTrafficClient } from '../../places/clients/tomtom-traffic.client';
 import { SceneReadService } from './scene-read.service';
 import type {
+  SceneStateQuery,
+  SceneStateResponse,
   SceneTrafficResponse,
   SceneWeatherQuery,
   SceneWeatherResponse,
@@ -12,6 +16,7 @@ import type {
 
 @Injectable()
 export class SceneLiveDataService {
+  private readonly stateTtlMs = 10 * 60 * 1000;
   private readonly trafficTtlMs = 2 * 60 * 1000;
   private readonly weatherTtlMs = 10 * 60 * 1000;
 
@@ -20,7 +25,58 @@ export class SceneLiveDataService {
     private readonly ttlCacheService: TtlCacheService,
     private readonly openMeteoClient: OpenMeteoClient,
     private readonly tomTomTrafficClient: TomTomTrafficClient,
+    private readonly snapshotBuilderService: SnapshotBuilderService,
   ) {}
+
+  async getState(
+    sceneId: string,
+    query: SceneStateQuery,
+  ): Promise<SceneStateResponse> {
+    return this.ttlCacheService.getOrSet(
+      this.buildStateCacheKey(sceneId, query),
+      this.stateTtlMs,
+      async () => {
+        const storedScene = await this.sceneReadService.getReadyScene(sceneId);
+        const weatherObservation =
+          query.weather === undefined
+            ? await this.openMeteoClient.getHistoricalObservation(
+                storedScene.place,
+                query.date,
+                query.timeOfDay,
+              )
+            : null;
+        const resolvedWeather =
+          query.weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
+        const snapshot = this.snapshotBuilderService.build(
+          toRegistryLikePlace(storedScene.place),
+          query.timeOfDay,
+          resolvedWeather,
+        );
+
+        return {
+          placeId: snapshot.placeId,
+          updatedAt: snapshot.generatedAt,
+          timeOfDay: snapshot.timeOfDay,
+          weather: snapshot.weather,
+          source: snapshot.source,
+          crowd: snapshot.crowd,
+          vehicles: snapshot.vehicles,
+          lighting: snapshot.lighting,
+          surface: snapshot.surface,
+          playback: snapshot.playback,
+          sourceDetail: weatherObservation
+            ? {
+                provider: weatherObservation.source,
+                date: weatherObservation.date,
+                localTime: weatherObservation.localTime,
+              }
+            : {
+                provider: 'MVP_SYNTHETIC_RULES',
+              },
+        };
+      },
+    );
+  }
 
   async getWeather(
     sceneId: string,
@@ -77,6 +133,10 @@ export class SceneLiveDataService {
     query: SceneWeatherQuery,
   ): string {
     return `scene-weather:${sceneId}:${query.date}:${query.timeOfDay}`;
+  }
+
+  private buildStateCacheKey(sceneId: string, query: SceneStateQuery): string {
+    return `scene-state:${sceneId}:${query.date}:${query.timeOfDay}:${query.weather ?? 'AUTO'}`;
   }
 
   private buildTrafficCacheKey(sceneId: string): string {

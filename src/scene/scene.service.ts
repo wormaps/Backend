@@ -10,6 +10,8 @@ import type {
   SceneMeta,
   ScenePlacesResponse,
   SceneScale,
+  SceneStateQuery,
+  SceneStateResponse,
   SceneTrafficResponse,
   SceneWeatherQuery,
   SceneWeatherResponse,
@@ -49,6 +51,13 @@ export class SceneService {
 
   getPlaces(sceneId: string): Promise<ScenePlacesResponse> {
     return this.sceneReadService.getPlaces(sceneId);
+  }
+
+  getState(
+    sceneId: string,
+    query: SceneStateQuery,
+  ): Promise<SceneStateResponse> {
+    return this.sceneLiveDataService.getState(sceneId, query);
   }
 
   getWeather(

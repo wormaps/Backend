@@ -52,6 +52,7 @@ export class SceneReadService {
       },
       assetProfile: stored.meta.assetProfile,
       liveEndpoints: {
+        state: `/api/scenes/${scene.sceneId}/state`,
         traffic: `/api/scenes/${scene.sceneId}/traffic`,
         weather: `/api/scenes/${scene.sceneId}/weather`,
         places: `/api/scenes/${scene.sceneId}/places`,

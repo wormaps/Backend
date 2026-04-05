@@ -9,6 +9,7 @@ import type {
   BootstrapResponse,
   SceneDetail,
   SceneMeta,
+  SceneStateResponse,
   SceneTrafficResponse,
   SceneWeatherResponse,
 } from '../src/scene/types/scene.types';
@@ -61,6 +62,12 @@ async function main() {
       timeOfDay: 'DAY',
     }),
   );
+  const state = await resolveAuditStep(() =>
+    sceneService.getState(scene.sceneId, {
+      date: new Date().toISOString().slice(0, 10),
+      timeOfDay: 'DAY',
+    }),
+  );
   const traffic = await resolveAuditStep(() =>
     sceneService.getTraffic(scene.sceneId),
   );
@@ -86,6 +93,7 @@ async function main() {
     meta,
     detail,
     placesCount: places.pois.length,
+    state,
     weather,
     traffic,
     glbInspection,
@@ -124,6 +132,7 @@ async function main() {
           signageClusters: detail.signageClusters.length,
         },
         liveSummary: {
+          state,
           weather,
           traffic,
           placesCount: places.pois.length,
@@ -144,6 +153,7 @@ function buildChecks(input: {
   meta: SceneMeta;
   detail: SceneDetail;
   placesCount: number;
+  state: SceneStateResponse | AuditStepError;
   weather: SceneWeatherResponse | AuditStepError;
   traffic: SceneTrafficResponse | AuditStepError;
   glbInspection: GlbInspection;
@@ -197,6 +207,7 @@ function buildChecks(input: {
     id: 'live-api',
     title: 'Live API(traffic/weather)',
     status:
+      !('error' in input.state) &&
       !('error' in input.traffic) &&
       !('error' in input.weather) &&
       input.traffic.segments.length > 0 &&
@@ -204,6 +215,7 @@ function buildChecks(input: {
         ? 'PASS'
         : 'PARTIAL',
     evidence: [
+      `state=${'error' in input.state ? input.state.error : `crowd=${input.state.crowd.level},weather=${input.state.weather}`}`,
       `traffic=${'error' in input.traffic ? input.traffic.error : `segments=${input.traffic.segments.length}`}`,
       `weather=${'error' in input.weather ? input.weather.error : `source=${input.weather.source}`}`,
       `liveEndpoints=${Object.keys(input.bootstrap.liveEndpoints).join(',')}`,
@@ -253,9 +265,11 @@ function buildChecks(input: {
     id: 'meta-vs-glb-gap',
     title: 'meta/detail 대비 glb 누락 요소',
     status:
-      input.meta.pois.length > 0 &&
-      !input.glbInspection.categories.pois &&
-      (input.detail.landCovers.length > 0 || input.detail.linearFeatures.length > 0)
+      (input.meta.pois.length > 0 && !input.glbInspection.categories.pois) ||
+      (input.detail.landCovers.length > 0 &&
+        !input.glbInspection.categories.landCovers) ||
+      (input.detail.linearFeatures.length > 0 &&
+        !input.glbInspection.categories.linearFeatures)
         ? 'FAIL'
         : 'PASS',
     evidence: [
@@ -271,10 +285,17 @@ function buildChecks(input: {
   checks.push({
     id: 'synthetic-live-gap',
     title: '합성 crowd/lighting 상태의 scene live 연결',
-    status: 'FAIL',
+    status:
+      input.bootstrap.liveEndpoints.state &&
+      !('error' in input.state) &&
+      input.state.source === 'MVP_SYNTHETIC_RULES'
+        ? 'PASS'
+        : 'FAIL',
     evidence: [
-      'scene bootstrap liveEndpoints에는 traffic/weather/places만 존재',
-      'crowd/lighting/timeOfDay/surface 전용 scene live endpoint 없음',
+      `stateEndpoint=${input.bootstrap.liveEndpoints.state ?? 'missing'}`,
+      'error' in input.state
+        ? input.state.error
+        : `crowd=${input.state.crowd.level},lighting=${input.state.lighting.ambient}`,
     ],
   });
 

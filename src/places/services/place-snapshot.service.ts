@@ -4,7 +4,6 @@ import type {
   ExternalPlaceDetail,
 } from '../types/external-place.types';
 import {
-  RegistryInfo,
   SceneSnapshot,
   TimeOfDay,
   WeatherType,
@@ -12,6 +11,7 @@ import {
 import { OpenMeteoClient } from '../clients/open-meteo.client';
 import { GooglePlacesClient } from '../clients/google-places.client';
 import { SnapshotBuilderService } from '../snapshot/snapshot-builder.service';
+import { toRegistryLikePlace } from '../utils/place-registry.utils';
 import { PlaceCatalogService } from './place-catalog.service';
 
 @Injectable()
@@ -52,7 +52,7 @@ export class PlaceSnapshotService {
     const resolvedWeather =
       weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
     const snapshot = this.snapshotBuilderService.build(
-      this.toRegistryLikePlace(place),
+      toRegistryLikePlace(place),
       timeOfDay,
       resolvedWeather,
     );
@@ -71,42 +71,5 @@ export class PlaceSnapshotService {
       snapshot,
       weatherObservation,
     };
-  }
-
-  private toRegistryLikePlace(place: ExternalPlaceDetail): RegistryInfo {
-    return {
-      id: place.placeId,
-      slug: place.placeId,
-      name: place.displayName,
-      country: 'Unknown',
-      city: 'Unknown',
-      location: place.location,
-      placeType: this.resolvePlaceType(place),
-      tags: place.types,
-    };
-  }
-
-  private resolvePlaceType(
-    place: ExternalPlaceDetail,
-  ): RegistryInfo['placeType'] {
-    const types = new Set(place.types);
-
-    if (
-      types.has('train_station') ||
-      types.has('subway_station') ||
-      types.has('transit_station')
-    ) {
-      return 'STATION';
-    }
-
-    if (types.has('tourist_attraction') || types.has('plaza')) {
-      return 'PLAZA';
-    }
-
-    if (types.has('intersection')) {
-      return 'CROSSING';
-    }
-
-    return 'SQUARE';
   }
 }

@@ -27,6 +27,7 @@ import { SnapshotBuilderService } from './snapshot/snapshot-builder.service';
   ],
   exports: [
     PlacesService,
+    SnapshotBuilderService,
     GooglePlacesClient,
     OverpassClient,
     MapillaryClient,

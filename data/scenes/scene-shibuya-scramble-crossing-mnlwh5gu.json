@@ -1,0 +1,22 @@
+{
+  "requestKey": "shibuya scramble crossing::MEDIUM",
+  "query": "Shibuya Scramble Crossing",
+  "scale": "MEDIUM",
+  "generationSource": "smoke",
+  "requestId": "audit_mnlwh5gu",
+  "attempts": 2,
+  "scene": {
+    "sceneId": "scene-shibuya-scramble-crossing-mnlwh5gu",
+    "placeId": null,
+    "name": "Shibuya Scramble Crossing",
+    "centerLat": 0,
+    "centerLng": 0,
+    "radiusM": 600,
+    "status": "FAILED",
+    "metaUrl": "/api/scenes/scene-shibuya-scramble-crossing-mnlwh5gu/meta",
+    "assetUrl": null,
+    "createdAt": "2026-04-05T15:12:21.486Z",
+    "updatedAt": "2026-04-05T15:14:43.575Z",
+    "failureReason": "Overpass API 응답이 비정상입니다."
+  }
+}

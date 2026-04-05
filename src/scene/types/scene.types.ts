@@ -2,13 +2,17 @@ import {
   BuildingData,
   Coordinate,
   CrossingData,
+  DensityMetric,
   GlbSources,
   LandCoverData,
+  LightingState,
   LinearFeatureData,
   PlacePackage,
   PoiData,
   RoadData,
   StreetFurnitureData,
+  SurfaceState,
+  WeatherType,
   VegetationData,
   WalkwayData,
 } from '../../places/types/place.types';
@@ -230,9 +234,32 @@ export interface BootstrapResponse {
   glbSources: GlbSources;
   assetProfile: SceneMeta['assetProfile'];
   liveEndpoints: {
+    state: string;
     traffic: string;
     weather: string;
     places: string;
+  };
+}
+
+export interface SceneStateResponse {
+  placeId: string;
+  updatedAt: string;
+  timeOfDay: TimeOfDay;
+  weather: WeatherType;
+  source: 'MVP_SYNTHETIC_RULES';
+  crowd: DensityMetric;
+  vehicles: DensityMetric;
+  lighting: LightingState;
+  surface: SurfaceState;
+  playback: {
+    recommendedSpeed: 1 | 2 | 4 | 8;
+    pedestrianAnimationRate: number;
+    vehicleAnimationRate: number;
+  };
+  sourceDetail?: {
+    provider: 'MVP_SYNTHETIC_RULES' | 'OPEN_METEO_HISTORICAL';
+    date?: string;
+    localTime?: string;
   };
 }
 
@@ -286,4 +313,10 @@ export interface SceneCreateOptions {
 export interface SceneWeatherQuery {
   date: string;
   timeOfDay: TimeOfDay;
+}
+
+export interface SceneStateQuery {
+  date: string;
+  timeOfDay: TimeOfDay;
+  weather?: WeatherType;
 }

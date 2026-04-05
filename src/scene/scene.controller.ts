@@ -35,10 +35,14 @@ import {
   SceneEntityDto,
   SceneMetaDto,
   ScenePlacesResponseDto,
+  SceneStateResponseDto,
   SceneTrafficResponseDto,
   SceneWeatherResponseDto,
 } from '../docs/scene.dto';
-import { TIME_OF_DAY_VALUES } from '../places/types/place.types';
+import {
+  TIME_OF_DAY_VALUES,
+  WEATHER_VALUES,
+} from '../places/types/place.types';
 import { SceneService } from './scene.service';
 import { getSceneDataDir } from './storage/scene-storage.utils';
 import {
@@ -48,6 +52,7 @@ import {
   SceneMeta,
   ScenePlacesResponse,
   SCENE_SCALE_VALUES,
+  SceneStateResponse,
   SceneTrafficResponse,
   SceneWeatherResponse,
 } from './types/scene.types';
@@ -223,6 +228,45 @@ export class SceneController {
       data: await this.sceneService.getWeather(validatedSceneId, {
         date,
         timeOfDay: timeOfDay ?? 'DAY',
+      }),
+    };
+  }
+
+  @Get(':sceneId/state')
+  @ApiOperation({ summary: 'Scene live state 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiQuery({ name: 'date', required: false, type: String, example: '2026-04-04' })
+  @ApiQuery({ name: 'timeOfDay', required: false, enum: TIME_OF_DAY_VALUES })
+  @ApiQuery({ name: 'weather', required: false, enum: WEATHER_VALUES })
+  @ApiSuccessEnvelope({ model: SceneStateResponseDto })
+  async getState(
+    @Param('sceneId') sceneId: string,
+    @Query('date') rawDate?: string,
+    @Query('timeOfDay') rawTimeOfDay?: string,
+    @Query('weather') rawWeather?: string,
+  ): Promise<ResponsePayload<SceneStateResponse>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+    const timeOfDay = parseOptionalEnum(
+      rawTimeOfDay,
+      TIME_OF_DAY_VALUES,
+      ERROR_CODES.INVALID_TIME_OF_DAY,
+      'timeOfDay',
+    );
+    const weather = parseOptionalEnum(
+      rawWeather,
+      WEATHER_VALUES,
+      ERROR_CODES.INVALID_WEATHER,
+      'weather',
+    );
+    const date =
+      parseOptionalIsoDate(rawDate) ?? new Date().toISOString().slice(0, 10);
+
+    return {
+      message: 'Scene live state 조회에 성공했습니다.',
+      data: await this.sceneService.getState(validatedSceneId, {
+        date,
+        timeOfDay: timeOfDay ?? 'DAY',
+        weather: weather ?? undefined,
       }),
     };
   }
