@@ -1,7 +1,15 @@
+import { AppLoggerService } from '../../common/logging/app-logger.service';
 import { OverpassClient } from './overpass.client';
-import { ExternalPlaceDetail } from './external-place.types';
+import { ExternalPlaceDetail } from '../types/external-place.types';
 
 describe('OverpassClient', () => {
+  const logger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    fromRequest: jest.fn(),
+  } as unknown as AppLoggerService;
+
   const place: ExternalPlaceDetail = {
     provider: 'GOOGLE_PLACES',
     placeId: 'abc123',
@@ -73,7 +81,7 @@ describe('OverpassClient', () => {
           }),
         ),
     });
-    const client = new OverpassClient().withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
 
     const result = await client.buildPlacePackage(place);
 
@@ -155,7 +163,7 @@ describe('OverpassClient', () => {
       ok: true,
       text: () => Promise.resolve(JSON.stringify(response)),
     });
-    const client = new OverpassClient().withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
 
     const result = await client.buildPlacePackage(place, { radiusM: 600 });
 
@@ -222,7 +230,7 @@ describe('OverpassClient', () => {
       text: () => Promise.resolve(JSON.stringify(response)),
     });
 
-    const client = new OverpassClient().withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
     const result = await client.buildPlacePackage(place);
 
     expect(result.buildings).toHaveLength(1);
@@ -268,11 +276,57 @@ describe('OverpassClient', () => {
       .mockResolvedValueOnce(emptyResponse)
       .mockResolvedValueOnce(emptyResponse);
 
-    const client = new OverpassClient().withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
     const result = await client.buildPlacePackage(place);
 
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(result.buildings).toHaveLength(1);
     expect(result.buildings[0]?.name).toBe('Fallback Tower');
+  });
+
+  it('should retry a batch with smaller bounds before failing over completely', async () => {
+    const buildingResponse = {
+      ok: true,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            elements: [
+              {
+                type: 'way',
+                id: 20,
+                tags: { building: 'yes', name: 'Scaled Tower' },
+                geometry: [
+                  { lat: 37.15, lon: 127.15 },
+                  { lat: 37.16, lon: 127.15 },
+                  { lat: 37.16, lon: 127.16 },
+                ],
+              },
+            ],
+          }),
+        ),
+    };
+    const fetcher = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('timeout-1'))
+      .mockRejectedValueOnce(new Error('timeout-2'))
+      .mockRejectedValueOnce(new Error('timeout-3'))
+      .mockRejectedValueOnce(new Error('timeout-4'))
+      .mockResolvedValue(buildingResponse);
+
+    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const result = await client.buildPlacePackage(place, {
+      bounds: {
+        northEast: { lat: 37.3, lng: 127.3 },
+        southWest: { lat: 37.0, lng: 127.0 },
+      },
+    });
+
+    expect(result.buildings).toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(7);
+    expect(
+      (logger.warn as jest.Mock).mock.calls.some(
+        (call) => call[0] === 'overpass.batch.retry_with_smaller_bounds',
+      ),
+    ).toBe(true);
   });
 });

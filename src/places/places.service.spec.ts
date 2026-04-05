@@ -1,10 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppException } from '../common/errors/app.exception';
-import { GooglePlacesClient } from './google-places.client';
-import { OpenMeteoClient } from './open-meteo.client';
-import { OverpassClient } from './overpass.client';
+import { GooglePlacesClient } from './clients/google-places.client';
+import { OpenMeteoClient } from './clients/open-meteo.client';
+import { OverpassClient } from './clients/overpass.client';
 import { PlacesService } from './places.service';
-import { SnapshotBuilderService } from './snapshot-builder.service';
+import { ExternalPlacesService } from './services/external-places.service';
+import { PlaceCatalogService } from './services/place-catalog.service';
+import { PlaceSnapshotService } from './services/place-snapshot.service';
+import { SnapshotBuilderService } from './snapshot/snapshot-builder.service';
 
 describe('PlacesService', () => {
   let service: PlacesService;
@@ -13,6 +16,9 @@ describe('PlacesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlacesService,
+        PlaceCatalogService,
+        ExternalPlacesService,
+        PlaceSnapshotService,
         SnapshotBuilderService,
         {
           provide: GooglePlacesClient,

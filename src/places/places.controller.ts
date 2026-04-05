@@ -3,9 +3,14 @@ import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ERROR_CODES } from '../common/constants/error-codes';
 import type { ResponsePayload } from '../common/http/api-response.interceptor';
 import {
-  ApiErrorEnvelope,
-  ApiSuccessEnvelope,
-} from '../docs/swagger.decorators';
+  parseOptionalEnum,
+  parseOptionalIsoDate,
+  parseOptionalLimit,
+  parseRequiredQuery,
+  validateGooglePlaceId,
+  validatePlaceId,
+} from '../common/http/query-parsers';
+import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/swagger.decorators';
 import {
   ExternalPlaceDetailDto,
   ExternalPlacePackageResponseDto,
@@ -15,29 +20,21 @@ import {
   RegistryInfoDto,
   SceneSnapshotDto,
   ExternalSceneSnapshotResponseDto,
-} from '../docs/swagger.dto';
-import {
-  parseOptionalEnum,
-  parseOptionalIsoDate,
-  parseOptionalLimit,
-  parseRequiredQuery,
-  validateGooglePlaceId,
-  validatePlaceId,
-} from '../common/http/query-parsers';
+} from '../docs/places.dto';
 import type {
   ExternalPlaceDetail,
   ExternalPlacePackageResponse,
   ExternalPlaceSearchItem,
   ExternalSceneSnapshotResponse,
-} from './external-place.types';
-import { PlacesService } from './places.service';
+} from './types/external-place.types';
 import type {
   PlaceDetail,
   PlacePackage,
   RegistryInfo,
   SceneSnapshot,
-} from './place.types';
-import { TIME_OF_DAY_VALUES, WEATHER_VALUES } from './place.types';
+} from './types/place.types';
+import { TIME_OF_DAY_VALUES, WEATHER_VALUES } from './types/place.types';
+import { PlacesService } from './places.service';
 
 @ApiTags('places', 'external-places')
 @Controller('places')

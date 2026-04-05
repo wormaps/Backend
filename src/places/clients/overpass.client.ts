@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AppException } from '../common/errors/app.exception';
-import { fetchJson } from '../common/http/fetch-json';
-import type { FetchLike } from '../common/http/fetch-json';
-import { ExternalPlaceDetail } from './external-place.types';
+import { AppLoggerService } from '../../common/logging/app-logger.service';
+import { AppException } from '../../common/errors/app.exception';
+import { fetchJson } from '../../common/http/fetch-json';
+import type { FetchLike } from '../../common/http/fetch-json';
+import { ExternalPlaceDetail } from '../types/external-place.types';
 import {
   Coordinate,
   CrossingData,
@@ -13,14 +14,14 @@ import {
   PoiData,
   StreetFurnitureData,
   VegetationData,
-} from './place.types';
+} from '../types/place.types';
 import {
   coordinatesEqual,
   createBoundsFromCenterRadius,
   isFiniteCoordinate,
   midpoint,
   polygonSignedArea,
-} from './geo.utils';
+} from '../utils/geo.utils';
 
 interface OverpassResponse {
   elements?: OverpassElement[];
@@ -44,15 +45,21 @@ interface OverpassElement {
 export interface BuildPlacePackageOptions {
   bounds?: GeoBounds;
   radiusM?: number;
+  sceneId?: string;
+  requestId?: string | null;
 }
 
 @Injectable()
 export class OverpassClient {
   private fetcher: FetchLike = fetch;
+  private readonly maxEndpointAttempts = 2;
+  private readonly fallbackBoundScales = [1, 0.82, 0.64];
   private readonly defaultEndpoints = [
     'https://overpass.private.coffee/api/interpreter',
     'https://overpass-api.de/api/interpreter',
   ];
+
+  constructor(private readonly appLoggerService: AppLoggerService) {}
 
   withFetcher(fetcher: FetchLike): this {
     this.fetcher = fetcher;
@@ -69,14 +76,21 @@ export class OverpassClient {
         ? createBoundsFromCenterRadius(place.location, options.radiusM)
         : place.viewport ?? createBoundsFromCenterRadius(place.location, 300));
 
-    const batches = [
-      this.buildQuery(bounds, 'core'),
-      this.buildQuery(bounds, 'street'),
-      this.buildQuery(bounds, 'environment'),
+    const scopes: Array<'core' | 'street' | 'environment'> = [
+      'core',
+      'street',
+      'environment',
     ];
-    const responses = await Promise.all(
-      batches.map((query) => this.fetchOverpassResponse(query)),
-    );
+    const responses: OverpassResponse[] = [];
+    for (const [index, scope] of scopes.entries()) {
+      responses.push(
+        await this.fetchScopeResponse(bounds, scope, {
+          requestId: options.requestId ?? null,
+          sceneId: options.sceneId,
+          batch: index,
+        }),
+      );
+    }
     const elements = dedupeElements(
       responses.flatMap((response) => response.elements ?? []),
     );
@@ -266,38 +280,133 @@ export class OverpassClient {
               `way["bridge"]${bbox};`,
             ];
 
-    return `
+return `
 [out:json][timeout:25];
 (
   ${selectors.join('\n  ')}
 );
-out geom;
+out geom qt;
     `.trim();
   }
 
-  private async fetchOverpassResponse(query: string): Promise<OverpassResponse> {
+  private async fetchScopeResponse(
+    bounds: GeoBounds,
+    scope: 'core' | 'street' | 'environment',
+    context: {
+      requestId?: string | null;
+      sceneId?: string;
+      batch: number;
+    },
+  ): Promise<OverpassResponse> {
+    let lastError: unknown;
+
+    for (const scale of this.fallbackBoundScales) {
+      const scopedBounds = scale === 1 ? bounds : this.scaleBounds(bounds, scale);
+      const query = this.buildQuery(scopedBounds, scope);
+      try {
+        this.appLoggerService.info('overpass.batch.started', {
+          requestId: context.requestId,
+          sceneId: context.sceneId,
+          provider: 'overpass',
+          step: 'overpass_batch',
+          batch: context.batch,
+          scope,
+          boundScale: scale,
+        });
+        const response = await this.fetchOverpassResponse(query, {
+          ...context,
+          scope,
+          boundScale: scale,
+        });
+        this.appLoggerService.info('overpass.batch.completed', {
+          requestId: context.requestId,
+          sceneId: context.sceneId,
+          provider: 'overpass',
+          step: 'overpass_batch',
+          batch: context.batch,
+          scope,
+          boundScale: scale,
+          elementCount: response.elements?.length ?? 0,
+        });
+        return response;
+      } catch (error) {
+        lastError = error;
+        this.appLoggerService.warn('overpass.batch.retry_with_smaller_bounds', {
+          requestId: context.requestId,
+          sceneId: context.sceneId,
+          provider: 'overpass',
+          step: 'overpass_batch',
+          batch: context.batch,
+          scope,
+          boundScale: scale,
+          error,
+        });
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('Overpass batch failed');
+  }
+
+  private async fetchOverpassResponse(
+    query: string,
+    context: {
+      requestId?: string | null;
+      sceneId?: string;
+      batch: number;
+      scope?: string;
+      boundScale?: number;
+    },
+  ): Promise<OverpassResponse> {
     const endpoints = this.resolveEndpoints();
     let lastError: unknown;
 
     for (const url of endpoints) {
-      try {
-        return await fetchJson<OverpassResponse>(
-          {
-            provider: 'Overpass API',
+      for (let attempt = 1; attempt <= this.maxEndpointAttempts; attempt += 1) {
+        try {
+          this.appLoggerService.info('overpass.request.started', {
+            requestId: context.requestId,
+            sceneId: context.sceneId,
+            provider: 'overpass',
+            step: 'overpass_request',
+            batch: context.batch,
+            scope: context.scope,
+            boundScale: context.boundScale,
             url,
-            init: {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            attempt,
+          });
+          return await fetchJson<OverpassResponse>(
+            {
+              provider: 'Overpass API',
+              url,
+              init: {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body: `data=${encodeURIComponent(query)}`,
               },
-              body: `data=${encodeURIComponent(query)}`,
+              timeoutMs: 40000,
             },
-            timeoutMs: 40000,
-          },
-          this.fetcher,
-        );
-      } catch (error) {
-        lastError = error;
+            this.fetcher,
+          );
+        } catch (error) {
+          lastError = error;
+          this.appLoggerService.warn('overpass.request.failed', {
+            requestId: context.requestId,
+            sceneId: context.sceneId,
+            provider: 'overpass',
+            step: 'overpass_request',
+            batch: context.batch,
+            scope: context.scope,
+            boundScale: context.boundScale,
+            url,
+            attempt,
+            error,
+          });
+          if (attempt < this.maxEndpointAttempts) {
+            await this.sleep(250 * attempt);
+          }
+        }
       }
     }
 
@@ -317,6 +426,28 @@ out geom;
     return configured && configured.length > 0
       ? configured
       : this.defaultEndpoints;
+  }
+
+  private scaleBounds(bounds: GeoBounds, ratio: number): GeoBounds {
+    const centerLat = (bounds.northEast.lat + bounds.southWest.lat) / 2;
+    const centerLng = (bounds.northEast.lng + bounds.southWest.lng) / 2;
+    const latHalfSpan = ((bounds.northEast.lat - bounds.southWest.lat) / 2) * ratio;
+    const lngHalfSpan = ((bounds.northEast.lng - bounds.southWest.lng) / 2) * ratio;
+
+    return {
+      northEast: {
+        lat: centerLat + latHalfSpan,
+        lng: centerLng + lngHalfSpan,
+      },
+      southWest: {
+        lat: centerLat - latHalfSpan,
+        lng: centerLng - lngHalfSpan,
+      },
+    };
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private mapGeometry(geometry: Array<{ lat: number; lon: number }>): Coordinate[] {

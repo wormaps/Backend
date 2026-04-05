@@ -148,6 +148,14 @@ export interface PlacePackage {
   };
 }
 
+export interface GlbSources {
+  googlePlaces: boolean;
+  overpass: boolean;
+  mapillary: boolean;
+  weatherBaked: false;
+  trafficBaked: false;
+}
+
 export interface LightingState {
   ambient: 'BRIGHT' | 'SOFT' | 'DIM';
   neon: boolean;

@@ -1,4 +1,4 @@
-import { PlacePackage, PlaceDetail, RegistryInfo } from './place.types';
+import { PlacePackage, PlaceDetail, RegistryInfo } from '../types/place.types';
 
 export const PLACE_REGISTRY_FIXTURES: RegistryInfo[] = [
   {

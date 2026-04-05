@@ -1,5 +1,5 @@
 import { SnapshotBuilderService } from './snapshot-builder.service';
-import { RegistryInfo } from './place.types';
+import { RegistryInfo } from '../types/place.types';
 
 describe('SnapshotBuilderService', () => {
   const service = new SnapshotBuilderService();

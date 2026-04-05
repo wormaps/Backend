@@ -1,9 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ERROR_CODES } from '../common/constants/error-codes';
-import { AppException } from '../common/errors/app.exception';
-import { fetchJson } from '../common/http/fetch-json';
-import type { FetchLike } from '../common/http/fetch-json';
-import { Coordinate } from './place.types';
+import { ERROR_CODES } from '../../common/constants/error-codes';
+import { AppException } from '../../common/errors/app.exception';
+import { fetchJson } from '../../common/http/fetch-json';
+import type { FetchLike } from '../../common/http/fetch-json';
+import { Coordinate } from '../types/place.types';
 
 interface TomTomFlowSegmentResponse {
   flowSegmentData?: {

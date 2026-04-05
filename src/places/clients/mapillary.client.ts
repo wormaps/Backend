@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { fetchJson } from '../common/http/fetch-json';
-import type { FetchLike } from '../common/http/fetch-json';
-import { Coordinate, GeoBounds } from './place.types';
+import { fetchJson } from '../../common/http/fetch-json';
+import type { FetchLike } from '../../common/http/fetch-json';
+import { Coordinate, GeoBounds } from '../types/place.types';
 
 interface MapillaryListResponse<T> {
   data?: T[];

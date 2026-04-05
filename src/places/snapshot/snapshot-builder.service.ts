@@ -6,7 +6,7 @@ import {
   SceneSnapshot,
   TimeOfDay,
   WeatherType,
-} from './place.types';
+} from '../types/place.types';
 
 const PLACE_TYPE_BASELINES: Record<
   PlaceType,

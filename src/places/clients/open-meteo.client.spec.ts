@@ -1,5 +1,5 @@
 import { OpenMeteoClient } from './open-meteo.client';
-import { ExternalPlaceDetail } from './external-place.types';
+import { ExternalPlaceDetail } from '../types/external-place.types';
 
 describe('OpenMeteoClient', () => {
   it('should resolve snow from hourly observation', async () => {

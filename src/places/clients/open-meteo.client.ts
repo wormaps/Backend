@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { fetchJson } from '../common/http/fetch-json';
-import type { FetchLike } from '../common/http/fetch-json';
+import { fetchJson } from '../../common/http/fetch-json';
+import type { FetchLike } from '../../common/http/fetch-json';
 import {
   ExternalPlaceDetail,
   WeatherObservation,
-} from './external-place.types';
-import { TimeOfDay, WeatherType } from './place.types';
+} from '../types/external-place.types';
+import { TimeOfDay, WeatherType } from '../types/place.types';
 
 interface OpenMeteoResponse {
   hourly?: {

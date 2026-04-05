@@ -1,4 +1,4 @@
-import { Coordinate, GeoBounds } from './place.types';
+import { Coordinate, GeoBounds } from '../types/place.types';
 
 export interface LatLngLike {
   lat?: number | null;
