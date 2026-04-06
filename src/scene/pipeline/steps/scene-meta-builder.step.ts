@@ -13,7 +13,7 @@ import type {
   SceneScale,
 } from '../../types/scene.types';
 import { computeSceneCamera } from '../../utils/scene-geometry.utils';
-import { BuildingStyleResolverService } from '../../services/building-style-resolver.service';
+import { BuildingStyleResolverService } from '../../services/vision';
 
 @Injectable()
 export class SceneMetaBuilderStep {
@@ -76,7 +76,9 @@ export class SceneMetaBuilderStep {
       walkwayType: walkway.walkwayType,
       surface: walkway.surface ?? null,
     }));
-    const landmarkIds = new Set(placePackage.landmarks.map((landmark) => landmark.id));
+    const landmarkIds = new Set(
+      placePackage.landmarks.map((landmark) => landmark.id),
+    );
     const pois = placePackage.pois.map((poi) => ({
       objectId: poi.id,
       name: poi.name,

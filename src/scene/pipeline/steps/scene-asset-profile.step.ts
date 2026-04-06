@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { appendSceneDiagnosticsLog } from '../../storage/scene-storage.utils';
-import { SceneAssetProfileService } from '../../services/scene-asset-profile.service';
-import type { SceneDetail, SceneMeta, SceneScale } from '../../types/scene.types';
+import { SceneAssetProfileService } from '../../services/asset-profile';
+import type {
+  SceneDetail,
+  SceneMeta,
+  SceneScale,
+} from '../../types/scene.types';
 
 @Injectable()
 export class SceneAssetProfileStep {
@@ -16,11 +20,12 @@ export class SceneAssetProfileStep {
     detail: SceneDetail,
     scale: SceneScale,
   ): Promise<SceneMeta> {
-    const assetSelection = this.sceneAssetProfileService.buildSceneAssetSelection(
-      meta,
-      detail,
-      scale,
-    );
+    const assetSelection =
+      this.sceneAssetProfileService.buildSceneAssetSelection(
+        meta,
+        detail,
+        scale,
+      );
     const updatedMeta = {
       ...meta,
       assetProfile: {

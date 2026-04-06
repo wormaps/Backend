@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ExternalPlacesService } from './services/external-places.service';
-import { PlaceCatalogService } from './services/place-catalog.service';
-import { PlaceSnapshotService } from './services/place-snapshot.service';
+import {
+  ExternalPlacesService,
+  PlaceCatalogService,
+  PlaceSnapshotService,
+} from './services';
 import type {
   ExternalPlaceDetail,
   ExternalPlacePackageResponse,
@@ -42,7 +44,11 @@ export class PlacesService {
     timeOfDay: TimeOfDay,
     weather: WeatherType,
   ): SceneSnapshot {
-    return this.placeSnapshotService.getSceneSnapshot(placeId, timeOfDay, weather);
+    return this.placeSnapshotService.getSceneSnapshot(
+      placeId,
+      timeOfDay,
+      weather,
+    );
   }
 
   searchExternalPlaces(

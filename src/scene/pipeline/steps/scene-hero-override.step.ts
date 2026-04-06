@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SceneHeroOverrideService } from '../../services/scene-hero-override.service';
+import { SceneHeroOverrideService } from '../../services/hero-override';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
 

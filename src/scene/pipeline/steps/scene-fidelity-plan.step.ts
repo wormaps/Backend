@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
 import { appendSceneDiagnosticsLog } from '../../storage/scene-storage.utils';
-import { SceneFidelityPlannerService } from '../../services/scene-fidelity-planner.service';
+import { SceneFidelityPlannerService } from '../../services/planning';
 import type {
   SceneDetail,
   SceneFidelityPlan,

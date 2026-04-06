@@ -3,13 +3,15 @@ import {
   BuildingStyleInput,
   BuildingStyleProfile,
   BuildingStyleResolverService,
-} from '../services/building-style-resolver.service';
+} from '../services/vision/building-style-resolver.service';
 
 const buildingStyleResolver = new BuildingStyleResolverService();
 
 export type { BuildingStyleInput, BuildingStyleProfile };
 
-export function resolveBuildingStyle(input: BuildingStyleInput): BuildingStyleProfile {
+export function resolveBuildingStyle(
+  input: BuildingStyleInput,
+): BuildingStyleProfile {
   return buildingStyleResolver.resolveBuildingStyle(input);
 }
 

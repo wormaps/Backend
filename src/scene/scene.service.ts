@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { SceneGenerationService } from './services/scene-generation.service';
-import { SceneLiveDataService } from './services/scene-live-data.service';
-import { SceneReadService } from './services/scene-read.service';
+import { SceneGenerationService } from './services/generation';
+import { SceneLiveDataService } from './services/live';
+import { SceneReadService } from './services/read';
 import type {
   BootstrapResponse,
   SceneCreateOptions,

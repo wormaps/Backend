@@ -4,9 +4,11 @@ import { GooglePlacesClient } from './clients/google-places.client';
 import { OpenMeteoClient } from './clients/open-meteo.client';
 import { OverpassClient } from './clients/overpass.client';
 import { PlacesService } from './places.service';
-import { ExternalPlacesService } from './services/external-places.service';
-import { PlaceCatalogService } from './services/place-catalog.service';
-import { PlaceSnapshotService } from './services/place-snapshot.service';
+import {
+  ExternalPlacesService,
+  PlaceCatalogService,
+  PlaceSnapshotService,
+} from './services';
 import { SnapshotBuilderService } from './snapshot/snapshot-builder.service';
 
 describe('PlacesService', () => {

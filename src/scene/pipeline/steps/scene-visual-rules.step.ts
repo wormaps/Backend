@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { SceneVisionService } from '../../services/scene-vision.service';
-import type { GeoBounds, PlacePackage } from '../../../places/types/place.types';
+import { SceneVisionService } from '../../services/vision';
+import type {
+  GeoBounds,
+  PlacePackage,
+} from '../../../places/types/place.types';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
 
 @Injectable()
 export class SceneVisualRulesStep {
-  constructor(
-    private readonly sceneVisionService: SceneVisionService,
-  ) {}
+  constructor(private readonly sceneVisionService: SceneVisionService) {}
 
   execute(
     sceneId: string,

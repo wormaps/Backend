@@ -23,18 +23,20 @@ import { ScenePlacePackageStep } from './pipeline/steps/scene-place-package.step
 import { ScenePlaceResolutionStep } from './pipeline/steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneService } from './scene.service';
-import { BuildingStyleResolverService } from './services/building-style-resolver.service';
-import { SceneGenerationService } from './services/scene-generation.service';
-import { SceneAssetProfileService } from './services/scene-asset-profile.service';
-import { SceneFidelityPlannerService } from './services/scene-fidelity-planner.service';
-import { SceneLiveDataService } from './services/scene-live-data.service';
-import { SceneReadService } from './services/scene-read.service';
-import { SceneHeroOverrideService } from './services/scene-hero-override.service';
-import { SceneStateLiveService } from './services/scene-state-live.service';
-import { SceneTrafficLiveService } from './services/scene-traffic-live.service';
-import { SceneWeatherLiveService } from './services/scene-weather-live.service';
+import {
+  BuildingStyleResolverService,
+  SceneAssetProfileService,
+  SceneFidelityPlannerService,
+  SceneGenerationService,
+  SceneHeroOverrideService,
+  SceneLiveDataService,
+  SceneReadService,
+  SceneStateLiveService,
+  SceneTrafficLiveService,
+  SceneWeatherLiveService,
+  SceneVisionService,
+} from './services';
 import { SceneRepository } from './storage/scene.repository';
-import { SceneVisionService } from './services/scene-vision.service';
 
 export const placeDetail: ExternalPlaceDetail = {
   provider: 'GOOGLE_PLACES',

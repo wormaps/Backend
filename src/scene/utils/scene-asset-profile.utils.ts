@@ -1,6 +1,8 @@
 import { SceneDetail, SceneMeta, SceneScale } from '../types/scene.types';
-import { SceneAssetProfileService } from '../services/scene-asset-profile.service';
-import { SceneAssetSelection } from '../services/scene-asset-profile.types';
+import {
+  SceneAssetProfileService,
+  SceneAssetSelection,
+} from '../services/asset-profile';
 
 const sceneAssetProfileService = new SceneAssetProfileService();
 
