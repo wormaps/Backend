@@ -8,4 +8,4 @@ export {
   SceneStateResponseDto,
   SceneTrafficResponseDto,
   SceneWeatherResponseDto,
-} from './swagger.dto';
+} from './swagger.scene.dto';

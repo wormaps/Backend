@@ -6,4 +6,4 @@ export {
   Vector3Dto,
   CameraDto,
   BoundsDto,
-} from './swagger.dto';
+} from './swagger.common.dto';
