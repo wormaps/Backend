@@ -2,13 +2,14 @@ import { Injectable } from '@nestjs/common';
 import type { MapillaryClient } from '../../places/clients/mapillary.client';
 import type { Coordinate, PlacePackage } from '../../places/types/place.types';
 import type { MaterialClass, SceneFacadeHint } from '../types/scene.types';
-import {
-  estimateFacadeEdgeIndex,
-  resolveBuildingStyle,
-} from '../utils/scene-building-style.utils';
+import { BuildingStyleResolverService } from './building-style-resolver.service';
 
 @Injectable()
 export class SceneFacadeVisionService {
+  constructor(
+    private readonly buildingStyleResolverService: BuildingStyleResolverService = new BuildingStyleResolverService(),
+  ) {}
+
   buildFacadeHints(
     placePackage: PlacePackage,
     mapillaryImages: Awaited<ReturnType<MapillaryClient['getNearbyImages']>>,
@@ -16,12 +17,14 @@ export class SceneFacadeVisionService {
     const imageDensity = densityFromCount(mapillaryImages.length, 12, 40);
 
     return placePackage.buildings.map((building) => {
-      const style = resolveBuildingStyle(building);
+      const style = this.buildingStyleResolverService.resolveBuildingStyle(building);
       const anchor = averageCoordinate(building.outerRing) ?? building.outerRing[0];
       return {
         objectId: building.id,
         anchor,
-        facadeEdgeIndex: estimateFacadeEdgeIndex(building.outerRing),
+        facadeEdgeIndex: this.buildingStyleResolverService.estimateFacadeEdgeIndex(
+          building.outerRing,
+        ),
         windowBands: style.windowBands,
         billboardEligible: style.billboardEligible,
         palette: uniquePalette(style.palette),
@@ -102,24 +105,7 @@ function uniquePalette(values: Array<string | null | undefined>): string[] {
 }
 
 function normalizeColor(value: string): string {
-  if (value.startsWith('#')) {
-    return value.toLowerCase();
-  }
-
-  const paletteMap: Record<string, string> = {
-    gray: '#9ea4aa',
-    grey: '#9ea4aa',
-    white: '#f2f2f2',
-    black: '#1f1f1f',
-    blue: '#4d79c7',
-    red: '#cc5a4f',
-    brown: '#8d5a44',
-    beige: '#d6c0a7',
-    green: '#5c8b61',
-    silver: '#b9c0c7',
-  };
-
-  return paletteMap[value.toLowerCase()] ?? '#9ea4aa';
+  return new BuildingStyleResolverService().normalizeColor(value);
 }
 
 function densityFromCount(

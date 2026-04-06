@@ -1,15 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { buildSceneAssetSelection } from '../../utils/scene-asset-profile.utils';
+import { SceneAssetProfileService } from '../../services/scene-asset-profile.service';
 import type { SceneDetail, SceneMeta, SceneScale } from '../../types/scene.types';
 
 @Injectable()
 export class SceneAssetProfileStep {
+  constructor(
+    private readonly sceneAssetProfileService: SceneAssetProfileService = new SceneAssetProfileService(),
+  ) {}
+
   execute(
     meta: SceneMeta,
     detail: SceneDetail,
     scale: SceneScale,
   ): SceneMeta {
-    const assetSelection = buildSceneAssetSelection(meta, detail, scale);
+    const assetSelection = this.sceneAssetProfileService.buildSceneAssetSelection(
+      meta,
+      detail,
+      scale,
+    );
     return {
       ...meta,
       assetProfile: {

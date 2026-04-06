@@ -7,11 +7,15 @@ import type {
 } from '../../../places/types/place.types';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { SceneDetail, SceneMeta, SceneScale } from '../../types/scene.types';
-import { resolveBuildingStyle } from '../../utils/scene-building-style.utils';
 import { computeSceneCamera } from '../../utils/scene-geometry.utils';
+import { BuildingStyleResolverService } from '../../services/building-style-resolver.service';
 
 @Injectable()
 export class SceneMetaBuilderStep {
+  constructor(
+    private readonly buildingStyleResolverService: BuildingStyleResolverService = new BuildingStyleResolverService(),
+  ) {}
+
   buildBaseMeta(
     sceneId: string,
     scale: SceneScale,
@@ -27,7 +31,7 @@ export class SceneMetaBuilderStep {
   ): SceneMeta {
     void detail;
     const buildings = placePackage.buildings.map((building) => ({
-      ...resolveBuildingStyle(building),
+      ...this.buildingStyleResolverService.resolveBuildingStyle(building),
       objectId: building.id,
       osmWayId: this.normalizeOsmId(building.id),
       name: building.name,

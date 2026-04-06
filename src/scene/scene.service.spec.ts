@@ -22,7 +22,9 @@ import { ScenePlacePackageStep } from './pipeline/steps/scene-place-package.step
 import { ScenePlaceResolutionStep } from './pipeline/steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneService } from './scene.service';
+import { BuildingStyleResolverService } from './services/building-style-resolver.service';
 import { SceneGenerationService } from './services/scene-generation.service';
+import { SceneAssetProfileService } from './services/scene-asset-profile.service';
 import { SceneLiveDataService } from './services/scene-live-data.service';
 import { SceneReadService } from './services/scene-read.service';
 import { SceneHeroOverrideService } from './services/scene-hero-override.service';
@@ -148,6 +150,8 @@ describe('Scene Services', () => {
       providers: [
         SceneService,
         SceneGenerationService,
+        BuildingStyleResolverService,
+        SceneAssetProfileService,
         SceneGenerationPipelineService,
         ScenePlaceResolutionStep,
         ScenePlacePackageStep,

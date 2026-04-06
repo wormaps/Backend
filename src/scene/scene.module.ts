@@ -12,6 +12,8 @@ import { ScenePlaceResolutionStep } from './pipeline/steps/scene-place-resolutio
 import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneController } from './scene.controller';
 import { SceneService } from './scene.service';
+import { BuildingStyleResolverService } from './services/building-style-resolver.service';
+import { SceneAssetProfileService } from './services/scene-asset-profile.service';
 import { SceneFacadeVisionService } from './services/scene-facade-vision.service';
 import { SceneGeometryDiagnosticsService } from './services/scene-geometry-diagnostics.service';
 import { SceneHeroOverrideApplierService } from './services/scene-hero-override-applier.service';
@@ -34,6 +36,8 @@ import { SceneRepository } from './storage/scene.repository';
   providers: [
     GlbBuilderService,
     SceneRepository,
+    BuildingStyleResolverService,
+    SceneAssetProfileService,
     SceneRoadVisionService,
     SceneFacadeVisionService,
     SceneGeometryDiagnosticsService,
