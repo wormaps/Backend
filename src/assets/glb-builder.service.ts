@@ -6,6 +6,9 @@ import {
   createBillboardsGeometry,
   createBuildingPanelsGeometry,
   createBuildingShellGeometry,
+  createHeroBillboardPlaneGeometry,
+  createHeroCanopyGeometry,
+  createHeroRoofUnitGeometry,
   createLandmarkExtrasGeometry,
   resolveAccentTone,
 } from './compiler/building-mesh.builder';
@@ -21,6 +24,7 @@ import {
   createRoadBaseGeometry,
   createRoadDecalPathGeometry,
   createRoadDecalPolygonGeometry,
+  createRoadDecalStripeGeometry,
   createRoadMarkingsGeometry,
   createWalkwayGeometry,
   GeometryBuffers,
@@ -117,6 +121,11 @@ export class GlbBuilderService {
       'crosswalk_overlay',
       mergeGeometryBuffers([
         createCrosswalkGeometry(sceneMeta.origin, assetSelection.crossings),
+        createRoadDecalStripeGeometry(
+          sceneMeta.origin,
+          sceneDetail.roadDecals ?? [],
+          ['CROSSWALK_OVERLAY'],
+        ),
         createRoadDecalPathGeometry(
           sceneMeta.origin,
           sceneDetail.roadDecals ?? [],
@@ -458,6 +467,33 @@ export class GlbBuilderService {
         'neutral',
       ),
       materials.billboards.neutral,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'hero_canopies',
+      createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
+      materials.buildingPanels.neutral,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'hero_roof_units',
+      createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
+      materials.roofAccents.neutral,
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'hero_billboard_planes',
+      createHeroBillboardPlaneGeometry(sceneMeta.origin, assetSelection.buildings),
+      materials.billboards.warm,
     );
     this.addMeshNode(
       doc,

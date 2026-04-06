@@ -96,7 +96,12 @@ export function createRoadDecalPathGeometry(
   const geometry = createEmptyGeometry();
 
   for (const decal of decals) {
-    if (!types.includes(decal.type) || !decal.path || decal.path.length < 2) {
+    if (
+      !types.includes(decal.type) ||
+      decal.shapeKind === 'stripe_set' ||
+      !decal.path ||
+      decal.path.length < 2
+    ) {
       continue;
     }
 
@@ -120,6 +125,62 @@ export function createRoadDecalPathGeometry(
   return geometry;
 }
 
+export function createRoadDecalStripeGeometry(
+  origin: Coordinate,
+  decals: SceneRoadDecal[],
+  types: SceneRoadDecal['type'][],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const decal of decals) {
+    if (
+      !types.includes(decal.type) ||
+      decal.shapeKind !== 'stripe_set' ||
+      !decal.stripeSet ||
+      decal.stripeSet.centerPath.length < 2
+    ) {
+      continue;
+    }
+
+    const local = decal.stripeSet.centerPath
+      .map((point) => toLocalPoint(origin, point))
+      .filter((point) => isFiniteVec3(point));
+    if (local.length < 2) {
+      continue;
+    }
+
+    const start = local[0];
+    const end = local[local.length - 1];
+    const direction = normalize2d({
+      x: end[0] - start[0],
+      z: end[2] - start[2],
+    });
+    const normal = { x: -direction.z, z: direction.x };
+    const stripeCount = Math.max(1, decal.stripeSet.stripeCount);
+    const stripeDepth = decal.stripeSet.stripeDepth;
+    const halfWidth = decal.stripeSet.halfWidth;
+
+    for (let i = 0; i < stripeCount; i += 1) {
+      const t = (i + 0.5) / stripeCount;
+      const centerX = start[0] + (end[0] - start[0]) * t;
+      const centerZ = start[2] + (end[2] - start[2]) * t;
+      const dx = direction.x * stripeDepth;
+      const dz = direction.z * stripeDepth;
+      const nx = normal.x * halfWidth;
+      const nz = normal.z * halfWidth;
+      pushQuad(
+        geometry,
+        [centerX - dx - nx, 0.05, centerZ - dz - nz],
+        [centerX + dx - nx, 0.05, centerZ + dz - nz],
+        [centerX + dx + nx, 0.05, centerZ + dz + nz],
+        [centerX - dx + nx, 0.05, centerZ - dz + nz],
+      );
+    }
+  }
+
+  return geometry;
+}
+
 export function createRoadDecalPolygonGeometry(
   origin: Coordinate,
   decals: SceneRoadDecal[],
@@ -134,7 +195,12 @@ export function createRoadDecalPolygonGeometry(
   const geometry = createEmptyGeometry();
 
   for (const decal of decals) {
-    if (!types.includes(decal.type) || !decal.polygon || decal.polygon.length < 3) {
+    if (
+      !types.includes(decal.type) ||
+      decal.shapeKind === 'stripe_set' ||
+      !decal.polygon ||
+      decal.polygon.length < 3
+    ) {
       continue;
     }
     const ring = normalizeLocalRing(

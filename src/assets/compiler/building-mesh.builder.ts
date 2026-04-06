@@ -87,6 +87,102 @@ export function createBuildingPanelsGeometry(
   return geometry;
 }
 
+export function createHeroCanopyGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const building of buildings) {
+    if (!building.visualRole || building.visualRole === 'generic') {
+      continue;
+    }
+    const ring = normalizeLocalRing(toLocalRing(origin, building.outerRing), 'CCW');
+    if (ring.length < 3) {
+      continue;
+    }
+    const canopyEdges = building.podiumSpec?.canopyEdges ?? [];
+    for (const edgeIndex of canopyEdges) {
+      const frame = buildFacadeFrame(
+        ring,
+        edgeIndex % ring.length,
+        Math.max(4.2, building.podiumSpec?.levels ? building.podiumSpec.levels * 3.6 : 4.2),
+      );
+      if (!frame) {
+        continue;
+      }
+      pushCanopyBand(geometry, frame, 4.2);
+    }
+  }
+
+  return geometry;
+}
+
+export function createHeroRoofUnitGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const building of buildings) {
+    const roofUnits = building.roofSpec?.roofUnits ?? 0;
+    if (!building.visualRole || building.visualRole === 'generic' || roofUnits <= 0) {
+      continue;
+    }
+    const ring = normalizeLocalRing(toLocalRing(origin, building.outerRing), 'CCW');
+    if (ring.length < 3) {
+      continue;
+    }
+    const inset = insetRing(ring, 0.18);
+    const bounds = computeBounds(inset.length >= 3 ? inset : ring);
+    const columns = Math.max(1, Math.ceil(Math.sqrt(roofUnits)));
+    for (let index = 0; index < roofUnits; index += 1) {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      const centerX = bounds.minX + ((col + 1) / (columns + 1)) * bounds.width;
+      const centerZ = bounds.minZ + ((row + 1) / (Math.ceil(roofUnits / columns) + 1)) * bounds.depth;
+      pushBox(
+        geometry,
+        [centerX - 0.7, building.heightMeters + 0.2, centerZ - 0.5],
+        [centerX + 0.7, building.heightMeters + 1.6, centerZ + 0.5],
+      );
+    }
+  }
+
+  return geometry;
+}
+
+export function createHeroBillboardPlaneGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const building of buildings) {
+    const faces = building.signageSpec?.billboardFaces ?? [];
+    if (!building.visualRole || building.visualRole === 'generic' || faces.length === 0) {
+      continue;
+    }
+    const ring = normalizeLocalRing(toLocalRing(origin, building.outerRing), 'CCW');
+    if (ring.length < 3) {
+      continue;
+    }
+    for (const edgeIndex of faces) {
+      const frame = buildFacadeFrame(
+        ring,
+        edgeIndex % ring.length,
+        Math.max(8, building.heightMeters * 0.78),
+      );
+      if (!frame) {
+        continue;
+      }
+      pushTopBillboardZone(geometry, frame);
+    }
+  }
+
+  return geometry;
+}
+
 export function createBillboardsGeometry(
   origin: Coordinate,
   clusters: SceneSignageCluster[],
@@ -179,6 +275,11 @@ function pushBuildingByStrategy(
   holes: Vec3[][],
   triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
 ): void {
+  if (building.visualRole && building.visualRole !== 'generic') {
+    pushHeroBuilding(geometry, building, outerRing, holes, triangulate);
+    return;
+  }
+
   const strategy = resolveBuildingGeometryStrategy(building, holes, outerRing);
   const height = Math.max(4, building.heightMeters);
 
@@ -292,6 +393,57 @@ function pushBuildingByStrategy(
   }
 }
 
+function pushHeroBuilding(
+  geometry: GeometryBuffers,
+  building: SceneMeta['buildings'][number],
+  outerRing: Vec3[],
+  holes: Vec3[][],
+  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+): void {
+  const height = Math.max(6, building.heightMeters);
+  const baseMass = building.baseMass ?? 'podium_tower';
+  const podiumLevels = building.podiumSpec?.levels ?? building.podiumLevels ?? 2;
+  const setbacks = building.podiumSpec?.setbacks ?? building.setbackLevels ?? 1;
+  const podiumHeight = Math.min(height * 0.45, Math.max(5.5, podiumLevels * 3.8));
+
+  if (baseMass === 'lowrise_strip') {
+    pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
+    return;
+  }
+
+  if (baseMass === 'simple') {
+    pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
+    return;
+  }
+
+  pushExtrudedPolygon(geometry, outerRing, holes, 0, podiumHeight, triangulate);
+
+  let currentRing = outerRing;
+  const stageCount =
+    baseMass === 'stepped_tower' || baseMass === 'corner_tower'
+      ? Math.max(2, setbacks || 2)
+      : 1;
+  for (let stage = 0; stage < stageCount; stage += 1) {
+    const insetRatio =
+      baseMass === 'corner_tower'
+        ? 0.18 + stage * 0.05
+        : baseMass === 'slab_midrise'
+          ? 0.08 + stage * 0.03
+          : 0.12 + stage * 0.04;
+    currentRing = insetRing(currentRing, insetRatio);
+    if (currentRing.length < 3) {
+      break;
+    }
+    const stageMin =
+      stage === 0 ? podiumHeight : podiumHeight + stage * ((height - podiumHeight) / stageCount);
+    const stageMax =
+      stage === stageCount - 1
+        ? height
+        : podiumHeight + (stage + 1) * ((height - podiumHeight) / stageCount);
+    pushExtrudedPolygon(geometry, currentRing, [], stageMin, stageMax, triangulate);
+  }
+}
+
 function pushExtrudedPolygon(
   geometry: GeometryBuffers,
   outerRing: Vec3[],
@@ -350,8 +502,13 @@ function pushFacadePresetPanels(
   buildingHeight: number,
 ): void {
   const preset = hint.facadePreset ?? 'concrete_repetitive';
-  const bandCount = Math.max(1, hint.windowBands);
-  const signBandLevels = Math.max(0, hint.signBandLevels ?? 0);
+  const repeatY = hint.facadeSpec?.windowRepeatY ?? hint.windowBands;
+  const repeatX = hint.facadeSpec?.windowRepeatX ?? undefined;
+  const bandCount = Math.max(1, repeatY);
+  const signBandLevels = Math.max(
+    0,
+    hint.signageSpec?.signBandLevels ?? hint.signBandLevels ?? 0,
+  );
   const glazing = hint.glazingRatio;
 
   switch (preset) {
@@ -362,6 +519,7 @@ function pushFacadePresetPanels(
         frame,
         hint.windowPatternDensity ?? 'dense',
         glazing,
+        repeatX,
       );
       break;
     case 'retail_sign_band':
@@ -393,6 +551,17 @@ function pushFacadePresetPanels(
 
   if (hint.billboardEligible && preset !== 'mall_panel') {
     pushTopBillboardZone(geometry, frame);
+  }
+
+  if ((hint.signageSpec?.screenFaces.length ?? 0) > 0) {
+    pushTopBillboardZone(geometry, frame);
+  }
+
+  if (hint.visualRole && hint.visualRole !== 'generic') {
+    const canopyEdges = hint.podiumSpec?.canopyEdges.length ?? 0;
+    if (canopyEdges > 0 || preset === 'retail_sign_band') {
+      pushCanopyBand(geometry, frame, Math.max(4, buildingHeight * 0.12));
+    }
   }
 }
 
@@ -429,9 +598,11 @@ function pushVerticalMullions(
   frame: { a: Vec3; b: Vec3; height: number },
   density: WindowPatternDensity,
   glazingRatio: number,
+  overrideCount?: number,
 ): void {
   const mullionCount =
-    density === 'dense' ? 7 : density === 'medium' ? 5 : 3;
+    overrideCount ??
+    (density === 'dense' ? 7 : density === 'medium' ? 5 : 3);
   for (let index = 1; index < mullionCount; index += 1) {
     const t = index / mullionCount;
     const x0 = frame.a[0] + (frame.b[0] - frame.a[0]) * t;

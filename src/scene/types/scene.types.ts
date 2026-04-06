@@ -58,10 +58,42 @@ export type FacadePreset =
   | 'station_metal';
 export type RoofAccentType = 'flush' | 'crown' | 'terrace' | 'gable';
 export type WindowPatternDensity = 'sparse' | 'medium' | 'dense';
+export type VisualRole =
+  | 'generic'
+  | 'hero_landmark'
+  | 'edge_landmark'
+  | 'retail_edge'
+  | 'alley_retail'
+  | 'station_edge';
+export type HeroBaseMass =
+  | 'simple'
+  | 'podium_tower'
+  | 'stepped_tower'
+  | 'corner_tower'
+  | 'slab_midrise'
+  | 'lowrise_strip';
+export type FacadePattern =
+  | 'curtain_wall'
+  | 'retail_screen'
+  | 'mall_sign_band'
+  | 'midrise_grid'
+  | 'alley_shopfront';
+export type FacadeBandType =
+  | 'clear'
+  | 'retail_sign_band'
+  | 'screen_band'
+  | 'window_grid'
+  | 'solid_panel';
+export type UvMode = 'placeholder' | 'atlas_repeat';
+export type RoofCrownType = 'none' | 'screen_crown' | 'stepped_crown' | 'parapet_crown';
 export type IntersectionProfile =
   | 'scramble_major'
   | 'signalized_standard'
   | 'minor_crossing';
+export type HeroIntersectionProfile =
+  | 'scramble_primary'
+  | 'scramble_secondary'
+  | 'signalized_minor';
 export type RoadVisualClass =
   | 'arterial_intersection'
   | 'arterial'
@@ -80,6 +112,73 @@ export type GeometryFallbackReason =
   | 'VERY_THIN_POLYGON'
   | 'SELF_INTERSECTION_RISK'
   | 'TRIANGULATION_FALLBACK';
+export type RoadDecalLayer =
+  | 'road_base'
+  | 'lane_overlay'
+  | 'crosswalk_overlay'
+  | 'junction_overlay'
+  | 'signage_overlay';
+export type RoadDecalShapeKind =
+  | 'path_strip'
+  | 'polygon_fill'
+  | 'stripe_set'
+  | 'arrow_glyph';
+export type RoadDecalStyleToken =
+  | 'default'
+  | 'scramble_white'
+  | 'stopline_white'
+  | 'arrow_yellow'
+  | 'junction_amber';
+
+export interface BuildingPodiumSpec {
+  levels: number;
+  setbacks: number;
+  cornerChamfer: boolean;
+  canopyEdges: number[];
+}
+
+export interface BuildingFacadeSpec {
+  atlasId?: string | null;
+  uvMode?: UvMode;
+  emissiveMaskId?: string | null;
+  facadePattern: FacadePattern;
+  lowerBandType: FacadeBandType;
+  midBandType: FacadeBandType;
+  topBandType: FacadeBandType;
+  windowRepeatX: number;
+  windowRepeatY: number;
+}
+
+export interface BuildingSignageSpec {
+  billboardFaces: number[];
+  signBandLevels: number;
+  screenFaces: number[];
+  emissiveZones: number;
+}
+
+export interface BuildingRoofSpec {
+  roofUnits: number;
+  crownType: RoofCrownType;
+  parapet: boolean;
+}
+
+export interface SceneRoadStripeSet {
+  centerPath: Coordinate[];
+  stripeCount: number;
+  stripeDepth: number;
+  halfWidth: number;
+}
+
+export interface ScenePlaceReadabilityDiagnostics {
+  heroBuildingCount: number;
+  heroIntersectionCount: number;
+  scrambleStripeCount: number;
+  billboardPlaneCount: number;
+  canopyCount: number;
+  roofUnitCount: number;
+  emissiveZoneCount: number;
+  streetFurnitureRowCount: number;
+}
 
 export interface SceneEntity {
   sceneId: string;
@@ -118,6 +217,12 @@ export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
   windowPatternDensity?: WindowPatternDensity;
   signBandLevels?: number;
   emissiveBandStrength?: number;
+  visualRole?: VisualRole;
+  baseMass?: HeroBaseMass;
+  facadeSpec?: BuildingFacadeSpec;
+  podiumSpec?: BuildingPodiumSpec;
+  signageSpec?: BuildingSignageSpec;
+  roofSpec?: BuildingRoofSpec;
 }
 
 export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {
@@ -178,6 +283,12 @@ export interface SceneFacadeHint {
   shellPalette?: string[];
   panelPalette?: string[];
   weakEvidence?: boolean;
+  visualRole?: VisualRole;
+  baseMass?: HeroBaseMass;
+  facadeSpec?: BuildingFacadeSpec;
+  podiumSpec?: BuildingPodiumSpec;
+  signageSpec?: BuildingSignageSpec;
+  roofSpec?: BuildingRoofSpec;
 }
 
 export interface SceneSignageCluster {
@@ -188,6 +299,7 @@ export interface SceneSignageCluster {
   emissiveStrength: number;
   widthMeters: number;
   heightMeters: number;
+  screenFaces?: number[];
 }
 
 export interface SceneLandmarkAnchor {
@@ -222,8 +334,13 @@ export interface SceneRoadDecal {
   type: RoadDecalType;
   color: string;
   emphasis: 'standard' | 'hero';
+  layer?: RoadDecalLayer;
+  shapeKind?: RoadDecalShapeKind;
+  priority?: 'standard' | 'hero';
+  styleToken?: RoadDecalStyleToken;
   path?: Coordinate[];
   polygon?: Coordinate[];
+  stripeSet?: SceneRoadStripeSet;
 }
 
 export interface SceneGeometryDiagnostic {
@@ -308,6 +425,7 @@ export interface SceneDetail {
   intersectionProfiles?: SceneIntersectionProfile[];
   roadDecals?: SceneRoadDecal[];
   geometryDiagnostics?: SceneGeometryDiagnostic[];
+  placeReadabilityDiagnostics?: ScenePlaceReadabilityDiagnostics;
   heroOverridesApplied: string[];
   provenance: {
     mapillaryUsed: boolean;

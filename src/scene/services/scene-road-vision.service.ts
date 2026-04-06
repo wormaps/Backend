@@ -114,6 +114,18 @@ export class SceneRoadVisionService {
               : 'CROSSWALK_OVERLAY',
         color: marking.color,
         emphasis: marking.type === 'CROSSWALK' ? 'hero' : 'standard',
+        priority: marking.type === 'CROSSWALK' ? 'hero' : 'standard',
+        layer:
+          marking.type === 'LANE_LINE' || marking.type === 'STOP_LINE'
+            ? 'lane_overlay'
+            : 'crosswalk_overlay',
+        shapeKind: 'path_strip',
+        styleToken:
+          marking.type === 'LANE_LINE'
+            ? 'default'
+            : marking.type === 'STOP_LINE'
+              ? 'stopline_white'
+              : 'scramble_white',
         path: marking.path,
       });
     }
@@ -127,7 +139,27 @@ export class SceneRoadVisionService {
         type: 'CROSSWALK_OVERLAY',
         color: '#f8f8f6',
         emphasis: 'hero',
+        priority: 'hero',
+        layer: 'crosswalk_overlay',
+        shapeKind: 'polygon_fill',
+        styleToken: 'scramble_white',
         polygon: buildBufferedCrossingPolygon(crossing.path, 9.5),
+      });
+      decals.push({
+        objectId: `${crossing.objectId}-scramble-stripes`,
+        type: 'CROSSWALK_OVERLAY',
+        color: '#f8f8f6',
+        emphasis: 'hero',
+        priority: 'hero',
+        layer: 'crosswalk_overlay',
+        shapeKind: 'stripe_set',
+        styleToken: 'scramble_white',
+        stripeSet: {
+          centerPath: crossing.path,
+          stripeCount: 8,
+          stripeDepth: 0.9,
+          halfWidth: 8,
+        },
       });
     }
 
@@ -140,6 +172,10 @@ export class SceneRoadVisionService {
         type: 'JUNCTION_OVERLAY',
         color: '#f1df8a',
         emphasis: 'hero',
+        priority: 'hero',
+        layer: 'junction_overlay',
+        shapeKind: 'polygon_fill',
+        styleToken: 'junction_amber',
         polygon: buildDiamondPolygon(profile.anchor, 10),
       });
     }
@@ -151,6 +187,10 @@ export class SceneRoadVisionService {
         type: 'LANE_OVERLAY',
         color: '#f7f2a2',
         emphasis: 'standard',
+        priority: 'standard',
+        layer: 'lane_overlay',
+        shapeKind: 'path_strip',
+        styleToken: 'default',
         path: primaryRoad.path,
       });
     }

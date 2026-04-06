@@ -10,6 +10,7 @@ import {
 @Injectable()
 export class SceneHeroOverrideMatcherService {
   private readonly manifests = [SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE];
+  private readonly fallbackMatchRadiusMeters = 22;
 
   findManifest(place: ExternalPlaceDetail): HeroOverrideManifest | null {
     return (
@@ -28,14 +29,24 @@ export class SceneHeroOverrideMatcherService {
     meta: SceneMeta,
     override: HeroOverrideManifest['facadeOverrides'][number],
   ): SceneMeta['buildings'][number] | null {
-    return (
-      (override.objectId
-        ? meta.buildings.find((building) => building.objectId === override.objectId)
-        : null) ??
-      this.findNearest(meta.buildings, override.anchor, (item) =>
-        averageCoordinate(item.outerRing) ?? item.outerRing[0],
-      )
+    const exact = override.objectId
+      ? meta.buildings.find((building) => building.objectId === override.objectId) ?? null
+      : null;
+    if (exact) {
+      return exact;
+    }
+
+    const nearest = this.findNearest(meta.buildings, override.anchor, (item) =>
+      averageCoordinate(item.outerRing) ?? item.outerRing[0],
     );
+    if (!nearest) {
+      return null;
+    }
+
+    const nearestAnchor = averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0];
+    return squaredDistance(override.anchor, nearestAnchor) <= this.fallbackMatchRadiusMeters ** 2
+      ? nearest
+      : null;
   }
 
   findApplicableFacadeOverride(
@@ -50,7 +61,7 @@ export class SceneHeroOverrideMatcherService {
     if (
       !override ||
       (override.objectId && override.objectId !== building.objectId) ||
-      squaredDistance(override.anchor, anchor) > 90 ** 2
+      squaredDistance(override.anchor, anchor) > this.fallbackMatchRadiusMeters ** 2
     ) {
       return null;
     }

@@ -1,6 +1,7 @@
 import { SceneHeroOverrideService } from './scene-hero-override.service';
 import { ExternalPlaceDetail } from '../../places/types/external-place.types';
 import { SceneDetail, SceneMeta } from '../types/scene.types';
+import { SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE } from '../overrides/shibuya-scramble-crossing.override';
 
 describe('SceneHeroOverrideService', () => {
   const place: ExternalPlaceDetail = {
@@ -104,20 +105,20 @@ describe('SceneHeroOverrideService', () => {
     ],
     buildings: [
       {
-        objectId: 'building-1',
+        objectId: 'building-116806281',
         osmWayId: 'way_11',
         name: 'building',
         heightMeters: 40,
         outerRing: [
-          { lat: 35.6597, lng: 139.7008 },
-          { lat: 35.6598, lng: 139.7009 },
-          { lat: 35.6596, lng: 139.701 },
+          { lat: 35.65972, lng: 139.70078 },
+          { lat: 35.65984, lng: 139.70088 },
+          { lat: 35.65964, lng: 139.70102 },
         ],
         holes: [],
         footprint: [
-          { lat: 35.6597, lng: 139.7008 },
-          { lat: 35.6598, lng: 139.7009 },
-          { lat: 35.6596, lng: 139.701 },
+          { lat: 35.65972, lng: 139.70078 },
+          { lat: 35.65984, lng: 139.70088 },
+          { lat: 35.65964, lng: 139.70102 },
         ],
         usage: 'COMMERCIAL',
         preset: 'glass_tower',
@@ -178,5 +179,13 @@ describe('SceneHeroOverrideService', () => {
     expect(result.meta.buildings[0]?.preset).toBeDefined();
     expect(result.meta.buildings[0]?.facadePreset).toBeDefined();
     expect(result.meta.buildings[0]?.geometryStrategy).toBeDefined();
+    expect(result.detail.placeReadabilityDiagnostics?.heroBuildingCount).toBeGreaterThan(0);
+    expect(result.detail.placeReadabilityDiagnostics?.scrambleStripeCount).toBeGreaterThan(0);
+  });
+
+  it('defines expanded shibuya hero manifest coverage', () => {
+    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.facadeOverrides.length).toBeGreaterThanOrEqual(12);
+    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.intersectionOverrides.length).toBeGreaterThanOrEqual(2);
+    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.streetFurnitureRows.length).toBeGreaterThanOrEqual(6);
   });
 });

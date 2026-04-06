@@ -39,9 +39,14 @@ export class SceneAssetProfileService {
     const budget = this.resolveAssetBudget(scale);
     const landmarkLocations = sceneMeta.landmarkAnchors.map((anchor) => anchor.location);
 
-    const buildings = this.selectSpatialSample(
+    const buildings = this.selectPrioritizedSample(
       sceneMeta.buildings,
       budget.buildingCount,
+      [
+        sceneMeta.buildings.filter(
+          (building) => building.visualRole && building.visualRole !== 'generic',
+        ),
+      ],
       (building) => averageCoordinate(building.outerRing) ?? sceneMeta.origin,
       sceneMeta,
     );

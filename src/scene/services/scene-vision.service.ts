@@ -134,6 +134,19 @@ export class SceneVisionService {
       intersectionProfiles,
       roadDecals,
       geometryDiagnostics,
+      placeReadabilityDiagnostics: {
+        heroBuildingCount: 0,
+        heroIntersectionCount: roadDecals.filter((decal) => decal.priority === 'hero').length,
+        scrambleStripeCount: roadDecals.reduce(
+          (total, decal) => total + (decal.stripeSet?.stripeCount ?? 0),
+          0,
+        ),
+        billboardPlaneCount: 0,
+        canopyCount: 0,
+        roofUnitCount: 0,
+        emissiveZoneCount: 0,
+        streetFurnitureRowCount: 0,
+      },
       heroOverridesApplied: [],
       provenance: {
         mapillaryUsed,

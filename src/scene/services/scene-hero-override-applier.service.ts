@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { midpoint } from '../../places/utils/geo.utils';
 import {
+  IntersectionProfile,
   SceneDetail,
   SceneFacadeHint,
   SceneMeta,
+  SceneRoadDecal,
 } from '../types/scene.types';
 import { HeroOverrideManifest } from '../overrides/shibuya-scramble-crossing.override';
 import { SceneHeroOverrideMatcherService } from './scene-hero-override-matcher.service';
@@ -37,13 +39,24 @@ export class SceneHeroOverrideApplierService {
     );
     const streetFurniture = mergeByObjectId(
       detail.streetFurniture,
-      manifest.streetFurniture.map((item) => ({
-        objectId: item.id,
-        name: item.id,
-        type: item.type,
-        location: item.location,
-        principal: item.principal ?? true,
-      })),
+      [
+        ...manifest.streetFurniture.map((item) => ({
+          objectId: item.id,
+          name: item.id,
+          type: item.type,
+          location: item.location,
+          principal: item.principal ?? true,
+        })),
+        ...manifest.streetFurnitureRows.flatMap((row, rowIndex) =>
+          row.points.map((point, pointIndex) => ({
+            objectId: `${row.id}-${pointIndex + 1}`,
+            name: `${row.id}-${pointIndex + 1}`,
+            type: row.type,
+            location: point,
+            principal: row.principal ?? rowIndex < 2,
+          })),
+        ),
+      ],
     );
     const signageClusters = mergeByObjectId(
       detail.signageClusters,
@@ -59,20 +72,30 @@ export class SceneHeroOverrideApplierService {
     );
     const roadDecals = mergeByObjectId(
       detail.roadDecals ?? [],
-      manifest.roadDecalOverrides,
+      [
+        ...manifest.roadDecalOverrides,
+        ...this.buildIntersectionDecals(manifest),
+      ],
     );
     const intersectionProfiles = mergeByObjectId(
       detail.intersectionProfiles ?? [],
-      manifest.crossings.map((crossing) => ({
-        objectId: `${crossing.id}-intersection`,
-        anchor: midpoint(crossing.path) ?? crossing.path[0],
-        profile: crossing.principal
-          ? 'scramble_major'
-          : crossing.style === 'signalized'
-            ? 'signalized_standard'
-            : 'minor_crossing',
-        crossingObjectIds: [crossing.id],
-      })),
+      [
+        ...manifest.crossings.map((crossing) => ({
+          objectId: `${crossing.id}-intersection`,
+          anchor: midpoint(crossing.path) ?? crossing.path[0],
+          profile: resolveCrossingProfile(crossing.principal ?? false, crossing.style),
+          crossingObjectIds: [crossing.id],
+        })),
+        ...manifest.intersectionOverrides.map((intersection) => ({
+          objectId: intersection.intersectionId,
+          anchor:
+            midpoint(intersection.stripeSets[0]?.centerPath ?? []) ??
+            intersection.crosswalkPolygons[0]?.[0] ??
+            { lat: 0, lng: 0 },
+          profile: resolveIntersectionProfile(intersection.profile),
+          crossingObjectIds: intersection.crossingObjectIds,
+        })),
+      ],
     );
     const landmarkAnchors = mergeByObjectId(
       meta.landmarkAnchors,
@@ -100,6 +123,13 @@ export class SceneHeroOverrideApplierService {
       signageClusters,
       intersectionProfiles,
       roadDecals,
+      placeReadabilityDiagnostics: buildPlaceReadabilityDiagnostics(
+        this.applyBuildingOverrides(meta.buildings, manifest),
+        facadeHints,
+        roadDecals,
+        streetFurniture,
+        manifest.streetFurnitureRows.length,
+      ),
       heroOverridesApplied,
       provenance: {
         ...detail.provenance,
@@ -164,6 +194,12 @@ export class SceneHeroOverrideApplierService {
         roofAccentType: override.roofAccentType,
         windowPatternDensity: override.windowPatternDensity,
         signBandLevels: override.signBandLevels,
+        visualRole: override.visualRole,
+        baseMass: override.baseMass,
+        facadeSpec: override.facadeSpec,
+        podiumSpec: override.podiumSpec,
+        signageSpec: override.signageSpec,
+        roofSpec: override.roofSpec,
         weakEvidence: false,
       };
     });
@@ -200,8 +236,80 @@ export class SceneHeroOverrideApplierService {
         windowPatternDensity:
           override.windowPatternDensity ?? building.windowPatternDensity,
         facadeColor: override.shellPalette?.[0] ?? building.facadeColor,
+        visualRole: override.visualRole ?? building.visualRole,
+        baseMass: override.baseMass ?? building.baseMass,
+        facadeSpec: override.facadeSpec ?? building.facadeSpec,
+        podiumSpec: override.podiumSpec ?? building.podiumSpec,
+        signageSpec: override.signageSpec ?? building.signageSpec,
+        roofSpec: override.roofSpec ?? building.roofSpec,
       };
     });
+  }
+
+  private buildIntersectionDecals(
+    manifest: HeroOverrideManifest,
+  ): SceneRoadDecal[] {
+    return manifest.intersectionOverrides.flatMap((intersection) => [
+      ...intersection.crosswalkPolygons.map((polygon, index) => ({
+        objectId: `${intersection.id}-crosswalk-poly-${index + 1}`,
+        type: 'CROSSWALK_OVERLAY' as const,
+        color: '#f8f8f6',
+        emphasis: 'hero' as const,
+        priority: 'hero' as const,
+        layer: 'crosswalk_overlay' as const,
+        shapeKind: 'polygon_fill' as const,
+        styleToken: 'scramble_white' as const,
+        polygon,
+      })),
+      ...intersection.stripeSets.map((stripeSet, index) => ({
+        objectId: `${intersection.id}-stripe-set-${index + 1}`,
+        type: 'CROSSWALK_OVERLAY' as const,
+        color: '#f8f8f6',
+        emphasis: 'hero' as const,
+        priority: 'hero' as const,
+        layer: 'crosswalk_overlay' as const,
+        shapeKind: 'stripe_set' as const,
+        styleToken: 'scramble_white' as const,
+        stripeSet,
+      })),
+      ...intersection.stopLines.map((path, index) => ({
+        objectId: `${intersection.id}-stop-line-${index + 1}`,
+        type: 'STOP_LINE' as const,
+        color: '#ffffff',
+        emphasis: 'hero' as const,
+        priority: 'hero' as const,
+        layer: 'lane_overlay' as const,
+        shapeKind: 'path_strip' as const,
+        styleToken: 'stopline_white' as const,
+        path,
+      })),
+      ...intersection.laneArrows.map((polygon, index) => ({
+        objectId: `${intersection.id}-arrow-${index + 1}`,
+        type: 'ARROW_MARK' as const,
+        color: '#f7f2a2',
+        emphasis: 'hero' as const,
+        priority: 'hero' as const,
+        layer: 'junction_overlay' as const,
+        shapeKind: 'arrow_glyph' as const,
+        styleToken: 'arrow_yellow' as const,
+        polygon,
+      })),
+      ...(intersection.junctionPaint
+        ? [
+            {
+              objectId: `${intersection.id}-junction-paint`,
+              type: 'JUNCTION_OVERLAY' as const,
+              color: '#eadb87',
+              emphasis: 'hero' as const,
+              priority: 'hero' as const,
+              layer: 'junction_overlay' as const,
+              shapeKind: 'polygon_fill' as const,
+              styleToken: 'junction_amber' as const,
+              polygon: intersection.junctionPaint,
+            },
+          ]
+        : []),
+    ]);
   }
 }
 
@@ -241,4 +349,76 @@ function summarizeMaterialClasses(facadeHints: SceneFacadeHint[]) {
 
 function clampCoverage(value: number): number {
   return Math.max(0, Math.min(1, Number(value.toFixed(2))));
+}
+
+function resolveIntersectionProfile(
+  profile: HeroOverrideManifest['intersectionOverrides'][number]['profile'],
+): IntersectionProfile {
+  if (profile === 'scramble_primary' || profile === 'scramble_secondary') {
+    return 'scramble_major';
+  }
+  return 'signalized_standard';
+}
+
+function resolveCrossingProfile(
+  principal: boolean,
+  style: HeroOverrideManifest['crossings'][number]['style'],
+): IntersectionProfile {
+  if (principal) {
+    return 'scramble_major';
+  }
+  if (style === 'signalized') {
+    return 'signalized_standard';
+  }
+  return 'minor_crossing';
+}
+
+function buildPlaceReadabilityDiagnostics(
+  buildings: SceneMeta['buildings'],
+  facadeHints: SceneFacadeHint[],
+  roadDecals: SceneRoadDecal[],
+  streetFurniture: SceneDetail['streetFurniture'],
+  streetFurnitureRowCount: number,
+) {
+  const heroBuildings = buildings.filter(
+    (building) => building.visualRole && building.visualRole !== 'generic',
+  ).length;
+  const heroIntersections = roadDecals.filter(
+    (decal) =>
+      decal.priority === 'hero' &&
+      decal.layer === 'crosswalk_overlay' &&
+      (decal.shapeKind === 'stripe_set' || decal.shapeKind === 'polygon_fill'),
+  ).length;
+  const scrambleStripeCount = roadDecals.reduce(
+    (total, decal) => total + (decal.stripeSet?.stripeCount ?? 0),
+    0,
+  );
+  const billboardPlaneCount = facadeHints.reduce(
+    (total, hint) => total + (hint.signageSpec?.billboardFaces.length ?? 0),
+    0,
+  );
+  const canopyCount = facadeHints.reduce(
+    (total, hint) => total + (hint.podiumSpec?.canopyEdges.length ?? 0),
+    0,
+  );
+  const roofUnitCount = facadeHints.reduce(
+    (total, hint) => total + (hint.roofSpec?.roofUnits ?? 0),
+    0,
+  );
+  const emissiveZoneCount = facadeHints.reduce(
+    (total, hint) => total + (hint.signageSpec?.emissiveZones ?? 0),
+    0,
+  );
+
+  return {
+    heroBuildingCount: heroBuildings,
+    heroIntersectionCount: heroIntersections,
+    scrambleStripeCount,
+    billboardPlaneCount,
+    canopyCount,
+    roofUnitCount,
+    emissiveZoneCount,
+    streetFurnitureRowCount:
+      streetFurnitureRowCount > 0 ? streetFurnitureRowCount : Math.ceil(streetFurniture.length / 2),
+  };
 }
