@@ -1,0 +1,288 @@
+import { Coordinate } from '../../places/types/place.types';
+
+export const SCENE_SCALE_VALUES = ['SMALL', 'MEDIUM', 'LARGE'] as const;
+export type SceneScale = (typeof SCENE_SCALE_VALUES)[number];
+export type SceneStatus = 'PENDING' | 'READY' | 'FAILED';
+export type SceneDetailStatus = 'FULL' | 'PARTIAL' | 'OSM_ONLY';
+export type MaterialClass = 'glass' | 'concrete' | 'brick' | 'metal' | 'mixed';
+export type BuildingPreset =
+  | 'glass_tower'
+  | 'office_midrise'
+  | 'mall_block'
+  | 'station_block'
+  | 'mixed_midrise'
+  | 'small_lowrise';
+export type RoofType = 'flat' | 'stepped' | 'gable';
+export type VisualArchetype =
+  | 'highrise_office'
+  | 'commercial_midrise'
+  | 'mall_podium'
+  | 'hotel_tower'
+  | 'apartment_block'
+  | 'lowrise_shop'
+  | 'house_compact'
+  | 'station_like'
+  | 'landmark_special';
+export type GeometryStrategy =
+  | 'simple_extrude'
+  | 'podium_tower'
+  | 'stepped_tower'
+  | 'gable_lowrise'
+  | 'courtyard_block'
+  | 'fallback_massing';
+export type FacadePreset =
+  | 'glass_grid'
+  | 'retail_sign_band'
+  | 'concrete_repetitive'
+  | 'mall_panel'
+  | 'brick_lowrise'
+  | 'station_metal';
+export type RoofAccentType = 'flush' | 'crown' | 'terrace' | 'gable';
+export type WindowPatternDensity = 'sparse' | 'medium' | 'dense';
+export type VisualRole =
+  | 'generic'
+  | 'hero_landmark'
+  | 'edge_landmark'
+  | 'retail_edge'
+  | 'alley_retail'
+  | 'station_edge';
+export type HeroBaseMass =
+  | 'simple'
+  | 'podium_tower'
+  | 'stepped_tower'
+  | 'corner_tower'
+  | 'slab_midrise'
+  | 'lowrise_strip';
+export type FacadePattern =
+  | 'curtain_wall'
+  | 'retail_screen'
+  | 'mall_sign_band'
+  | 'midrise_grid'
+  | 'alley_shopfront';
+export type FacadeBandType =
+  | 'clear'
+  | 'retail_sign_band'
+  | 'screen_band'
+  | 'window_grid'
+  | 'solid_panel';
+export type UvMode = 'placeholder' | 'atlas_repeat';
+export type RoofCrownType =
+  | 'none'
+  | 'screen_crown'
+  | 'stepped_crown'
+  | 'parapet_crown';
+export type IntersectionProfile =
+  | 'scramble_major'
+  | 'signalized_standard'
+  | 'minor_crossing';
+export type HeroIntersectionProfile =
+  | 'scramble_primary'
+  | 'scramble_secondary'
+  | 'signalized_minor';
+export type RoadVisualClass =
+  | 'arterial_intersection'
+  | 'arterial'
+  | 'local_street'
+  | 'pedestrian_edge';
+export type RoadDecalType =
+  | 'LANE_OVERLAY'
+  | 'STOP_LINE'
+  | 'CROSSWALK_OVERLAY'
+  | 'JUNCTION_OVERLAY'
+  | 'ARROW_MARK';
+export type GeometryFallbackReason =
+  | 'NONE'
+  | 'HAS_HOLES'
+  | 'DEGENERATE_RING'
+  | 'VERY_THIN_POLYGON'
+  | 'SELF_INTERSECTION_RISK'
+  | 'TRIANGULATION_FALLBACK';
+export type RoadDecalLayer =
+  | 'road_base'
+  | 'lane_overlay'
+  | 'crosswalk_overlay'
+  | 'junction_overlay'
+  | 'signage_overlay';
+export type RoadDecalShapeKind =
+  | 'path_strip'
+  | 'polygon_fill'
+  | 'stripe_set'
+  | 'arrow_glyph';
+export type RoadDecalStyleToken =
+  | 'default'
+  | 'scramble_white'
+  | 'stopline_white'
+  | 'arrow_yellow'
+  | 'junction_amber';
+export type SceneFidelityMode =
+  | 'PROCEDURAL_ONLY'
+  | 'MATERIAL_ENRICHED'
+  | 'LANDMARK_ENRICHED'
+  | 'REALITY_OVERLAY_READY';
+export type SceneRealitySourceType =
+  | 'OSM'
+  | 'GOOGLE_PLACES'
+  | 'MAPILLARY'
+  | 'CURATED_ASSET_PACK'
+  | 'PHOTOREAL_3D_TILES'
+  | 'CAPTURED_MESH';
+export type SceneEvidenceLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+export type SceneFacadeContextProfile =
+  | 'NEON_CORE'
+  | 'COMMERCIAL_STRIP'
+  | 'TRANSIT_HUB'
+  | 'CIVIC_CLUSTER'
+  | 'RESIDENTIAL_EDGE';
+
+export interface BuildingPodiumSpec {
+  levels: number;
+  setbacks: number;
+  cornerChamfer: boolean;
+  canopyEdges: number[];
+}
+
+export interface BuildingFacadeSpec {
+  atlasId?: string | null;
+  uvMode?: UvMode;
+  emissiveMaskId?: string | null;
+  facadePattern: FacadePattern;
+  lowerBandType: FacadeBandType;
+  midBandType: FacadeBandType;
+  topBandType: FacadeBandType;
+  windowRepeatX: number;
+  windowRepeatY: number;
+}
+
+export interface BuildingSignageSpec {
+  billboardFaces: number[];
+  signBandLevels: number;
+  screenFaces: number[];
+  emissiveZones: number;
+}
+
+export interface BuildingRoofSpec {
+  roofUnits: number;
+  crownType: RoofCrownType;
+  parapet: boolean;
+}
+
+export interface SceneRoadStripeSet {
+  centerPath: Coordinate[];
+  stripeCount: number;
+  stripeDepth: number;
+  halfWidth: number;
+}
+
+export interface ScenePlaceReadabilityDiagnostics {
+  heroBuildingCount: number;
+  heroIntersectionCount: number;
+  scrambleStripeCount: number;
+  billboardPlaneCount: number;
+  canopyCount: number;
+  roofUnitCount: number;
+  emissiveZoneCount: number;
+  streetFurnitureRowCount: number;
+}
+
+export interface SceneStructuralCoverage {
+  selectedBuildingCoverage: number;
+  coreAreaBuildingCoverage: number;
+  fallbackMassingRate: number;
+  footprintPreservationRate: number;
+  heroLandmarkCoverage: number;
+}
+
+export interface SceneRealitySourceReference {
+  sourceType: SceneRealitySourceType;
+  enabled: boolean;
+  coverage: 'NONE' | 'LANDMARK' | 'CORE' | 'FULL';
+  reason: string;
+}
+
+export interface SceneFacadeContextCount {
+  key: string;
+  count: number;
+}
+
+export interface SceneFacadeContextDiagnostics {
+  weakEvidenceCount: number;
+  contextualUpgradeCount: number;
+  explicitColorBuildingCount: number;
+  profileCounts: SceneFacadeContextCount[];
+  materialCounts: SceneFacadeContextCount[];
+  profileMaterialCounts: SceneFacadeContextCount[];
+}
+
+export interface SceneFidelityPlan {
+  currentMode: SceneFidelityMode;
+  targetMode: SceneFidelityMode;
+  targetCoverageRatio: number;
+  achievedCoverageRatio: number;
+  coverageGapRatio: number;
+  phase: 'PHASE_1_BASELINE' | 'PHASE_2_HYBRID_FOUNDATION';
+  coreRadiusM: number;
+  priorities: string[];
+  evidence: {
+    structure: SceneEvidenceLevel;
+    facade: SceneEvidenceLevel;
+    signage: SceneEvidenceLevel;
+    streetFurniture: SceneEvidenceLevel;
+    landmark: SceneEvidenceLevel;
+  };
+  sourceRegistry: SceneRealitySourceReference[];
+}
+
+export interface SceneLandmarkFacadeHint {
+  palette?: string[];
+  shellPalette?: string[];
+  panelPalette?: string[];
+  materialClass?: MaterialClass;
+  signageDensity?: 'low' | 'medium' | 'high';
+  emissiveStrength?: number;
+  glazingRatio?: number;
+  facadeEdgeIndex?: number | null;
+  visualRole?: VisualRole;
+}
+
+export interface SceneLandmarkAnnotation {
+  id: string;
+  objectId?: string;
+  anchor: Coordinate;
+  importance: 'primary' | 'secondary';
+  kind: 'BUILDING' | 'CROSSING' | 'PLAZA';
+  name: string;
+  facadeHint?: SceneLandmarkFacadeHint;
+}
+
+export interface SceneStreetFurnitureRowHint {
+  id: string;
+  type: 'TRAFFIC_LIGHT' | 'STREET_LIGHT' | 'SIGN_POLE';
+  points: Coordinate[];
+  principal?: boolean;
+}
+
+export interface LandmarkAnnotationManifest {
+  id: string;
+  match: {
+    placeIds: string[];
+    aliases: string[];
+  };
+  landmarks: SceneLandmarkAnnotation[];
+  crossings: Array<{
+    id: string;
+    name: string;
+    path: Coordinate[];
+    style: 'zebra' | 'signalized';
+    importance: 'primary' | 'secondary';
+  }>;
+  signageClusters: Array<{
+    id: string;
+    anchor: Coordinate;
+    panelCount: number;
+    palette: string[];
+    emissiveStrength: number;
+    widthMeters: number;
+    heightMeters: number;
+  }>;
+  streetFurnitureRows: SceneStreetFurnitureRowHint[];
+}

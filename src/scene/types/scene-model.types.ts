@@ -1,0 +1,320 @@
+import {
+  BuildingData,
+  Coordinate,
+  CrossingData,
+  LandCoverData,
+  LinearFeatureData,
+  PlacePackage,
+  PoiData,
+  RoadData,
+  StreetFurnitureData,
+  VegetationData,
+  WalkwayData,
+} from '../../places/types/place.types';
+import {
+  BuildingFacadeSpec,
+  BuildingPodiumSpec,
+  BuildingPreset,
+  BuildingRoofSpec,
+  BuildingSignageSpec,
+  FacadePreset,
+  GeometryFallbackReason,
+  GeometryStrategy,
+  HeroBaseMass,
+  IntersectionProfile,
+  LandmarkAnnotationManifest,
+  MaterialClass,
+  RoadDecalLayer,
+  RoadDecalShapeKind,
+  RoadDecalStyleToken,
+  RoadDecalType,
+  RoadVisualClass,
+  RoofAccentType,
+  RoofType,
+  SceneFacadeContextDiagnostics,
+  SceneFidelityPlan,
+  ScenePlaceReadabilityDiagnostics,
+  SceneStructuralCoverage,
+  SceneScale,
+  SceneStatus,
+  SceneDetailStatus,
+  VisualArchetype,
+  VisualRole,
+  WindowPatternDensity,
+  SceneRoadStripeSet,
+} from './scene-domain.types';
+
+export interface SceneEntity {
+  sceneId: string;
+  placeId: string | null;
+  name: string;
+  centerLat: number;
+  centerLng: number;
+  radiusM: number;
+  status: SceneStatus;
+  metaUrl: string;
+  assetUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  failureReason?: string | null;
+}
+
+export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
+  objectId: string;
+  osmWayId: string;
+  center: Coordinate;
+  roadVisualClass?: RoadVisualClass;
+}
+
+export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
+  objectId: string;
+  osmWayId: string;
+  preset: BuildingPreset;
+  roofType: RoofType;
+  visualArchetype?: VisualArchetype;
+  geometryStrategy?: GeometryStrategy;
+  facadePreset?: FacadePreset;
+  podiumLevels?: number;
+  setbackLevels?: number;
+  cornerChamfer?: boolean;
+  roofAccentType?: RoofAccentType;
+  windowPatternDensity?: WindowPatternDensity;
+  signBandLevels?: number;
+  emissiveBandStrength?: number;
+  visualRole?: VisualRole;
+  baseMass?: HeroBaseMass;
+  facadeSpec?: BuildingFacadeSpec;
+  podiumSpec?: BuildingPodiumSpec;
+  signageSpec?: BuildingSignageSpec;
+  roofSpec?: BuildingRoofSpec;
+}
+
+export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {
+  objectId: string;
+  osmWayId: string;
+}
+
+export interface ScenePoiMeta extends Omit<PoiData, 'id' | 'location'> {
+  objectId: string;
+  placeId?: string;
+  location: Coordinate;
+  category?: string;
+  isLandmark: boolean;
+}
+
+export interface SceneCrossingDetail extends Omit<CrossingData, 'id'> {
+  objectId: string;
+  principal: boolean;
+  style: 'zebra' | 'signalized' | 'unknown';
+}
+
+export interface SceneRoadMarkingDetail {
+  objectId: string;
+  type: 'LANE_LINE' | 'STOP_LINE' | 'CROSSWALK';
+  color: string;
+  path: Coordinate[];
+}
+
+export interface SceneStreetFurnitureDetail extends Omit<
+  StreetFurnitureData,
+  'id'
+> {
+  objectId: string;
+  principal: boolean;
+}
+
+export interface SceneVegetationDetail extends Omit<VegetationData, 'id'> {
+  objectId: string;
+}
+
+export interface SceneFacadeHint {
+  objectId: string;
+  anchor: Coordinate;
+  facadeEdgeIndex: number | null;
+  windowBands: number;
+  billboardEligible: boolean;
+  palette: string[];
+  materialClass: MaterialClass;
+  signageDensity: 'low' | 'medium' | 'high';
+  emissiveStrength: number;
+  glazingRatio: number;
+  visualArchetype?: VisualArchetype;
+  geometryStrategy?: GeometryStrategy;
+  facadePreset?: FacadePreset;
+  podiumLevels?: number;
+  setbackLevels?: number;
+  cornerChamfer?: boolean;
+  roofAccentType?: RoofAccentType;
+  windowPatternDensity?: WindowPatternDensity;
+  signBandLevels?: number;
+  shellPalette?: string[];
+  panelPalette?: string[];
+  weakEvidence?: boolean;
+  contextProfile?: import('./scene-domain.types').SceneFacadeContextProfile;
+  contextualMaterialUpgrade?: boolean;
+  visualRole?: VisualRole;
+  baseMass?: HeroBaseMass;
+  facadeSpec?: BuildingFacadeSpec;
+  podiumSpec?: BuildingPodiumSpec;
+  signageSpec?: BuildingSignageSpec;
+  roofSpec?: BuildingRoofSpec;
+}
+
+export interface SceneSignageCluster {
+  objectId: string;
+  anchor: Coordinate;
+  panelCount: number;
+  palette: string[];
+  emissiveStrength: number;
+  widthMeters: number;
+  heightMeters: number;
+  screenFaces?: number[];
+}
+
+export interface SceneLandmarkAnchor {
+  objectId: string;
+  name: string;
+  location: Coordinate;
+  kind: 'BUILDING' | 'CROSSING' | 'PLAZA';
+}
+
+export interface SceneMaterialClassSummary {
+  className: MaterialClass;
+  palette: string[];
+  buildingCount: number;
+}
+
+export interface SceneVisualCoverage {
+  structure: number;
+  streetDetail: number;
+  landmark: number;
+  signage: number;
+}
+
+export interface SceneIntersectionProfile {
+  objectId: string;
+  anchor: Coordinate;
+  profile: IntersectionProfile;
+  crossingObjectIds: string[];
+}
+
+export interface SceneRoadDecal {
+  objectId: string;
+  intersectionId?: string;
+  type: RoadDecalType;
+  color: string;
+  emphasis: 'standard' | 'hero';
+  layer?: RoadDecalLayer;
+  shapeKind?: RoadDecalShapeKind;
+  priority?: 'standard' | 'hero';
+  styleToken?: RoadDecalStyleToken;
+  path?: Coordinate[];
+  polygon?: Coordinate[];
+  stripeSet?: SceneRoadStripeSet;
+}
+
+export interface SceneGeometryDiagnostic {
+  objectId: string;
+  strategy: GeometryStrategy;
+  fallbackApplied: boolean;
+  fallbackReason: GeometryFallbackReason;
+  hasHoles: boolean;
+  polygonComplexity: 'simple' | 'concave' | 'complex';
+}
+
+export interface SceneAssetCounts {
+  buildingCount: number;
+  roadCount: number;
+  walkwayCount: number;
+  poiCount: number;
+  crossingCount: number;
+  trafficLightCount: number;
+  streetLightCount: number;
+  signPoleCount: number;
+  treeClusterCount: number;
+  billboardPanelCount: number;
+}
+
+export interface SceneMeta {
+  sceneId: string;
+  placeId: string;
+  name: string;
+  generatedAt: string;
+  origin: Coordinate;
+  camera: PlacePackage['camera'];
+  bounds: {
+    radiusM: number;
+    northEast: Coordinate;
+    southWest: Coordinate;
+  };
+  stats: {
+    buildingCount: number;
+    roadCount: number;
+    walkwayCount: number;
+    poiCount: number;
+  };
+  diagnostics: {
+    droppedBuildings: number;
+    droppedRoads: number;
+    droppedWalkways: number;
+    droppedPois: number;
+    droppedCrossings: number;
+    droppedStreetFurniture: number;
+    droppedVegetation: number;
+    droppedLandCovers: number;
+    droppedLinearFeatures: number;
+  };
+  detailStatus: SceneDetailStatus;
+  visualCoverage: SceneVisualCoverage;
+  materialClasses: SceneMaterialClassSummary[];
+  landmarkAnchors: SceneLandmarkAnchor[];
+  assetProfile: {
+    preset: SceneScale;
+    budget: SceneAssetCounts;
+    selected: SceneAssetCounts;
+  };
+  structuralCoverage: SceneStructuralCoverage;
+  fidelityPlan?: SceneFidelityPlan;
+  roads: SceneRoadMeta[];
+  buildings: SceneBuildingMeta[];
+  walkways: SceneWalkwayMeta[];
+  pois: ScenePoiMeta[];
+}
+
+export interface SceneDetail {
+  sceneId: string;
+  placeId: string;
+  generatedAt: string;
+  detailStatus: SceneDetailStatus;
+  crossings: SceneCrossingDetail[];
+  roadMarkings: SceneRoadMarkingDetail[];
+  streetFurniture: SceneStreetFurnitureDetail[];
+  vegetation: SceneVegetationDetail[];
+  landCovers: LandCoverData[];
+  linearFeatures: LinearFeatureData[];
+  facadeHints: SceneFacadeHint[];
+  signageClusters: SceneSignageCluster[];
+  intersectionProfiles?: SceneIntersectionProfile[];
+  roadDecals?: SceneRoadDecal[];
+  geometryDiagnostics?: SceneGeometryDiagnostic[];
+  facadeContextDiagnostics?: SceneFacadeContextDiagnostics;
+  placeReadabilityDiagnostics?: ScenePlaceReadabilityDiagnostics;
+  annotationsApplied: string[];
+  structuralCoverage?: SceneStructuralCoverage;
+  fidelityPlan?: SceneFidelityPlan;
+  provenance: {
+    mapillaryUsed: boolean;
+    mapillaryImageCount: number;
+    mapillaryFeatureCount: number;
+    osmTagCoverage: {
+      coloredBuildings: number;
+      materialBuildings: number;
+      crossings: number;
+      streetFurniture: number;
+      vegetation: number;
+    };
+    overrideCount: number;
+  };
+}
+
+export type { LandmarkAnnotationManifest };
