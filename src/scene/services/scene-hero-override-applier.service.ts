@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { AppLoggerService } from '../../common/logging/app-logger.service';
 import { midpoint } from '../../places/utils/geo.utils';
 import {
+  BuildingFacadeSpec,
+  BuildingPodiumSpec,
+  BuildingRoofSpec,
+  BuildingSignageSpec,
   IntersectionProfile,
   LandmarkAnnotationManifest,
   SceneDetail,
@@ -26,7 +30,7 @@ export class SceneHeroOverrideApplierService {
   ): { meta: SceneMeta; detail: SceneDetail } {
     const landmarkAssignments = this.matcher.resolveLandmarkAssignments(meta, manifest);
     const annotatedBuildings = this.applyLandmarkAnnotations(meta.buildings, landmarkAssignments);
-    const facadeHints = this.mergeFacadeHints(meta, detail, landmarkAssignments);
+    const facadeHints = this.mergeFacadeHints(annotatedBuildings, detail, landmarkAssignments);
     const crossings = mergeByObjectId(
       detail.crossings,
       manifest.crossings.map((crossing) => ({
@@ -171,6 +175,7 @@ export class SceneHeroOverrideApplierService {
         return building;
       }
 
+      const enhancement = buildHeroEnhancement(building, annotation);
       return {
         ...building,
         visualRole:
@@ -179,18 +184,23 @@ export class SceneHeroOverrideApplierService {
         facadeColor: annotation.facadeHint?.shellPalette?.[0] ?? building.facadeColor,
         emissiveBandStrength:
           annotation.facadeHint?.emissiveStrength ?? building.emissiveBandStrength,
+        baseMass: enhancement.baseMass,
+        podiumSpec: enhancement.podiumSpec,
+        signageSpec: enhancement.signageSpec,
+        roofSpec: enhancement.roofSpec,
+        facadeSpec: enhancement.facadeSpec,
       };
     });
   }
 
   private mergeFacadeHints(
-    meta: SceneMeta,
+    buildings: SceneMeta['buildings'],
     detail: SceneDetail,
     landmarkAssignments: Map<string, LandmarkAnnotationManifest['landmarks'][number]>,
   ): SceneFacadeHint[] {
     const annotationHints = [...landmarkAssignments.entries()].map(([objectId, annotation]) => {
       const matchedBuilding =
-        meta.buildings.find((building) => building.objectId === objectId) ?? null;
+        buildings.find((building) => building.objectId === objectId) ?? null;
       const buildingHeight = matchedBuilding?.heightMeters ?? 12;
       const facadeHint = annotation.facadeHint;
 
@@ -222,6 +232,10 @@ export class SceneHeroOverrideApplierService {
         visualRole:
           facadeHint?.visualRole ??
           (annotation.importance === 'primary' ? 'hero_landmark' : 'edge_landmark'),
+        facadeSpec: matchedBuilding?.facadeSpec,
+        podiumSpec: matchedBuilding?.podiumSpec,
+        signageSpec: matchedBuilding?.signageSpec,
+        roofSpec: matchedBuilding?.roofSpec,
         weakEvidence: false,
       };
     });
@@ -279,6 +293,101 @@ function summarizeMaterialClasses(facadeHints: SceneFacadeHint[]) {
     palette: value.palette,
     buildingCount: value.buildingCount,
   }));
+}
+
+function buildHeroEnhancement(
+  building: SceneMeta['buildings'][number],
+  annotation: LandmarkAnnotationManifest['landmarks'][number],
+): {
+  baseMass: SceneMeta['buildings'][number]['baseMass'];
+  podiumSpec?: BuildingPodiumSpec;
+  signageSpec?: BuildingSignageSpec;
+  roofSpec?: BuildingRoofSpec;
+  facadeSpec?: BuildingFacadeSpec;
+} {
+  const dominantEdgeIndex = resolveLongestEdgeIndex(building.outerRing);
+  const adjacentEdgeIndex = (dominantEdgeIndex + 1) % Math.max(1, building.outerRing.length);
+  const heroPrimary = annotation.importance === 'primary';
+  const visualRole =
+    annotation.facadeHint?.visualRole ??
+    (heroPrimary ? 'hero_landmark' : 'edge_landmark');
+  const signBandLevels = heroPrimary ? Math.max(2, building.signBandLevels ?? 2) : 1;
+  const podiumSpec: BuildingPodiumSpec | undefined =
+    annotation.kind === 'BUILDING'
+      ? {
+          levels: heroPrimary ? 3 : 2,
+          setbacks: heroPrimary ? 2 : 1,
+          cornerChamfer: building.cornerChamfer ?? heroPrimary,
+          canopyEdges:
+            visualRole === 'hero_landmark' || visualRole === 'retail_edge'
+              ? [dominantEdgeIndex, adjacentEdgeIndex]
+              : [dominantEdgeIndex],
+        }
+      : undefined;
+  const signageSpec: BuildingSignageSpec | undefined =
+    annotation.kind === 'BUILDING'
+      ? {
+          billboardFaces: heroPrimary ? [dominantEdgeIndex] : [],
+          signBandLevels,
+          screenFaces: heroPrimary ? [dominantEdgeIndex] : [],
+          emissiveZones: heroPrimary ? 3 : 1,
+        }
+      : undefined;
+  const roofSpec: BuildingRoofSpec | undefined =
+    annotation.kind === 'BUILDING'
+      ? {
+          roofUnits: heroPrimary ? 4 : 2,
+          crownType: heroPrimary ? 'screen_crown' : 'parapet_crown',
+          parapet: true,
+        }
+      : undefined;
+  const facadeSpec: BuildingFacadeSpec | undefined =
+    annotation.kind === 'BUILDING'
+      ? {
+          atlasId: `${annotation.id}-facade`,
+          uvMode: 'placeholder',
+          emissiveMaskId: heroPrimary ? `${annotation.id}-emissive` : null,
+          facadePattern:
+            visualRole === 'station_edge'
+              ? 'retail_screen'
+              : visualRole === 'retail_edge'
+                ? 'retail_screen'
+                : 'curtain_wall',
+          lowerBandType:
+            visualRole === 'station_edge' ? 'screen_band' : 'retail_sign_band',
+          midBandType:
+            building.facadePreset === 'glass_grid' ? 'window_grid' : 'solid_panel',
+          topBandType: heroPrimary ? 'screen_band' : 'window_grid',
+          windowRepeatX: heroPrimary ? 8 : 5,
+          windowRepeatY: heroPrimary ? 12 : 8,
+        }
+      : undefined;
+
+  return {
+    baseMass: heroPrimary ? 'corner_tower' : building.baseMass ?? 'podium_tower',
+    podiumSpec,
+    signageSpec,
+    roofSpec,
+    facadeSpec,
+  };
+}
+
+function resolveLongestEdgeIndex(ring: { lat: number; lng: number }[]): number {
+  if (ring.length < 2) {
+    return 0;
+  }
+  let longestIndex = 0;
+  let longestLength = 0;
+  for (let index = 0; index < ring.length; index += 1) {
+    const current = ring[index];
+    const next = ring[(index + 1) % ring.length];
+    const length = Math.hypot(next.lng - current.lng, next.lat - current.lat);
+    if (length > longestLength) {
+      longestLength = length;
+      longestIndex = index;
+    }
+  }
+  return longestIndex;
 }
 
 function clampCoverage(value: number): number {

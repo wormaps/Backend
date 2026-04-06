@@ -566,8 +566,12 @@ export class GlbBuilderService {
       createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
       materials.buildingPanels.neutral,
       {
-        sourceCount: assetSelection.buildings.filter((building) => Boolean(building.visualRole)).length,
-        selectedCount: assetSelection.buildings.filter((building) => Boolean(building.visualRole)).length,
+        sourceCount: assetSelection.buildings.filter(
+          (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
+        ).length,
+        selectedCount: assetSelection.buildings.filter(
+          (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
+        ).length,
       },
     );
     this.addMeshNode(
@@ -1250,44 +1254,126 @@ export class GlbBuilderService {
       if (!this.isFiniteVec3(center)) {
         continue;
       }
-      const poleHeight =
-        type === 'TRAFFIC_LIGHT' ? 6.8 : type === 'STREET_LIGHT' ? 8.5 : 3.6;
-      this.pushBox(
-        geometry,
-        [center[0] - 0.08, 0, center[2] - 0.08],
-        [center[0] + 0.08, poleHeight, center[2] + 0.08],
-      );
+      const variant = this.stableVariant(item.objectId, 3);
       if (type === 'TRAFFIC_LIGHT') {
-        this.pushBox(
-          geometry,
-          [center[0] - 1.1, poleHeight - 0.32, center[2] - 0.05],
-          [center[0] + 0.1, poleHeight - 0.12, center[2] + 0.05],
-        );
-        this.pushBox(
-          geometry,
-          [center[0] - 1.08, poleHeight - 0.7, center[2] - 0.18],
-          [center[0] - 0.78, poleHeight - 0.24, center[2] + 0.18],
-        );
+        this.pushTrafficLightAssembly(geometry, center, item.principal, variant);
       } else if (type === 'STREET_LIGHT') {
-        this.pushBox(
-          geometry,
-          [center[0] - 0.15, poleHeight - 0.2, center[2] - 0.15],
-          [center[0] + 0.9, poleHeight, center[2] + 0.15],
-        );
-        this.pushBox(
-          geometry,
-          [center[0] + 0.65, poleHeight - 0.18, center[2] - 0.22],
-          [center[0] + 1.02, poleHeight + 0.08, center[2] + 0.22],
-        );
+        this.pushStreetLightAssembly(geometry, center, variant);
       } else {
-        this.pushBox(
-          geometry,
-          [center[0] - 0.28, poleHeight - 0.7, center[2] - 0.04],
-          [center[0] + 0.28, poleHeight - 0.1, center[2] + 0.04],
-        );
+        this.pushSignPoleAssembly(geometry, center, variant);
       }
     }
     return geometry;
+  }
+
+  private pushTrafficLightAssembly(
+    geometry: GeometryBuffers,
+    center: Vec3,
+    principal: boolean,
+    variant: number,
+  ): void {
+    const poleHeight = principal ? 7.2 : 6.4;
+    const armLength = principal ? 1.8 : 1.2;
+    const signalOffset = variant === 0 ? -1 : 1;
+    this.pushBox(
+      geometry,
+      [center[0] - 0.12, 0, center[2] - 0.12],
+      [center[0] + 0.12, poleHeight, center[2] + 0.12],
+    );
+    this.pushBox(
+      geometry,
+      [center[0] - 0.24, 0, center[2] - 0.24],
+      [center[0] + 0.24, 0.16, center[2] + 0.24],
+    );
+    this.pushBox(
+      geometry,
+      [center[0], poleHeight - 0.28, center[2] - 0.06],
+      [center[0] + signalOffset * armLength, poleHeight - 0.12, center[2] + 0.06],
+    );
+    const headX = center[0] + signalOffset * armLength;
+    this.pushBox(
+      geometry,
+      [headX - 0.18, poleHeight - 0.88, center[2] - 0.22],
+      [headX + 0.18, poleHeight - 0.18, center[2] + 0.22],
+    );
+    if (principal) {
+      this.pushBox(
+        geometry,
+        [headX - signalOffset * 0.62, poleHeight - 0.82, center[2] - 0.18],
+        [headX - signalOffset * 0.28, poleHeight - 0.28, center[2] + 0.18],
+      );
+    }
+    this.pushBox(
+      geometry,
+      [center[0] - 0.22, 1.2, center[2] - 0.08],
+      [center[0] + 0.16, 1.7, center[2] + 0.08],
+    );
+  }
+
+  private pushStreetLightAssembly(
+    geometry: GeometryBuffers,
+    center: Vec3,
+    variant: number,
+  ): void {
+    const poleHeight = variant === 2 ? 9.2 : 8.4;
+    const armLength = variant === 1 ? 1.4 : 1.1;
+    this.pushBox(
+      geometry,
+      [center[0] - 0.1, 0, center[2] - 0.1],
+      [center[0] + 0.1, poleHeight, center[2] + 0.1],
+    );
+    this.pushBox(
+      geometry,
+      [center[0] - 0.2, 0, center[2] - 0.2],
+      [center[0] + 0.2, 0.12, center[2] + 0.2],
+    );
+    this.pushBox(
+      geometry,
+      [center[0], poleHeight - 0.18, center[2] - 0.05],
+      [center[0] + armLength, poleHeight, center[2] + 0.05],
+    );
+    this.pushBox(
+      geometry,
+      [center[0] + armLength - 0.18, poleHeight - 0.28, center[2] - 0.18],
+      [center[0] + armLength + 0.12, poleHeight + 0.02, center[2] + 0.18],
+    );
+    if (variant === 2) {
+      this.pushBox(
+        geometry,
+        [center[0] - 0.55, poleHeight - 0.08, center[2] - 0.04],
+        [center[0], poleHeight + 0.04, center[2] + 0.04],
+      );
+    }
+  }
+
+  private pushSignPoleAssembly(
+    geometry: GeometryBuffers,
+    center: Vec3,
+    variant: number,
+  ): void {
+    const poleHeight = 3.4 + variant * 0.35;
+    this.pushBox(
+      geometry,
+      [center[0] - 0.08, 0, center[2] - 0.08],
+      [center[0] + 0.08, poleHeight, center[2] + 0.08],
+    );
+    this.pushBox(
+      geometry,
+      [center[0] - 0.18, 0, center[2] - 0.18],
+      [center[0] + 0.18, 0.08, center[2] + 0.18],
+    );
+    this.pushBox(
+      geometry,
+      [center[0] - 0.42, poleHeight - 0.9, center[2] - 0.05],
+      [center[0] + 0.42, poleHeight - 0.15, center[2] + 0.05],
+    );
+    if (variant > 0) {
+      this.pushBox(
+        geometry,
+        [center[0] - 0.28, poleHeight - 1.65, center[2] - 0.05],
+        [center[0] + 0.28, poleHeight - 1.1, center[2] + 0.05],
+      );
+    }
   }
 
   private createVegetationGeometry(
@@ -1359,6 +1445,14 @@ export class GlbBuilderService {
     }
 
     return geometry;
+  }
+
+  private stableVariant(seed: string, modulo: number): number {
+    let hash = 0;
+    for (let index = 0; index < seed.length; index += 1) {
+      hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+    }
+    return modulo > 0 ? hash % modulo : 0;
   }
 
   private createLandCoverGeometry(

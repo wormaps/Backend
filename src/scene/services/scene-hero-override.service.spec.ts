@@ -184,6 +184,10 @@ describe('SceneHeroOverrideService', () => {
     expect(result.meta.detailStatus).toBe('PARTIAL');
     expect(result.meta.landmarkAnchors.length).toBeGreaterThan(0);
     expect(result.meta.buildings[0]?.visualRole).toBe('hero_landmark');
+    expect(result.meta.buildings[0]?.podiumSpec?.canopyEdges.length).toBeGreaterThan(0);
+    expect(result.meta.buildings[0]?.signageSpec?.billboardFaces.length).toBeGreaterThan(0);
+    expect(result.meta.buildings[0]?.roofSpec?.roofUnits).toBeGreaterThan(0);
+    expect(result.detail.facadeHints[0]?.facadeSpec).toBeDefined();
     expect(result.detail.placeReadabilityDiagnostics?.heroBuildingCount).toBeGreaterThan(0);
     expect(result.detail.placeReadabilityDiagnostics?.scrambleStripeCount).toBeGreaterThan(0);
     expect(result.detail.placeReadabilityDiagnostics?.heroIntersectionCount).toBeGreaterThan(0);

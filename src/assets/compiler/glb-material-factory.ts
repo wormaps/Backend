@@ -15,29 +15,29 @@ export function createSceneMaterials(doc: any) {
   return {
     ground: doc
       .createMaterial('ground')
-      .setBaseColorFactor([0.82, 0.82, 0.8, 1])
+      .setBaseColorFactor([0.64, 0.64, 0.62, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(1),
     roadBase: doc
       .createMaterial('road-base')
-      .setBaseColorFactor([0.28, 0.29, 0.31, 1])
+      .setBaseColorFactor([0.2, 0.21, 0.22, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(1),
+      .setRoughnessFactor(0.96),
     roadMarking: doc
       .createMaterial('road-marking')
-      .setBaseColorFactor([0.95, 0.94, 0.78, 1])
+      .setBaseColorFactor([0.88, 0.84, 0.65, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.68),
+      .setRoughnessFactor(0.78),
     laneOverlay: doc
       .createMaterial('lane-overlay')
-      .setBaseColorFactor([0.96, 0.94, 0.72, 1])
+      .setBaseColorFactor([0.84, 0.8, 0.58, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.62),
+      .setRoughnessFactor(0.78),
     crosswalk: doc
       .createMaterial('crosswalk')
-      .setBaseColorFactor([0.9, 0.9, 0.88, 1])
+      .setBaseColorFactor([0.78, 0.78, 0.75, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.9),
+      .setRoughnessFactor(0.95),
     junctionOverlay: doc
       .createMaterial('junction-overlay')
       .setBaseColorFactor([0.94, 0.84, 0.42, 1])
@@ -46,26 +46,26 @@ export function createSceneMaterials(doc: any) {
       .setRoughnessFactor(0.74),
     sidewalk: doc
       .createMaterial('sidewalk')
-      .setBaseColorFactor([0.78, 0.78, 0.76, 1])
+      .setBaseColorFactor([0.62, 0.61, 0.58, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(1),
+      .setRoughnessFactor(0.98),
     trafficLight: doc
       .createMaterial('traffic-light')
-      .setBaseColorFactor([0.18, 0.19, 0.2, 1])
-      .setEmissiveFactor([0.22, 0.05, 0.02])
+      .setBaseColorFactor([0.12, 0.13, 0.14, 1])
+      .setEmissiveFactor([0.08, 0.02, 0.01])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.9),
+      .setRoughnessFactor(0.92),
     streetLight: doc
       .createMaterial('street-light')
-      .setBaseColorFactor([0.45, 0.46, 0.48, 1])
-      .setEmissiveFactor([0.15, 0.12, 0.05])
-      .setMetallicFactor(0)
-      .setRoughnessFactor(0.7),
+      .setBaseColorFactor([0.34, 0.36, 0.39, 1])
+      .setEmissiveFactor([0.06, 0.05, 0.02])
+      .setMetallicFactor(0.06)
+      .setRoughnessFactor(0.76),
     signPole: doc
       .createMaterial('sign-pole')
-      .setBaseColorFactor([0.52, 0.55, 0.58, 1])
-      .setMetallicFactor(0)
-      .setRoughnessFactor(0.7),
+      .setBaseColorFactor([0.38, 0.41, 0.45, 1])
+      .setMetallicFactor(0.04)
+      .setRoughnessFactor(0.78),
     tree: doc
       .createMaterial('tree')
       .setBaseColorFactor([0.28, 0.47, 0.27, 1])
@@ -179,7 +179,10 @@ export function createBuildingShellMaterial(
   bucket: ShellColorBucket,
   explicitHex?: string,
 ) {
-  const [r, g, b] = hexToRgb(explicitHex ?? resolveShellBucketHex(bucket));
+  const [r, g, b] = tuneShellColor(
+    hexToRgb(explicitHex ?? resolveShellBucketHex(bucket)),
+    materialClass,
+  );
   const surface = resolveShellSurface(materialClass);
 
   return doc
@@ -194,8 +197,8 @@ export function createBuildingPanelMaterial(
   tone: AccentTone,
   hex: string,
 ) {
-  const [r, g, b] = hexToRgb(hex);
-  const emissiveBoost = tone === 'warm' ? 0.42 : tone === 'cool' ? 0.38 : 0.28;
+  const [r, g, b] = tunePanelColor(hexToRgb(hex), tone);
+  const emissiveBoost = tone === 'warm' ? 0.28 : tone === 'cool' ? 0.24 : 0.18;
   return doc
     .createMaterial(`building-panel-${tone}-${hex}`)
     .setBaseColorFactor([r, g, b, 1])
@@ -213,8 +216,8 @@ export function createBillboardMaterial(
   tone: AccentTone,
   hex: string,
 ) {
-  const [r, g, b] = hexToRgb(hex);
-  const emissiveBoost = tone === 'warm' ? 0.68 : tone === 'cool' ? 0.62 : 0.48;
+  const [r, g, b] = tuneBillboardColor(hexToRgb(hex), tone);
+  const emissiveBoost = tone === 'warm' ? 0.46 : tone === 'cool' ? 0.42 : 0.3;
   return doc
     .createMaterial(`billboard-${tone}-${hex}`)
     .setBaseColorFactor([r, g, b, 1])
@@ -272,4 +275,67 @@ function hexToRgb(hex: string): [number, number, number] {
   const green = parseInt(normalized.slice(2, 4), 16) / 255;
   const blue = parseInt(normalized.slice(4, 6), 16) / 255;
   return [red, green, blue];
+}
+
+function tuneShellColor(
+  color: [number, number, number],
+  materialClass: MaterialClass,
+): [number, number, number] {
+  const [r, g, b] = compressLuminance(color, 0.62);
+  if (materialClass === 'glass') {
+    return [
+      clamp01(r * 0.9),
+      clamp01(g * 0.94),
+      clamp01(Math.max(b * 1.02, r * 0.98)),
+    ];
+  }
+  if (materialClass === 'brick') {
+    return [clamp01(r * 0.92), clamp01(g * 0.9), clamp01(b * 0.88)];
+  }
+  return [clamp01(r * 0.94), clamp01(g * 0.94), clamp01(b * 0.94)];
+}
+
+function tunePanelColor(
+  color: [number, number, number],
+  tone: AccentTone,
+): [number, number, number] {
+  const [r, g, b] = compressLuminance(color, 0.5);
+  if (tone === 'cool') {
+    return [clamp01(r * 0.88), clamp01(g * 0.92), clamp01(b * 0.98)];
+  }
+  if (tone === 'warm') {
+    return [clamp01(r * 0.96), clamp01(g * 0.88), clamp01(b * 0.84)];
+  }
+  return [clamp01(r * 0.9), clamp01(g * 0.9), clamp01(b * 0.9)];
+}
+
+function tuneBillboardColor(
+  color: [number, number, number],
+  tone: AccentTone,
+): [number, number, number] {
+  const [r, g, b] = compressLuminance(color, 0.66);
+  if (tone === 'cool') {
+    return [clamp01(r * 0.94), clamp01(g * 0.98), clamp01(b)];
+  }
+  if (tone === 'warm') {
+    return [clamp01(r), clamp01(g * 0.92), clamp01(b * 0.9)];
+  }
+  return [clamp01(r * 0.95), clamp01(g * 0.95), clamp01(b * 0.95)];
+}
+
+function compressLuminance(
+  color: [number, number, number],
+  maxLuminance: number,
+): [number, number, number] {
+  const [r, g, b] = color;
+  const luminance = r * 0.299 + g * 0.587 + b * 0.114;
+  if (luminance <= maxLuminance) {
+    return color;
+  }
+  const scale = maxLuminance / Math.max(luminance, 1e-6);
+  return [r * scale, g * scale, b * scale];
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
