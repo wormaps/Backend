@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ApiExceptionFilter } from './common/http/api-exception.filter';
 import { ApiResponseInterceptor } from './common/http/api-response.interceptor';
-import { setupSwagger } from './docs/swagger.setup';
+import { setupSwagger } from './docs/setup';
 import { AppModule } from './app.module';
 
 async function bootstrap() {

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from '../cache/cache.module';
 import { PlacesModule } from '../places/places.module';
 import { GlbBuilderService } from '../assets/glb-builder.service';
-import { GlbBuildRunner } from '../assets/internal/glb-build-runner';
+import { GlbBuildRunner } from '../assets/internal/glb-build';
 import { SceneGenerationPipelineService } from './pipeline/scene-generation-pipeline.service';
 import { SceneAssetProfileStep } from './pipeline/steps/scene-asset-profile.step';
 import { SceneFidelityPlanStep } from './pipeline/steps/scene-fidelity-plan.step';
