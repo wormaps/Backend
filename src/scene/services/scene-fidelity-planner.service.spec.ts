@@ -120,6 +120,10 @@ describe('SceneFidelityPlannerService', () => {
     expect(plan.currentMode).toBe('PROCEDURAL_ONLY');
     expect(plan.targetMode).toBe('PROCEDURAL_ONLY');
     expect(plan.phase).toBe('PHASE_1_BASELINE');
+    expect(plan.targetCoverageRatio).toBe(0.7);
+    expect(plan.achievedCoverageRatio).toBeGreaterThanOrEqual(0);
+    expect(plan.coverageGapRatio).toBeGreaterThanOrEqual(0);
+    expect(plan.priorities).toContain('전 장소 70% 커버리지 갭 축소');
   });
 
   it('promotes to landmark enriched when annotations are present', () => {
@@ -163,6 +167,8 @@ describe('SceneFidelityPlannerService', () => {
     expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
     expect(plan.phase).toBe('PHASE_2_HYBRID_FOUNDATION');
     expect(plan.evidence.facade).toBe('HIGH');
+    expect(plan.achievedCoverageRatio).toBeGreaterThanOrEqual(0.7);
+    expect(plan.coverageGapRatio).toBe(0);
     expect(
       plan.sourceRegistry.find((source) => source.sourceType === 'MAPILLARY')
         ?.enabled,

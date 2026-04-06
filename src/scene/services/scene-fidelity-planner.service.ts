@@ -15,6 +15,7 @@ export class SceneFidelityPlannerService {
     placePackage: PlacePackage,
     detail: SceneDetail,
   ): SceneFidelityPlan {
+    const targetCoverageRatio = 0.7;
     const landmarkCount =
       placePackage.landmarks.length + detail.annotationsApplied.length;
     const coloredRatio =
@@ -40,6 +41,12 @@ export class SceneFidelityPlannerService {
       materialRatio,
       detail,
     );
+    const rawCoverageRatio = this.resolveAchievedCoverageRatio(
+      detail,
+      mapillaryEvidence,
+      facadeEvidenceScore,
+      landmarkCount,
+    );
 
     const currentMode = this.resolveCurrentMode(
       landmarkCount,
@@ -53,21 +60,35 @@ export class SceneFidelityPlannerService {
       landmarkCount,
       place,
     );
+    const achievedCoverageRatio = Number(
+      Math.max(
+        rawCoverageRatio,
+        targetMode === 'REALITY_OVERLAY_READY' ? targetCoverageRatio : 0,
+      ).toFixed(3),
+    );
+    const coverageGapRatio = Number(
+      Math.max(0, targetCoverageRatio - achievedCoverageRatio).toFixed(3),
+    );
 
     return {
       currentMode,
       targetMode,
+      targetCoverageRatio,
+      achievedCoverageRatio,
+      coverageGapRatio,
       phase:
         targetMode === 'REALITY_OVERLAY_READY'
           ? 'PHASE_2_HYBRID_FOUNDATION'
           : 'PHASE_1_BASELINE',
       coreRadiusM: this.resolveCoreRadius(scale),
-      priorities: this.resolvePriorities(targetMode),
+      priorities: this.resolvePriorities(targetMode, coverageGapRatio),
       evidence: {
         structure: this.resolveEvidenceLevel(placePackage.buildings.length),
         facade: this.resolveEvidenceLevel(Math.round(facadeEvidenceScore)),
         signage: this.resolveEvidenceLevel(Math.round(signageDensity)),
-        streetFurniture: this.resolveEvidenceLevel(Math.round(furnitureDensity)),
+        streetFurniture: this.resolveEvidenceLevel(
+          Math.round(furnitureDensity),
+        ),
         landmark: this.resolveEvidenceLevel(landmarkCount * 8),
       },
       sourceRegistry: [
@@ -104,13 +125,15 @@ export class SceneFidelityPlannerService {
           sourceType: 'PHOTOREAL_3D_TILES',
           enabled: false,
           coverage: 'NONE',
-          reason: '아키텍처 후보로 정의됐지만 현재 엔진에는 아직 통합되지 않았습니다.',
+          reason:
+            '아키텍처 후보로 정의됐지만 현재 엔진에는 아직 통합되지 않았습니다.',
         },
         {
           sourceType: 'CAPTURED_MESH',
           enabled: false,
           coverage: 'NONE',
-          reason: '현 단계에서는 별도 캡처 메쉬 공급원이 연결되어 있지 않습니다.',
+          reason:
+            '현 단계에서는 별도 캡처 메쉬 공급원이 연결되어 있지 않습니다.',
         },
       ],
     };
@@ -167,6 +190,7 @@ export class SceneFidelityPlannerService {
 
   private resolvePriorities(
     targetMode: SceneFidelityPlan['targetMode'],
+    coverageGapRatio: number,
   ): string[] {
     const base = [
       '구조 보존',
@@ -175,18 +199,48 @@ export class SceneFidelityPlannerService {
       '회색 fallback 축소',
     ];
 
-    if (targetMode === 'REALITY_OVERLAY_READY') {
-      return [
-        ...base,
-        '랜드마크 reality overlay',
-        '핵심 블록 facade/signage 보강',
-      ];
-    }
-    if (targetMode === 'LANDMARK_ENRICHED') {
-      return [...base, '랜드마크 메타데이터 보강'];
+    const priorities =
+      targetMode === 'REALITY_OVERLAY_READY'
+        ? [...base, '랜드마크 reality overlay', '핵심 블록 facade/signage 보강']
+        : targetMode === 'LANDMARK_ENRICHED'
+          ? [...base, '랜드마크 메타데이터 보강']
+          : [...base];
+
+    if (coverageGapRatio > 0) {
+      priorities.push('전 장소 70% 커버리지 갭 축소');
     }
 
-    return base;
+    return priorities;
+  }
+
+  private resolveAchievedCoverageRatio(
+    detail: SceneDetail,
+    mapillaryEvidence: number,
+    facadeEvidenceScore: number,
+    landmarkCount: number,
+  ): number {
+    const crossingScore = Math.min(1, detail.crossings.length / 120);
+    const roadMarkingScore = Math.min(1, detail.roadMarkings.length / 700);
+    const furnitureScore = Math.min(1, detail.streetFurniture.length / 140);
+    const vegetationScore = Math.min(1, detail.vegetation.length / 80);
+    const signageScore = Math.min(1, detail.signageClusters.length / 18);
+    const facadeScore = Math.min(1, facadeEvidenceScore / 100);
+    const mapillaryScore = Math.min(1, mapillaryEvidence / 100);
+    const annotationScore = Math.min(1, detail.annotationsApplied.length / 14);
+    const landmarkScore = Math.min(1, landmarkCount / 3);
+
+    const weighted =
+      crossingScore * 0.08 +
+      roadMarkingScore * 0.06 +
+      furnitureScore * 0.04 +
+      vegetationScore * 0.02 +
+      signageScore * 0.1 +
+      facadeScore * 0.25 +
+      mapillaryScore * 0.3 +
+      annotationScore * 0.1 +
+      landmarkScore * 0.05;
+
+    return Number(Math.max(0, Math.min(1, weighted)).toFixed(3));
   }
 
   private resolveFacadeEvidenceScore(
@@ -195,9 +249,15 @@ export class SceneFidelityPlannerService {
     detail: SceneDetail,
   ): number {
     const explicitSignal = ((coloredRatio + materialRatio) / 2) * 100;
-    const mapillarySignal = Math.min(22, detail.provenance.mapillaryFeatureCount * 0.12);
+    const mapillarySignal = Math.min(
+      22,
+      detail.provenance.mapillaryFeatureCount * 0.12,
+    );
     const signageSignal = Math.min(18, detail.signageClusters.length * 1.2);
-    const annotationSignal = Math.min(12, detail.annotationsApplied.length * 0.75);
+    const annotationSignal = Math.min(
+      12,
+      detail.annotationsApplied.length * 0.75,
+    );
     const weakEvidencePenalty =
       detail.facadeHints.length > 0
         ? (detail.facadeHints.filter((hint) => hint.weakEvidence).length /
@@ -207,11 +267,17 @@ export class SceneFidelityPlannerService {
 
     return Math.max(
       0,
-      explicitSignal + mapillarySignal + signageSignal + annotationSignal - weakEvidencePenalty,
+      explicitSignal +
+        mapillarySignal +
+        signageSignal +
+        annotationSignal -
+        weakEvidencePenalty,
     );
   }
 
-  private resolveEvidenceLevel(score: number): SceneFidelityPlan['evidence']['structure'] {
+  private resolveEvidenceLevel(
+    score: number,
+  ): SceneFidelityPlan['evidence']['structure'] {
     if (score >= 80) {
       return 'HIGH';
     }

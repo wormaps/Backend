@@ -85,7 +85,11 @@ export type FacadeBandType =
   | 'window_grid'
   | 'solid_panel';
 export type UvMode = 'placeholder' | 'atlas_repeat';
-export type RoofCrownType = 'none' | 'screen_crown' | 'stepped_crown' | 'parapet_crown';
+export type RoofCrownType =
+  | 'none'
+  | 'screen_crown'
+  | 'stepped_crown'
+  | 'parapet_crown';
 export type IntersectionProfile =
   | 'scramble_major'
   | 'signalized_standard'
@@ -231,6 +235,9 @@ export interface SceneFacadeContextDiagnostics {
 export interface SceneFidelityPlan {
   currentMode: SceneFidelityMode;
   targetMode: SceneFidelityMode;
+  targetCoverageRatio: number;
+  achievedCoverageRatio: number;
+  coverageGapRatio: number;
   phase: 'PHASE_1_BASELINE' | 'PHASE_2_HYBRID_FOUNDATION';
   coreRadiusM: number;
   priorities: string[];
@@ -370,7 +377,10 @@ export interface SceneRoadMarkingDetail {
   path: Coordinate[];
 }
 
-export interface SceneStreetFurnitureDetail extends Omit<StreetFurnitureData, 'id'> {
+export interface SceneStreetFurnitureDetail extends Omit<
+  StreetFurnitureData,
+  'id'
+> {
   objectId: string;
   principal: boolean;
 }

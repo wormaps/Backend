@@ -33,6 +33,9 @@ export class SceneFidelityPlanStep {
     await appendSceneDiagnosticsLog(sceneId, stage, {
       currentMode: plan.currentMode,
       targetMode: plan.targetMode,
+      targetCoverageRatio: plan.targetCoverageRatio,
+      achievedCoverageRatio: plan.achievedCoverageRatio,
+      coverageGapRatio: plan.coverageGapRatio,
       phase: plan.phase,
       coreRadiusM: plan.coreRadiusM,
       evidence: plan.evidence,

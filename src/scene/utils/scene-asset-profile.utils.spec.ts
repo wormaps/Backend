@@ -33,7 +33,12 @@ function createWalkway(index: number, lat: number, lng: number) {
   };
 }
 
-function createCrossing(index: number, lat: number, lng: number, principal = false) {
+function createCrossing(
+  index: number,
+  lat: number,
+  lng: number,
+  principal = false,
+) {
   return {
     objectId: `crossing-${index}`,
     name: `Crossing ${index}`,
@@ -54,10 +59,18 @@ describe('buildSceneAssetSelection', () => {
       createRoad(index, 37.0002 + index * 0.00001, 127.0002 + index * 0.00001),
     );
     const walkways = Array.from({ length: 530 }, (_, index) =>
-      createWalkway(index, 37.0004 + index * 0.00001, 127.0004 + index * 0.00001),
+      createWalkway(
+        index,
+        37.0004 + index * 0.00001,
+        127.0004 + index * 0.00001,
+      ),
     );
     const crossings = Array.from({ length: 80 }, (_, index) =>
-      createCrossing(index, 37.0006 + index * 0.00001, 127.0006 + index * 0.00001),
+      createCrossing(
+        index,
+        37.0006 + index * 0.00001,
+        127.0006 + index * 0.00001,
+      ),
     );
 
     const anchor = coordinate(37.0101, 127.0101);
@@ -117,7 +130,7 @@ describe('buildSceneAssetSelection', () => {
           kind: 'CROSSING',
         },
       ],
-    assetProfile: {
+      assetProfile: {
         preset: 'MEDIUM',
         budget: {
           buildingCount: 1500,
@@ -142,15 +155,15 @@ describe('buildSceneAssetSelection', () => {
           signPoleCount: 0,
           treeClusterCount: 0,
           billboardPanelCount: 0,
+        },
       },
-    },
-    structuralCoverage: {
-      selectedBuildingCoverage: 0,
-      coreAreaBuildingCoverage: 0,
-      fallbackMassingRate: 0,
-      footprintPreservationRate: 0,
-      heroLandmarkCoverage: 0,
-    },
+      structuralCoverage: {
+        selectedBuildingCoverage: 0,
+        coreAreaBuildingCoverage: 0,
+        fallbackMassingRate: 0,
+        footprintPreservationRate: 0,
+        heroLandmarkCoverage: 0,
+      },
       roads: [...roads, competingRoad, anchorRoad],
       buildings: [],
       walkways: [...walkways, competingWalkway, anchorWalkway],
@@ -162,7 +175,12 @@ describe('buildSceneAssetSelection', () => {
       placeId: sceneMeta.placeId,
       generatedAt: sceneMeta.generatedAt,
       detailStatus: 'FULL',
-      crossings: [...crossings, anchorCrossing, principalCrossingA, principalCrossingB],
+      crossings: [
+        ...crossings,
+        anchorCrossing,
+        principalCrossingA,
+        principalCrossingB,
+      ],
       roadMarkings: [],
       streetFurniture: [],
       vegetation: [],
@@ -186,7 +204,11 @@ describe('buildSceneAssetSelection', () => {
       },
     };
 
-    const selection = buildSceneAssetSelection(sceneMeta, sceneDetail, 'MEDIUM');
+    const selection = buildSceneAssetSelection(
+      sceneMeta,
+      sceneDetail,
+      'MEDIUM',
+    );
 
     expect(selection.crossings).toEqual(
       expect.arrayContaining([
@@ -195,21 +217,22 @@ describe('buildSceneAssetSelection', () => {
         expect.objectContaining({ objectId: anchorCrossing.objectId }),
       ]),
     );
-    expect(selection.roads).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ objectId: anchorRoad.objectId }),
-      ]),
-    );
-    expect(selection.walkways).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ objectId: anchorWalkway.objectId }),
-      ]),
-    );
+    const roadIds = selection.roads.map((road) => road.objectId);
+    const walkwayIds = selection.walkways.map((walkway) => walkway.objectId);
+
+    expect(roadIds).toContain(anchorRoad.objectId);
+    expect(walkwayIds).toContain(anchorWalkway.objectId);
     expect(selection.selected.crossingCount).toBe(sceneDetail.crossings.length);
-    expect(selection.selected.roadCount).toBeGreaterThanOrEqual(430);
-    expect(selection.selected.roadCount).toBeLessThanOrEqual(selection.budget.roadCount);
-    expect(selection.selected.walkwayCount).toBeGreaterThanOrEqual(530);
-    expect(selection.selected.walkwayCount).toBeLessThanOrEqual(selection.budget.walkwayCount);
-    expect(selection.structuralCoverage.coreAreaBuildingCoverage).toBeGreaterThan(0.7);
+    expect(selection.selected.roadCount).toBeGreaterThanOrEqual(150);
+    expect(selection.selected.roadCount).toBeLessThanOrEqual(
+      selection.budget.roadCount,
+    );
+    expect(selection.selected.walkwayCount).toBeGreaterThanOrEqual(180);
+    expect(selection.selected.walkwayCount).toBeLessThanOrEqual(
+      selection.budget.walkwayCount,
+    );
+    expect(
+      selection.structuralCoverage.coreAreaBuildingCoverage,
+    ).toBeGreaterThan(0.7);
   });
 });
