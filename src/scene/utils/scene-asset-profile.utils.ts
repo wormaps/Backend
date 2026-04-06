@@ -34,6 +34,7 @@ export function buildSceneAssetSelection(
   scale: SceneScale,
 ): SceneAssetSelection {
   const budget = resolveAssetBudget(scale);
+  const landmarkLocations = sceneMeta.landmarkAnchors.map((anchor) => anchor.location);
 
   const buildings = selectSpatialSample(
     sceneMeta.buildings,
@@ -41,17 +42,33 @@ export function buildSceneAssetSelection(
     (building) => averageCoordinate(building.outerRing) ?? sceneMeta.origin,
     sceneMeta,
   );
-  const roads = selectSpatialSample(
+  const crossings = selectCrossings(
+    sceneDetail.crossings,
+    budget.crossingCount,
+    sceneMeta,
+    landmarkLocations,
+  );
+  const priorityRoadAnchors = uniqueCoordinates([
+    ...landmarkLocations,
+    ...crossings.filter((crossing) => crossing.principal).map((crossing) => crossing.center),
+  ]);
+  const roads = selectPathCollection(
     sceneMeta.roads,
     budget.roadCount,
+    (road) => road.path,
     (road) => road.center,
     sceneMeta,
+    priorityRoadAnchors,
+    120,
   );
-  const walkways = selectSpatialSample(
+  const walkways = selectPathCollection(
     sceneMeta.walkways,
     budget.walkwayCount,
+    (walkway) => walkway.path,
     (walkway) => midpoint(walkway.path) ?? sceneMeta.origin,
     sceneMeta,
+    priorityRoadAnchors,
+    120,
   );
   const landmarkPois = sceneMeta.pois.filter((poi) => poi.isLandmark);
   const remainingPois = sceneMeta.pois.filter((poi) => !poi.isLandmark);
@@ -63,12 +80,6 @@ export function buildSceneAssetSelection(
     sceneMeta,
   );
   const pois = [...landmarkPois, ...sampledPois];
-  const crossings = selectSpatialSample(
-    sceneDetail.crossings,
-    budget.crossingCount,
-    (crossing) => crossing.center,
-    sceneMeta,
-  );
   const trafficLights = selectSpatialSample(
     sceneDetail.streetFurniture.filter((item) => item.type === 'TRAFFIC_LIGHT'),
     budget.trafficLightCount,
@@ -131,10 +142,10 @@ function resolveAssetBudget(scale: SceneScale): SceneMeta['assetProfile']['budge
   if (scale === 'SMALL') {
     return {
       buildingCount: 300,
-      roadCount: 120,
-      walkwayCount: 180,
+      roadCount: 220,
+      walkwayCount: 300,
       poiCount: 140,
-      crossingCount: 12,
+      crossingCount: 32,
       trafficLightCount: 24,
       streetLightCount: 36,
       signPoleCount: 48,
@@ -146,10 +157,10 @@ function resolveAssetBudget(scale: SceneScale): SceneMeta['assetProfile']['budge
   if (scale === 'LARGE') {
     return {
       buildingCount: 1200,
-      roadCount: 300,
-      walkwayCount: 420,
+      roadCount: 620,
+      walkwayCount: 760,
       poiCount: 260,
-      crossingCount: 40,
+      crossingCount: 96,
       trafficLightCount: 100,
       streetLightCount: 140,
       signPoleCount: 180,
@@ -160,10 +171,10 @@ function resolveAssetBudget(scale: SceneScale): SceneMeta['assetProfile']['budge
 
   return {
     buildingCount: 700,
-    roadCount: 220,
-    walkwayCount: 320,
+    roadCount: 420,
+    walkwayCount: 520,
     poiCount: 220,
-    crossingCount: 24,
+    crossingCount: 64,
     trafficLightCount: 60,
     streetLightCount: 90,
     signPoleCount: 120,
@@ -262,6 +273,110 @@ function selectSpatialSample<T>(
     .map((entry) => entry.item);
 }
 
+function selectCrossings(
+  items: SceneCrossingDetail[],
+  maxCount: number,
+  sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
+  landmarkLocations: Coordinate[],
+): SceneCrossingDetail[] {
+  const prioritized = selectPrioritizedSample(
+    items,
+    maxCount,
+    [
+      items.filter((crossing) => crossing.principal),
+      selectItemsNearPoints(
+        items,
+        landmarkLocations,
+        (crossing) => crossing.path,
+        120,
+      ),
+    ],
+    (crossing) => crossing.center,
+    sceneMeta,
+  );
+
+  return prioritized;
+}
+
+function selectPathCollection<T>(
+  items: T[],
+  maxCount: number,
+  getPath: (item: T) => Coordinate[],
+  getPoint: (item: T) => Coordinate,
+  sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
+  anchorPoints: Coordinate[],
+  radiusMeters: number,
+): T[] {
+  return selectPrioritizedSample(
+    items,
+    maxCount,
+    [selectItemsNearPoints(items, anchorPoints, getPath, radiusMeters)],
+    getPoint,
+    sceneMeta,
+  );
+}
+
+function selectPrioritizedSample<T>(
+  items: T[],
+  maxCount: number,
+  priorityGroups: T[][],
+  getPoint: (item: T) => Coordinate,
+  sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
+): T[] {
+  if (items.length <= maxCount) {
+    return items;
+  }
+
+  const reserved = new Set<T>();
+  const reservedItems: T[] = [];
+  for (const group of priorityGroups) {
+    for (const item of group) {
+      if (reserved.size >= maxCount) {
+        break;
+      }
+      if (reserved.has(item)) {
+        continue;
+      }
+      reserved.add(item);
+      reservedItems.push(item);
+    }
+    if (reserved.size >= maxCount) {
+      break;
+    }
+  }
+
+  if (reservedItems.length >= maxCount) {
+    return reservedItems.slice(0, maxCount);
+  }
+
+  const remaining = items.filter((item) => !reserved.has(item));
+  const sampled = selectSpatialSample(
+    remaining,
+    maxCount - reservedItems.length,
+    getPoint,
+    sceneMeta,
+  );
+
+  return [...reservedItems, ...sampled];
+}
+
+function selectItemsNearPoints<T>(
+  items: T[],
+  points: Coordinate[],
+  getPath: (item: T) => Coordinate[],
+  radiusMeters: number,
+): T[] {
+  if (points.length === 0) {
+    return [];
+  }
+
+  return items.filter((item) =>
+    getPath(item).some((pathPoint) =>
+      points.some((anchor) => distanceMeters(pathPoint, anchor) <= radiusMeters),
+    ),
+  );
+}
+
 function averageCoordinate(points: Coordinate[]): Coordinate | null {
   if (points.length === 0) {
     return null;
@@ -293,4 +408,22 @@ function toLocalPoint(origin: Coordinate, point: Coordinate): { x: number; z: nu
 
 function clampCell(value: number, grid: number): number {
   return Math.max(0, Math.min(grid - 1, value));
+}
+
+function distanceMeters(a: Coordinate, b: Coordinate): number {
+  const metersPerLat = 111_320;
+  const metersPerLng = 111_320 * Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
+  return Math.hypot((a.lat - b.lat) * metersPerLat, (a.lng - b.lng) * metersPerLng);
+}
+
+function uniqueCoordinates(points: Coordinate[]): Coordinate[] {
+  const seen = new Set<string>();
+  return points.filter((point) => {
+    const key = `${point.lat}:${point.lng}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }

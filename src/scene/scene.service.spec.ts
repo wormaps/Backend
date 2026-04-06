@@ -309,7 +309,7 @@ describe('Scene Services', () => {
       '/api/scenes/scene-seoul-city-hall/detail',
     );
     expect(bootstrap.renderContract.liveDataModes.weather).toBe(
-      'HISTORICAL_OBSERVATION',
+      'CURRENT_OR_HISTORICAL',
     );
     expect(bootstrap.glbSources).toEqual({
       googlePlaces: true,

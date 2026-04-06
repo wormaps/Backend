@@ -71,6 +71,23 @@ export class SceneHeroOverrideService {
         heightMeters: cluster.heightMeters,
       })),
     );
+    const roadDecals = mergeByObjectId(
+      detail.roadDecals ?? [],
+      manifest.roadDecalOverrides,
+    );
+    const intersectionProfiles = mergeByObjectId(
+      detail.intersectionProfiles ?? [],
+      manifest.crossings.map((crossing) => ({
+        objectId: `${crossing.id}-intersection`,
+        anchor: midpoint(crossing.path) ?? crossing.path[0],
+        profile: crossing.principal
+          ? 'scramble_major'
+          : crossing.style === 'signalized'
+            ? 'signalized_standard'
+            : 'minor_crossing',
+        crossingObjectIds: [crossing.id],
+      })),
+    );
     const landmarkAnchors = mergeByObjectId(
       meta.landmarkAnchors,
       manifest.landmarkAnchors.map((anchor) => ({
@@ -95,6 +112,8 @@ export class SceneHeroOverrideService {
       streetFurniture,
       facadeHints,
       signageClusters,
+      intersectionProfiles,
+      roadDecals,
       heroOverridesApplied,
       provenance: {
         ...detail.provenance,
@@ -128,23 +147,39 @@ export class SceneHeroOverrideService {
     manifest: HeroOverrideManifest,
   ): SceneFacadeHint[] {
     const overridden = manifest.facadeOverrides.map((override) => {
-      const nearestBuilding = findNearest(meta.buildings, override.anchor, (item) =>
-        averageCoordinate(item.outerRing) ?? item.outerRing[0],
-      );
+      const matchedBuilding =
+        (override.objectId
+          ? meta.buildings.find((building) => building.objectId === override.objectId)
+          : null) ??
+        findNearest(meta.buildings, override.anchor, (item) =>
+          averageCoordinate(item.outerRing) ?? item.outerRing[0],
+        );
       return {
-        objectId: nearestBuilding?.objectId ?? override.id,
+        objectId: matchedBuilding?.objectId ?? override.objectId ?? override.id,
         anchor: override.anchor,
         facadeEdgeIndex:
-          override.facadeEdgeIndex ?? (nearestBuilding ? 0 : null),
-        windowBands: nearestBuilding
-          ? Math.max(2, Math.floor((nearestBuilding.heightMeters * (override.heightMultiplier ?? 1)) / 3.4))
+          override.facadeEdgeIndex ?? (matchedBuilding ? 0 : null),
+        windowBands: matchedBuilding
+          ? Math.max(2, Math.floor((matchedBuilding.heightMeters * (override.heightMultiplier ?? 1)) / 3.4))
           : 4,
         billboardEligible: override.billboardEligible ?? false,
         palette: override.palette,
+        shellPalette: override.shellPalette ?? override.palette.slice(0, 2),
+        panelPalette: override.panelPalette ?? override.palette,
         materialClass: override.materialClass,
         signageDensity: override.signageDensity,
         emissiveStrength: override.emissiveStrength,
         glazingRatio: override.glazingRatio,
+        visualArchetype: override.visualArchetype,
+        geometryStrategy: override.geometryStrategy,
+        facadePreset: override.facadePreset,
+        podiumLevels: override.podiumLevels,
+        setbackLevels: override.setbackLevels,
+        cornerChamfer: override.cornerChamfer,
+        roofAccentType: override.roofAccentType,
+        windowPatternDensity: override.windowPatternDensity,
+        signBandLevels: override.signBandLevels,
+        weakEvidence: false,
       };
     });
 
@@ -157,14 +192,17 @@ export class SceneHeroOverrideService {
   ): SceneMeta['buildings'] {
     return buildings.map((building) => {
       const anchor = averageCoordinate(building.outerRing) ?? building.outerRing[0];
-      const override = findNearest(
-        manifest.facadeOverrides,
-        anchor,
-        (item) => item.anchor,
-      );
+      const override =
+        manifest.facadeOverrides.find((item) => item.objectId === building.objectId) ??
+        findNearest(
+          manifest.facadeOverrides,
+          anchor,
+          (item) => item.anchor,
+        );
       if (
         !override ||
-        squaredDistance(override.anchor, anchor) > 90 ** 2 / 111_320 ** 2
+        (override.objectId && override.objectId !== building.objectId) ||
+        squaredDistance(override.anchor, anchor) > 90 ** 2
       ) {
         return building;
       }
@@ -175,6 +213,19 @@ export class SceneHeroOverrideService {
         heightMeters: Number((building.heightMeters * multiplier).toFixed(2)),
         preset: override.preset ?? building.preset,
         roofType: override.roofType ?? building.roofType,
+        visualArchetype: override.visualArchetype ?? building.visualArchetype,
+        geometryStrategy: override.geometryStrategy ?? building.geometryStrategy,
+        facadePreset: override.facadePreset ?? building.facadePreset,
+        podiumLevels: override.podiumLevels ?? building.podiumLevels,
+        setbackLevels: override.setbackLevels ?? building.setbackLevels,
+        cornerChamfer: override.cornerChamfer ?? building.cornerChamfer,
+        roofAccentType: override.roofAccentType ?? building.roofAccentType,
+        signBandLevels: override.signBandLevels ?? building.signBandLevels,
+        emissiveBandStrength:
+          override.emissiveStrength ?? building.emissiveBandStrength,
+        windowPatternDensity:
+          override.windowPatternDensity ?? building.windowPatternDensity,
+        facadeColor: override.shellPalette?.[0] ?? building.facadeColor,
       };
     });
   }

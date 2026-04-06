@@ -37,11 +37,12 @@ export class SceneLiveDataService {
       this.stateTtlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
+        const date = query.date ?? this.resolvePlaceLocalDate(storedScene.place);
         const weatherObservation =
           query.weather === undefined
             ? await this.openMeteoClient.getObservation(
                 storedScene.place,
-                query.date,
+                date,
                 query.timeOfDay,
               )
             : null;
@@ -87,9 +88,10 @@ export class SceneLiveDataService {
       this.weatherTtlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
+        const date = query.date ?? this.resolvePlaceLocalDate(storedScene.place);
         const observation = await this.openMeteoClient.getObservation(
           storedScene.place,
-          query.date,
+          date,
           query.timeOfDay,
         );
 
@@ -143,11 +145,11 @@ export class SceneLiveDataService {
     sceneId: string,
     query: SceneWeatherQuery,
   ): string {
-    return `scene-weather:${sceneId}:${query.date}:${query.timeOfDay}`;
+    return `scene-weather:${sceneId}:${query.date ?? 'AUTO'}:${query.timeOfDay}`;
   }
 
   private buildStateCacheKey(sceneId: string, query: SceneStateQuery): string {
-    return `scene-state:${sceneId}:${query.date}:${query.timeOfDay}:${query.weather ?? 'AUTO'}`;
+    return `scene-state:${sceneId}:${query.date ?? 'AUTO'}:${query.timeOfDay}:${query.weather ?? 'AUTO'}`;
   }
 
   private buildTrafficCacheKey(sceneId: string): string {
@@ -208,5 +210,15 @@ export class SceneLiveDataService {
       return 0;
     }
     return null;
+  }
+
+  private resolvePlaceLocalDate(place: { utcOffsetMinutes: number | null }): string {
+    const now = new Date();
+    const offsetMinutes = place.utcOffsetMinutes ?? 0;
+    const shifted = new Date(now.getTime() + offsetMinutes * 60 * 1000);
+    const year = shifted.getUTCFullYear();
+    const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(shifted.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

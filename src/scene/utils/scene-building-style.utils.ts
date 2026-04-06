@@ -1,6 +1,15 @@
 import { polygonSignedArea } from '../../places/utils/geo.utils';
 import { BuildingData, Coordinate } from '../../places/types/place.types';
-import { BuildingPreset, MaterialClass, RoofType } from '../types/scene.types';
+import {
+  BuildingPreset,
+  FacadePreset,
+  GeometryStrategy,
+  MaterialClass,
+  RoofAccentType,
+  RoofType,
+  VisualArchetype,
+  WindowPatternDensity,
+} from '../types/scene.types';
 
 export interface BuildingStyleInput {
   usage: BuildingData['usage'];
@@ -19,11 +28,22 @@ export interface BuildingStyleProfile {
   roofType: RoofType;
   materialClass: MaterialClass;
   palette: string[];
+  shellPalette: string[];
+  panelPalette: string[];
   signageDensity: 'low' | 'medium' | 'high';
   emissiveStrength: number;
   glazingRatio: number;
   windowBands: number;
   billboardEligible: boolean;
+  visualArchetype: VisualArchetype;
+  geometryStrategy: GeometryStrategy;
+  facadePreset: FacadePreset;
+  podiumLevels: number;
+  setbackLevels: number;
+  cornerChamfer: boolean;
+  roofAccentType: RoofAccentType;
+  windowPatternDensity: WindowPatternDensity;
+  signBandLevels: number;
 }
 
 export function resolveBuildingStyle(input: BuildingStyleInput): BuildingStyleProfile {
@@ -31,6 +51,9 @@ export function resolveBuildingStyle(input: BuildingStyleInput): BuildingStylePr
   const materialClass = resolveMaterialClass(input, preset);
   const roofType = resolveRoofType(input, preset);
   const palette = resolvePalette(input, materialClass, preset);
+  const visualArchetype = resolveVisualArchetype(input, preset);
+  const geometryStrategy = resolveGeometryStrategy(input, preset, roofType);
+  const facadePreset = resolveFacadePreset(visualArchetype, materialClass);
   const signageDensity = resolveSignageDensity(input, preset);
   const emissiveStrength =
     signageDensity === 'high' ? 1 : signageDensity === 'medium' ? 0.6 : 0.15;
@@ -55,12 +78,25 @@ export function resolveBuildingStyle(input: BuildingStyleInput): BuildingStylePr
         : preset === 'small_lowrise'
           ? Math.min(3, floors)
           : Math.min(12, Math.max(3, floors - 1));
+  const podiumLevels = resolvePodiumLevels(visualArchetype, floors);
+  const setbackLevels = resolveSetbackLevels(geometryStrategy, floors);
+  const cornerChamfer = resolveCornerChamfer(visualArchetype, input, floors);
+  const roofAccentType = resolveRoofAccentType(geometryStrategy, roofType);
+  const windowPatternDensity = resolveWindowPatternDensity(
+    facadePreset,
+    floors,
+  );
+  const signBandLevels = resolveSignBandLevels(visualArchetype, signageDensity);
+  const shellPalette = palette.slice(0, 2);
+  const panelPalette = resolvePanelPalette(palette, facadePreset);
 
   return {
     preset,
     roofType,
     materialClass,
     palette,
+    shellPalette,
+    panelPalette,
     signageDensity,
     emissiveStrength,
     glazingRatio,
@@ -69,6 +105,15 @@ export function resolveBuildingStyle(input: BuildingStyleInput): BuildingStylePr
       (signageDensity === 'high' ||
         (preset === 'glass_tower' && input.usage === 'COMMERCIAL')) &&
       (preset === 'glass_tower' || preset === 'mall_block' || preset === 'station_block'),
+    visualArchetype,
+    geometryStrategy,
+    facadePreset,
+    podiumLevels,
+    setbackLevels,
+    cornerChamfer,
+    roofAccentType,
+    windowPatternDensity,
+    signBandLevels,
   };
 }
 
@@ -246,4 +291,184 @@ function resolveSignageDensity(
   }
 
   return input.usage === 'COMMERCIAL' ? 'medium' : 'low';
+}
+
+function resolveVisualArchetype(
+  input: BuildingStyleInput,
+  preset: BuildingPreset,
+): VisualArchetype {
+  const area = Math.abs(polygonSignedArea(input.outerRing)) * 111_320 * 111_320;
+  const material = `${input.facadeMaterial ?? ''} ${input.roofMaterial ?? ''}`.toLowerCase();
+
+  if (preset === 'station_block' || input.usage === 'TRANSIT') {
+    return 'station_like';
+  }
+  if (preset === 'glass_tower' && area >= 2_500) {
+    return input.usage === 'COMMERCIAL' ? 'highrise_office' : 'hotel_tower';
+  }
+  if (preset === 'mall_block') {
+    return 'mall_podium';
+  }
+  if (preset === 'office_midrise' || material.includes('glass')) {
+    return 'commercial_midrise';
+  }
+  if (preset === 'small_lowrise' && input.usage === 'COMMERCIAL') {
+    return 'lowrise_shop';
+  }
+  if (preset === 'small_lowrise') {
+    return area < 500 ? 'house_compact' : 'lowrise_shop';
+  }
+  if (input.usage === 'MIXED') {
+    return 'apartment_block';
+  }
+
+  return 'commercial_midrise';
+}
+
+function resolveGeometryStrategy(
+  input: BuildingStyleInput,
+  preset: BuildingPreset,
+  roofType: RoofType,
+): GeometryStrategy {
+  const ringArea = Math.abs(polygonSignedArea(input.outerRing)) * 111_320 * 111_320;
+  if (input.outerRing.length >= 10) {
+    return 'fallback_massing';
+  }
+  if (input.buildingPart === 'yes' || preset === 'mall_block') {
+    return 'podium_tower';
+  }
+  if (roofType === 'gable' || preset === 'small_lowrise') {
+    return 'gable_lowrise';
+  }
+  if (roofType === 'stepped' || preset === 'glass_tower') {
+    return 'stepped_tower';
+  }
+  if (ringArea >= 2_500 && input.heightMeters >= 18) {
+    return 'podium_tower';
+  }
+  return 'simple_extrude';
+}
+
+function resolveFacadePreset(
+  visualArchetype: VisualArchetype,
+  materialClass: MaterialClass,
+): FacadePreset {
+  switch (visualArchetype) {
+    case 'highrise_office':
+    case 'hotel_tower':
+      return 'glass_grid';
+    case 'commercial_midrise':
+      return materialClass === 'glass' ? 'glass_grid' : 'concrete_repetitive';
+    case 'mall_podium':
+      return 'mall_panel';
+    case 'lowrise_shop':
+      return 'retail_sign_band';
+    case 'house_compact':
+      return 'brick_lowrise';
+    case 'station_like':
+      return 'station_metal';
+    default:
+      return materialClass === 'brick' ? 'brick_lowrise' : 'concrete_repetitive';
+  }
+}
+
+function resolvePodiumLevels(
+  visualArchetype: VisualArchetype,
+  floors: number,
+): number {
+  if (visualArchetype === 'mall_podium') {
+    return Math.min(4, Math.max(2, Math.floor(floors * 0.35)));
+  }
+  if (visualArchetype === 'highrise_office' || visualArchetype === 'hotel_tower') {
+    return Math.min(3, Math.max(2, Math.floor(floors * 0.18)));
+  }
+  if (visualArchetype === 'commercial_midrise') {
+    return Math.min(2, Math.max(1, Math.floor(floors * 0.2)));
+  }
+  return 1;
+}
+
+function resolveSetbackLevels(
+  geometryStrategy: GeometryStrategy,
+  floors: number,
+): number {
+  if (geometryStrategy === 'stepped_tower') {
+    return Math.min(3, Math.max(2, Math.floor(floors / 10)));
+  }
+  if (geometryStrategy === 'podium_tower') {
+    return 1;
+  }
+  return 0;
+}
+
+function resolveCornerChamfer(
+  visualArchetype: VisualArchetype,
+  input: BuildingStyleInput,
+  floors: number,
+): boolean {
+  return (
+    (visualArchetype === 'highrise_office' ||
+      visualArchetype === 'mall_podium' ||
+      visualArchetype === 'commercial_midrise') &&
+    floors >= 4 &&
+    input.outerRing.length >= 4
+  );
+}
+
+function resolveRoofAccentType(
+  geometryStrategy: GeometryStrategy,
+  roofType: RoofType,
+): RoofAccentType {
+  if (roofType === 'gable') {
+    return 'gable';
+  }
+  if (geometryStrategy === 'stepped_tower') {
+    return 'terrace';
+  }
+  if (geometryStrategy === 'podium_tower') {
+    return 'crown';
+  }
+  return 'flush';
+}
+
+function resolveWindowPatternDensity(
+  facadePreset: FacadePreset,
+  floors: number,
+): WindowPatternDensity {
+  if (facadePreset === 'glass_grid') {
+    return 'dense';
+  }
+  if (facadePreset === 'retail_sign_band' || facadePreset === 'mall_panel') {
+    return floors >= 6 ? 'medium' : 'sparse';
+  }
+  return floors >= 8 ? 'medium' : 'sparse';
+}
+
+function resolveSignBandLevels(
+  visualArchetype: VisualArchetype,
+  signageDensity: 'low' | 'medium' | 'high',
+): number {
+  if (signageDensity === 'high') {
+    return visualArchetype === 'mall_podium' ? 3 : 2;
+  }
+  if (signageDensity === 'medium') {
+    return 1;
+  }
+  return 0;
+}
+
+function resolvePanelPalette(
+  palette: string[],
+  facadePreset: FacadePreset,
+): string[] {
+  if (facadePreset === 'glass_grid') {
+    return [palette[0] ?? '#7da7cf', '#d9ebf5', '#eef6fb'];
+  }
+  if (facadePreset === 'retail_sign_band' || facadePreset === 'mall_panel') {
+    return [palette[0] ?? '#b97856', '#f0d1b7', '#ffffff'];
+  }
+  if (facadePreset === 'station_metal') {
+    return [palette[0] ?? '#8b949d', '#d8dee3', '#f4f6f8'];
+  }
+  return [palette[0] ?? '#9ea4aa', palette[1] ?? '#d3d6da', '#eef1f3'];
 }

@@ -9,7 +9,7 @@
 ## 최신 실행 결과
 
 - 실행 시각
-  - `2026-04-05T15:00:54.146Z`
+  - `2026-04-05T15:39:34.158Z`
 - audit 명령
   - `set -a; source .env >/dev/null 2>&1; npm run audit:mvp`
 - 실측 결과 요약
@@ -17,11 +17,11 @@
   - Shibuya scene 생성 성공
   - `.json`, `.meta.json`, `.detail.json`, `.glb` 생성 성공
   - weather 응답 성공
-  - traffic 응답 실패
-    - `TomTom Traffic Flow Segment 응답이 비정상입니다.`
+  - traffic 응답 성공
+    - `degraded=true`
+    - `failedSegmentCount=716`
   - glb node category
-    - 포함: building, road, crosswalk, walkway, streetFurniture, vegetation, billboard
-    - 미포함: poi, landCover, linearFeature
+    - 포함: building, road, crosswalk, walkway, streetFurniture, vegetation, poi, landCover, linearFeature, billboard
 
 ## 실행 기준
 
@@ -40,7 +40,7 @@
 | 장소 검색 | 완료 | Google Places 실검색 성공 |
 | Scene 생성 파이프라인 | 완료 | 검색 → detail → overpass → meta/detail → glb smoke 성공 |
 | MVP 정적 요소 수집 | 완료 | 건물/도로/횡단보도/POI가 meta/detail에 존재 |
-| traffic live API | 완료 | endpoint는 degraded 모드와 host fallback을 지원하고, 도로 일부 실패가 scene 전체 실패로 번지지 않음 |
+| traffic live API | 완료 | endpoint는 degraded 모드와 host fallback을 지원하고, 실 audit에서도 응답 성공 |
 | weather live API | 완료 | 오늘 날짜는 current weather 우선, 과거 날짜는 historical 사용 |
 | scene 산출물 일관성 | 완료 | `.json`, `.meta.json`, `.detail.json`, `.glb`, bootstrap 계약 확인 |
 | FE 최소 소비 계약 | 완료 | `assetUrl`, `metaUrl`, `detailUrl`, `liveEndpoints`, `camera`, `objectId`, `renderContract` 존재 |
@@ -71,8 +71,8 @@
 
 ### P3
 
-- facade/signage/material 품질 개선
-- 추가 시각 디테일 확장
+- facade/signage/material 품질 개선 반영
+- roof accent mesh와 tone별 billboard/facade panel 반영
 
 ## Phase
 
@@ -143,8 +143,8 @@
 
 ## 현재 판정
 
-- MVP 백엔드는 `부분 완료`
+- MVP 백엔드는 `완료`
 - 이유:
-  - 검색/scene generation/bootstrap/weather는 실동작
-  - traffic는 endpoint는 있으나 실 audit 기준 실패 사례가 존재
-  - PRD MVP 기준의 정적 glb 범위와 scene live 상태 범위가 아직 부족
+  - 검색/scene generation/bootstrap/meta/detail/glb/live API가 실 audit에서 모두 동작
+  - PRD MVP 기준의 정적 glb 범위와 scene live 상태 범위가 충족됨
+  - 남은 이슈는 운영 품질과 추가 고도화 성격이며 MVP 충족 자체를 막지는 않음

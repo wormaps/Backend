@@ -81,7 +81,7 @@ export class SceneReadService {
         },
         liveDataModes: {
           traffic: 'LIVE_BEST_EFFORT',
-          weather: 'HISTORICAL_OBSERVATION',
+          weather: 'CURRENT_OR_HISTORICAL',
           state: 'SYNTHETIC_RULES',
         },
       },

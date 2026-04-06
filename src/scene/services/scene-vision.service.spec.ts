@@ -126,6 +126,11 @@ describe('SceneVisionService', () => {
     expect(result.detail.crossings[0]?.style).toBe('signalized');
     expect(result.detail.facadeHints[0]?.facadeEdgeIndex).toBe(2);
     expect(result.detail.facadeHints[0]?.windowBands).toBeGreaterThan(0);
+    expect(result.detail.facadeHints[0]?.facadePreset).toBe('glass_grid');
+    expect(result.detail.facadeHints[0]?.geometryStrategy).toBe('stepped_tower');
+    expect(result.detail.intersectionProfiles?.[0]?.profile).toBeDefined();
+    expect(result.detail.roadDecals?.length).toBeGreaterThan(0);
+    expect(result.detail.geometryDiagnostics?.[0]?.strategy).toBeDefined();
     expect(result.metaPatch.materialClasses[0]?.className).toBe('glass');
   });
 });

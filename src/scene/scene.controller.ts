@@ -220,8 +220,7 @@ export class SceneController {
       ERROR_CODES.INVALID_TIME_OF_DAY,
       'timeOfDay',
     );
-    const date =
-      parseOptionalIsoDate(rawDate) ?? new Date().toISOString().slice(0, 10);
+    const date = parseOptionalIsoDate(rawDate) ?? undefined;
 
     return {
       message: 'Scene weather 조회에 성공했습니다.',
@@ -258,8 +257,7 @@ export class SceneController {
       ERROR_CODES.INVALID_WEATHER,
       'weather',
     );
-    const date =
-      parseOptionalIsoDate(rawDate) ?? new Date().toISOString().slice(0, 10);
+    const date = parseOptionalIsoDate(rawDate) ?? undefined;
 
     return {
       message: 'Scene live state 조회에 성공했습니다.',

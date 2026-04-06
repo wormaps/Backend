@@ -1,6 +1,7 @@
 import { AppLoggerService } from '../../common/logging/app-logger.service';
 import { OverpassClient } from './overpass.client';
 import { ExternalPlaceDetail } from '../types/external-place.types';
+import { polygonSignedArea } from '../utils/geo.utils';
 
 describe('OverpassClient', () => {
   const logger = {
@@ -238,6 +239,8 @@ describe('OverpassClient', () => {
     expect(result.buildings[0]?.holes).toHaveLength(1);
     expect(result.buildings[0]?.holes[0]).toHaveLength(4);
     expect(result.buildings[0]?.footprint).toEqual(result.buildings[0]?.outerRing);
+    expect(polygonSignedArea(result.buildings[0]!.outerRing)).toBeLessThan(0);
+    expect(polygonSignedArea(result.buildings[0]!.holes[0]!)).toBeGreaterThan(0);
   });
 
   it('should fallback to the next overpass endpoint when the first one fails', async () => {

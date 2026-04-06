@@ -744,7 +744,7 @@ export class LiveDataModesDto {
   @ApiProperty({ enum: ['LIVE_BEST_EFFORT'] })
   traffic!: string;
 
-  @ApiProperty({ enum: ['HISTORICAL_OBSERVATION'] })
+  @ApiProperty({ enum: ['CURRENT_OR_HISTORICAL'] })
   weather!: string;
 
   @ApiProperty({ enum: ['SYNTHETIC_RULES'] })

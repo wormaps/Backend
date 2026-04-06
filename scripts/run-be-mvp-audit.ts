@@ -58,13 +58,11 @@ async function main() {
   const places = await sceneService.getPlaces(scene.sceneId);
   const weather = await resolveAuditStep(() =>
     sceneService.getWeather(scene.sceneId, {
-      date: new Date().toISOString().slice(0, 10),
       timeOfDay: 'DAY',
     }),
   );
   const state = await resolveAuditStep(() =>
     sceneService.getState(scene.sceneId, {
-      date: new Date().toISOString().slice(0, 10),
       timeOfDay: 'DAY',
     }),
   );
@@ -212,7 +210,8 @@ function buildChecks(input: {
       !('error' in input.traffic) &&
       !('error' in input.weather) &&
       input.traffic.segments.length > 0 &&
-      input.weather.source === 'OPEN_METEO_HISTORICAL'
+      (input.weather.source === 'OPEN_METEO_HISTORICAL' ||
+        input.weather.source === 'OPEN_METEO_CURRENT')
         ? 'PASS'
         : 'PARTIAL',
     evidence: [
@@ -346,7 +345,7 @@ async function inspectGlb(glbPath: string): Promise<GlbInspection> {
       linearFeatures: nodeNames.some(
         (name) => name.includes('rail') || name.includes('bridge') || name.includes('linear'),
       ),
-      billboards: nodeNames.includes('billboards'),
+      billboards: nodeNames.some((name) => name.includes('billboard')),
     },
   };
 }

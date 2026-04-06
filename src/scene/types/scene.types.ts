@@ -32,6 +32,54 @@ export type BuildingPreset =
   | 'mixed_midrise'
   | 'small_lowrise';
 export type RoofType = 'flat' | 'stepped' | 'gable';
+export type VisualArchetype =
+  | 'highrise_office'
+  | 'commercial_midrise'
+  | 'mall_podium'
+  | 'hotel_tower'
+  | 'apartment_block'
+  | 'lowrise_shop'
+  | 'house_compact'
+  | 'station_like'
+  | 'landmark_special';
+export type GeometryStrategy =
+  | 'simple_extrude'
+  | 'podium_tower'
+  | 'stepped_tower'
+  | 'gable_lowrise'
+  | 'courtyard_block'
+  | 'fallback_massing';
+export type FacadePreset =
+  | 'glass_grid'
+  | 'retail_sign_band'
+  | 'concrete_repetitive'
+  | 'mall_panel'
+  | 'brick_lowrise'
+  | 'station_metal';
+export type RoofAccentType = 'flush' | 'crown' | 'terrace' | 'gable';
+export type WindowPatternDensity = 'sparse' | 'medium' | 'dense';
+export type IntersectionProfile =
+  | 'scramble_major'
+  | 'signalized_standard'
+  | 'minor_crossing';
+export type RoadVisualClass =
+  | 'arterial_intersection'
+  | 'arterial'
+  | 'local_street'
+  | 'pedestrian_edge';
+export type RoadDecalType =
+  | 'LANE_OVERLAY'
+  | 'STOP_LINE'
+  | 'CROSSWALK_OVERLAY'
+  | 'JUNCTION_OVERLAY'
+  | 'ARROW_MARK';
+export type GeometryFallbackReason =
+  | 'NONE'
+  | 'HAS_HOLES'
+  | 'DEGENERATE_RING'
+  | 'VERY_THIN_POLYGON'
+  | 'SELF_INTERSECTION_RISK'
+  | 'TRIANGULATION_FALLBACK';
 
 export interface SceneEntity {
   sceneId: string;
@@ -52,6 +100,7 @@ export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
   objectId: string;
   osmWayId: string;
   center: Coordinate;
+  roadVisualClass?: RoadVisualClass;
 }
 
 export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
@@ -59,6 +108,16 @@ export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
   osmWayId: string;
   preset: BuildingPreset;
   roofType: RoofType;
+  visualArchetype?: VisualArchetype;
+  geometryStrategy?: GeometryStrategy;
+  facadePreset?: FacadePreset;
+  podiumLevels?: number;
+  setbackLevels?: number;
+  cornerChamfer?: boolean;
+  roofAccentType?: RoofAccentType;
+  windowPatternDensity?: WindowPatternDensity;
+  signBandLevels?: number;
+  emissiveBandStrength?: number;
 }
 
 export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {
@@ -107,6 +166,18 @@ export interface SceneFacadeHint {
   signageDensity: 'low' | 'medium' | 'high';
   emissiveStrength: number;
   glazingRatio: number;
+  visualArchetype?: VisualArchetype;
+  geometryStrategy?: GeometryStrategy;
+  facadePreset?: FacadePreset;
+  podiumLevels?: number;
+  setbackLevels?: number;
+  cornerChamfer?: boolean;
+  roofAccentType?: RoofAccentType;
+  windowPatternDensity?: WindowPatternDensity;
+  signBandLevels?: number;
+  shellPalette?: string[];
+  panelPalette?: string[];
+  weakEvidence?: boolean;
 }
 
 export interface SceneSignageCluster {
@@ -137,6 +208,31 @@ export interface SceneVisualCoverage {
   streetDetail: number;
   landmark: number;
   signage: number;
+}
+
+export interface SceneIntersectionProfile {
+  objectId: string;
+  anchor: Coordinate;
+  profile: IntersectionProfile;
+  crossingObjectIds: string[];
+}
+
+export interface SceneRoadDecal {
+  objectId: string;
+  type: RoadDecalType;
+  color: string;
+  emphasis: 'standard' | 'hero';
+  path?: Coordinate[];
+  polygon?: Coordinate[];
+}
+
+export interface SceneGeometryDiagnostic {
+  objectId: string;
+  strategy: GeometryStrategy;
+  fallbackApplied: boolean;
+  fallbackReason: GeometryFallbackReason;
+  hasHoles: boolean;
+  polygonComplexity: 'simple' | 'concave' | 'complex';
 }
 
 export interface SceneAssetCounts {
@@ -209,6 +305,9 @@ export interface SceneDetail {
   linearFeatures: LinearFeatureData[];
   facadeHints: SceneFacadeHint[];
   signageClusters: SceneSignageCluster[];
+  intersectionProfiles?: SceneIntersectionProfile[];
+  roadDecals?: SceneRoadDecal[];
+  geometryDiagnostics?: SceneGeometryDiagnostic[];
   heroOverridesApplied: string[];
   provenance: {
     mapillaryUsed: boolean;
@@ -261,7 +360,7 @@ export interface BootstrapResponse {
     };
     liveDataModes: {
       traffic: 'LIVE_BEST_EFFORT';
-      weather: 'HISTORICAL_OBSERVATION';
+      weather: 'CURRENT_OR_HISTORICAL';
       state: 'SYNTHETIC_RULES';
     };
   };
@@ -350,12 +449,12 @@ export interface SceneCreateOptions {
 }
 
 export interface SceneWeatherQuery {
-  date: string;
+  date?: string;
   timeOfDay: TimeOfDay;
 }
 
 export interface SceneStateQuery {
-  date: string;
+  date?: string;
   timeOfDay: TimeOfDay;
   weather?: WeatherType;
 }

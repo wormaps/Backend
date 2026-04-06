@@ -4,11 +4,18 @@ import { midpoint } from '../../places/utils/geo.utils';
 import { ExternalPlaceDetail } from '../../places/types/external-place.types';
 import { Coordinate, GeoBounds, PlacePackage } from '../../places/types/place.types';
 import {
+  GeometryFallbackReason,
+  GeometryStrategy,
+  IntersectionProfile,
+  RoadVisualClass,
   MaterialClass,
   SceneCrossingDetail,
   SceneDetail,
   SceneFacadeHint,
+  SceneGeometryDiagnostic,
+  SceneIntersectionProfile,
   SceneMeta,
+  SceneRoadDecal,
   SceneRoadMarkingDetail,
   SceneSignageCluster,
   SceneStreetFurnitureDetail,
@@ -80,6 +87,17 @@ export class SceneVisionService {
     }));
 
     const roadMarkings = this.buildRoadMarkings(placePackage, crossings);
+    const intersectionProfiles = this.buildIntersectionProfiles(
+      place,
+      crossings,
+      placePackage,
+    );
+    const roadDecals = this.buildRoadDecals(
+      placePackage,
+      crossings,
+      roadMarkings,
+      intersectionProfiles,
+    );
     const streetFurniture = placePackage.streetFurniture.map<SceneStreetFurnitureDetail>((item) => ({
       objectId: item.id,
       name: item.name,
@@ -95,6 +113,7 @@ export class SceneVisionService {
       radiusMeters: item.radiusMeters,
     }));
     const facadeHints = this.buildFacadeHints(placePackage, mapillaryImages);
+    const geometryDiagnostics = this.buildGeometryDiagnostics(placePackage, facadeHints);
     const signageClusters = this.buildSignageClusters(
       place,
       placePackage,
@@ -117,6 +136,9 @@ export class SceneVisionService {
       linearFeatures: placePackage.linearFeatures,
       facadeHints,
       signageClusters,
+      intersectionProfiles,
+      roadDecals,
+      geometryDiagnostics,
       heroOverridesApplied: [],
       provenance: {
         mapillaryUsed,
@@ -217,6 +239,8 @@ export class SceneVisionService {
         windowBands: style.windowBands,
         billboardEligible: style.billboardEligible,
         palette: uniquePalette(style.palette),
+        shellPalette: uniquePalette(style.shellPalette),
+        panelPalette: uniquePalette(style.panelPalette),
         materialClass: style.materialClass,
         signageDensity:
           building.usage === 'COMMERCIAL' ? imageDensity : 'low',
@@ -227,6 +251,133 @@ export class SceneVisionService {
               : style.emissiveStrength
             : Math.min(style.emissiveStrength, 0.2),
         glazingRatio: style.glazingRatio,
+        visualArchetype: style.visualArchetype,
+        geometryStrategy: style.geometryStrategy,
+        facadePreset: style.facadePreset,
+        podiumLevels: style.podiumLevels,
+        setbackLevels: style.setbackLevels,
+        cornerChamfer: style.cornerChamfer,
+        roofAccentType: style.roofAccentType,
+        windowPatternDensity: style.windowPatternDensity,
+        signBandLevels: style.signBandLevels,
+        weakEvidence: mapillaryImages.length === 0,
+      };
+    });
+  }
+
+  private buildIntersectionProfiles(
+    place: ExternalPlaceDetail,
+    crossings: SceneCrossingDetail[],
+    placePackage: PlacePackage,
+  ): SceneIntersectionProfile[] {
+    return crossings.map((crossing) => {
+      const nearRoadCount = placePackage.roads.filter(
+        (road) => squaredDistance(midpoint(road.path) ?? place.location, crossing.center) <=
+          28 ** 2,
+      ).length;
+      const profile: IntersectionProfile = crossing.principal
+        ? 'scramble_major'
+        : crossing.signalized || nearRoadCount >= 2
+          ? 'signalized_standard'
+          : 'minor_crossing';
+
+      return {
+        objectId: `${crossing.objectId}-intersection`,
+        anchor: crossing.center,
+        profile,
+        crossingObjectIds: [crossing.objectId],
+      };
+    });
+  }
+
+  private buildRoadDecals(
+    placePackage: PlacePackage,
+    crossings: SceneCrossingDetail[],
+    roadMarkings: SceneRoadMarkingDetail[],
+    intersectionProfiles: SceneIntersectionProfile[],
+  ): SceneRoadDecal[] {
+    const decals: SceneRoadDecal[] = [];
+
+    for (const marking of roadMarkings) {
+      decals.push({
+        objectId: `${marking.objectId}-decal`,
+        type:
+          marking.type === 'LANE_LINE'
+            ? 'LANE_OVERLAY'
+            : marking.type === 'STOP_LINE'
+              ? 'STOP_LINE'
+              : 'CROSSWALK_OVERLAY',
+        color: marking.color,
+        emphasis: marking.type === 'CROSSWALK' ? 'hero' : 'standard',
+        path: marking.path,
+      });
+    }
+
+    for (const crossing of crossings) {
+      if (!crossing.principal) {
+        continue;
+      }
+      decals.push({
+        objectId: `${crossing.objectId}-scramble-polygon`,
+        type: 'CROSSWALK_OVERLAY',
+        color: '#f8f8f6',
+        emphasis: 'hero',
+        polygon: buildBufferedCrossingPolygon(crossing.path, 9.5),
+      });
+    }
+
+    for (const profile of intersectionProfiles) {
+      if (profile.profile !== 'scramble_major') {
+        continue;
+      }
+      decals.push({
+        objectId: `${profile.objectId}-junction`,
+        type: 'JUNCTION_OVERLAY',
+        color: '#f1df8a',
+        emphasis: 'hero',
+        polygon: buildDiamondPolygon(profile.anchor, 10),
+      });
+    }
+
+    if (decals.length === 0 && placePackage.roads.length > 0) {
+      const primaryRoad = placePackage.roads[0];
+      decals.push({
+        objectId: `${primaryRoad.id}-fallback-lane`,
+        type: 'LANE_OVERLAY',
+        color: '#f7f2a2',
+        emphasis: 'standard',
+        path: primaryRoad.path,
+      });
+    }
+
+    return decals;
+  }
+
+  private buildGeometryDiagnostics(
+    placePackage: PlacePackage,
+    facadeHints: SceneFacadeHint[],
+  ): SceneGeometryDiagnostic[] {
+    const hintMap = new Map(facadeHints.map((hint) => [hint.objectId, hint]));
+
+    return placePackage.buildings.map((building) => {
+      const complexity = classifyPolygonComplexity(building.outerRing);
+      const hint = hintMap.get(building.id);
+      const strategy = hint?.geometryStrategy ?? (building.holes.length > 0
+        ? 'courtyard_block'
+        : complexity === 'complex'
+          ? 'fallback_massing'
+          : 'simple_extrude');
+      const fallbackReason = determineFallbackReason(building.outerRing, building.holes);
+      const fallbackApplied =
+        strategy === 'fallback_massing' || fallbackReason !== 'NONE';
+
+      return {
+        objectId: building.id,
+        strategy,
+        fallbackApplied,
+        fallbackReason,
+        hasHoles: building.holes.length > 0,
+        polygonComplexity: complexity,
       };
     });
   }
@@ -268,7 +419,7 @@ export class SceneVisionService {
     point: Coordinate,
     radiusMeters: number,
   ): boolean {
-    return squaredDistance(origin, point) <= radiusMeters ** 2 / 111_320 ** 2;
+    return squaredDistance(origin, point) <= radiusMeters ** 2;
   }
 }
 
@@ -384,4 +535,87 @@ function densityFromCount(
 
 function clampCoverage(value: number): number {
   return Math.max(0, Math.min(1, Number(value.toFixed(2))));
+}
+
+function buildBufferedCrossingPolygon(
+  path: Coordinate[],
+  widthMeters: number,
+): Coordinate[] | undefined {
+  if (path.length < 2) {
+    return undefined;
+  }
+  const start = path[0];
+  const end = path[path.length - 1];
+  const dx = end.lng - start.lng;
+  const dy = end.lat - start.lat;
+  const metersPerLng = 111_320 * Math.cos((((start.lat + end.lat) / 2) * Math.PI) / 180);
+  const length = Math.hypot(dx * metersPerLng, dy * 111_320);
+  if (length <= 1e-6) {
+    return undefined;
+  }
+  const nx = (-(dy * 111_320) / length) * (widthMeters / metersPerLng);
+  const ny = ((dx * metersPerLng) / length) * (widthMeters / 111_320);
+
+  return [
+    { lat: start.lat - ny, lng: start.lng - nx },
+    { lat: end.lat - ny, lng: end.lng - nx },
+    { lat: end.lat + ny, lng: end.lng + nx },
+    { lat: start.lat + ny, lng: start.lng + nx },
+  ];
+}
+
+function buildDiamondPolygon(center: Coordinate, radiusMeters: number): Coordinate[] {
+  const latDelta = radiusMeters / 111_320;
+  const lngDelta =
+    radiusMeters / (111_320 * Math.cos((center.lat * Math.PI) / 180));
+
+  return [
+    { lat: center.lat + latDelta, lng: center.lng },
+    { lat: center.lat, lng: center.lng + lngDelta },
+    { lat: center.lat - latDelta, lng: center.lng },
+    { lat: center.lat, lng: center.lng - lngDelta },
+  ];
+}
+
+function classifyPolygonComplexity(
+  ring: Coordinate[],
+): SceneGeometryDiagnostic['polygonComplexity'] {
+  if (ring.length >= 10) {
+    return 'complex';
+  }
+  if (ring.length >= 7) {
+    return 'concave';
+  }
+  return 'simple';
+}
+
+function determineFallbackReason(
+  outerRing: Coordinate[],
+  holes: Coordinate[][],
+): GeometryFallbackReason {
+  if (holes.length > 0) {
+    return 'HAS_HOLES';
+  }
+  if (outerRing.length < 3) {
+    return 'DEGENERATE_RING';
+  }
+  if (ringHasVeryThinEdge(outerRing)) {
+    return 'VERY_THIN_POLYGON';
+  }
+  if (outerRing.length >= 10) {
+    return 'SELF_INTERSECTION_RISK';
+  }
+  return 'NONE';
+}
+
+function ringHasVeryThinEdge(ring: Coordinate[]): boolean {
+  for (let index = 0; index < ring.length; index += 1) {
+    const current = ring[index];
+    const next = ring[(index + 1) % ring.length];
+    if (squaredDistance(current, next) <= 1.2 ** 2) {
+      return true;
+    }
+  }
+
+  return false;
 }

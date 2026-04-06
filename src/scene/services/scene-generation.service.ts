@@ -415,6 +415,7 @@ export class SceneGenerationService {
       center: this.resolveCenter(road.path),
       surface: road.surface ?? null,
       bridge: road.bridge ?? false,
+      roadVisualClass: this.resolveRoadVisualClass(road),
     }));
     const walkways = placePackage.walkways.map((walkway) => ({
       objectId: walkway.id,
@@ -564,6 +565,26 @@ export class SceneGenerationService {
     }
 
     return center;
+  }
+
+  private resolveRoadVisualClass(
+    road: PlacePackage['roads'][number],
+  ): SceneMeta['roads'][number]['roadVisualClass'] {
+    if (
+      road.roadClass.includes('footway') ||
+      road.roadClass.includes('pedestrian')
+    ) {
+      return 'pedestrian_edge';
+    }
+    if (
+      road.roadClass.includes('primary') ||
+      road.roadClass.includes('trunk') ||
+      road.widthMeters >= 12
+    ) {
+      return road.laneCount >= 4 ? 'arterial_intersection' : 'arterial';
+    }
+
+    return 'local_street';
   }
 
   private async isReusableScene(storedScene: StoredScene): Promise<boolean> {

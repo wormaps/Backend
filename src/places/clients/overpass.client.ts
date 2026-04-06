@@ -732,14 +732,19 @@ out geom qt;
     outerRing: Coordinate[],
     holes: Coordinate[][],
   ): PlacePackage['buildings'][number] {
+    const normalizedOuterRing = this.normalizeRingOrientation(outerRing, 'CW');
+    const normalizedHoles = holes.map((hole) =>
+      this.normalizeRingOrientation(hole, 'CCW'),
+    );
+
     return {
       id,
       name: tags?.name ?? id,
       heightMeters: this.resolveHeight(tags),
       usage: this.resolveUsage(tags),
-      outerRing,
-      holes,
-      footprint: outerRing,
+      outerRing: normalizedOuterRing,
+      holes: normalizedHoles,
+      footprint: normalizedOuterRing,
       facadeColor: tags?.['building:colour'] ?? tags?.['building:color'] ?? null,
       facadeMaterial: tags?.['building:material'] ?? null,
       roofColor: tags?.['roof:colour'] ?? tags?.['roof:color'] ?? null,
@@ -838,6 +843,23 @@ out geom qt;
       const prev = points[index - 1];
       return !prev || !coordinatesEqual(prev, point);
     });
+  }
+
+  private normalizeRingOrientation(
+    ring: Coordinate[],
+    direction: 'CW' | 'CCW',
+  ): Coordinate[] {
+    const signedArea = polygonSignedArea(ring);
+    if (signedArea === 0) {
+      return ring;
+    }
+
+    const isClockwise = signedArea < 0;
+    if ((direction === 'CW' && isClockwise) || (direction === 'CCW' && !isClockwise)) {
+      return ring;
+    }
+
+    return [...ring].reverse();
   }
 
   private resolveLaneCount(tags?: Record<string, string>): number {

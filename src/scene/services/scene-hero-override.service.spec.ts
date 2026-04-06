@@ -146,6 +146,9 @@ describe('SceneHeroOverrideService', () => {
     linearFeatures: [],
     facadeHints: [],
     signageClusters: [],
+    roadDecals: [],
+    intersectionProfiles: [],
+    geometryDiagnostics: [],
     heroOverridesApplied: [],
     provenance: {
       mapillaryUsed: false,
@@ -169,8 +172,11 @@ describe('SceneHeroOverrideService', () => {
     expect(result.detail.heroOverridesApplied.length).toBeGreaterThan(0);
     expect(result.detail.crossings.length).toBeGreaterThan(0);
     expect(result.detail.signageClusters.length).toBeGreaterThan(0);
+    expect(result.detail.roadDecals?.length).toBeGreaterThan(0);
     expect(result.meta.detailStatus).toBe('PARTIAL');
     expect(result.meta.landmarkAnchors.length).toBeGreaterThan(0);
     expect(result.meta.buildings[0]?.preset).toBeDefined();
+    expect(result.meta.buildings[0]?.facadePreset).toBeDefined();
+    expect(result.meta.buildings[0]?.geometryStrategy).toBeDefined();
   });
 });
