@@ -511,6 +511,51 @@ function pushFacadePresetPanels(
   );
   const glazing = hint.glazingRatio;
 
+  if (hint.facadeSpec) {
+    const lowerHeight = Math.min(frame.height * 0.3, Math.max(4.5, buildingHeight * 0.16));
+    const topHeight = Math.min(frame.height * 0.22, Math.max(3.2, buildingHeight * 0.12));
+    const lowerFrame = splitFacadeFrame(frame, 0, lowerHeight);
+    const midFrame = splitFacadeFrame(frame, lowerHeight, Math.max(lowerHeight + 1.8, frame.height - topHeight));
+    const topFrame = splitFacadeFrame(frame, Math.max(lowerHeight + 1.8, frame.height - topHeight), frame.height);
+
+    pushFacadeBandByType(
+      geometry,
+      lowerFrame,
+      hint.facadeSpec.lowerBandType,
+      Math.max(1, Math.min(2, signBandLevels || 1)),
+      glazing,
+      repeatX,
+      Math.max(2, Math.floor(bandCount * 0.22)),
+    );
+    pushFacadeBandByType(
+      geometry,
+      midFrame,
+      hint.facadeSpec.midBandType,
+      Math.max(1, signBandLevels),
+      glazing,
+      repeatX,
+      Math.max(3, Math.floor(bandCount * 0.56)),
+    );
+    pushFacadeBandByType(
+      geometry,
+      topFrame,
+      hint.facadeSpec.topBandType,
+      Math.max(1, Math.min(2, signBandLevels || 1)),
+      glazing,
+      repeatX,
+      Math.max(2, Math.floor(bandCount * 0.22)),
+    );
+
+    if (hint.visualRole && hint.visualRole !== 'generic') {
+      const canopyEdges = hint.podiumSpec?.canopyEdges.length ?? 0;
+      if (canopyEdges > 0 || hint.facadeSpec.lowerBandType === 'retail_sign_band') {
+        pushCanopyBand(geometry, lowerFrame, Math.max(4, buildingHeight * 0.12));
+      }
+    }
+
+    return;
+  }
+
   switch (preset) {
     case 'glass_grid':
       pushHorizontalBands(geometry, frame, bandCount, 0.42, 0.55);
@@ -565,19 +610,54 @@ function pushFacadePresetPanels(
   }
 }
 
+function pushFacadeBandByType(
+  geometry: GeometryBuffers,
+  frame: { a: Vec3; b: Vec3; height: number; yMin: number; yMax: number },
+  bandType: NonNullable<SceneFacadeHint['facadeSpec']>['lowerBandType'],
+  signBandLevels: number,
+  glazing: number,
+  repeatX: number | undefined,
+  bandCount: number,
+): void {
+  switch (bandType) {
+    case 'clear':
+      return;
+    case 'retail_sign_band':
+      pushSignBands(geometry, frame, Math.max(1, signBandLevels), 1.15);
+      pushHorizontalBands(geometry, frame, Math.max(2, bandCount), 0.22, 0.98);
+      return;
+    case 'screen_band':
+      pushSolidPanel(geometry, frame, 0.1);
+      pushTopBillboardZone(geometry, frame);
+      return;
+    case 'window_grid':
+      pushHorizontalBands(geometry, frame, Math.max(2, bandCount), 0.4, 0.98);
+      pushVerticalMullions(geometry, frame, 'dense', glazing, repeatX);
+      return;
+    case 'solid_panel':
+      pushHorizontalBands(geometry, frame, Math.max(1, Math.floor(bandCount / 2)), 0.82, 0.98);
+      return;
+    default:
+      return;
+  }
+}
+
 function pushHorizontalBands(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
   bandCount: number,
   bandFill: number,
   topCapRatio: number,
 ): void {
-  const margin = 0.6;
-  const step = Math.max(1.15, (frame.height - margin * 2) / bandCount);
+  const yMin = frame.yMin ?? 0;
+  const yMax = frame.yMax ?? frame.height;
+  const availableHeight = Math.max(0.4, yMax - yMin);
+  const margin = Math.min(0.6, availableHeight * 0.12);
+  const step = Math.max(0.8, (availableHeight - margin * 2) / Math.max(1, bandCount));
   for (let band = 0; band < bandCount; band += 1) {
-    const y0 = Math.min(frame.height - 0.7, margin + band * step);
+    const y0 = Math.min(yMax - 0.2, yMin + margin + band * step);
     const y1 = Math.min(
-      frame.height * topCapRatio,
+      yMin + availableHeight * topCapRatio,
       y0 + Math.min(step * bandFill, 1.05),
     );
     if (y1 <= y0 + 0.08) {
@@ -595,11 +675,16 @@ function pushHorizontalBands(
 
 function pushVerticalMullions(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
   density: WindowPatternDensity,
   glazingRatio: number,
   overrideCount?: number,
 ): void {
+  const yMin = (frame.yMin ?? 0) + 0.25;
+  const yMax = (frame.yMax ?? frame.height) - 0.25;
+  if (yMax <= yMin + 0.3) {
+    return;
+  }
   const mullionCount =
     overrideCount ??
     (density === 'dense' ? 7 : density === 'medium' ? 5 : 3);
@@ -610,23 +695,25 @@ function pushVerticalMullions(
     const width = Math.max(0.08, 0.16 - glazingRatio * 0.08);
     pushQuad(
       geometry,
-      [x0 - width, 0.8, z0 - width * 0.2],
-      [x0 + width, 0.8, z0 + width * 0.2],
-      [x0 + width, frame.height - 0.8, z0 + width * 0.2],
-      [x0 - width, frame.height - 0.8, z0 - width * 0.2],
+      [x0 - width, yMin, z0 - width * 0.2],
+      [x0 + width, yMin, z0 + width * 0.2],
+      [x0 + width, yMax, z0 + width * 0.2],
+      [x0 - width, yMax, z0 - width * 0.2],
     );
   }
 }
 
 function pushSignBands(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
   levels: number,
   bandHeight: number,
 ): void {
+  const yMin = frame.yMin ?? 0;
+  const yMax = frame.yMax ?? frame.height;
   for (let level = 0; level < levels; level += 1) {
-    const y0 = 0.7 + level * (bandHeight + 0.28);
-    const y1 = Math.min(frame.height - 0.4, y0 + bandHeight);
+    const y0 = yMin + 0.35 + level * (bandHeight + 0.2);
+    const y1 = Math.min(yMax - 0.12, y0 + bandHeight);
     if (y1 <= y0 + 0.08) {
       continue;
     }
@@ -642,10 +729,15 @@ function pushSignBands(
 
 function pushTopBillboardZone(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
 ): void {
-  const topStart = Math.max(frame.height * 0.58, frame.height - 4.2);
-  const topEnd = Math.min(frame.height - 0.35, topStart + 2.8);
+  const yMin = frame.yMin ?? 0;
+  const yMax = frame.yMax ?? frame.height;
+  const topStart = Math.max(yMin + (yMax - yMin) * 0.18, yMax - 2.8);
+  const topEnd = Math.min(yMax - 0.08, topStart + Math.min(2.8, yMax - yMin - 0.12));
+  if (topEnd <= topStart + 0.08) {
+    return;
+  }
   pushQuad(
     geometry,
     [frame.a[0], topStart, frame.a[2]],
@@ -657,11 +749,16 @@ function pushTopBillboardZone(
 
 function pushCanopyBand(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
   canopyHeight: number,
 ): void {
-  const y0 = Math.min(frame.height - 0.8, 4);
-  const y1 = Math.min(frame.height - 0.2, y0 + Math.max(1.2, canopyHeight * 0.18));
+  const yMin = frame.yMin ?? 0;
+  const yMax = frame.yMax ?? frame.height;
+  const y0 = Math.min(yMax - 0.35, Math.max(yMin + 0.2, yMin + 4));
+  const y1 = Math.min(yMax - 0.05, y0 + Math.max(1.2, canopyHeight * 0.18));
+  if (y1 <= y0 + 0.08) {
+    return;
+  }
   pushQuad(
     geometry,
     [frame.a[0], y0, frame.a[2]],
@@ -669,6 +766,37 @@ function pushCanopyBand(
     [frame.b[0], y1, frame.b[2]],
     [frame.a[0], y1, frame.a[2]],
   );
+}
+
+function pushSolidPanel(
+  geometry: GeometryBuffers,
+  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  insetY: number,
+): void {
+  const yMin = (frame.yMin ?? 0) + insetY;
+  const yMax = (frame.yMax ?? frame.height) - insetY;
+  if (yMax <= yMin + 0.08) {
+    return;
+  }
+  pushQuad(
+    geometry,
+    [frame.a[0], yMin, frame.a[2]],
+    [frame.b[0], yMin, frame.b[2]],
+    [frame.b[0], yMax, frame.b[2]],
+    [frame.a[0], yMax, frame.a[2]],
+  );
+}
+
+function splitFacadeFrame(
+  frame: { a: Vec3; b: Vec3; height: number },
+  yMin: number,
+  yMax: number,
+): { a: Vec3; b: Vec3; height: number; yMin: number; yMax: number } {
+  return {
+    ...frame,
+    yMin: Math.max(0, yMin),
+    yMax: Math.max(yMin, Math.min(frame.height, yMax)),
+  };
 }
 
 function triangulateRings(

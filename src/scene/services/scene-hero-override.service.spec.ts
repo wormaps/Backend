@@ -181,6 +181,35 @@ describe('SceneHeroOverrideService', () => {
     expect(result.meta.buildings[0]?.geometryStrategy).toBeDefined();
     expect(result.detail.placeReadabilityDiagnostics?.heroBuildingCount).toBeGreaterThan(0);
     expect(result.detail.placeReadabilityDiagnostics?.scrambleStripeCount).toBeGreaterThan(0);
+    expect(result.detail.placeReadabilityDiagnostics?.heroIntersectionCount).toBe(
+      SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.intersectionOverrides.length,
+    );
+  });
+
+  it('applies exact objectId override without spilling to nearby buildings', () => {
+    const service = new SceneHeroOverrideService();
+    const crowdedMeta: SceneMeta = {
+      ...meta,
+      buildings: [
+        ...meta.buildings,
+        {
+          ...meta.buildings[0],
+          objectId: 'building-nearby',
+          outerRing: [
+            { lat: 35.65973, lng: 139.7008 },
+            { lat: 35.65985, lng: 139.7009 },
+            { lat: 35.65966, lng: 139.70101 },
+          ],
+        },
+      ],
+    };
+
+    const result = service.applyOverrides(place, crowdedMeta, detail);
+    const exact = result.meta.buildings.find((building) => building.objectId === 'building-116806281');
+    const nearby = result.meta.buildings.find((building) => building.objectId === 'building-nearby');
+
+    expect(exact?.visualRole).toBe('hero_landmark');
+    expect(nearby?.visualRole).not.toBe('hero_landmark');
   });
 
   it('defines expanded shibuya hero manifest coverage', () => {

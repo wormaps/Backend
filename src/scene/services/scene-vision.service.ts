@@ -136,7 +136,11 @@ export class SceneVisionService {
       geometryDiagnostics,
       placeReadabilityDiagnostics: {
         heroBuildingCount: 0,
-        heroIntersectionCount: roadDecals.filter((decal) => decal.priority === 'hero').length,
+        heroIntersectionCount: new Set(
+          roadDecals
+            .filter((decal) => decal.priority === 'hero')
+            .map((decal) => decal.intersectionId ?? decal.objectId),
+        ).size,
         scrambleStripeCount: roadDecals.reduce(
           (total, decal) => total + (decal.stripeSet?.stripeCount ?? 0),
           0,

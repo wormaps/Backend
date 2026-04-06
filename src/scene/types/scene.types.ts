@@ -331,6 +331,7 @@ export interface SceneIntersectionProfile {
 
 export interface SceneRoadDecal {
   objectId: string;
+  intersectionId?: string;
   type: RoadDecalType;
   color: string;
   emphasis: 'standard' | 'hero';

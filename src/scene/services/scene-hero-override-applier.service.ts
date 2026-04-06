@@ -21,7 +21,9 @@ export class SceneHeroOverrideApplierService {
     detail: SceneDetail,
     manifest: HeroOverrideManifest,
   ): { meta: SceneMeta; detail: SceneDetail } {
-    const facadeHints = this.mergeFacadeHints(meta, detail, manifest);
+    const overrideAssignments = this.matcher.resolveFacadeAssignments(meta, manifest);
+    const overriddenBuildings = this.applyBuildingOverrides(meta.buildings, overrideAssignments);
+    const facadeHints = this.mergeFacadeHints(meta, detail, overrideAssignments);
     const crossings = mergeByObjectId(
       detail.crossings,
       manifest.crossings.map((crossing) => ({
@@ -124,7 +126,7 @@ export class SceneHeroOverrideApplierService {
       intersectionProfiles,
       roadDecals,
       placeReadabilityDiagnostics: buildPlaceReadabilityDiagnostics(
-        this.applyBuildingOverrides(meta.buildings, manifest),
+        overriddenBuildings,
         facadeHints,
         roadDecals,
         streetFurniture,
@@ -139,7 +141,7 @@ export class SceneHeroOverrideApplierService {
 
     const mergedMeta: SceneMeta = {
       ...meta,
-      buildings: this.applyBuildingOverrides(meta.buildings, manifest),
+      buildings: overriddenBuildings,
       detailStatus: mergedDetail.detailStatus,
       landmarkAnchors,
       materialClasses: summarizeMaterialClasses(facadeHints),
@@ -160,10 +162,11 @@ export class SceneHeroOverrideApplierService {
   private mergeFacadeHints(
     meta: SceneMeta,
     detail: SceneDetail,
-    manifest: HeroOverrideManifest,
+    overrideAssignments: Map<string, HeroOverrideManifest['facadeOverrides'][number]>,
   ): SceneFacadeHint[] {
-    const overridden = manifest.facadeOverrides.map((override) => {
-      const matchedBuilding = this.matcher.findMatchingBuilding(meta, override);
+    const overridden = [...overrideAssignments.entries()].map(([buildingObjectId, override]) => {
+      const matchedBuilding =
+        meta.buildings.find((building) => building.objectId === buildingObjectId) ?? null;
       return {
         objectId: matchedBuilding?.objectId ?? override.objectId ?? override.id,
         anchor: override.anchor,
@@ -209,10 +212,10 @@ export class SceneHeroOverrideApplierService {
 
   private applyBuildingOverrides(
     buildings: SceneMeta['buildings'],
-    manifest: HeroOverrideManifest,
+    overrideAssignments: Map<string, HeroOverrideManifest['facadeOverrides'][number]>,
   ): SceneMeta['buildings'] {
     return buildings.map((building) => {
-      const override = this.matcher.findApplicableFacadeOverride(building, manifest);
+      const override = overrideAssignments.get(building.objectId);
       if (!override) {
         return building;
       }
@@ -252,6 +255,7 @@ export class SceneHeroOverrideApplierService {
     return manifest.intersectionOverrides.flatMap((intersection) => [
       ...intersection.crosswalkPolygons.map((polygon, index) => ({
         objectId: `${intersection.id}-crosswalk-poly-${index + 1}`,
+        intersectionId: intersection.intersectionId,
         type: 'CROSSWALK_OVERLAY' as const,
         color: '#f8f8f6',
         emphasis: 'hero' as const,
@@ -263,6 +267,7 @@ export class SceneHeroOverrideApplierService {
       })),
       ...intersection.stripeSets.map((stripeSet, index) => ({
         objectId: `${intersection.id}-stripe-set-${index + 1}`,
+        intersectionId: intersection.intersectionId,
         type: 'CROSSWALK_OVERLAY' as const,
         color: '#f8f8f6',
         emphasis: 'hero' as const,
@@ -274,6 +279,7 @@ export class SceneHeroOverrideApplierService {
       })),
       ...intersection.stopLines.map((path, index) => ({
         objectId: `${intersection.id}-stop-line-${index + 1}`,
+        intersectionId: intersection.intersectionId,
         type: 'STOP_LINE' as const,
         color: '#ffffff',
         emphasis: 'hero' as const,
@@ -285,6 +291,7 @@ export class SceneHeroOverrideApplierService {
       })),
       ...intersection.laneArrows.map((polygon, index) => ({
         objectId: `${intersection.id}-arrow-${index + 1}`,
+        intersectionId: intersection.intersectionId,
         type: 'ARROW_MARK' as const,
         color: '#f7f2a2',
         emphasis: 'hero' as const,
@@ -298,6 +305,7 @@ export class SceneHeroOverrideApplierService {
         ? [
             {
               objectId: `${intersection.id}-junction-paint`,
+              intersectionId: intersection.intersectionId,
               type: 'JUNCTION_OVERLAY' as const,
               color: '#eadb87',
               emphasis: 'hero' as const,
@@ -388,7 +396,10 @@ function buildPlaceReadabilityDiagnostics(
       decal.priority === 'hero' &&
       decal.layer === 'crosswalk_overlay' &&
       (decal.shapeKind === 'stripe_set' || decal.shapeKind === 'polygon_fill'),
-  ).length;
+  ).reduce((ids, decal) => {
+    ids.add(decal.intersectionId ?? decal.objectId.replace(/-(crosswalk-poly|stripe-set|scramble-polygon|scramble-stripes).*/, ''));
+    return ids;
+  }, new Set<string>()).size;
   const scrambleStripeCount = roadDecals.reduce(
     (total, decal) => total + (decal.stripeSet?.stripeCount ?? 0),
     0,

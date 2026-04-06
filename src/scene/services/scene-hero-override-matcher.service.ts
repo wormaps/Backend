@@ -69,6 +69,25 @@ export class SceneHeroOverrideMatcherService {
     return override;
   }
 
+  resolveFacadeAssignments(
+    meta: SceneMeta,
+    manifest: HeroOverrideManifest,
+  ): Map<string, HeroOverrideManifest['facadeOverrides'][number]> {
+    const assignments = new Map<string, HeroOverrideManifest['facadeOverrides'][number]>();
+    const usedBuildings = new Set<string>();
+
+    for (const override of manifest.facadeOverrides) {
+      const matched = this.findPreferredBuilding(meta, override, usedBuildings);
+      if (!matched) {
+        continue;
+      }
+      assignments.set(matched.objectId, override);
+      usedBuildings.add(matched.objectId);
+    }
+
+    return assignments;
+  }
+
   private findNearest<T>(
     items: T[],
     anchor: Coordinate,
@@ -85,6 +104,34 @@ export class SceneHeroOverrideMatcherService {
     }
 
     return best?.item ?? null;
+  }
+
+  private findPreferredBuilding(
+    meta: SceneMeta,
+    override: HeroOverrideManifest['facadeOverrides'][number],
+    usedBuildings: Set<string>,
+  ): SceneMeta['buildings'][number] | null {
+    if (override.objectId) {
+      const exact =
+        meta.buildings.find((building) => building.objectId === override.objectId) ?? null;
+      if (exact && !usedBuildings.has(exact.objectId)) {
+        return exact;
+      }
+    }
+
+    const nearest = this.findNearest(
+      meta.buildings.filter((building) => !usedBuildings.has(building.objectId)),
+      override.anchor,
+      (item) => averageCoordinate(item.outerRing) ?? item.outerRing[0],
+    );
+    if (!nearest) {
+      return null;
+    }
+
+    const nearestAnchor = averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0];
+    return squaredDistance(override.anchor, nearestAnchor) <= this.fallbackMatchRadiusMeters ** 2
+      ? nearest
+      : null;
   }
 }
 

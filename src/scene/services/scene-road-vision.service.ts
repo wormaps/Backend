@@ -106,6 +106,10 @@ export class SceneRoadVisionService {
     for (const marking of roadMarkings) {
       decals.push({
         objectId: `${marking.objectId}-decal`,
+        intersectionId:
+          marking.type === 'CROSSWALK' || marking.type === 'STOP_LINE'
+            ? marking.objectId.replace(/-(marking|stop-line)$/, '-intersection')
+            : undefined,
         type:
           marking.type === 'LANE_LINE'
             ? 'LANE_OVERLAY'
@@ -136,6 +140,7 @@ export class SceneRoadVisionService {
       }
       decals.push({
         objectId: `${crossing.objectId}-scramble-polygon`,
+        intersectionId: `${crossing.objectId}-intersection`,
         type: 'CROSSWALK_OVERLAY',
         color: '#f8f8f6',
         emphasis: 'hero',
@@ -147,6 +152,7 @@ export class SceneRoadVisionService {
       });
       decals.push({
         objectId: `${crossing.objectId}-scramble-stripes`,
+        intersectionId: `${crossing.objectId}-intersection`,
         type: 'CROSSWALK_OVERLAY',
         color: '#f8f8f6',
         emphasis: 'hero',
@@ -169,6 +175,7 @@ export class SceneRoadVisionService {
       }
       decals.push({
         objectId: `${profile.objectId}-junction`,
+        intersectionId: profile.objectId,
         type: 'JUNCTION_OVERLAY',
         color: '#f1df8a',
         emphasis: 'hero',

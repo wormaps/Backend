@@ -1,4 +1,5 @@
 import {
+  createBuildingPanelsGeometry,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
@@ -62,5 +63,49 @@ describe('building-mesh.builder', () => {
     expect(canopies.positions.length).toBeGreaterThan(0);
     expect(roofUnits.positions.length).toBeGreaterThan(0);
     expect(billboards.positions.length).toBeGreaterThan(0);
+  });
+
+  it('applies facadeSpec lower/mid/top band rules to create richer hero facade geometry', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const heroPanels = createBuildingPanelsGeometry(
+      origin,
+      [building],
+      [
+        {
+          objectId: building.objectId,
+          anchor: coordinate(35.6596, 139.7009),
+          facadeEdgeIndex: 0,
+          windowBands: 10,
+          billboardEligible: true,
+          palette: ['#2d3a4b', '#5b6b7f', '#dce5f2'],
+          shellPalette: ['#2d3a4b'],
+          panelPalette: ['#f44336', '#f9d423', '#ffffff'],
+          materialClass: 'glass',
+          signageDensity: 'high',
+          emissiveStrength: 1,
+          glazingRatio: 0.7,
+          facadePreset: 'glass_grid',
+          visualRole: 'hero_landmark',
+          podiumSpec: building.podiumSpec,
+          signageSpec: building.signageSpec,
+          facadeSpec: {
+            atlasId: 'hero-test',
+            uvMode: 'placeholder',
+            emissiveMaskId: 'hero-screen',
+            facadePattern: 'curtain_wall',
+            lowerBandType: 'retail_sign_band',
+            midBandType: 'window_grid',
+            topBandType: 'screen_band',
+            windowRepeatX: 8,
+            windowRepeatY: 14,
+          },
+          weakEvidence: false,
+        },
+      ],
+      'cool',
+    );
+
+    expect(heroPanels.positions.length).toBeGreaterThan(0);
+    expect(heroPanels.indices.length).toBeGreaterThan(0);
   });
 });
