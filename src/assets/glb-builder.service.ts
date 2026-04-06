@@ -8,6 +8,9 @@ import {
   createBuildingPanelsGeometry,
   createBuildingRoofSurfaceGeometry,
   createBuildingShellGeometry,
+  createBuildingWindowGeometry,
+  createBuildingEntranceGeometry,
+  createBuildingRoofEquipmentGeometry,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
@@ -24,18 +27,34 @@ import {
 } from './compiler/glb-material-factory';
 import {
   createCrosswalkGeometry,
+  createCurbGeometry,
   createGroundGeometry,
+  createMedianGeometry,
   createRoadBaseGeometry,
   createRoadEdgeGeometry,
   createRoadDecalPathGeometry,
   createRoadDecalPolygonGeometry,
   createRoadDecalStripeGeometry,
   createRoadMarkingsGeometry,
+  createSidewalkEdgeGeometry,
   createWalkwayGeometry,
   GeometryBuffers,
   mergeGeometryBuffers,
   Vec3,
 } from './compiler/road-mesh.builder';
+import {
+  createTreeVariationGeometry,
+  createBushGeometry,
+  createFlowerBedGeometry,
+} from './compiler/vegetation-mesh.builder';
+import {
+  createBenchGeometry,
+  createBikeRackGeometry,
+  createTrashCanGeometry,
+  createFireHydrantGeometry,
+  createEnhancedStreetLightGeometry,
+  createEnhancedSignPoleGeometry,
+} from './compiler/street-furniture-mesh.builder';
 import {
   appendSceneDiagnosticsLog,
   getSceneDataDir,
@@ -70,7 +89,63 @@ interface MeshNodeDiagnostic {
   sourceCount?: number;
   selectedCount?: number;
   skippedReason?: string;
+  lodLevel?: 'HIGH' | 'MEDIUM' | 'LOW';
+  layer?: string;
 }
+
+type LodLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+
+interface LodConfig {
+  level: LodLevel;
+  maxDistance: number;
+  vertexReduction: number;
+}
+
+interface MeshLayer {
+  name: string;
+  priority: number;
+  meshes: MeshNodeDiagnostic[];
+}
+
+const LOD_CONFIGS: LodConfig[] = [
+  { level: 'HIGH', maxDistance: 150, vertexReduction: 0 },
+  { level: 'MEDIUM', maxDistance: 300, vertexReduction: 0.3 },
+  { level: 'LOW', maxDistance: 600, vertexReduction: 0.6 },
+];
+
+const MESH_LAYERS: Record<string, number> = {
+  ground: 0,
+  road_base: 1,
+  road_edges: 1,
+  lane_overlay: 2,
+  road_markings: 2,
+  crosswalk_overlay: 2,
+  junction_overlay: 2,
+  sidewalk: 3,
+  curbs: 3,
+  medians: 3,
+  sidewalk_edges: 3,
+  landcover_parks: 4,
+  landcover_water: 4,
+  landcover_plazas: 4,
+  linear_railways: 5,
+  linear_bridges: 5,
+  linear_waterways: 5,
+  building_shells: 6,
+  building_roof_surfaces: 6,
+  building_roof_accents: 6,
+  building_panels: 6,
+  billboards: 7,
+  hero_canopies: 7,
+  hero_roof_units: 7,
+  hero_billboard_planes: 7,
+  traffic_lights: 8,
+  street_lights: 8,
+  sign_poles: 8,
+  trees_planters: 8,
+  landmark_extras: 9,
+  poi_markers: 9,
+};
 
 @Injectable()
 export class GlbBuilderService {
@@ -146,11 +221,11 @@ export class GlbBuilderService {
       ),
       materials.laneOverlay,
       {
-        sourceCount: (sceneDetail.roadDecals ?? []).filter((item) =>
-          item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+        sourceCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
         ).length,
-        selectedCount: (sceneDetail.roadDecals ?? []).filter((item) =>
-          item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+        selectedCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
         ).length,
       },
     );
@@ -197,10 +272,14 @@ export class GlbBuilderService {
       {
         sourceCount:
           sceneDetail.crossings.length +
-          (sceneDetail.roadDecals ?? []).filter((item) => item.type === 'CROSSWALK_OVERLAY').length,
+          (sceneDetail.roadDecals ?? []).filter(
+            (item) => item.type === 'CROSSWALK_OVERLAY',
+          ).length,
         selectedCount:
           assetSelection.crossings.length +
-          (sceneDetail.roadDecals ?? []).filter((item) => item.type === 'CROSSWALK_OVERLAY').length,
+          (sceneDetail.roadDecals ?? []).filter(
+            (item) => item.type === 'CROSSWALK_OVERLAY',
+          ).length,
       },
     );
     this.addMeshNode(
@@ -220,11 +299,13 @@ export class GlbBuilderService {
       ]),
       materials.junctionOverlay,
       {
-        sourceCount: (sceneDetail.roadDecals ?? []).filter((item) =>
-          item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
+        sourceCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) =>
+            item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
         ).length,
-        selectedCount: (sceneDetail.roadDecals ?? []).filter((item) =>
-          item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
+        selectedCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) =>
+            item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
         ).length,
       },
     );
@@ -246,6 +327,48 @@ export class GlbBuilderService {
       Accessor,
       scene,
       buffer,
+      'curbs',
+      createCurbGeometry(sceneMeta.origin, assetSelection.roads),
+      materials.curb,
+      {
+        sourceCount: sceneMeta.roads.length,
+        selectedCount: assetSelection.roads.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'medians',
+      createMedianGeometry(sceneMeta.origin, assetSelection.roads),
+      materials.median,
+      {
+        sourceCount: sceneMeta.roads.filter((road) => road.widthMeters >= 8)
+          .length,
+        selectedCount: assetSelection.roads.filter(
+          (road) => road.widthMeters >= 8,
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'sidewalk_edges',
+      createSidewalkEdgeGeometry(sceneMeta.origin, assetSelection.walkways),
+      materials.sidewalkEdge,
+      {
+        sourceCount: sceneMeta.walkways.length,
+        selectedCount: assetSelection.walkways.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
       'traffic_lights',
       this.createStreetFurnitureGeometry(
         sceneMeta.origin,
@@ -254,7 +377,9 @@ export class GlbBuilderService {
       ),
       materials.trafficLight,
       {
-        sourceCount: sceneDetail.streetFurniture.filter((item) => item.type === 'TRAFFIC_LIGHT').length,
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'TRAFFIC_LIGHT',
+        ).length,
         selectedCount: assetSelection.trafficLights.length,
       },
     );
@@ -264,14 +389,15 @@ export class GlbBuilderService {
       scene,
       buffer,
       'street_lights',
-      this.createStreetFurnitureGeometry(
+      createEnhancedStreetLightGeometry(
         sceneMeta.origin,
         assetSelection.streetLights,
-        'STREET_LIGHT',
       ),
       materials.streetLight,
       {
-        sourceCount: sceneDetail.streetFurniture.filter((item) => item.type === 'STREET_LIGHT').length,
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'STREET_LIGHT',
+        ).length,
         selectedCount: assetSelection.streetLights.length,
       },
     );
@@ -281,14 +407,15 @@ export class GlbBuilderService {
       scene,
       buffer,
       'sign_poles',
-      this.createStreetFurnitureGeometry(
+      createEnhancedSignPoleGeometry(
         sceneMeta.origin,
         assetSelection.signPoles,
-        'SIGN_POLE',
       ),
       materials.signPole,
       {
-        sourceCount: sceneDetail.streetFurniture.filter((item) => item.type === 'SIGN_POLE').length,
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'SIGN_POLE',
+        ).length,
         selectedCount: assetSelection.signPoles.length,
       },
     );
@@ -297,12 +424,148 @@ export class GlbBuilderService {
       Accessor,
       scene,
       buffer,
+      'benches',
+      createBenchGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter((item) => item.type === 'BENCH'),
+      ),
+      materials.bench,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BENCH',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BENCH',
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'bike_racks',
+      createBikeRackGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter((item) => item.type === 'BIKE_RACK'),
+      ),
+      materials.bikeRack,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BIKE_RACK',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BIKE_RACK',
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'trash_cans',
+      createTrashCanGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter((item) => item.type === 'TRASH_CAN'),
+      ),
+      materials.trashCan,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'TRASH_CAN',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'TRASH_CAN',
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'fire_hydrants',
+      createFireHydrantGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'FIRE_HYDRANT',
+        ),
+      ),
+      materials.fireHydrant,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'FIRE_HYDRANT',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'FIRE_HYDRANT',
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
       'trees_planters',
-      this.createVegetationGeometry(sceneMeta.origin, assetSelection.vegetation),
+      this.createVegetationGeometry(
+        sceneMeta.origin,
+        assetSelection.vegetation,
+      ),
       materials.tree,
       {
         sourceCount: sceneDetail.vegetation.length,
         selectedCount: assetSelection.vegetation.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'trees_variation',
+      createTreeVariationGeometry(sceneMeta.origin, assetSelection.vegetation),
+      materials.treeVariation,
+      {
+        sourceCount: sceneDetail.vegetation.filter(
+          (item) => item.type === 'TREE',
+        ).length,
+        selectedCount: assetSelection.vegetation.filter(
+          (item) => item.type === 'TREE',
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'bushes',
+      createBushGeometry(sceneMeta.origin, assetSelection.vegetation),
+      materials.bush,
+      {
+        sourceCount: sceneDetail.vegetation.filter(
+          (item) => item.type === 'GREEN_PATCH',
+        ).length,
+        selectedCount: assetSelection.vegetation.filter(
+          (item) => item.type === 'GREEN_PATCH',
+        ).length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'flower_beds',
+      createFlowerBedGeometry(sceneMeta.origin, assetSelection.vegetation),
+      materials.flowerBed,
+      {
+        sourceCount: sceneDetail.vegetation.filter(
+          (item) => item.type === 'PLANTER',
+        ).length,
+        selectedCount: assetSelection.vegetation.filter(
+          (item) => item.type === 'PLANTER',
+        ).length,
       },
     );
     this.addMeshNode(
@@ -332,8 +595,12 @@ export class GlbBuilderService {
       ),
       materials.landCoverPark,
       {
-        sourceCount: sceneDetail.landCovers.filter((item) => item.type === 'PARK').length,
-        selectedCount: sceneDetail.landCovers.filter((item) => item.type === 'PARK').length,
+        sourceCount: sceneDetail.landCovers.filter(
+          (item) => item.type === 'PARK',
+        ).length,
+        selectedCount: sceneDetail.landCovers.filter(
+          (item) => item.type === 'PARK',
+        ).length,
       },
     );
     this.addMeshNode(
@@ -350,8 +617,12 @@ export class GlbBuilderService {
       ),
       materials.landCoverWater,
       {
-        sourceCount: sceneDetail.landCovers.filter((item) => item.type === 'WATER').length,
-        selectedCount: sceneDetail.landCovers.filter((item) => item.type === 'WATER').length,
+        sourceCount: sceneDetail.landCovers.filter(
+          (item) => item.type === 'WATER',
+        ).length,
+        selectedCount: sceneDetail.landCovers.filter(
+          (item) => item.type === 'WATER',
+        ).length,
       },
     );
     this.addMeshNode(
@@ -368,8 +639,12 @@ export class GlbBuilderService {
       ),
       materials.landCoverPlaza,
       {
-        sourceCount: sceneDetail.landCovers.filter((item) => item.type === 'PLAZA').length,
-        selectedCount: sceneDetail.landCovers.filter((item) => item.type === 'PLAZA').length,
+        sourceCount: sceneDetail.landCovers.filter(
+          (item) => item.type === 'PLAZA',
+        ).length,
+        selectedCount: sceneDetail.landCovers.filter(
+          (item) => item.type === 'PLAZA',
+        ).length,
       },
     );
     this.addMeshNode(
@@ -385,8 +660,12 @@ export class GlbBuilderService {
       ),
       materials.linearRailway,
       {
-        sourceCount: sceneDetail.linearFeatures.filter((item) => item.type === 'RAILWAY').length,
-        selectedCount: sceneDetail.linearFeatures.filter((item) => item.type === 'RAILWAY').length,
+        sourceCount: sceneDetail.linearFeatures.filter(
+          (item) => item.type === 'RAILWAY',
+        ).length,
+        selectedCount: sceneDetail.linearFeatures.filter(
+          (item) => item.type === 'RAILWAY',
+        ).length,
       },
     );
     this.addMeshNode(
@@ -402,8 +681,12 @@ export class GlbBuilderService {
       ),
       materials.linearBridge,
       {
-        sourceCount: sceneDetail.linearFeatures.filter((item) => item.type === 'BRIDGE').length,
-        selectedCount: sceneDetail.linearFeatures.filter((item) => item.type === 'BRIDGE').length,
+        sourceCount: sceneDetail.linearFeatures.filter(
+          (item) => item.type === 'BRIDGE',
+        ).length,
+        selectedCount: sceneDetail.linearFeatures.filter(
+          (item) => item.type === 'BRIDGE',
+        ).length,
       },
     );
     this.addMeshNode(
@@ -419,8 +702,12 @@ export class GlbBuilderService {
       ),
       materials.linearWaterway,
       {
-        sourceCount: sceneDetail.linearFeatures.filter((item) => item.type === 'WATERWAY').length,
-        selectedCount: sceneDetail.linearFeatures.filter((item) => item.type === 'WATERWAY').length,
+        sourceCount: sceneDetail.linearFeatures.filter(
+          (item) => item.type === 'WATERWAY',
+        ).length,
+        selectedCount: sceneDetail.linearFeatures.filter(
+          (item) => item.type === 'WATERWAY',
+        ).length,
       },
     );
 
@@ -453,13 +740,13 @@ export class GlbBuilderService {
       this.addMeshNode(
         doc,
         Accessor,
-      scene,
-      buffer,
-      `building_shells_${groupKey}`,
-      createBuildingShellGeometry(
-        sceneMeta.origin,
-        group.buildings,
-        triangulate,
+        scene,
+        buffer,
+        `building_shells_${groupKey}`,
+        createBuildingShellGeometry(
+          sceneMeta.origin,
+          group.buildings,
+          triangulate,
         ),
         createBuildingShellMaterial(
           doc,
@@ -604,6 +891,62 @@ export class GlbBuilderService {
         },
       );
     }
+
+    // Building windows
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'building_windows',
+      createBuildingWindowGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+        sceneDetail.facadeHints,
+      ),
+      materials.buildingPanels.neutral,
+      {
+        sourceCount: sceneDetail.facadeHints.length,
+        selectedCount: assetSelection.buildings.length,
+      },
+    );
+
+    // Building entrances
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'building_entrances',
+      createBuildingEntranceGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+      ),
+      materials.buildingPanels.neutral,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
+    );
+
+    // Building roof equipment
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'building_roof_equipment',
+      createBuildingRoofEquipmentGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+      ),
+      materials.roofAccents.neutral,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
+    );
+
     for (const billboardGroup of this.groupBillboardClustersByColor(
       assetSelection.billboardPanels,
       sceneDetail.signageClusters,
@@ -619,7 +962,11 @@ export class GlbBuilderService {
           billboardGroup.selectedClusters,
           billboardGroup.tone,
         ),
-        createBillboardMaterial(doc, billboardGroup.tone, billboardGroup.colorHex),
+        createBillboardMaterial(
+          doc,
+          billboardGroup.tone,
+          billboardGroup.colorHex,
+        ),
         {
           sourceCount: billboardGroup.sourceCount,
           selectedCount: billboardGroup.selectedClusters.length,
@@ -652,8 +999,12 @@ export class GlbBuilderService {
       createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
       materials.roofAccents.neutral,
       {
-        sourceCount: assetSelection.buildings.filter((building) => Boolean(building.roofSpec?.roofUnits)).length,
-        selectedCount: assetSelection.buildings.filter((building) => Boolean(building.roofSpec?.roofUnits)).length,
+        sourceCount: assetSelection.buildings.filter((building) =>
+          Boolean(building.roofSpec?.roofUnits),
+        ).length,
+        selectedCount: assetSelection.buildings.filter((building) =>
+          Boolean(building.roofSpec?.roofUnits),
+        ).length,
       },
     );
     this.addMeshNode(
@@ -662,11 +1013,18 @@ export class GlbBuilderService {
       scene,
       buffer,
       'hero_billboard_planes',
-      createHeroBillboardPlaneGeometry(sceneMeta.origin, assetSelection.buildings),
+      createHeroBillboardPlaneGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+      ),
       materials.billboards.warm,
       {
-        sourceCount: assetSelection.buildings.filter((building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0).length,
-        selectedCount: assetSelection.buildings.filter((building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0).length,
+        sourceCount: assetSelection.buildings.filter(
+          (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
+        ).length,
+        selectedCount: assetSelection.buildings.filter(
+          (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
+        ).length,
       },
     );
     this.addMeshNode(
@@ -682,8 +1040,10 @@ export class GlbBuilderService {
       ),
       materials.landmark,
       {
-        sourceCount: sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
-        selectedCount: sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+        sourceCount:
+          sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+        selectedCount:
+          sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
       },
     );
 
@@ -710,13 +1070,15 @@ export class GlbBuilderService {
         signageClusters: sceneDetail.signageClusters.length,
       },
       facadeContextDiagnostics: sceneDetail.facadeContextDiagnostics,
-      groupedBuildingShells: [...groupedBuildings.entries()].map(([groupKey, group]) => ({
-        groupKey,
-        materialClass: group.materialClass,
-        bucket: group.bucket,
-        colorHex: group.colorHex,
-        count: group.buildings.length,
-      })),
+      groupedBuildingShells: [...groupedBuildings.entries()].map(
+        ([groupKey, group]) => ({
+          groupKey,
+          materialClass: group.materialClass,
+          bucket: group.bucket,
+          colorHex: group.colorHex,
+          count: group.buildings.length,
+        }),
+      ),
       meshNodes: this.currentMeshDiagnostics,
     };
     this.appLoggerService.info('scene.glb_build.diagnostics', {
@@ -793,6 +1155,22 @@ export class GlbBuilderService {
         .setBaseColorFactor([0.28, 0.47, 0.27, 1])
         .setMetallicFactor(0)
         .setRoughnessFactor(1),
+      treeVariation: doc
+        .createMaterial('tree-variation')
+        .setBaseColorFactor([0.22, 0.42, 0.2, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.95),
+      bush: doc
+        .createMaterial('bush')
+        .setBaseColorFactor([0.35, 0.55, 0.3, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.9),
+      flowerBed: doc
+        .createMaterial('flower-bed')
+        .setBaseColorFactor([0.65, 0.45, 0.35, 1])
+        .setEmissiveFactor([0.08, 0.04, 0.02])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.85),
       poi: doc
         .createMaterial('poi')
         .setBaseColorFactor([0.93, 0.39, 0.18, 1])
@@ -913,7 +1291,12 @@ export class GlbBuilderService {
   private resolveBuildingShellStyle(
     building: SceneMeta['buildings'][number],
     hint?: SceneFacadeHint,
-  ): { key: string; materialClass: MaterialClass; bucket: ShellColorBucket; colorHex: string } {
+  ): {
+    key: string;
+    materialClass: MaterialClass;
+    bucket: ShellColorBucket;
+    colorHex: string;
+  } {
     const materialClass =
       hint?.materialClass ?? this.resolveMaterialClassFromBuilding(building);
     const rawColor =
@@ -935,10 +1318,19 @@ export class GlbBuilderService {
 
   private groupFacadeHintsByPanelColor(
     facadeHints: SceneDetail['facadeHints'],
-  ): Array<{ tone: AccentTone; colorHex: string; hints: SceneDetail['facadeHints'] }> {
-    const groups = new Map<string, { tone: AccentTone; colorHex: string; hints: SceneDetail['facadeHints'] }>();
+  ): Array<{
+    tone: AccentTone;
+    colorHex: string;
+    hints: SceneDetail['facadeHints'];
+  }> {
+    const groups = new Map<
+      string,
+      { tone: AccentTone; colorHex: string; hints: SceneDetail['facadeHints'] }
+    >();
     for (const hint of facadeHints) {
-      const paletteSource = hint.panelPalette?.length ? hint.panelPalette : hint.palette;
+      const paletteSource = hint.panelPalette?.length
+        ? hint.panelPalette
+        : hint.palette;
       const colorHex = normalizeColor(paletteSource[0] ?? '#5a6470');
       const tone = resolveAccentTone(paletteSource);
       const key = `${tone}:${colorHex}`;
@@ -966,12 +1358,15 @@ export class GlbBuilderService {
       sourceCountMap.set(key, (sourceCountMap.get(key) ?? 0) + 1);
     }
 
-    const groups = new Map<string, {
-      tone: AccentTone;
-      colorHex: string;
-      selectedClusters: SceneDetail['signageClusters'];
-      sourceCount: number;
-    }>();
+    const groups = new Map<
+      string,
+      {
+        tone: AccentTone;
+        colorHex: string;
+        selectedClusters: SceneDetail['signageClusters'];
+        sourceCount: number;
+      }
+    >();
     for (const cluster of selectedClusters) {
       const colorHex = normalizeColor(cluster.palette[0] ?? '#d9d9d9');
       const tone = resolveAccentTone(cluster.palette);
@@ -1079,7 +1474,11 @@ export class GlbBuilderService {
   private createBuildingRoofAccentGeometry(
     origin: Coordinate,
     buildings: SceneMeta['buildings'],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
     tone: AccentTone,
   ): GeometryBuffers {
     const geometry = this.createEmptyGeometry();
@@ -1109,7 +1508,10 @@ export class GlbBuilderService {
           : building.roofType === 'gable'
             ? topHeight * 0.78
             : topHeight - Math.min(1.2, Math.max(0.45, topHeight * 0.03));
-      const accentTopHeight = Math.min(topHeight + 0.18, accentBaseHeight + 0.35);
+      const accentTopHeight = Math.min(
+        topHeight + 0.18,
+        accentBaseHeight + 0.35,
+      );
       const triangles = this.triangulateRings(insetRing, [], triangulate);
       if (triangles.length === 0) {
         continue;
@@ -1205,12 +1607,20 @@ export class GlbBuilderService {
     origin: Coordinate,
     decals: SceneRoadDecal[],
     types: SceneRoadDecal['type'][],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): GeometryBuffers {
     const geometry = this.createEmptyGeometry();
 
     for (const decal of decals) {
-      if (!types.includes(decal.type) || !decal.polygon || decal.polygon.length < 3) {
+      if (
+        !types.includes(decal.type) ||
+        !decal.polygon ||
+        decal.polygon.length < 3
+      ) {
         continue;
       }
       const ring = this.normalizeLocalRing(
@@ -1326,7 +1736,12 @@ export class GlbBuilderService {
       }
       const variant = this.stableVariant(item.objectId, 3);
       if (type === 'TRAFFIC_LIGHT') {
-        this.pushTrafficLightAssembly(geometry, center, item.principal, variant);
+        this.pushTrafficLightAssembly(
+          geometry,
+          center,
+          item.principal,
+          variant,
+        );
       } else if (type === 'STREET_LIGHT') {
         this.pushStreetLightAssembly(geometry, center, variant);
       } else {
@@ -1358,7 +1773,11 @@ export class GlbBuilderService {
     this.pushBox(
       geometry,
       [center[0], poleHeight - 0.28, center[2] - 0.06],
-      [center[0] + signalOffset * armLength, poleHeight - 0.12, center[2] + 0.06],
+      [
+        center[0] + signalOffset * armLength,
+        poleHeight - 0.12,
+        center[2] + 0.06,
+      ],
     );
     const headX = center[0] + signalOffset * armLength;
     this.pushBox(
@@ -1529,11 +1948,14 @@ export class GlbBuilderService {
     origin: Coordinate,
     covers: SceneDetail['landCovers'],
     type: SceneDetail['landCovers'][number]['type'],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): GeometryBuffers {
     const geometry = this.createEmptyGeometry();
-    const y =
-      type === 'WATER' ? -0.01 : type === 'PLAZA' ? 0.006 : 0.01;
+    const y = type === 'WATER' ? -0.01 : type === 'PLAZA' ? 0.006 : 0.01;
 
     for (const cover of covers) {
       if (cover.type !== type) {
@@ -1568,10 +1990,8 @@ export class GlbBuilderService {
       if (feature.type !== type) {
         continue;
       }
-      const width =
-        type === 'RAILWAY' ? 3.2 : type === 'BRIDGE' ? 4.6 : 2.8;
-      const y =
-        type === 'BRIDGE' ? 0.34 : type === 'WATERWAY' ? -0.005 : 0.025;
+      const width = type === 'RAILWAY' ? 3.2 : type === 'BRIDGE' ? 4.6 : 2.8;
+      const y = type === 'BRIDGE' ? 0.34 : type === 'WATERWAY' ? -0.005 : 0.025;
       this.pushPathStrips(origin, geometry, feature.path, width, y);
     }
 
@@ -1581,7 +2001,11 @@ export class GlbBuilderService {
   private createBuildingShellGeometry(
     origin: Coordinate,
     buildings: SceneMeta['buildings'],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): GeometryBuffers {
     const geometry = this.createEmptyGeometry();
 
@@ -1591,7 +2015,9 @@ export class GlbBuilderService {
         'CCW',
       );
       const holes = building.holes
-        .map((ring) => this.normalizeLocalRing(this.toLocalRing(origin, ring), 'CW'))
+        .map((ring) =>
+          this.normalizeLocalRing(this.toLocalRing(origin, ring), 'CW'),
+        )
         .filter((ring) => ring.length >= 3);
       if (outerRing.length < 3) {
         continue;
@@ -1614,9 +2040,17 @@ export class GlbBuilderService {
     building: SceneMeta['buildings'][number],
     outerRing: Vec3[],
     holes: Vec3[][],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): void {
-    const strategy = this.resolveBuildingGeometryStrategy(building, holes, outerRing);
+    const strategy = this.resolveBuildingGeometryStrategy(
+      building,
+      holes,
+      outerRing,
+    );
     const height = Math.max(4, building.heightMeters);
 
     switch (strategy) {
@@ -1659,7 +2093,10 @@ export class GlbBuilderService {
           triangulate,
         );
         let currentRing = outerRing;
-        const stageCount = Math.max(2, Math.min(3, building.setbackLevels ?? 2));
+        const stageCount = Math.max(
+          2,
+          Math.min(3, building.setbackLevels ?? 2),
+        );
         for (let stage = 0; stage < stageCount; stage += 1) {
           currentRing = this.insetRing(currentRing, 0.12 + stage * 0.04);
           if (currentRing.length < 3) {
@@ -1735,7 +2172,11 @@ export class GlbBuilderService {
     holes: Vec3[][],
     minHeight: number,
     maxHeight: number,
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): void {
     const triangulated = this.triangulateRings(outerRing, holes, triangulate);
     if (triangulated.length === 0) {
@@ -1768,7 +2209,9 @@ export class GlbBuilderService {
     holes: Vec3[][],
     outerRing: Vec3[],
   ): GeometryStrategy {
-    if ((building.geometryStrategy ?? 'simple_extrude') === 'fallback_massing') {
+    if (
+      (building.geometryStrategy ?? 'simple_extrude') === 'fallback_massing'
+    ) {
       return 'fallback_massing';
     }
     if (holes.length > 0) {
@@ -1921,7 +2364,11 @@ export class GlbBuilderService {
       if (!this.isFiniteVec2(normal)) {
         continue;
       }
-      left.push([current[0] + normal[0] * half, y, current[2] + normal[1] * half]);
+      left.push([
+        current[0] + normal[0] * half,
+        y,
+        current[2] + normal[1] * half,
+      ]);
       right.push([
         current[0] - normal[0] * half,
         y,
@@ -1940,12 +2387,48 @@ export class GlbBuilderService {
   private pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
     const [x0, y0, z0] = min;
     const [x1, y1, z1] = max;
-    this.pushQuad(geometry, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
-    this.pushQuad(geometry, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]);
-    this.pushQuad(geometry, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]);
-    this.pushQuad(geometry, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]);
-    this.pushQuad(geometry, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]);
-    this.pushQuad(geometry, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+    this.pushQuad(
+      geometry,
+      [x0, y0, z1],
+      [x1, y0, z1],
+      [x1, y1, z1],
+      [x0, y1, z1],
+    );
+    this.pushQuad(
+      geometry,
+      [x1, y0, z0],
+      [x0, y0, z0],
+      [x0, y1, z0],
+      [x1, y1, z0],
+    );
+    this.pushQuad(
+      geometry,
+      [x0, y0, z0],
+      [x0, y0, z1],
+      [x0, y1, z1],
+      [x0, y1, z0],
+    );
+    this.pushQuad(
+      geometry,
+      [x1, y0, z1],
+      [x1, y0, z0],
+      [x1, y1, z0],
+      [x1, y1, z1],
+    );
+    this.pushQuad(
+      geometry,
+      [x0, y1, z1],
+      [x1, y1, z1],
+      [x1, y1, z0],
+      [x0, y1, z0],
+    );
+    this.pushQuad(
+      geometry,
+      [x0, y0, z0],
+      [x1, y0, z0],
+      [x1, y0, z1],
+      [x0, y0, z1],
+    );
   }
 
   private pushQuad(
@@ -2054,10 +2537,7 @@ export class GlbBuilderService {
       .filter((point) => this.isFiniteVec3(point));
   }
 
-  private normalizeLocalRing(
-    ring: Vec3[],
-    direction: 'CW' | 'CCW',
-  ): Vec3[] {
+  private normalizeLocalRing(ring: Vec3[], direction: 'CW' | 'CCW'): Vec3[] {
     if (ring.length < 3) {
       return ring;
     }
@@ -2068,7 +2548,10 @@ export class GlbBuilderService {
     }
 
     const isClockwise = signedArea < 0;
-    if ((direction === 'CW' && isClockwise) || (direction === 'CCW' && !isClockwise)) {
+    if (
+      (direction === 'CW' && isClockwise) ||
+      (direction === 'CCW' && !isClockwise)
+    ) {
       return ring;
     }
 
@@ -2078,7 +2561,11 @@ export class GlbBuilderService {
   private triangulateRings(
     outerRing: Vec3[],
     holes: Vec3[][],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): Array<[Vec3, Vec3, Vec3]> {
     const vertices: number[] = [];
     const points: Vec3[] = [];
@@ -2106,7 +2593,11 @@ export class GlbBuilderService {
       if (!a || !b || !c) {
         continue;
       }
-      if (this.samePointXZ(a, b) || this.samePointXZ(b, c) || this.samePointXZ(a, c)) {
+      if (
+        this.samePointXZ(a, b) ||
+        this.samePointXZ(b, c) ||
+        this.samePointXZ(a, c)
+      ) {
         continue;
       }
       triangles.push([a, b, c]);
@@ -2159,7 +2650,11 @@ export class GlbBuilderService {
     outerRing: Vec3[],
     roofBaseHeight: number,
     topHeight: number,
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ): void {
     const insetRing = this.insetRing(outerRing, 0.16);
     if (insetRing.length < 3) {
@@ -2167,7 +2662,12 @@ export class GlbBuilderService {
     }
     const roofTriangles = this.triangulateRings(insetRing, [], triangulate);
     for (const [a, b, c] of roofTriangles) {
-      this.pushTriangle(geometry, [a[0], topHeight, a[2]], [b[0], topHeight, b[2]], [c[0], topHeight, c[2]]);
+      this.pushTriangle(
+        geometry,
+        [a[0], topHeight, a[2]],
+        [b[0], topHeight, b[2]],
+        [c[0], topHeight, c[2]],
+      );
     }
     this.pushRingWallsBetween(
       geometry,
@@ -2211,11 +2711,11 @@ export class GlbBuilderService {
       const current = outerRing[index];
       const next = outerRing[(index + 1) % outerRing.length];
       const currentRidge = ridgeAlongX
-        ? [current[0], ridgeHeight, ridgeA[2]] as Vec3
-        : [ridgeA[0], ridgeHeight, current[2]] as Vec3;
+        ? ([current[0], ridgeHeight, ridgeA[2]] as Vec3)
+        : ([ridgeA[0], ridgeHeight, current[2]] as Vec3);
       const nextRidge = ridgeAlongX
-        ? [next[0], ridgeHeight, ridgeA[2]] as Vec3
-        : [ridgeA[0], ridgeHeight, next[2]] as Vec3;
+        ? ([next[0], ridgeHeight, ridgeA[2]] as Vec3)
+        : ([ridgeA[0], ridgeHeight, next[2]] as Vec3);
       this.pushQuad(
         geometry,
         [current[0], roofBaseHeight, current[2]],
@@ -2225,8 +2725,18 @@ export class GlbBuilderService {
       );
     }
 
-    this.pushTriangle(geometry, [bounds.minX, roofBaseHeight, bounds.minZ], [bounds.minX, roofBaseHeight, bounds.maxZ], ridgeA);
-    this.pushTriangle(geometry, [bounds.maxX, roofBaseHeight, bounds.maxZ], [bounds.maxX, roofBaseHeight, bounds.minZ], ridgeB);
+    this.pushTriangle(
+      geometry,
+      [bounds.minX, roofBaseHeight, bounds.minZ],
+      [bounds.minX, roofBaseHeight, bounds.maxZ],
+      ridgeA,
+    );
+    this.pushTriangle(
+      geometry,
+      [bounds.maxX, roofBaseHeight, bounds.maxZ],
+      [bounds.maxX, roofBaseHeight, bounds.minZ],
+      ridgeB,
+    );
   }
 
   private insetRing(points: Vec3[], ratio: number): Vec3[] {
@@ -2240,7 +2750,8 @@ export class GlbBuilderService {
 
   private averagePoint(points: Vec3[]): Vec3 {
     const total = points.reduce(
-      (acc, point) => [acc[0] + point[0], acc[1] + point[1], acc[2] + point[2]] as Vec3,
+      (acc, point) =>
+        [acc[0] + point[0], acc[1] + point[1], acc[2] + point[2]] as Vec3,
       [0, 0, 0],
     );
     return [total[0] / points.length, 0, total[2] / points.length];
@@ -2278,8 +2789,16 @@ export class GlbBuilderService {
       return null;
     }
     let normal: Vec3 = [-edge[2] / edgeLength, 0, edge[0] / edgeLength];
-    const midpoint: Vec3 = [(current[0] + next[0]) / 2, 0, (current[2] + next[2]) / 2];
-    const toCentroid: Vec3 = [centroid[0] - midpoint[0], 0, centroid[2] - midpoint[2]];
+    const midpoint: Vec3 = [
+      (current[0] + next[0]) / 2,
+      0,
+      (current[2] + next[2]) / 2,
+    ];
+    const toCentroid: Vec3 = [
+      centroid[0] - midpoint[0],
+      0,
+      centroid[2] - midpoint[2],
+    ];
     if (normal[0] * toCentroid[0] + normal[2] * toCentroid[2] > 0) {
       normal = [-normal[0], 0, -normal[2]];
     }
@@ -2314,24 +2833,52 @@ export class GlbBuilderService {
         break;
       case 'retail_sign_band':
         this.pushSignBands(geometry, frame, signBandLevels || 2, 1.15);
-        this.pushHorizontalBands(geometry, frame, Math.max(2, bandCount - 1), 0.24, 0.58);
+        this.pushHorizontalBands(
+          geometry,
+          frame,
+          Math.max(2, bandCount - 1),
+          0.24,
+          0.58,
+        );
         break;
       case 'mall_panel':
         this.pushSignBands(geometry, frame, signBandLevels || 3, 1.4);
-        this.pushHorizontalBands(geometry, frame, Math.max(2, Math.floor(bandCount / 2)), 0.8, 0.68);
+        this.pushHorizontalBands(
+          geometry,
+          frame,
+          Math.max(2, Math.floor(bandCount / 2)),
+          0.8,
+          0.68,
+        );
         if (hint.billboardEligible) {
           this.pushTopBillboardZone(geometry, frame);
         }
         break;
       case 'brick_lowrise':
-        this.pushHorizontalBands(geometry, frame, Math.min(3, bandCount), 0.18, 0.44);
+        this.pushHorizontalBands(
+          geometry,
+          frame,
+          Math.min(3, bandCount),
+          0.18,
+          0.44,
+        );
         if (signBandLevels > 0) {
           this.pushSignBands(geometry, frame, 1, 0.95);
         }
         break;
       case 'station_metal':
-        this.pushHorizontalBands(geometry, frame, Math.max(2, Math.floor(bandCount / 2)), 0.72, 0.62);
-        this.pushCanopyBand(geometry, frame, Math.max(3, buildingHeight * 0.16));
+        this.pushHorizontalBands(
+          geometry,
+          frame,
+          Math.max(2, Math.floor(bandCount / 2)),
+          0.72,
+          0.62,
+        );
+        this.pushCanopyBand(
+          geometry,
+          frame,
+          Math.max(3, buildingHeight * 0.16),
+        );
         break;
       case 'concrete_repetitive':
       default:
@@ -2378,8 +2925,7 @@ export class GlbBuilderService {
     density: WindowPatternDensity,
     glazingRatio: number,
   ): void {
-    const mullionCount =
-      density === 'dense' ? 7 : density === 'medium' ? 5 : 3;
+    const mullionCount = density === 'dense' ? 7 : density === 'medium' ? 5 : 3;
     for (let index = 1; index < mullionCount; index += 1) {
       const t = index / mullionCount;
       const x0 = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
@@ -2438,7 +2984,10 @@ export class GlbBuilderService {
     canopyHeight: number,
   ): void {
     const y0 = Math.min(frame.height - 0.8, 4);
-    const y1 = Math.min(frame.height - 0.2, y0 + Math.max(1.2, canopyHeight * 0.18));
+    const y1 = Math.min(
+      frame.height - 0.2,
+      y0 + Math.max(1.2, canopyHeight * 0.18),
+    );
     this.pushQuad(
       geometry,
       [frame.a[0], y0, frame.a[2]],
@@ -2504,7 +3053,10 @@ export class GlbBuilderService {
     glbBinary: Uint8Array,
     sceneId: string,
     validatorModule: {
-      validateBytes: (data: Uint8Array, options?: Record<string, unknown>) => Promise<unknown>;
+      validateBytes: (
+        data: Uint8Array,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
     },
   ): Promise<void> {
     const report = (await validatorModule.validateBytes(glbBinary, {
@@ -2641,7 +3193,9 @@ export class GlbBuilderService {
     }
   }
 
-  private defaultShellColorForMaterialClass(materialClass: MaterialClass): string {
+  private defaultShellColorForMaterialClass(
+    materialClass: MaterialClass,
+  ): string {
     switch (materialClass) {
       case 'glass':
         return '#8eb7d9';
@@ -2659,7 +3213,8 @@ export class GlbBuilderService {
   private resolveMaterialClassFromBuilding(
     building: SceneMeta['buildings'][number],
   ): MaterialClass {
-    const rawMaterial = `${building.facadeMaterial ?? ''} ${building.roofMaterial ?? ''}`.toLowerCase();
+    const rawMaterial =
+      `${building.facadeMaterial ?? ''} ${building.roofMaterial ?? ''}`.toLowerCase();
 
     if (rawMaterial.includes('glass')) {
       return 'glass';

@@ -92,7 +92,15 @@ export interface CrossingData {
 export interface StreetFurnitureData {
   id: string;
   name: string;
-  type: 'TRAFFIC_LIGHT' | 'STREET_LIGHT' | 'SIGN_POLE' | 'BOLLARD';
+  type:
+    | 'TRAFFIC_LIGHT'
+    | 'STREET_LIGHT'
+    | 'SIGN_POLE'
+    | 'BOLLARD'
+    | 'BENCH'
+    | 'BIKE_RACK'
+    | 'TRASH_CAN'
+    | 'FIRE_HYDRANT';
   location: Coordinate;
 }
 

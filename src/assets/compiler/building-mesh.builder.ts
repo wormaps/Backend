@@ -15,7 +15,11 @@ import { createEmptyGeometry } from './road-mesh.builder';
 export function createBuildingShellGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -31,13 +35,7 @@ export function createBuildingShellGeometry(
       continue;
     }
 
-    pushBuildingByStrategy(
-      geometry,
-      building,
-      outerRing,
-      holes,
-      triangulate,
-    );
+    pushBuildingByStrategy(geometry, building, outerRing, holes, triangulate);
   }
 
   return geometry;
@@ -54,7 +52,10 @@ export function createBuildingPanelsGeometry(
 
   for (const building of buildings) {
     const hint = hintMap.get(building.objectId);
-    if (!hint || resolveAccentTone(hint.panelPalette ?? hint.palette) !== tone) {
+    if (
+      !hint ||
+      resolveAccentTone(hint.panelPalette ?? hint.palette) !== tone
+    ) {
       continue;
     }
 
@@ -86,7 +87,11 @@ export function createBuildingPanelsGeometry(
 export function createBuildingRoofSurfaceGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
   tone: AccentTone,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
@@ -102,7 +107,10 @@ export function createBuildingRoofSurfaceGeometry(
     if (outerRing.length < 3) {
       continue;
     }
-    const roofRing = insetRing(outerRing, building.roofType === 'gable' ? 0.08 : 0.05);
+    const roofRing = insetRing(
+      outerRing,
+      building.roofType === 'gable' ? 0.08 : 0.05,
+    );
     if (roofRing.length < 3) {
       continue;
     }
@@ -125,7 +133,10 @@ export function createHeroCanopyGeometry(
     if (!building.visualRole || building.visualRole === 'generic') {
       continue;
     }
-    const ring = normalizeLocalRing(toLocalRing(origin, building.outerRing), 'CCW');
+    const ring = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
     if (ring.length < 3) {
       continue;
     }
@@ -134,7 +145,10 @@ export function createHeroCanopyGeometry(
       const frame = buildFacadeFrame(
         ring,
         edgeIndex % ring.length,
-        Math.max(4.2, building.podiumSpec?.levels ? building.podiumSpec.levels * 3.6 : 4.2),
+        Math.max(
+          4.2,
+          building.podiumSpec?.levels ? building.podiumSpec.levels * 3.6 : 4.2,
+        ),
       );
       if (!frame) {
         continue;
@@ -154,10 +168,17 @@ export function createHeroRoofUnitGeometry(
 
   for (const building of buildings) {
     const roofUnits = building.roofSpec?.roofUnits ?? 0;
-    if (!building.visualRole || building.visualRole === 'generic' || roofUnits <= 0) {
+    if (
+      !building.visualRole ||
+      building.visualRole === 'generic' ||
+      roofUnits <= 0
+    ) {
       continue;
     }
-    const ring = normalizeLocalRing(toLocalRing(origin, building.outerRing), 'CCW');
+    const ring = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
     if (ring.length < 3) {
       continue;
     }
@@ -168,7 +189,9 @@ export function createHeroRoofUnitGeometry(
       const col = index % columns;
       const row = Math.floor(index / columns);
       const centerX = bounds.minX + ((col + 1) / (columns + 1)) * bounds.width;
-      const centerZ = bounds.minZ + ((row + 1) / (Math.ceil(roofUnits / columns) + 1)) * bounds.depth;
+      const centerZ =
+        bounds.minZ +
+        ((row + 1) / (Math.ceil(roofUnits / columns) + 1)) * bounds.depth;
       pushBox(
         geometry,
         [centerX - 0.7, building.heightMeters + 0.2, centerZ - 0.5],
@@ -188,10 +211,17 @@ export function createHeroBillboardPlaneGeometry(
 
   for (const building of buildings) {
     const faces = building.signageSpec?.billboardFaces ?? [];
-    if (!building.visualRole || building.visualRole === 'generic' || faces.length === 0) {
+    if (
+      !building.visualRole ||
+      building.visualRole === 'generic' ||
+      faces.length === 0
+    ) {
       continue;
     }
-    const ring = normalizeLocalRing(toLocalRing(origin, building.outerRing), 'CCW');
+    const ring = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
     if (ring.length < 3) {
       continue;
     }
@@ -296,9 +326,7 @@ export function resolveAccentTone(palette: string[]): AccentTone {
   return g > 0.5 ? 'cool' : 'neutral';
 }
 
-function resolveRoofTone(
-  building: SceneMeta['buildings'][number],
-): AccentTone {
+function resolveRoofTone(building: SceneMeta['buildings'][number]): AccentTone {
   const explicit = building.roofColor ?? building.facadeColor;
   if (explicit) {
     return resolveAccentTone([explicit]);
@@ -314,7 +342,11 @@ function pushBuildingByStrategy(
   building: SceneMeta['buildings'][number],
   outerRing: Vec3[],
   holes: Vec3[][],
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
 ): void {
   if (building.visualRole && building.visualRole !== 'generic') {
     pushHeroBuilding(geometry, building, outerRing, holes, triangulate);
@@ -355,14 +387,7 @@ function pushBuildingByStrategy(
     }
     case 'stepped_tower': {
       const baseTop = Math.max(8, height * 0.58);
-      pushExtrudedPolygon(
-        geometry,
-        outerRing,
-        holes,
-        0,
-        baseTop,
-        triangulate,
-      );
+      pushExtrudedPolygon(geometry, outerRing, holes, 0, baseTop, triangulate);
       let currentRing = outerRing;
       const stageCount = Math.max(2, Math.min(3, building.setbackLevels ?? 2));
       for (let stage = 0; stage < stageCount; stage += 1) {
@@ -400,14 +425,7 @@ function pushBuildingByStrategy(
       break;
     }
     case 'courtyard_block': {
-      pushExtrudedPolygon(
-        geometry,
-        outerRing,
-        holes,
-        0,
-        height,
-        triangulate,
-      );
+      pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
       break;
     }
     case 'fallback_massing': {
@@ -421,14 +439,7 @@ function pushBuildingByStrategy(
     }
     case 'simple_extrude':
     default: {
-      pushExtrudedPolygon(
-        geometry,
-        outerRing,
-        holes,
-        0,
-        height,
-        triangulate,
-      );
+      pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
       break;
     }
   }
@@ -439,13 +450,21 @@ function pushHeroBuilding(
   building: SceneMeta['buildings'][number],
   outerRing: Vec3[],
   holes: Vec3[][],
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
 ): void {
   const height = Math.max(6, building.heightMeters);
   const baseMass = building.baseMass ?? 'podium_tower';
-  const podiumLevels = building.podiumSpec?.levels ?? building.podiumLevels ?? 2;
+  const podiumLevels =
+    building.podiumSpec?.levels ?? building.podiumLevels ?? 2;
   const setbacks = building.podiumSpec?.setbacks ?? building.setbackLevels ?? 1;
-  const podiumHeight = Math.min(height * 0.45, Math.max(5.5, podiumLevels * 3.8));
+  const podiumHeight = Math.min(
+    height * 0.45,
+    Math.max(5.5, podiumLevels * 3.8),
+  );
 
   if (baseMass === 'lowrise_strip') {
     pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
@@ -476,12 +495,21 @@ function pushHeroBuilding(
       break;
     }
     const stageMin =
-      stage === 0 ? podiumHeight : podiumHeight + stage * ((height - podiumHeight) / stageCount);
+      stage === 0
+        ? podiumHeight
+        : podiumHeight + stage * ((height - podiumHeight) / stageCount);
     const stageMax =
       stage === stageCount - 1
         ? height
         : podiumHeight + (stage + 1) * ((height - podiumHeight) / stageCount);
-    pushExtrudedPolygon(geometry, currentRing, [], stageMin, stageMax, triangulate);
+    pushExtrudedPolygon(
+      geometry,
+      currentRing,
+      [],
+      stageMin,
+      stageMax,
+      triangulate,
+    );
   }
 }
 
@@ -491,7 +519,11 @@ function pushExtrudedPolygon(
   holes: Vec3[][],
   minHeight: number,
   maxHeight: number,
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
 ): void {
   const triangulated = triangulateRings(outerRing, holes, triangulate);
   if (triangulated.length === 0) {
@@ -556,11 +588,25 @@ function pushFacadePresetPanels(
   pushFacadeBacking(geometry, frame, facadeDepth, hint);
 
   if (hint.facadeSpec) {
-    const lowerHeight = Math.min(frame.height * 0.3, Math.max(4.5, buildingHeight * 0.16));
-    const topHeight = Math.min(frame.height * 0.22, Math.max(3.2, buildingHeight * 0.12));
+    const lowerHeight = Math.min(
+      frame.height * 0.3,
+      Math.max(4.5, buildingHeight * 0.16),
+    );
+    const topHeight = Math.min(
+      frame.height * 0.22,
+      Math.max(3.2, buildingHeight * 0.12),
+    );
     const lowerFrame = splitFacadeFrame(frame, 0, lowerHeight);
-    const midFrame = splitFacadeFrame(frame, lowerHeight, Math.max(lowerHeight + 1.8, frame.height - topHeight));
-    const topFrame = splitFacadeFrame(frame, Math.max(lowerHeight + 1.8, frame.height - topHeight), frame.height);
+    const midFrame = splitFacadeFrame(
+      frame,
+      lowerHeight,
+      Math.max(lowerHeight + 1.8, frame.height - topHeight),
+    );
+    const topFrame = splitFacadeFrame(
+      frame,
+      Math.max(lowerHeight + 1.8, frame.height - topHeight),
+      frame.height,
+    );
 
     pushFacadeBandByType(
       geometry,
@@ -592,8 +638,15 @@ function pushFacadePresetPanels(
 
     if (hint.visualRole && hint.visualRole !== 'generic') {
       const canopyEdges = hint.podiumSpec?.canopyEdges.length ?? 0;
-      if (canopyEdges > 0 || hint.facadeSpec.lowerBandType === 'retail_sign_band') {
-        pushCanopyBand(geometry, lowerFrame, Math.max(4, buildingHeight * 0.12));
+      if (
+        canopyEdges > 0 ||
+        hint.facadeSpec.lowerBandType === 'retail_sign_band'
+      ) {
+        pushCanopyBand(
+          geometry,
+          lowerFrame,
+          Math.max(4, buildingHeight * 0.12),
+        );
       }
     }
 
@@ -613,11 +666,23 @@ function pushFacadePresetPanels(
       break;
     case 'retail_sign_band':
       pushSignBands(geometry, frame, signBandLevels || 2, 1.15);
-      pushHorizontalBands(geometry, frame, Math.max(2, bandCount - 1), 0.24, 0.58);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.max(2, bandCount - 1),
+        0.24,
+        0.58,
+      );
       break;
     case 'mall_panel':
       pushSignBands(geometry, frame, signBandLevels || 3, 1.4);
-      pushHorizontalBands(geometry, frame, Math.max(2, Math.floor(bandCount / 2)), 0.8, 0.68);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.max(2, Math.floor(bandCount / 2)),
+        0.8,
+        0.68,
+      );
       if (hint.billboardEligible) {
         pushTopBillboardZone(geometry, frame);
       }
@@ -629,7 +694,13 @@ function pushFacadePresetPanels(
       }
       break;
     case 'station_metal':
-      pushHorizontalBands(geometry, frame, Math.max(2, Math.floor(bandCount / 2)), 0.72, 0.62);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.max(2, Math.floor(bandCount / 2)),
+        0.72,
+        0.62,
+      );
       pushCanopyBand(geometry, frame, Math.max(3, buildingHeight * 0.16));
       break;
     case 'concrete_repetitive':
@@ -679,7 +750,13 @@ function pushFacadeBandByType(
       pushVerticalMullions(geometry, frame, 'dense', glazing, repeatX);
       return;
     case 'solid_panel':
-      pushHorizontalBands(geometry, frame, Math.max(1, Math.floor(bandCount / 2)), 0.82, 0.98);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.max(1, Math.floor(bandCount / 2)),
+        0.82,
+        0.98,
+      );
       return;
     default:
       return;
@@ -697,7 +774,10 @@ function pushHorizontalBands(
   const yMax = getFrameYMax(frame);
   const availableHeight = Math.max(0.4, yMax - yMin);
   const margin = Math.min(0.6, availableHeight * 0.12);
-  const step = Math.max(0.8, (availableHeight - margin * 2) / Math.max(1, bandCount));
+  const step = Math.max(
+    0.8,
+    (availableHeight - margin * 2) / Math.max(1, bandCount),
+  );
   for (let band = 0; band < bandCount; band += 1) {
     const y0 = Math.min(yMax - 0.2, yMin + margin + band * step);
     const y1 = Math.min(
@@ -707,13 +787,7 @@ function pushHorizontalBands(
     if (y1 <= y0 + 0.08) {
       continue;
     }
-    pushFacadeSlab(
-      geometry,
-      frame,
-      y0,
-      y1,
-      0.08,
-    );
+    pushFacadeSlab(geometry, frame, y0, y1, 0.08);
   }
 }
 
@@ -730,8 +804,7 @@ function pushVerticalMullions(
     return;
   }
   const mullionCount =
-    overrideCount ??
-    (density === 'dense' ? 7 : density === 'medium' ? 5 : 3);
+    overrideCount ?? (density === 'dense' ? 7 : density === 'medium' ? 5 : 3);
   for (let index = 1; index < mullionCount; index += 1) {
     const t = index / mullionCount;
     const x0 = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
@@ -763,13 +836,7 @@ function pushSignBands(
     if (y1 <= y0 + 0.08) {
       continue;
     }
-    pushFacadeSlab(
-      geometry,
-      frame,
-      y0,
-      y1,
-      0.14,
-    );
+    pushFacadeSlab(geometry, frame, y0, y1, 0.14);
   }
 }
 
@@ -780,17 +847,14 @@ function pushTopBillboardZone(
   const yMin = getFrameYMin(frame);
   const yMax = getFrameYMax(frame);
   const topStart = Math.max(yMin + (yMax - yMin) * 0.18, yMax - 2.8);
-  const topEnd = Math.min(yMax - 0.08, topStart + Math.min(2.8, yMax - yMin - 0.12));
+  const topEnd = Math.min(
+    yMax - 0.08,
+    topStart + Math.min(2.8, yMax - yMin - 0.12),
+  );
   if (topEnd <= topStart + 0.08) {
     return;
   }
-  pushFacadeSlab(
-    geometry,
-    frame,
-    topStart,
-    topEnd,
-    0.16,
-  );
+  pushFacadeSlab(geometry, frame, topStart, topEnd, 0.16);
 }
 
 function pushCanopyBand(
@@ -805,13 +869,7 @@ function pushCanopyBand(
   if (y1 <= y0 + 0.08) {
     return;
   }
-  pushFacadeSlab(
-    geometry,
-    frame,
-    y0,
-    y1,
-    0.18,
-  );
+  pushFacadeSlab(geometry, frame, y0, y1, 0.18);
 }
 
 function pushSolidPanel(
@@ -824,13 +882,7 @@ function pushSolidPanel(
   if (yMax <= yMin + 0.08) {
     return;
   }
-  pushFacadeSlab(
-    geometry,
-    frame,
-    yMin,
-    yMax,
-    0.1,
-  );
+  pushFacadeSlab(geometry, frame, yMin, yMax, 0.1);
 }
 
 function splitFacadeFrame(
@@ -848,7 +900,11 @@ function splitFacadeFrame(
 function triangulateRings(
   outerRing: Vec3[],
   holes: Vec3[][],
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
 ): Array<[Vec3, Vec3, Vec3]> {
   const vertices: number[] = [];
   const points: Vec3[] = [];
@@ -974,7 +1030,8 @@ function insetRing(points: Vec3[], ratio: number): Vec3[] {
 
 function averagePoint(points: Vec3[]): Vec3 {
   const total = points.reduce(
-    (acc, point) => [acc[0] + point[0], acc[1] + point[1], acc[2] + point[2]] as Vec3,
+    (acc, point) =>
+      [acc[0] + point[0], acc[1] + point[1], acc[2] + point[2]] as Vec3,
     [0, 0, 0],
   );
   return [total[0] / points.length, 0, total[2] / points.length];
@@ -1012,8 +1069,16 @@ function buildFacadeFrame(
     return null;
   }
   let normal: Vec3 = [-edge[2] / edgeLength, 0, edge[0] / edgeLength];
-  const midpoint: Vec3 = [(current[0] + next[0]) / 2, 0, (current[2] + next[2]) / 2];
-  const toCentroid: Vec3 = [centroid[0] - midpoint[0], 0, centroid[2] - midpoint[2]];
+  const midpoint: Vec3 = [
+    (current[0] + next[0]) / 2,
+    0,
+    (current[2] + next[2]) / 2,
+  ];
+  const toCentroid: Vec3 = [
+    centroid[0] - midpoint[0],
+    0,
+    centroid[2] - midpoint[2],
+  ];
   if (normal[0] * toCentroid[0] + normal[2] * toCentroid[2] > 0) {
     normal = [-normal[0], 0, -normal[2]];
   }
@@ -1258,10 +1323,7 @@ function toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
     .filter((point) => isFiniteVec3(point));
 }
 
-function normalizeLocalRing(
-  ring: Vec3[],
-  direction: 'CW' | 'CCW',
-): Vec3[] {
+function normalizeLocalRing(ring: Vec3[], direction: 'CW' | 'CCW'): Vec3[] {
   if (ring.length < 3) {
     return ring;
   }
@@ -1272,7 +1334,10 @@ function normalizeLocalRing(
   }
 
   const isClockwise = signedArea < 0;
-  if ((direction === 'CW' && isClockwise) || (direction === 'CCW' && !isClockwise)) {
+  if (
+    (direction === 'CW' && isClockwise) ||
+    (direction === 'CCW' && !isClockwise)
+  ) {
     return ring;
   }
 
@@ -1291,8 +1356,7 @@ function signedAreaXZ(ring: Vec3[]): number {
 
 function samePointXZ(left: Vec3, right: Vec3): boolean {
   return (
-    Math.abs(left[0] - right[0]) <= 1e-6 &&
-    Math.abs(left[2] - right[2]) <= 1e-6
+    Math.abs(left[0] - right[0]) <= 1e-6 && Math.abs(left[2] - right[2]) <= 1e-6
   );
 }
 
@@ -1319,4 +1383,817 @@ function hexToRgb(hex: string): [number, number, number] {
     ((value >> 8) & 255) / 255,
     (value & 255) / 255,
   ];
+}
+
+export function createBuildingWindowGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+  facadeHints: SceneFacadeHint[],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+  const hintMap = new Map(facadeHints.map((hint) => [hint.objectId, hint]));
+
+  for (const building of buildings) {
+    const hint = hintMap.get(building.objectId);
+    if (!hint) {
+      continue;
+    }
+
+    const outerRing = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
+    if (outerRing.length < 3) {
+      continue;
+    }
+
+    const windowConfig = resolveWindowConfig(building, hint);
+    const height = Math.max(4, building.heightMeters);
+
+    for (let edgeIndex = 0; edgeIndex < outerRing.length; edgeIndex += 1) {
+      const frame = buildFacadeFrame(outerRing, edgeIndex, height);
+      if (!frame) {
+        continue;
+      }
+
+      pushWindowGrid(geometry, frame, windowConfig, height);
+    }
+  }
+
+  return geometry;
+}
+
+export function createBuildingEntranceGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const building of buildings) {
+    const outerRing = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
+    if (outerRing.length < 3) {
+      continue;
+    }
+
+    const entranceConfig = resolveEntranceConfig(building);
+    const height = Math.max(4, building.heightMeters);
+
+    const mainEdgeIndex = resolveLongestEdgeIndex(outerRing);
+    const frame = buildFacadeFrame(outerRing, mainEdgeIndex, height);
+    if (!frame) {
+      continue;
+    }
+
+    pushEntranceAssembly(geometry, frame, entranceConfig, height);
+  }
+
+  return geometry;
+}
+
+export function createBuildingRoofEquipmentGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const building of buildings) {
+    const outerRing = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
+    if (outerRing.length < 3) {
+      continue;
+    }
+
+    const equipmentConfig = resolveRoofEquipmentConfig(building);
+    if (equipmentConfig.unitCount === 0) {
+      continue;
+    }
+
+    const inset = insetRing(outerRing, 0.15);
+    const bounds = computeBounds(inset.length >= 3 ? inset : outerRing);
+    const topHeight = Math.max(4, building.heightMeters);
+
+    pushRoofEquipmentAssembly(geometry, bounds, topHeight, equipmentConfig);
+  }
+
+  return geometry;
+}
+
+interface WindowConfig {
+  floorCount: number;
+  windowsPerFloor: number;
+  windowWidth: number;
+  windowHeight: number;
+  windowDepth: number;
+  frameWidth: number;
+  sillDepth: number;
+  pattern: 'grid' | 'horizontal' | 'vertical' | 'scattered';
+}
+
+interface EntranceConfig {
+  hasCanopy: boolean;
+  canopyDepth: number;
+  canopyHeight: number;
+  entranceWidth: number;
+  entranceHeight: number;
+  doorCount: number;
+  hasRecess: boolean;
+}
+
+interface RoofEquipmentConfig {
+  unitCount: number;
+  unitType: 'ac' | 'antenna' | 'mixed';
+  spacing: number;
+}
+
+function resolveWindowConfig(
+  building: SceneMeta['buildings'][number],
+  hint: SceneFacadeHint,
+): WindowConfig {
+  const archetype = building.visualArchetype ?? 'commercial_midrise';
+  const density = hint.windowPatternDensity ?? 'medium';
+  const height = Math.max(4, building.heightMeters);
+
+  const floorHeight = 3.2;
+  const floorCount = Math.max(2, Math.floor(height / floorHeight));
+
+  const baseConfig: WindowConfig = {
+    floorCount,
+    windowsPerFloor: 4,
+    windowWidth: 1.2,
+    windowHeight: 1.8,
+    windowDepth: 0.15,
+    frameWidth: 0.08,
+    sillDepth: 0.12,
+    pattern: 'grid',
+  };
+
+  switch (archetype) {
+    case 'highrise_office':
+      return {
+        ...baseConfig,
+        windowsPerFloor: density === 'dense' ? 8 : density === 'medium' ? 6 : 4,
+        windowWidth: 1.4,
+        windowHeight: 2.0,
+        pattern: 'grid',
+      };
+    case 'apartment_block':
+    case 'house_compact':
+      return {
+        ...baseConfig,
+        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 4 : 3,
+        windowWidth: 1.0,
+        windowHeight: 1.4,
+        pattern: 'grid',
+      };
+    case 'commercial_midrise':
+    case 'mall_podium':
+    case 'lowrise_shop':
+      return {
+        ...baseConfig,
+        floorCount: Math.max(1, Math.floor(floorCount * 0.6)),
+        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
+        windowWidth: 1.6,
+        windowHeight: 1.2,
+        pattern: 'horizontal',
+      };
+    case 'hotel_tower':
+      return {
+        ...baseConfig,
+        windowsPerFloor:
+          density === 'dense' ? 10 : density === 'medium' ? 8 : 6,
+        windowWidth: 1.1,
+        windowHeight: 1.6,
+        pattern: 'grid',
+      };
+    case 'station_like':
+    case 'landmark_special':
+      return {
+        ...baseConfig,
+        windowsPerFloor:
+          density === 'dense' ? 12 : density === 'medium' ? 8 : 6,
+        windowWidth: 1.8,
+        windowHeight: 2.2,
+        pattern: 'vertical',
+      };
+    default:
+      return baseConfig;
+  }
+}
+
+function resolveEntranceConfig(
+  building: SceneMeta['buildings'][number],
+): EntranceConfig {
+  const archetype = building.visualArchetype ?? 'commercial_midrise';
+  const canopyEdges = building.podiumSpec?.canopyEdges ?? [];
+  const hasCanopy = canopyEdges.length > 0;
+
+  const baseConfig: EntranceConfig = {
+    hasCanopy: false,
+    canopyDepth: 2.0,
+    canopyHeight: 3.5,
+    entranceWidth: 3.0,
+    entranceHeight: 3.0,
+    doorCount: 2,
+    hasRecess: false,
+  };
+
+  switch (archetype) {
+    case 'highrise_office':
+      return {
+        ...baseConfig,
+        hasCanopy: true,
+        canopyDepth: 2.5,
+        canopyHeight: 4.0,
+        entranceWidth: 4.0,
+        entranceHeight: 3.5,
+        doorCount: 3,
+        hasRecess: true,
+      };
+    case 'commercial_midrise':
+    case 'mall_podium':
+    case 'lowrise_shop':
+      return {
+        ...baseConfig,
+        hasCanopy: hasCanopy || true,
+        canopyDepth: 3.0,
+        canopyHeight: 3.8,
+        entranceWidth: 5.0,
+        entranceHeight: 3.2,
+        doorCount: 4,
+        hasRecess: true,
+      };
+    case 'apartment_block':
+      return {
+        ...baseConfig,
+        hasCanopy: false,
+        entranceWidth: 2.5,
+        entranceHeight: 2.8,
+        doorCount: 1,
+        hasRecess: true,
+      };
+    case 'hotel_tower':
+      return {
+        ...baseConfig,
+        hasCanopy: true,
+        canopyDepth: 4.0,
+        canopyHeight: 4.5,
+        entranceWidth: 6.0,
+        entranceHeight: 4.0,
+        doorCount: 4,
+        hasRecess: true,
+      };
+    case 'station_like':
+    case 'landmark_special':
+      return {
+        ...baseConfig,
+        hasCanopy: true,
+        canopyDepth: 5.0,
+        canopyHeight: 5.0,
+        entranceWidth: 8.0,
+        entranceHeight: 4.5,
+        doorCount: 6,
+        hasRecess: false,
+      };
+    default:
+      return baseConfig;
+  }
+}
+
+function resolveRoofEquipmentConfig(
+  building: SceneMeta['buildings'][number],
+): RoofEquipmentConfig {
+  const archetype = building.visualArchetype ?? 'commercial_midrise';
+  const explicitUnits = building.roofSpec?.roofUnits ?? 0;
+  const height = Math.max(4, building.heightMeters);
+
+  if (explicitUnits > 0) {
+    return {
+      unitCount: explicitUnits,
+      unitType: 'mixed' as const,
+      spacing: 2.5,
+    };
+  }
+
+  const baseConfig: RoofEquipmentConfig = {
+    unitCount: 0,
+    unitType: 'ac',
+    spacing: 2.5,
+  };
+
+  switch (archetype) {
+    case 'highrise_office':
+      return {
+        ...baseConfig,
+        unitCount: Math.max(2, Math.floor(height / 15)),
+        unitType: 'mixed',
+      };
+    case 'commercial_midrise':
+    case 'mall_podium':
+      return {
+        ...baseConfig,
+        unitCount: Math.max(3, Math.floor(height / 10)),
+        unitType: 'ac',
+      };
+    case 'hotel_tower':
+      return {
+        ...baseConfig,
+        unitCount: Math.max(4, Math.floor(height / 12)),
+        unitType: 'mixed',
+      };
+    case 'apartment_block':
+      return {
+        ...baseConfig,
+        unitCount: Math.max(1, Math.floor(height / 20)),
+        unitType: 'ac',
+      };
+    case 'station_like':
+    case 'landmark_special':
+      return {
+        ...baseConfig,
+        unitCount: Math.max(2, Math.floor(height / 8)),
+        unitType: 'antenna',
+      };
+    default:
+      return baseConfig;
+  }
+}
+
+function pushWindowGrid(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  config: WindowConfig,
+  buildingHeight: number,
+): void {
+  const edgeLength = Math.hypot(
+    frame.b[0] - frame.a[0],
+    frame.b[2] - frame.a[2],
+  );
+
+  const floorHeight = buildingHeight / Math.max(1, config.floorCount);
+  const windowSpacing = edgeLength / Math.max(1, config.windowsPerFloor);
+
+  for (let floor = 0; floor < config.floorCount; floor += 1) {
+    const floorY = floor * floorHeight + floorHeight * 0.3;
+    const floorTopY = floorY + config.windowHeight;
+
+    if (floorTopY > buildingHeight - 0.5) {
+      continue;
+    }
+
+    for (let col = 0; col < config.windowsPerFloor; col += 1) {
+      const t = (col + 0.5) / config.windowsPerFloor;
+      const centerX = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
+      const centerZ = frame.a[2] + (frame.b[2] - frame.a[2]) * t;
+
+      pushWindowFrame(
+        geometry,
+        frame,
+        centerX,
+        centerZ,
+        floorY,
+        config.windowWidth,
+        config.windowHeight,
+        config.windowDepth,
+        config.frameWidth,
+        config.sillDepth,
+      );
+    }
+  }
+}
+
+function pushWindowFrame(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  centerX: number,
+  centerZ: number,
+  floorY: number,
+  windowWidth: number,
+  windowHeight: number,
+  windowDepth: number,
+  frameWidth: number,
+  sillDepth: number,
+): void {
+  const edgeDx = frame.b[0] - frame.a[0];
+  const edgeDz = frame.b[2] - frame.a[2];
+  const edgeLength = Math.hypot(edgeDx, edgeDz);
+  if (edgeLength <= 1e-6) {
+    return;
+  }
+
+  const tangent: Vec3 = [edgeDx / edgeLength, 0, edgeDz / edgeLength];
+  const halfWidth = windowWidth / 2;
+
+  const leftX = centerX - tangent[0] * halfWidth;
+  const leftZ = centerZ - tangent[2] * halfWidth;
+  const rightX = centerX + tangent[0] * halfWidth;
+  const rightZ = centerZ + tangent[2] * halfWidth;
+
+  const frontOffset = 0.02;
+  const frontLeftX = leftX + frame.normal[0] * frontOffset;
+  const frontLeftZ = leftZ + frame.normal[2] * frontOffset;
+  const frontRightX = rightX + frame.normal[0] * frontOffset;
+  const frontRightZ = rightZ + frame.normal[2] * frontOffset;
+
+  const backLeftX = leftX - frame.normal[0] * windowDepth;
+  const backLeftZ = leftZ - frame.normal[2] * windowDepth;
+  const backRightX = rightX - frame.normal[0] * windowDepth;
+  const backRightZ = rightZ - frame.normal[2] * windowDepth;
+
+  const y0 = floorY;
+  const y1 = floorY + windowHeight;
+
+  pushQuad(
+    geometry,
+    [frontLeftX, y0, frontLeftZ],
+    [frontRightX, y0, frontRightZ],
+    [frontRightX, y1, frontRightZ],
+    [frontLeftX, y1, frontLeftZ],
+  );
+
+  pushQuad(
+    geometry,
+    [backRightX, y0, backRightZ],
+    [backLeftX, y0, backLeftZ],
+    [backLeftX, y1, backLeftZ],
+    [backRightX, y1, backRightZ],
+  );
+
+  const frameHalfWidth = frameWidth / 2;
+  pushWindowFrameEdge(
+    geometry,
+    frame,
+    leftX,
+    leftZ,
+    y0,
+    y1,
+    windowDepth,
+    frameHalfWidth,
+  );
+  pushWindowFrameEdge(
+    geometry,
+    frame,
+    rightX,
+    rightZ,
+    y0,
+    y1,
+    windowDepth,
+    frameHalfWidth,
+  );
+  pushWindowSill(
+    geometry,
+    frame,
+    centerX,
+    centerZ,
+    y0,
+    windowWidth,
+    windowDepth,
+    sillDepth,
+  );
+}
+
+function pushWindowFrameEdge(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  x: number,
+  z: number,
+  y0: number,
+  y1: number,
+  depth: number,
+  halfWidth: number,
+): void {
+  const frontX = x + frame.normal[0] * 0.02;
+  const frontZ = z + frame.normal[2] * 0.02;
+  const backX = x - frame.normal[0] * depth;
+  const backZ = z - frame.normal[2] * depth;
+
+  pushQuad(
+    geometry,
+    [
+      frontX - frame.normal[0] * halfWidth,
+      y0,
+      frontZ - frame.normal[2] * halfWidth,
+    ],
+    [
+      backX - frame.normal[0] * halfWidth,
+      y0,
+      backZ - frame.normal[2] * halfWidth,
+    ],
+    [
+      backX - frame.normal[0] * halfWidth,
+      y1,
+      backZ - frame.normal[2] * halfWidth,
+    ],
+    [
+      frontX - frame.normal[0] * halfWidth,
+      y1,
+      frontZ - frame.normal[2] * halfWidth,
+    ],
+  );
+}
+
+function pushWindowSill(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  centerX: number,
+  centerZ: number,
+  y: number,
+  windowWidth: number,
+  windowDepth: number,
+  sillDepth: number,
+): void {
+  const sillHeight = 0.08;
+  const sillWidth = windowWidth + 0.1;
+  const halfWidth = sillWidth / 2;
+
+  const frontX = centerX + frame.normal[0] * sillDepth;
+  const frontZ = centerZ + frame.normal[2] * sillDepth;
+  const backX = centerX - frame.normal[0] * (windowDepth + 0.02);
+  const backZ = centerZ - frame.normal[2] * (windowDepth + 0.02);
+
+  pushBox(
+    geometry,
+    [frontX - halfWidth, y - sillHeight, frontZ - halfWidth * 0.3],
+    [frontX + halfWidth, y, frontZ + halfWidth * 0.3],
+  );
+}
+
+function pushEntranceAssembly(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  config: EntranceConfig,
+  buildingHeight: number,
+): void {
+  const groundY = 0;
+  const entranceY = groundY;
+  const entranceTopY = Math.min(
+    entranceY + config.entranceHeight,
+    buildingHeight * 0.15,
+  );
+
+  const edgeDx = frame.b[0] - frame.a[0];
+  const edgeDz = frame.b[2] - frame.a[2];
+  const edgeLength = Math.hypot(edgeDx, edgeDz);
+  if (edgeLength <= 1e-6) {
+    return;
+  }
+
+  const tangent: Vec3 = [edgeDx / edgeLength, 0, edgeDz / edgeLength];
+  const centerX = (frame.a[0] + frame.b[0]) / 2;
+  const centerZ = (frame.a[2] + frame.b[2]) / 2;
+
+  const halfEntranceWidth = Math.min(
+    config.entranceWidth / 2,
+    edgeLength * 0.4,
+  );
+
+  const leftX = centerX - tangent[0] * halfEntranceWidth;
+  const leftZ = centerZ - tangent[2] * halfEntranceWidth;
+  const rightX = centerX + tangent[0] * halfEntranceWidth;
+  const rightZ = centerZ + tangent[2] * halfEntranceWidth;
+
+  const recessDepth = config.hasRecess ? 0.8 : 0.1;
+  const recessLeftX = leftX - frame.normal[0] * recessDepth;
+  const recessLeftZ = leftZ - frame.normal[2] * recessDepth;
+  const recessRightX = rightX - frame.normal[0] * recessDepth;
+  const recessRightZ = rightZ - frame.normal[2] * recessDepth;
+
+  pushQuad(
+    geometry,
+    [recessLeftX, entranceY, recessLeftZ],
+    [recessRightX, entranceY, recessRightZ],
+    [recessRightX, entranceTopY, recessRightZ],
+    [recessLeftX, entranceTopY, recessLeftZ],
+  );
+
+  const doorWidth = config.entranceWidth / Math.max(1, config.doorCount);
+  for (let i = 0; i < config.doorCount; i += 1) {
+    const doorCenterT = (i + 0.5) / config.doorCount - 0.5;
+    const doorCenterX =
+      centerX + tangent[0] * doorCenterT * config.entranceWidth;
+    const doorCenterZ =
+      centerZ + tangent[2] * doorCenterT * config.entranceWidth;
+
+    pushDoorFrame(
+      geometry,
+      frame,
+      doorCenterX,
+      doorCenterZ,
+      entranceY,
+      doorWidth * 0.8,
+      entranceTopY * 0.85,
+      recessDepth,
+    );
+  }
+
+  if (config.hasCanopy) {
+    pushCanopyStructure(
+      geometry,
+      frame,
+      centerX,
+      centerZ,
+      entranceTopY,
+      config.entranceWidth * 1.2,
+      config.canopyDepth,
+      config.canopyHeight,
+    );
+  }
+}
+
+function pushDoorFrame(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  centerX: number,
+  centerZ: number,
+  y: number,
+  doorWidth: number,
+  doorHeight: number,
+  recessDepth: number,
+): void {
+  const halfWidth = doorWidth / 2;
+  const frameThickness = 0.06;
+
+  const doorFrontX = centerX + frame.normal[0] * 0.02;
+  const doorFrontZ = centerZ + frame.normal[2] * 0.02;
+  const doorBackX = centerX - frame.normal[0] * recessDepth;
+  const doorBackZ = centerZ - frame.normal[2] * recessDepth;
+
+  pushBox(
+    geometry,
+    [doorFrontX - halfWidth, y, doorFrontZ - halfWidth * 0.3],
+    [doorFrontX + halfWidth, y + doorHeight, doorFrontZ + halfWidth * 0.3],
+  );
+
+  pushQuad(
+    geometry,
+    [doorBackX - halfWidth - frameThickness, y, doorBackZ - frameThickness],
+    [doorBackX + halfWidth + frameThickness, y, doorBackZ + frameThickness],
+    [
+      doorBackX + halfWidth + frameThickness,
+      y + doorHeight + frameThickness,
+      doorBackZ + frameThickness,
+    ],
+    [
+      doorBackX - halfWidth - frameThickness,
+      y + doorHeight + frameThickness,
+      doorBackZ - frameThickness,
+    ],
+  );
+}
+
+function pushCanopyStructure(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  centerX: number,
+  centerZ: number,
+  baseY: number,
+  canopyWidth: number,
+  canopyDepth: number,
+  canopyHeight: number,
+): void {
+  const halfWidth = canopyWidth / 2;
+  const canopyY = baseY + 0.3;
+  const canopyTopY = canopyY + canopyHeight;
+
+  const frontX = centerX + frame.normal[0] * canopyDepth;
+  const frontZ = centerZ + frame.normal[2] * canopyDepth;
+  const backX = centerX - frame.normal[0] * 0.1;
+  const backZ = centerZ - frame.normal[2] * 0.1;
+
+  pushBox(
+    geometry,
+    [frontX - halfWidth, canopyY, frontZ - 0.15],
+    [frontX + halfWidth, canopyTopY, frontZ + 0.15],
+  );
+
+  const supportSpacing = canopyWidth / 3;
+  for (let i = -1; i <= 1; i += 1) {
+    const supportX = centerX + (frame.b[0] - frame.a[0]) * (i / 3);
+    const supportZ = centerX + (frame.b[2] - frame.a[2]) * (i / 3);
+
+    pushBox(
+      geometry,
+      [supportX - 0.08, 0, supportZ - 0.08],
+      [supportX + 0.08, canopyY, supportZ + 0.08],
+    );
+  }
+}
+
+function pushRoofEquipmentAssembly(
+  geometry: GeometryBuffers,
+  bounds: {
+    minX: number;
+    maxX: number;
+    minZ: number;
+    maxZ: number;
+    width: number;
+    depth: number;
+  },
+  topHeight: number,
+  config: RoofEquipmentConfig,
+): void {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(config.unitCount)));
+  const rows = Math.ceil(config.unitCount / columns);
+
+  for (let index = 0; index < config.unitCount; index += 1) {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+
+    const centerX = bounds.minX + ((col + 1) / (columns + 1)) * bounds.width;
+    const centerZ = bounds.minZ + ((row + 1) / (rows + 1)) * bounds.depth;
+
+    if (config.unitType === 'antenna') {
+      pushAntennaUnit(geometry, centerX, centerZ, topHeight);
+    } else if (config.unitType === 'ac') {
+      pushACUnit(geometry, centerX, centerZ, topHeight);
+    } else {
+      if (index % 2 === 0) {
+        pushACUnit(geometry, centerX, centerZ, topHeight);
+      } else {
+        pushAntennaUnit(geometry, centerX, centerZ, topHeight);
+      }
+    }
+  }
+}
+
+function pushACUnit(
+  geometry: GeometryBuffers,
+  centerX: number,
+  centerZ: number,
+  baseY: number,
+): void {
+  const unitWidth = 1.4;
+  const unitDepth = 0.8;
+  const unitHeight = 1.2;
+
+  pushBox(
+    geometry,
+    [centerX - unitWidth / 2, baseY + 0.1, centerZ - unitDepth / 2],
+    [
+      centerX + unitWidth / 2,
+      baseY + 0.1 + unitHeight,
+      centerZ + unitDepth / 2,
+    ],
+  );
+
+  const fanRadius = 0.25;
+  for (let i = 0; i < 2; i += 1) {
+    const fanX = centerX + (i - 0.5) * 0.5;
+    pushBox(
+      geometry,
+      [fanX - fanRadius, baseY + 0.1 + unitHeight - 0.05, centerZ - fanRadius],
+      [fanX + fanRadius, baseY + 0.1 + unitHeight + 0.05, centerZ + fanRadius],
+    );
+  }
+}
+
+function pushAntennaUnit(
+  geometry: GeometryBuffers,
+  centerX: number,
+  centerZ: number,
+  baseY: number,
+): void {
+  const poleHeight = 2.5;
+  const poleRadius = 0.06;
+
+  pushBox(
+    geometry,
+    [centerX - poleRadius, baseY + 0.1, centerZ - poleRadius],
+    [centerX + poleRadius, baseY + 0.1 + poleHeight, centerZ + poleRadius],
+  );
+
+  const dishRadius = 0.4;
+  const dishHeight = 0.3;
+  pushBox(
+    geometry,
+    [
+      centerX - dishRadius,
+      baseY + 0.1 + poleHeight * 0.6,
+      centerZ - dishRadius,
+    ],
+    [
+      centerX + dishRadius,
+      baseY + 0.1 + poleHeight * 0.6 + dishHeight,
+      centerZ + dishRadius,
+    ],
+  );
+
+  const topBoxSize = 0.15;
+  pushBox(
+    geometry,
+    [
+      centerX - topBoxSize,
+      baseY + 0.1 + poleHeight - 0.1,
+      centerZ - topBoxSize,
+    ],
+    [
+      centerX + topBoxSize,
+      baseY + 0.1 + poleHeight + 0.1,
+      centerZ + topBoxSize,
+    ],
+  );
 }

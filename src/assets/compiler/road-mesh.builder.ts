@@ -27,7 +27,9 @@ export function createEmptyGeometry(): GeometryBuffers {
   };
 }
 
-export function mergeGeometryBuffers(buffers: GeometryBuffers[]): GeometryBuffers {
+export function mergeGeometryBuffers(
+  buffers: GeometryBuffers[],
+): GeometryBuffers {
   const merged = createEmptyGeometry();
 
   for (const buffer of buffers) {
@@ -206,9 +208,17 @@ export function createRoadDecalPolygonGeometry(
   triangulateRings: (
     outerRing: Vec3[],
     holes: Vec3[][],
-    triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+    triangulate: (
+      vertices: number[],
+      holes?: number[],
+      dimensions?: number,
+    ) => number[],
   ) => Array<[Vec3, Vec3, Vec3]>,
-  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  triangulate: (
+    vertices: number[],
+    holes?: number[],
+    dimensions?: number,
+  ) => number[],
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -221,22 +231,14 @@ export function createRoadDecalPolygonGeometry(
     ) {
       continue;
     }
-    const ring = normalizeLocalRing(
-      toLocalRing(origin, decal.polygon),
-      'CCW',
-    );
+    const ring = normalizeLocalRing(toLocalRing(origin, decal.polygon), 'CCW');
     if (ring.length < 3) {
       continue;
     }
     const triangles = triangulateRings(ring, [], triangulate);
     const y = decal.type === 'JUNCTION_OVERLAY' ? 0.045 : 0.05;
     for (const [a, b, c] of triangles) {
-      pushTriangle(
-        geometry,
-        [a[0], y, a[2]],
-        [b[0], y, b[2]],
-        [c[0], y, c[2]],
-      );
+      pushTriangle(geometry, [a[0], y, a[2]], [b[0], y, b[2]], [c[0], y, c[2]]);
     }
   }
 
@@ -305,6 +307,386 @@ export function createWalkwayGeometry(
   return geometry;
 }
 
+export function createCurbGeometry(
+  origin: Coordinate,
+  roads: SceneMeta['roads'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+  for (const road of roads) {
+    const roadWidth = Math.max(3.2, road.widthMeters);
+    const curbHeight = 0.15;
+    const curbWidth = 0.18;
+    pushPathCurb(origin, geometry, road.path, roadWidth, curbWidth, curbHeight);
+  }
+  return geometry;
+}
+
+export function createMedianGeometry(
+  origin: Coordinate,
+  roads: SceneMeta['roads'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+  for (const road of roads) {
+    const roadWidth = Math.max(3.2, road.widthMeters);
+    if (roadWidth < 8) {
+      continue;
+    }
+    const medianWidth = Math.min(1.2, roadWidth * 0.12);
+    const medianHeight = 0.12;
+    pushPathMedian(
+      origin,
+      geometry,
+      road.path,
+      roadWidth,
+      medianWidth,
+      medianHeight,
+    );
+  }
+  return geometry;
+}
+
+export function createSidewalkEdgeGeometry(
+  origin: Coordinate,
+  walkways: SceneMeta['walkways'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+  for (const walkway of walkways) {
+    const walkwayWidth = Math.max(2, walkway.widthMeters);
+    const edgeHeight = 0.08;
+    const edgeWidth = 0.12;
+    pushPathSidewalkEdge(
+      origin,
+      geometry,
+      walkway.path,
+      walkwayWidth,
+      edgeWidth,
+      edgeHeight,
+    );
+  }
+  return geometry;
+}
+
+function pushPathCurb(
+  origin: Coordinate,
+  geometry: GeometryBuffers,
+  path: Coordinate[],
+  roadWidth: number,
+  curbWidth: number,
+  curbHeight: number,
+): void {
+  const localPath = path
+    .map((point) => toLocalPoint(origin, point))
+    .filter((point) => isFiniteVec3(point))
+    .filter((point, index, array) => {
+      const prev = array[index - 1];
+      return !prev || !samePointXZ(prev, point);
+    });
+
+  if (localPath.length < 2) {
+    return;
+  }
+
+  const halfRoad = roadWidth / 2;
+  const leftOuter: Vec3[] = [];
+  const leftInner: Vec3[] = [];
+  const rightOuter: Vec3[] = [];
+  const rightInner: Vec3[] = [];
+
+  for (let i = 0; i < localPath.length; i += 1) {
+    const current = localPath[i];
+    const prev = localPath[i - 1] ?? current;
+    const next = localPath[i + 1] ?? current;
+    const normal = computePathNormal(prev, current, next);
+    if (!isFiniteVec2(normal)) {
+      continue;
+    }
+    leftOuter.push([
+      current[0] + normal[0] * halfRoad,
+      curbHeight,
+      current[2] + normal[1] * halfRoad,
+    ]);
+    leftInner.push([
+      current[0] + normal[0] * (halfRoad + curbWidth),
+      curbHeight,
+      current[2] + normal[1] * (halfRoad + curbWidth),
+    ]);
+    rightOuter.push([
+      current[0] - normal[0] * halfRoad,
+      curbHeight,
+      current[2] - normal[1] * halfRoad,
+    ]);
+    rightInner.push([
+      current[0] - normal[0] * (halfRoad + curbWidth),
+      curbHeight,
+      current[2] - normal[1] * (halfRoad + curbWidth),
+    ]);
+  }
+
+  for (let i = 0; i < localPath.length - 1; i += 1) {
+    if (
+      !leftOuter[i] ||
+      !leftInner[i] ||
+      !leftOuter[i + 1] ||
+      !leftInner[i + 1] ||
+      !rightOuter[i] ||
+      !rightInner[i] ||
+      !rightOuter[i + 1] ||
+      !rightInner[i + 1]
+    ) {
+      continue;
+    }
+    pushQuad(
+      geometry,
+      leftOuter[i],
+      leftInner[i],
+      leftInner[i + 1],
+      leftOuter[i + 1],
+    );
+    pushQuad(
+      geometry,
+      rightInner[i],
+      rightOuter[i],
+      rightOuter[i + 1],
+      rightInner[i + 1],
+    );
+    pushCurbVerticalFace(
+      geometry,
+      leftOuter[i],
+      leftInner[i],
+      leftOuter[i + 1],
+      leftInner[i + 1],
+      0,
+    );
+    pushCurbVerticalFace(
+      geometry,
+      rightInner[i],
+      rightOuter[i],
+      rightInner[i + 1],
+      rightOuter[i + 1],
+      0,
+    );
+  }
+}
+
+function pushCurbVerticalFace(
+  geometry: GeometryBuffers,
+  outerStart: Vec3,
+  innerStart: Vec3,
+  outerEnd: Vec3,
+  innerEnd: Vec3,
+  baseY: number,
+): void {
+  const baseOuterStart: Vec3 = [outerStart[0], baseY, outerStart[2]];
+  const baseInnerStart: Vec3 = [innerStart[0], baseY, innerStart[2]];
+  const baseOuterEnd: Vec3 = [outerEnd[0], baseY, outerEnd[2]];
+  const baseInnerEnd: Vec3 = [innerEnd[0], baseY, innerEnd[2]];
+  pushQuad(
+    geometry,
+    baseOuterStart,
+    baseInnerStart,
+    baseInnerEnd,
+    baseOuterEnd,
+  );
+}
+
+function pushPathMedian(
+  origin: Coordinate,
+  geometry: GeometryBuffers,
+  path: Coordinate[],
+  _roadWidth: number,
+  medianWidth: number,
+  medianHeight: number,
+): void {
+  const localPath = path
+    .map((point) => toLocalPoint(origin, point))
+    .filter((point) => isFiniteVec3(point))
+    .filter((point, index, array) => {
+      const prev = array[index - 1];
+      return !prev || !samePointXZ(prev, point);
+    });
+
+  if (localPath.length < 2) {
+    return;
+  }
+
+  const halfMedian = medianWidth / 2;
+  const left: Vec3[] = [];
+  const right: Vec3[] = [];
+
+  for (let i = 0; i < localPath.length; i += 1) {
+    const current = localPath[i];
+    const prev = localPath[i - 1] ?? current;
+    const next = localPath[i + 1] ?? current;
+    const normal = computePathNormal(prev, current, next);
+    if (!isFiniteVec2(normal)) {
+      continue;
+    }
+    left.push([
+      current[0] - normal[0] * halfMedian,
+      medianHeight,
+      current[2] - normal[1] * halfMedian,
+    ]);
+    right.push([
+      current[0] + normal[0] * halfMedian,
+      medianHeight,
+      current[2] + normal[1] * halfMedian,
+    ]);
+  }
+
+  for (let i = 0; i < localPath.length - 1; i += 1) {
+    if (!left[i] || !right[i] || !left[i + 1] || !right[i + 1]) {
+      continue;
+    }
+    pushQuad(geometry, left[i], right[i], right[i + 1], left[i + 1]);
+    pushMedianVerticalFace(
+      geometry,
+      left[i],
+      right[i],
+      left[i + 1],
+      right[i + 1],
+      0.01,
+    );
+  }
+}
+
+function pushMedianVerticalFace(
+  geometry: GeometryBuffers,
+  leftStart: Vec3,
+  rightStart: Vec3,
+  leftEnd: Vec3,
+  rightEnd: Vec3,
+  baseY: number,
+): void {
+  const baseLeftStart: Vec3 = [leftStart[0], baseY, leftStart[2]];
+  const baseRightStart: Vec3 = [rightStart[0], baseY, rightStart[2]];
+  const baseLeftEnd: Vec3 = [leftEnd[0], baseY, leftEnd[2]];
+  const baseRightEnd: Vec3 = [rightEnd[0], baseY, rightEnd[2]];
+  pushQuad(geometry, baseLeftStart, baseRightStart, baseRightEnd, baseLeftEnd);
+}
+
+function pushPathSidewalkEdge(
+  origin: Coordinate,
+  geometry: GeometryBuffers,
+  path: Coordinate[],
+  walkwayWidth: number,
+  edgeWidth: number,
+  edgeHeight: number,
+): void {
+  const localPath = path
+    .map((point) => toLocalPoint(origin, point))
+    .filter((point) => isFiniteVec3(point))
+    .filter((point, index, array) => {
+      const prev = array[index - 1];
+      return !prev || !samePointXZ(prev, point);
+    });
+
+  if (localPath.length < 2) {
+    return;
+  }
+
+  const halfWalkway = walkwayWidth / 2;
+  const leftOuter: Vec3[] = [];
+  const leftInner: Vec3[] = [];
+  const rightOuter: Vec3[] = [];
+  const rightInner: Vec3[] = [];
+
+  for (let i = 0; i < localPath.length; i += 1) {
+    const current = localPath[i];
+    const prev = localPath[i - 1] ?? current;
+    const next = localPath[i + 1] ?? current;
+    const normal = computePathNormal(prev, current, next);
+    if (!isFiniteVec2(normal)) {
+      continue;
+    }
+    leftOuter.push([
+      current[0] + normal[0] * halfWalkway,
+      edgeHeight,
+      current[2] + normal[1] * halfWalkway,
+    ]);
+    leftInner.push([
+      current[0] + normal[0] * (halfWalkway + edgeWidth),
+      edgeHeight,
+      current[2] + normal[1] * (halfWalkway + edgeWidth),
+    ]);
+    rightOuter.push([
+      current[0] - normal[0] * halfWalkway,
+      edgeHeight,
+      current[2] - normal[1] * halfWalkway,
+    ]);
+    rightInner.push([
+      current[0] - normal[0] * (halfWalkway + edgeWidth),
+      edgeHeight,
+      current[2] - normal[1] * (halfWalkway + edgeWidth),
+    ]);
+  }
+
+  for (let i = 0; i < localPath.length - 1; i += 1) {
+    if (
+      !leftOuter[i] ||
+      !leftInner[i] ||
+      !leftOuter[i + 1] ||
+      !leftInner[i + 1] ||
+      !rightOuter[i] ||
+      !rightInner[i] ||
+      !rightOuter[i + 1] ||
+      !rightInner[i + 1]
+    ) {
+      continue;
+    }
+    pushQuad(
+      geometry,
+      leftOuter[i],
+      leftInner[i],
+      leftInner[i + 1],
+      leftOuter[i + 1],
+    );
+    pushQuad(
+      geometry,
+      rightInner[i],
+      rightOuter[i],
+      rightOuter[i + 1],
+      rightInner[i + 1],
+    );
+    pushSidewalkEdgeVerticalFace(
+      geometry,
+      leftOuter[i],
+      leftInner[i],
+      leftOuter[i + 1],
+      leftInner[i + 1],
+      0.015,
+    );
+    pushSidewalkEdgeVerticalFace(
+      geometry,
+      rightInner[i],
+      rightOuter[i],
+      rightInner[i + 1],
+      rightOuter[i + 1],
+      0.015,
+    );
+  }
+}
+
+function pushSidewalkEdgeVerticalFace(
+  geometry: GeometryBuffers,
+  outerStart: Vec3,
+  innerStart: Vec3,
+  outerEnd: Vec3,
+  innerEnd: Vec3,
+  baseY: number,
+): void {
+  const baseOuterStart: Vec3 = [outerStart[0], baseY, outerStart[2]];
+  const baseInnerStart: Vec3 = [innerStart[0], baseY, innerStart[2]];
+  const baseOuterEnd: Vec3 = [outerEnd[0], baseY, outerEnd[2]];
+  const baseInnerEnd: Vec3 = [innerEnd[0], baseY, innerEnd[2]];
+  pushQuad(
+    geometry,
+    baseOuterStart,
+    baseInnerStart,
+    baseInnerEnd,
+    baseOuterEnd,
+  );
+}
+
 function pushPathStrips(
   origin: Coordinate,
   geometry: GeometryBuffers,
@@ -336,7 +718,11 @@ function pushPathStrips(
     if (!isFiniteVec2(normal)) {
       continue;
     }
-    left.push([current[0] + normal[0] * half, y, current[2] + normal[1] * half]);
+    left.push([
+      current[0] + normal[0] * half,
+      y,
+      current[2] + normal[1] * half,
+    ]);
     right.push([
       current[0] - normal[0] * half,
       y,
@@ -422,8 +808,20 @@ function pushPathEdgeBands(
     ) {
       continue;
     }
-    pushQuad(geometry, leftOuter[i], leftInner[i], leftInner[i + 1], leftOuter[i + 1]);
-    pushQuad(geometry, rightInner[i], rightOuter[i], rightOuter[i + 1], rightInner[i + 1]);
+    pushQuad(
+      geometry,
+      leftOuter[i],
+      leftInner[i],
+      leftInner[i + 1],
+      leftOuter[i + 1],
+    );
+    pushQuad(
+      geometry,
+      rightInner[i],
+      rightOuter[i],
+      rightOuter[i + 1],
+      rightInner[i + 1],
+    );
   }
 }
 
@@ -544,10 +942,7 @@ function toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
     .filter((point) => isFiniteVec3(point));
 }
 
-function normalizeLocalRing(
-  ring: Vec3[],
-  direction: 'CW' | 'CCW',
-): Vec3[] {
+function normalizeLocalRing(ring: Vec3[], direction: 'CW' | 'CCW'): Vec3[] {
   if (ring.length < 3) {
     return ring;
   }
@@ -558,7 +953,10 @@ function normalizeLocalRing(
   }
 
   const isClockwise = signedArea < 0;
-  if ((direction === 'CW' && isClockwise) || (direction === 'CCW' && !isClockwise)) {
+  if (
+    (direction === 'CW' && isClockwise) ||
+    (direction === 'CCW' && !isClockwise)
+  ) {
     return ring;
   }
 
@@ -577,8 +975,7 @@ function signedAreaXZ(ring: Vec3[]): number {
 
 function samePointXZ(left: Vec3, right: Vec3): boolean {
   return (
-    Math.abs(left[0] - right[0]) <= 1e-6 &&
-    Math.abs(left[2] - right[2]) <= 1e-6
+    Math.abs(left[0] - right[0]) <= 1e-6 && Math.abs(left[2] - right[2]) <= 1e-6
   );
 }
 
