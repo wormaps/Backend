@@ -1,18 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ExternalPlaceDetail } from '../../places/types/external-place.types';
 import { Coordinate } from '../../places/types/place.types';
-import { SceneMeta } from '../types/scene.types';
-import {
-  HeroOverrideManifest,
-  SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE,
-} from '../overrides/shibuya-scramble-crossing.override';
+import { LandmarkAnnotationManifest, SceneMeta } from '../types/scene.types';
+import { SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE } from '../overrides/shibuya-scramble-crossing.override';
 
 @Injectable()
 export class SceneHeroOverrideMatcherService {
   private readonly manifests = [SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE];
   private readonly fallbackMatchRadiusMeters = 22;
 
-  findManifest(place: ExternalPlaceDetail): HeroOverrideManifest | null {
+  findManifest(place: ExternalPlaceDetail): LandmarkAnnotationManifest | null {
     return (
       this.manifests.find((manifest) =>
         manifest.match.placeIds.includes(place.placeId) ||
@@ -25,18 +22,18 @@ export class SceneHeroOverrideMatcherService {
     );
   }
 
-  findMatchingBuilding(
+  findMatchingLandmarkBuilding(
     meta: SceneMeta,
-    override: HeroOverrideManifest['facadeOverrides'][number],
+    annotation: LandmarkAnnotationManifest['landmarks'][number],
   ): SceneMeta['buildings'][number] | null {
-    const exact = override.objectId
-      ? meta.buildings.find((building) => building.objectId === override.objectId) ?? null
+    const exact = annotation.objectId
+      ? meta.buildings.find((building) => building.objectId === annotation.objectId) ?? null
       : null;
     if (exact) {
       return exact;
     }
 
-    const nearest = this.findNearest(meta.buildings, override.anchor, (item) =>
+    const nearest = this.findNearest(meta.buildings, annotation.anchor, (item) =>
       averageCoordinate(item.outerRing) ?? item.outerRing[0],
     );
     if (!nearest) {
@@ -44,44 +41,24 @@ export class SceneHeroOverrideMatcherService {
     }
 
     const nearestAnchor = averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0];
-    return squaredDistance(override.anchor, nearestAnchor) <= this.fallbackMatchRadiusMeters ** 2
+    return squaredDistance(annotation.anchor, nearestAnchor) <= this.fallbackMatchRadiusMeters ** 2
       ? nearest
       : null;
   }
 
-  findApplicableFacadeOverride(
-    building: SceneMeta['buildings'][number],
-    manifest: HeroOverrideManifest,
-  ): HeroOverrideManifest['facadeOverrides'][number] | null {
-    const anchor = averageCoordinate(building.outerRing) ?? building.outerRing[0];
-    const override =
-      manifest.facadeOverrides.find((item) => item.objectId === building.objectId) ??
-      this.findNearest(manifest.facadeOverrides, anchor, (item) => item.anchor);
-
-    if (
-      !override ||
-      (override.objectId && override.objectId !== building.objectId) ||
-      squaredDistance(override.anchor, anchor) > this.fallbackMatchRadiusMeters ** 2
-    ) {
-      return null;
-    }
-
-    return override;
-  }
-
-  resolveFacadeAssignments(
+  resolveLandmarkAssignments(
     meta: SceneMeta,
-    manifest: HeroOverrideManifest,
-  ): Map<string, HeroOverrideManifest['facadeOverrides'][number]> {
-    const assignments = new Map<string, HeroOverrideManifest['facadeOverrides'][number]>();
+    manifest: LandmarkAnnotationManifest,
+  ): Map<string, LandmarkAnnotationManifest['landmarks'][number]> {
+    const assignments = new Map<string, LandmarkAnnotationManifest['landmarks'][number]>();
     const usedBuildings = new Set<string>();
 
-    for (const override of manifest.facadeOverrides) {
-      const matched = this.findPreferredBuilding(meta, override, usedBuildings);
+    for (const annotation of manifest.landmarks.filter((item) => item.kind === 'BUILDING')) {
+      const matched = this.findPreferredBuilding(meta, annotation, usedBuildings);
       if (!matched) {
         continue;
       }
-      assignments.set(matched.objectId, override);
+      assignments.set(matched.objectId, annotation);
       usedBuildings.add(matched.objectId);
     }
 
@@ -108,12 +85,12 @@ export class SceneHeroOverrideMatcherService {
 
   private findPreferredBuilding(
     meta: SceneMeta,
-    override: HeroOverrideManifest['facadeOverrides'][number],
+    annotation: LandmarkAnnotationManifest['landmarks'][number],
     usedBuildings: Set<string>,
   ): SceneMeta['buildings'][number] | null {
-    if (override.objectId) {
+    if (annotation.objectId) {
       const exact =
-        meta.buildings.find((building) => building.objectId === override.objectId) ?? null;
+        meta.buildings.find((building) => building.objectId === annotation.objectId) ?? null;
       if (exact && !usedBuildings.has(exact.objectId)) {
         return exact;
       }
@@ -121,7 +98,7 @@ export class SceneHeroOverrideMatcherService {
 
     const nearest = this.findNearest(
       meta.buildings.filter((building) => !usedBuildings.has(building.objectId)),
-      override.anchor,
+      annotation.anchor,
       (item) => averageCoordinate(item.outerRing) ?? item.outerRing[0],
     );
     if (!nearest) {
@@ -129,7 +106,7 @@ export class SceneHeroOverrideMatcherService {
     }
 
     const nearestAnchor = averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0];
-    return squaredDistance(override.anchor, nearestAnchor) <= this.fallbackMatchRadiusMeters ** 2
+    return squaredDistance(annotation.anchor, nearestAnchor) <= this.fallbackMatchRadiusMeters ** 2
       ? nearest
       : null;
   }

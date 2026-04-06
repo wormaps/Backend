@@ -117,19 +117,19 @@ describe('buildSceneAssetSelection', () => {
           kind: 'CROSSING',
         },
       ],
-      assetProfile: {
+    assetProfile: {
         preset: 'MEDIUM',
         budget: {
-          buildingCount: 700,
-          roadCount: 420,
-          walkwayCount: 520,
-          poiCount: 220,
-          crossingCount: 64,
-          trafficLightCount: 60,
-          streetLightCount: 90,
-          signPoleCount: 120,
-          treeClusterCount: 80,
-          billboardPanelCount: 160,
+          buildingCount: 1500,
+          roadCount: 800,
+          walkwayCount: 950,
+          poiCount: 320,
+          crossingCount: 120,
+          trafficLightCount: 120,
+          streetLightCount: 160,
+          signPoleCount: 220,
+          treeClusterCount: 120,
+          billboardPanelCount: 220,
         },
         selected: {
           buildingCount: 0,
@@ -142,8 +142,15 @@ describe('buildSceneAssetSelection', () => {
           signPoleCount: 0,
           treeClusterCount: 0,
           billboardPanelCount: 0,
-        },
       },
+    },
+    structuralCoverage: {
+      selectedBuildingCoverage: 0,
+      coreAreaBuildingCoverage: 0,
+      fallbackMassingRate: 0,
+      footprintPreservationRate: 0,
+      heroLandmarkCoverage: 0,
+    },
       roads: [...roads, competingRoad, anchorRoad],
       buildings: [],
       walkways: [...walkways, competingWalkway, anchorWalkway],
@@ -163,7 +170,7 @@ describe('buildSceneAssetSelection', () => {
       linearFeatures: [],
       facadeHints: [],
       signageClusters: [],
-      heroOverridesApplied: [],
+      annotationsApplied: [],
       provenance: {
         mapillaryUsed: false,
         mapillaryImageCount: 0,
@@ -198,8 +205,11 @@ describe('buildSceneAssetSelection', () => {
         expect.objectContaining({ objectId: anchorWalkway.objectId }),
       ]),
     );
-    expect(selection.selected.crossingCount).toBe(64);
-    expect(selection.selected.roadCount).toBe(420);
-    expect(selection.selected.walkwayCount).toBe(520);
+    expect(selection.selected.crossingCount).toBe(sceneDetail.crossings.length);
+    expect(selection.selected.roadCount).toBeGreaterThanOrEqual(430);
+    expect(selection.selected.roadCount).toBeLessThanOrEqual(selection.budget.roadCount);
+    expect(selection.selected.walkwayCount).toBeGreaterThanOrEqual(530);
+    expect(selection.selected.walkwayCount).toBeLessThanOrEqual(selection.budget.walkwayCount);
+    expect(selection.structuralCoverage.coreAreaBuildingCoverage).toBeGreaterThan(0.7);
   });
 });

@@ -53,6 +53,8 @@ export class SceneReadService {
         trafficBaked: false,
       },
       assetProfile: stored.meta.assetProfile,
+      structuralCoverage: stored.meta.structuralCoverage,
+      fidelityPlan: stored.meta.fidelityPlan,
       liveEndpoints: {
         state: `/api/scenes/${scene.sceneId}/state`,
         traffic: `/api/scenes/${scene.sceneId}/traffic`,

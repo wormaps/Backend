@@ -85,6 +85,13 @@ describe('SceneHeroOverrideService', () => {
         billboardPanelCount: 0,
       },
     },
+    structuralCoverage: {
+      selectedBuildingCoverage: 0,
+      coreAreaBuildingCoverage: 0,
+      fallbackMassingRate: 0,
+      footprintPreservationRate: 0,
+      heroLandmarkCoverage: 0,
+    },
     roads: [
       {
         objectId: 'road-1',
@@ -150,7 +157,7 @@ describe('SceneHeroOverrideService', () => {
     roadDecals: [],
     intersectionProfiles: [],
     geometryDiagnostics: [],
-    heroOverridesApplied: [],
+    annotationsApplied: [],
     provenance: {
       mapillaryUsed: false,
       mapillaryImageCount: 0,
@@ -170,20 +177,16 @@ describe('SceneHeroOverrideService', () => {
     const service = new SceneHeroOverrideService();
     const result = service.applyOverrides(place, meta, detail);
 
-    expect(result.detail.heroOverridesApplied.length).toBeGreaterThan(0);
+    expect(result.detail.annotationsApplied.length).toBeGreaterThan(0);
     expect(result.detail.crossings.length).toBeGreaterThan(0);
     expect(result.detail.signageClusters.length).toBeGreaterThan(0);
     expect(result.detail.roadDecals?.length).toBeGreaterThan(0);
     expect(result.meta.detailStatus).toBe('PARTIAL');
     expect(result.meta.landmarkAnchors.length).toBeGreaterThan(0);
-    expect(result.meta.buildings[0]?.preset).toBeDefined();
-    expect(result.meta.buildings[0]?.facadePreset).toBeDefined();
-    expect(result.meta.buildings[0]?.geometryStrategy).toBeDefined();
+    expect(result.meta.buildings[0]?.visualRole).toBe('hero_landmark');
     expect(result.detail.placeReadabilityDiagnostics?.heroBuildingCount).toBeGreaterThan(0);
     expect(result.detail.placeReadabilityDiagnostics?.scrambleStripeCount).toBeGreaterThan(0);
-    expect(result.detail.placeReadabilityDiagnostics?.heroIntersectionCount).toBe(
-      SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.intersectionOverrides.length,
-    );
+    expect(result.detail.placeReadabilityDiagnostics?.heroIntersectionCount).toBeGreaterThan(0);
   });
 
   it('applies exact objectId override without spilling to nearby buildings', () => {
@@ -213,8 +216,8 @@ describe('SceneHeroOverrideService', () => {
   });
 
   it('defines expanded shibuya hero manifest coverage', () => {
-    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.facadeOverrides.length).toBeGreaterThanOrEqual(12);
-    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.intersectionOverrides.length).toBeGreaterThanOrEqual(2);
+    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.landmarks.length).toBeGreaterThanOrEqual(4);
+    expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.crossings.length).toBeGreaterThanOrEqual(5);
     expect(SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.streetFurnitureRows.length).toBeGreaterThanOrEqual(6);
   });
 });

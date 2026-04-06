@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { AppLoggerService } from '../common/logging/app-logger.service';
 import { Coordinate } from '../places/types/place.types';
 import {
   createBillboardsGeometry,
@@ -13,6 +14,8 @@ import {
   resolveAccentTone,
 } from './compiler/building-mesh.builder';
 import {
+  createBillboardMaterial,
+  createBuildingPanelMaterial,
   createBuildingShellMaterial,
   createSceneMaterials,
   AccentTone,
@@ -31,7 +34,10 @@ import {
   mergeGeometryBuffers,
   Vec3,
 } from './compiler/road-mesh.builder';
-import { getSceneDataDir } from '../scene/storage/scene-storage.utils';
+import {
+  appendSceneDiagnosticsLog,
+  getSceneDataDir,
+} from '../scene/storage/scene-storage.utils';
 import { buildSceneAssetSelection } from '../scene/utils/scene-asset-profile.utils';
 import { normalizeColor } from '../scene/utils/scene-building-style.utils';
 import {
@@ -54,8 +60,24 @@ interface Vec2 {
   z: number;
 }
 
+interface MeshNodeDiagnostic {
+  name: string;
+  vertices: number;
+  triangles: number;
+  skipped: boolean;
+  sourceCount?: number;
+  selectedCount?: number;
+  skippedReason?: string;
+}
+
 @Injectable()
 export class GlbBuilderService {
+  private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
+
+  constructor(
+    private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
+  ) {}
+
   async build(sceneMeta: SceneMeta, sceneDetail: SceneDetail): Promise<string> {
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
@@ -65,6 +87,7 @@ export class GlbBuilderService {
     const doc = new Document();
     const buffer = doc.createBuffer('scene-buffer');
     const scene = doc.createScene(sceneMeta.sceneId);
+    this.currentMeshDiagnostics = [];
     const assetSelection = buildSceneAssetSelection(
       sceneMeta,
       sceneDetail,
@@ -90,6 +113,10 @@ export class GlbBuilderService {
       'road_base',
       createRoadBaseGeometry(sceneMeta.origin, assetSelection.roads),
       materials.roadBase,
+      {
+        sourceCount: sceneMeta.roads.length,
+        selectedCount: assetSelection.roads.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -103,6 +130,14 @@ export class GlbBuilderService {
         ['LANE_OVERLAY', 'STOP_LINE'],
       ),
       materials.laneOverlay,
+      {
+        sourceCount: (sceneDetail.roadDecals ?? []).filter((item) =>
+          item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+        ).length,
+        selectedCount: (sceneDetail.roadDecals ?? []).filter((item) =>
+          item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+        ).length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -112,6 +147,10 @@ export class GlbBuilderService {
       'road_markings',
       createRoadMarkingsGeometry(sceneMeta.origin, sceneDetail.roadMarkings),
       materials.roadMarking,
+      {
+        sourceCount: sceneDetail.roadMarkings.length,
+        selectedCount: sceneDetail.roadMarkings.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -140,6 +179,14 @@ export class GlbBuilderService {
         ),
       ]),
       materials.crosswalk,
+      {
+        sourceCount:
+          sceneDetail.crossings.length +
+          (sceneDetail.roadDecals ?? []).filter((item) => item.type === 'CROSSWALK_OVERLAY').length,
+        selectedCount:
+          assetSelection.crossings.length +
+          (sceneDetail.roadDecals ?? []).filter((item) => item.type === 'CROSSWALK_OVERLAY').length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -157,6 +204,14 @@ export class GlbBuilderService {
         ),
       ]),
       materials.junctionOverlay,
+      {
+        sourceCount: (sceneDetail.roadDecals ?? []).filter((item) =>
+          item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
+        ).length,
+        selectedCount: (sceneDetail.roadDecals ?? []).filter((item) =>
+          item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
+        ).length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -166,6 +221,10 @@ export class GlbBuilderService {
       'sidewalk',
       createWalkwayGeometry(sceneMeta.origin, assetSelection.walkways),
       materials.sidewalk,
+      {
+        sourceCount: sceneMeta.walkways.length,
+        selectedCount: assetSelection.walkways.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -179,6 +238,10 @@ export class GlbBuilderService {
         'TRAFFIC_LIGHT',
       ),
       materials.trafficLight,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter((item) => item.type === 'TRAFFIC_LIGHT').length,
+        selectedCount: assetSelection.trafficLights.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -192,6 +255,10 @@ export class GlbBuilderService {
         'STREET_LIGHT',
       ),
       materials.streetLight,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter((item) => item.type === 'STREET_LIGHT').length,
+        selectedCount: assetSelection.streetLights.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -205,6 +272,10 @@ export class GlbBuilderService {
         'SIGN_POLE',
       ),
       materials.signPole,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter((item) => item.type === 'SIGN_POLE').length,
+        selectedCount: assetSelection.signPoles.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -214,6 +285,10 @@ export class GlbBuilderService {
       'trees_planters',
       this.createVegetationGeometry(sceneMeta.origin, assetSelection.vegetation),
       materials.tree,
+      {
+        sourceCount: sceneDetail.vegetation.length,
+        selectedCount: assetSelection.vegetation.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -223,6 +298,10 @@ export class GlbBuilderService {
       'poi_markers',
       this.createPoiGeometry(sceneMeta.origin, assetSelection.pois),
       materials.poi,
+      {
+        sourceCount: sceneMeta.pois.length,
+        selectedCount: assetSelection.pois.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -237,6 +316,10 @@ export class GlbBuilderService {
         triangulate,
       ),
       materials.landCoverPark,
+      {
+        sourceCount: sceneDetail.landCovers.filter((item) => item.type === 'PARK').length,
+        selectedCount: sceneDetail.landCovers.filter((item) => item.type === 'PARK').length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -251,6 +334,10 @@ export class GlbBuilderService {
         triangulate,
       ),
       materials.landCoverWater,
+      {
+        sourceCount: sceneDetail.landCovers.filter((item) => item.type === 'WATER').length,
+        selectedCount: sceneDetail.landCovers.filter((item) => item.type === 'WATER').length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -265,6 +352,10 @@ export class GlbBuilderService {
         triangulate,
       ),
       materials.landCoverPlaza,
+      {
+        sourceCount: sceneDetail.landCovers.filter((item) => item.type === 'PLAZA').length,
+        selectedCount: sceneDetail.landCovers.filter((item) => item.type === 'PLAZA').length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -278,6 +369,10 @@ export class GlbBuilderService {
         'RAILWAY',
       ),
       materials.linearRailway,
+      {
+        sourceCount: sceneDetail.linearFeatures.filter((item) => item.type === 'RAILWAY').length,
+        selectedCount: sceneDetail.linearFeatures.filter((item) => item.type === 'RAILWAY').length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -291,6 +386,10 @@ export class GlbBuilderService {
         'BRIDGE',
       ),
       materials.linearBridge,
+      {
+        sourceCount: sceneDetail.linearFeatures.filter((item) => item.type === 'BRIDGE').length,
+        selectedCount: sceneDetail.linearFeatures.filter((item) => item.type === 'BRIDGE').length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -304,6 +403,10 @@ export class GlbBuilderService {
         'WATERWAY',
       ),
       materials.linearWaterway,
+      {
+        sourceCount: sceneDetail.linearFeatures.filter((item) => item.type === 'WATERWAY').length,
+        selectedCount: sceneDetail.linearFeatures.filter((item) => item.type === 'WATERWAY').length,
+      },
     );
 
     const materialHintMap = new Map(
@@ -314,6 +417,7 @@ export class GlbBuilderService {
       {
         materialClass: MaterialClass;
         bucket: ShellColorBucket;
+        colorHex: string;
         buildings: typeof sceneMeta.buildings;
       }
     >();
@@ -323,6 +427,7 @@ export class GlbBuilderService {
       const current = groupedBuildings.get(style.key) ?? {
         materialClass: style.materialClass,
         bucket: style.bucket,
+        colorHex: style.colorHex,
         buildings: [],
       };
       current.buildings.push(building);
@@ -341,7 +446,16 @@ export class GlbBuilderService {
         group.buildings,
         triangulate,
         ),
-        createBuildingShellMaterial(doc, group.materialClass, group.bucket),
+        createBuildingShellMaterial(
+          doc,
+          group.materialClass,
+          group.bucket,
+          group.colorHex,
+        ),
+        {
+          sourceCount: sceneMeta.buildings.length,
+          selectedCount: group.buildings.length,
+        },
       );
     }
     this.addMeshNode(
@@ -357,6 +471,10 @@ export class GlbBuilderService {
         'cool',
       ),
       materials.roofAccents.cool,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -371,6 +489,10 @@ export class GlbBuilderService {
         'warm',
       ),
       materials.roofAccents.warm,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -385,89 +507,56 @@ export class GlbBuilderService {
         'neutral',
       ),
       materials.roofAccents.neutral,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
     );
 
-    this.addMeshNode(
-      doc,
-      Accessor,
-      scene,
-      buffer,
-      'building_panels_cool',
-      createBuildingPanelsGeometry(
-        sceneMeta.origin,
-        assetSelection.buildings,
-        sceneDetail.facadeHints,
-        'cool',
-      ),
-      materials.buildingPanels.cool,
-    );
-    this.addMeshNode(
-      doc,
-      Accessor,
-      scene,
-      buffer,
-      'building_panels_warm',
-      createBuildingPanelsGeometry(
-        sceneMeta.origin,
-        assetSelection.buildings,
-        sceneDetail.facadeHints,
-        'warm',
-      ),
-      materials.buildingPanels.warm,
-    );
-    this.addMeshNode(
-      doc,
-      Accessor,
-      scene,
-      buffer,
-      'building_panels_neutral',
-      createBuildingPanelsGeometry(
-        sceneMeta.origin,
-        assetSelection.buildings,
-        sceneDetail.facadeHints,
-        'neutral',
-      ),
-      materials.buildingPanels.neutral,
-    );
-    this.addMeshNode(
-      doc,
-      Accessor,
-      scene,
-      buffer,
-      'billboards_cool',
-      createBillboardsGeometry(
-        sceneMeta.origin,
-        assetSelection.billboardPanels,
-        'cool',
-      ),
-      materials.billboards.cool,
-    );
-    this.addMeshNode(
-      doc,
-      Accessor,
-      scene,
-      buffer,
-      'billboards_warm',
-      createBillboardsGeometry(
-        sceneMeta.origin,
-        assetSelection.billboardPanels,
-        'warm',
-      ),
-      materials.billboards.warm,
-    );
-    this.addMeshNode(
-      doc,
-      Accessor,
-      scene,
-      buffer,
-      'billboards_neutral',
-      createBillboardsGeometry(
-        sceneMeta.origin,
-        assetSelection.billboardPanels,
-        'neutral',
-      ),
-      materials.billboards.neutral,
-    );
+    for (const panelGroup of this.groupFacadeHintsByPanelColor(
+      sceneDetail.facadeHints,
+    )) {
+      this.addMeshNode(
+        doc,
+        Accessor,
+        scene,
+        buffer,
+        `building_panels_${panelGroup.tone}_${panelGroup.colorHex.slice(1)}`,
+        createBuildingPanelsGeometry(
+          sceneMeta.origin,
+          assetSelection.buildings,
+          panelGroup.hints,
+          panelGroup.tone,
+        ),
+        createBuildingPanelMaterial(doc, panelGroup.tone, panelGroup.colorHex),
+        {
+          sourceCount: panelGroup.hints.length,
+          selectedCount: assetSelection.buildings.length,
+        },
+      );
+    }
+    for (const billboardGroup of this.groupBillboardClustersByColor(
+      assetSelection.billboardPanels,
+      sceneDetail.signageClusters,
+    )) {
+      this.addMeshNode(
+        doc,
+        Accessor,
+        scene,
+        buffer,
+        `billboards_${billboardGroup.tone}_${billboardGroup.colorHex.slice(1)}`,
+        createBillboardsGeometry(
+          sceneMeta.origin,
+          billboardGroup.selectedClusters,
+          billboardGroup.tone,
+        ),
+        createBillboardMaterial(doc, billboardGroup.tone, billboardGroup.colorHex),
+        {
+          sourceCount: billboardGroup.sourceCount,
+          selectedCount: billboardGroup.selectedClusters.length,
+        },
+      );
+    }
     this.addMeshNode(
       doc,
       Accessor,
@@ -476,6 +565,10 @@ export class GlbBuilderService {
       'hero_canopies',
       createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
       materials.buildingPanels.neutral,
+      {
+        sourceCount: assetSelection.buildings.filter((building) => Boolean(building.visualRole)).length,
+        selectedCount: assetSelection.buildings.filter((building) => Boolean(building.visualRole)).length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -485,6 +578,10 @@ export class GlbBuilderService {
       'hero_roof_units',
       createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
       materials.roofAccents.neutral,
+      {
+        sourceCount: assetSelection.buildings.filter((building) => Boolean(building.roofSpec?.roofUnits)).length,
+        selectedCount: assetSelection.buildings.filter((building) => Boolean(building.roofSpec?.roofUnits)).length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -494,6 +591,10 @@ export class GlbBuilderService {
       'hero_billboard_planes',
       createHeroBillboardPlaneGeometry(sceneMeta.origin, assetSelection.buildings),
       materials.billboards.warm,
+      {
+        sourceCount: assetSelection.buildings.filter((building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0).length,
+        selectedCount: assetSelection.buildings.filter((building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0).length,
+      },
     );
     this.addMeshNode(
       doc,
@@ -507,6 +608,10 @@ export class GlbBuilderService {
         sceneDetail.signageClusters,
       ),
       materials.landmark,
+      {
+        sourceCount: sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+        selectedCount: sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+      },
     );
 
     const outputPath = join(getSceneDataDir(), `${sceneMeta.sceneId}.glb`);
@@ -518,6 +623,38 @@ export class GlbBuilderService {
       validatorModule,
     );
     await writeFile(outputPath, glbBinary);
+    const diagnosticsPayload = {
+      assetSelection: {
+        selected: assetSelection.selected,
+        budget: assetSelection.budget,
+      },
+      structuralCoverage: sceneMeta.structuralCoverage,
+      sourceDetail: {
+        crossings: sceneDetail.crossings.length,
+        roadMarkings: sceneDetail.roadMarkings.length,
+        roadDecals: sceneDetail.roadDecals?.length ?? 0,
+        facadeHints: sceneDetail.facadeHints.length,
+        signageClusters: sceneDetail.signageClusters.length,
+      },
+      groupedBuildingShells: [...groupedBuildings.entries()].map(([groupKey, group]) => ({
+        groupKey,
+        materialClass: group.materialClass,
+        bucket: group.bucket,
+        colorHex: group.colorHex,
+        count: group.buildings.length,
+      })),
+      meshNodes: this.currentMeshDiagnostics,
+    };
+    this.appLoggerService.info('scene.glb_build.diagnostics', {
+      sceneId: sceneMeta.sceneId,
+      step: 'glb_build',
+      ...diagnosticsPayload,
+    });
+    await appendSceneDiagnosticsLog(
+      sceneMeta.sceneId,
+      'glb_build',
+      diagnosticsPayload,
+    );
 
     return outputPath;
   }
@@ -702,10 +839,11 @@ export class GlbBuilderService {
   private resolveBuildingShellStyle(
     building: SceneMeta['buildings'][number],
     hint?: SceneFacadeHint,
-  ): { key: string; materialClass: MaterialClass; bucket: ShellColorBucket } {
+  ): { key: string; materialClass: MaterialClass; bucket: ShellColorBucket; colorHex: string } {
     const materialClass =
       hint?.materialClass ?? this.resolveMaterialClassFromBuilding(building);
     const rawColor =
+      hint?.shellPalette?.[0] ??
       building.facadeColor ??
       building.roofColor ??
       hint?.palette.find(Boolean) ??
@@ -714,10 +852,66 @@ export class GlbBuilderService {
     const bucket = this.resolveShellColorBucket(normalizedColor, materialClass);
 
     return {
-      key: `${materialClass}_${bucket}`,
+      key: `${materialClass}_${normalizedColor}`,
       materialClass,
       bucket,
+      colorHex: normalizedColor,
     };
+  }
+
+  private groupFacadeHintsByPanelColor(
+    facadeHints: SceneDetail['facadeHints'],
+  ): Array<{ tone: AccentTone; colorHex: string; hints: SceneDetail['facadeHints'] }> {
+    const groups = new Map<string, { tone: AccentTone; colorHex: string; hints: SceneDetail['facadeHints'] }>();
+    for (const hint of facadeHints) {
+      const paletteSource = hint.panelPalette?.length ? hint.panelPalette : hint.palette;
+      const colorHex = normalizeColor(paletteSource[0] ?? '#5a6470');
+      const tone = resolveAccentTone(paletteSource);
+      const key = `${tone}:${colorHex}`;
+      const current = groups.get(key) ?? { tone, colorHex, hints: [] };
+      current.hints.push(hint);
+      groups.set(key, current);
+    }
+    return [...groups.values()];
+  }
+
+  private groupBillboardClustersByColor(
+    selectedClusters: SceneDetail['signageClusters'],
+    sourceClusters: SceneDetail['signageClusters'],
+  ): Array<{
+    tone: AccentTone;
+    colorHex: string;
+    selectedClusters: SceneDetail['signageClusters'];
+    sourceCount: number;
+  }> {
+    const sourceCountMap = new Map<string, number>();
+    for (const cluster of sourceClusters) {
+      const colorHex = normalizeColor(cluster.palette[0] ?? '#d9d9d9');
+      const tone = resolveAccentTone(cluster.palette);
+      const key = `${tone}:${colorHex}`;
+      sourceCountMap.set(key, (sourceCountMap.get(key) ?? 0) + 1);
+    }
+
+    const groups = new Map<string, {
+      tone: AccentTone;
+      colorHex: string;
+      selectedClusters: SceneDetail['signageClusters'];
+      sourceCount: number;
+    }>();
+    for (const cluster of selectedClusters) {
+      const colorHex = normalizeColor(cluster.palette[0] ?? '#d9d9d9');
+      const tone = resolveAccentTone(cluster.palette);
+      const key = `${tone}:${colorHex}`;
+      const current = groups.get(key) ?? {
+        tone,
+        colorHex,
+        selectedClusters: [],
+        sourceCount: sourceCountMap.get(key) ?? 0,
+      };
+      current.selectedClusters.push(cluster);
+      groups.set(key, current);
+    }
+    return [...groups.values()];
   }
 
   private addMeshNode(
@@ -728,10 +922,29 @@ export class GlbBuilderService {
     name: string,
     geometry: GeometryBuffers,
     material: any,
+    trace: { sourceCount?: number; selectedCount?: number } = {},
   ): void {
     if (!this.isGeometryValid(geometry)) {
+      this.currentMeshDiagnostics.push({
+        name,
+        vertices: 0,
+        triangles: 0,
+        skipped: true,
+        sourceCount: trace.sourceCount,
+        selectedCount: trace.selectedCount,
+        skippedReason: this.resolveSkippedReason(trace),
+      });
       return;
     }
+
+    this.currentMeshDiagnostics.push({
+      name,
+      vertices: geometry.positions.length / 3,
+      triangles: geometry.indices.length / 3,
+      skipped: false,
+      sourceCount: trace.sourceCount,
+      selectedCount: trace.selectedCount,
+    });
 
     const mesh = doc.createMesh(name);
     const primitive = doc
@@ -760,6 +973,19 @@ export class GlbBuilderService {
 
     mesh.addPrimitive(primitive);
     scene.addChild(doc.createNode(name).setMesh(mesh));
+  }
+
+  private resolveSkippedReason(trace: {
+    sourceCount?: number;
+    selectedCount?: number;
+  }): string {
+    if ((trace.sourceCount ?? 0) === 0) {
+      return 'missing_source';
+    }
+    if ((trace.selectedCount ?? 0) === 0) {
+      return 'selection_cut';
+    }
+    return 'empty_or_invalid_geometry';
   }
 
   private createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {

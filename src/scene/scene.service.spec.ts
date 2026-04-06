@@ -15,6 +15,7 @@ import { ExternalPlaceDetail } from '../places/types/external-place.types';
 import { PlacePackage } from '../places/types/place.types';
 import { SceneGenerationPipelineService } from './pipeline/scene-generation-pipeline.service';
 import { SceneAssetProfileStep } from './pipeline/steps/scene-asset-profile.step';
+import { SceneFidelityPlanStep } from './pipeline/steps/scene-fidelity-plan.step';
 import { SceneGlbBuildStep } from './pipeline/steps/scene-glb-build.step';
 import { SceneHeroOverrideStep } from './pipeline/steps/scene-hero-override.step';
 import { SceneMetaBuilderStep } from './pipeline/steps/scene-meta-builder.step';
@@ -25,6 +26,7 @@ import { SceneService } from './scene.service';
 import { BuildingStyleResolverService } from './services/building-style-resolver.service';
 import { SceneGenerationService } from './services/scene-generation.service';
 import { SceneAssetProfileService } from './services/scene-asset-profile.service';
+import { SceneFidelityPlannerService } from './services/scene-fidelity-planner.service';
 import { SceneLiveDataService } from './services/scene-live-data.service';
 import { SceneReadService } from './services/scene-read.service';
 import { SceneHeroOverrideService } from './services/scene-hero-override.service';
@@ -152,10 +154,12 @@ describe('Scene Services', () => {
         SceneGenerationService,
         BuildingStyleResolverService,
         SceneAssetProfileService,
+        SceneFidelityPlannerService,
         SceneGenerationPipelineService,
         ScenePlaceResolutionStep,
         ScenePlacePackageStep,
         SceneVisualRulesStep,
+        SceneFidelityPlanStep,
         SceneMetaBuilderStep,
         SceneHeroOverrideStep,
         SceneAssetProfileStep,
@@ -261,7 +265,7 @@ describe('Scene Services', () => {
         linearFeatures: [],
         facadeHints: [],
         signageClusters: [],
-        heroOverridesApplied: [],
+        annotationsApplied: [],
         provenance: {
           mapillaryUsed: false,
           mapillaryImageCount: 0,

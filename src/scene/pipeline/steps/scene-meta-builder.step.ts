@@ -6,7 +6,12 @@ import type {
   PlacePackage,
 } from '../../../places/types/place.types';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
-import type { SceneDetail, SceneMeta, SceneScale } from '../../types/scene.types';
+import type {
+  SceneDetail,
+  SceneFidelityPlan,
+  SceneMeta,
+  SceneScale,
+} from '../../types/scene.types';
 import { computeSceneCamera } from '../../utils/scene-geometry.utils';
 import { BuildingStyleResolverService } from '../../services/building-style-resolver.service';
 
@@ -28,6 +33,7 @@ export class SceneMetaBuilderStep {
       SceneMeta,
       'detailStatus' | 'visualCoverage' | 'materialClasses' | 'landmarkAnchors'
     >,
+    fidelityPlan?: SceneFidelityPlan,
   ): SceneMeta {
     void detail;
     const buildings = placePackage.buildings.map((building) => ({
@@ -145,6 +151,14 @@ export class SceneMetaBuilderStep {
           billboardPanelCount: 0,
         },
       },
+      structuralCoverage: {
+        selectedBuildingCoverage: 0,
+        coreAreaBuildingCoverage: 0,
+        fallbackMassingRate: 0,
+        footprintPreservationRate: 0,
+        heroLandmarkCoverage: 0,
+      },
+      fidelityPlan,
       roads,
       buildings,
       walkways,

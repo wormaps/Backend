@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MapillaryClient } from '../../places/clients/mapillary.client';
+import type { ExternalPlaceDetail } from '../../places/types/external-place.types';
 import type { Coordinate, PlacePackage } from '../../places/types/place.types';
 import type { MaterialClass, SceneFacadeHint } from '../types/scene.types';
 import { BuildingStyleResolverService } from './building-style-resolver.service';
@@ -11,14 +12,27 @@ export class SceneFacadeVisionService {
   ) {}
 
   buildFacadeHints(
+    place: ExternalPlaceDetail,
     placePackage: PlacePackage,
     mapillaryImages: Awaited<ReturnType<MapillaryClient['getNearbyImages']>>,
+    mapillaryFeatures: Awaited<ReturnType<MapillaryClient['getMapFeatures']>>,
   ): SceneFacadeHint[] {
-    const imageDensity = densityFromCount(mapillaryImages.length, 12, 40);
-
     return placePackage.buildings.map((building) => {
       const style = this.buildingStyleResolverService.resolveBuildingStyle(building);
       const anchor = averageCoordinate(building.outerRing) ?? building.outerRing[0];
+      const nearbyImageCount = mapillaryImages.filter((image) =>
+        distanceMeters(anchor, image.location) <= 45,
+      ).length;
+      const nearbyFeatureCount = mapillaryFeatures.filter((feature) =>
+        distanceMeters(anchor, feature.location) <= 35,
+      ).length;
+      const proximityToCenter = distanceMeters(anchor, place.location);
+      const evidenceDensity = densityFromEvidence(
+        nearbyImageCount,
+        nearbyFeatureCount,
+        building.usage,
+        proximityToCenter,
+      );
       return {
         objectId: building.id,
         anchor,
@@ -31,13 +45,14 @@ export class SceneFacadeVisionService {
         shellPalette: uniquePalette(style.shellPalette),
         panelPalette: uniquePalette(style.panelPalette),
         materialClass: style.materialClass,
-        signageDensity:
-          building.usage === 'COMMERCIAL' ? imageDensity : 'low',
+        signageDensity: evidenceDensity,
         emissiveStrength:
           building.usage === 'COMMERCIAL'
-            ? imageDensity === 'high'
+            ? evidenceDensity === 'high'
               ? 1
-              : style.emissiveStrength
+              : evidenceDensity === 'medium'
+                ? Math.max(style.emissiveStrength, 0.55)
+                : style.emissiveStrength
             : Math.min(style.emissiveStrength, 0.2),
         glazingRatio: style.glazingRatio,
         visualArchetype: style.visualArchetype,
@@ -49,7 +64,7 @@ export class SceneFacadeVisionService {
         roofAccentType: style.roofAccentType,
         windowPatternDensity: style.windowPatternDensity,
         signBandLevels: style.signBandLevels,
-        weakEvidence: mapillaryImages.length === 0,
+        weakEvidence: nearbyImageCount === 0 && nearbyFeatureCount === 0,
       };
     });
   }
@@ -108,17 +123,31 @@ function normalizeColor(value: string): string {
   return new BuildingStyleResolverService().normalizeColor(value);
 }
 
-function densityFromCount(
-  count: number,
-  mediumThreshold: number,
-  highThreshold: number,
+function densityFromEvidence(
+  imageCount: number,
+  featureCount: number,
+  usage: PlacePackage['buildings'][number]['usage'],
+  proximityToCenter: number,
 ): 'low' | 'medium' | 'high' {
-  if (count >= highThreshold) {
+  const weighted = imageCount * 1.4 + featureCount * 1.8;
+  if (usage === 'COMMERCIAL' && (weighted >= 9 || proximityToCenter <= 80)) {
     return 'high';
   }
-  if (count >= mediumThreshold) {
+  if (
+    weighted >= 4 ||
+    (usage === 'COMMERCIAL' && proximityToCenter <= 160)
+  ) {
     return 'medium';
   }
 
   return 'low';
+}
+
+function distanceMeters(
+  a: Coordinate,
+  b: Coordinate,
+): number {
+  const dx = (a.lng - b.lng) * 111_320 * Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
+  const dy = (a.lat - b.lat) * 111_320;
+  return Math.hypot(dx, dy);
 }

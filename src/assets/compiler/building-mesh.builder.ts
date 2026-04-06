@@ -54,11 +54,7 @@ export function createBuildingPanelsGeometry(
 
   for (const building of buildings) {
     const hint = hintMap.get(building.objectId);
-    if (
-      !hint ||
-      hint.signageDensity === 'low' ||
-      resolveAccentTone(hint.palette) !== tone
-    ) {
+    if (!hint || resolveAccentTone(hint.panelPalette ?? hint.palette) !== tone) {
       continue;
     }
 
@@ -75,7 +71,7 @@ export function createBuildingPanelsGeometry(
     const frame = buildFacadeFrame(
       outerRing,
       edgeIndex,
-      Math.max(6, building.heightMeters * 0.78),
+      Math.max(6, building.heightMeters * 0.9),
     );
     if (!frame) {
       continue;
@@ -489,7 +485,7 @@ function resolveBuildingGeometryStrategy(
   if (holes.length > 0) {
     return 'courtyard_block';
   }
-  if (isPolygonTooThin(outerRing) || outerRing.length >= 12) {
+  if (isPolygonTooThin(outerRing)) {
     return 'fallback_massing';
   }
   return building.geometryStrategy ?? 'simple_extrude';
@@ -497,7 +493,7 @@ function resolveBuildingGeometryStrategy(
 
 function pushFacadePresetPanels(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: FacadeFrame,
   hint: SceneFacadeHint,
   buildingHeight: number,
 ): void {
@@ -510,6 +506,9 @@ function pushFacadePresetPanels(
     hint.signageSpec?.signBandLevels ?? hint.signBandLevels ?? 0,
   );
   const glazing = hint.glazingRatio;
+  const facadeDepth = resolveFacadeBackingDepth(hint);
+
+  pushFacadeBacking(geometry, frame, facadeDepth, hint);
 
   if (hint.facadeSpec) {
     const lowerHeight = Math.min(frame.height * 0.3, Math.max(4.5, buildingHeight * 0.16));
@@ -612,7 +611,7 @@ function pushFacadePresetPanels(
 
 function pushFacadeBandByType(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin: number; yMax: number },
+  frame: SplitFacadeFrame,
   bandType: NonNullable<SceneFacadeHint['facadeSpec']>['lowerBandType'],
   signBandLevels: number,
   glazing: number,
@@ -644,13 +643,13 @@ function pushFacadeBandByType(
 
 function pushHorizontalBands(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  frame: PartialFacadeFrame,
   bandCount: number,
   bandFill: number,
   topCapRatio: number,
 ): void {
-  const yMin = frame.yMin ?? 0;
-  const yMax = frame.yMax ?? frame.height;
+  const yMin = getFrameYMin(frame);
+  const yMax = getFrameYMax(frame);
   const availableHeight = Math.max(0.4, yMax - yMin);
   const margin = Math.min(0.6, availableHeight * 0.12);
   const step = Math.max(0.8, (availableHeight - margin * 2) / Math.max(1, bandCount));
@@ -663,25 +662,25 @@ function pushHorizontalBands(
     if (y1 <= y0 + 0.08) {
       continue;
     }
-    pushQuad(
+    pushFacadeSlab(
       geometry,
-      [frame.a[0], y0, frame.a[2]],
-      [frame.b[0], y0, frame.b[2]],
-      [frame.b[0], y1, frame.b[2]],
-      [frame.a[0], y1, frame.a[2]],
+      frame,
+      y0,
+      y1,
+      0.08,
     );
   }
 }
 
 function pushVerticalMullions(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  frame: PartialFacadeFrame,
   density: WindowPatternDensity,
   glazingRatio: number,
   overrideCount?: number,
 ): void {
-  const yMin = (frame.yMin ?? 0) + 0.25;
-  const yMax = (frame.yMax ?? frame.height) - 0.25;
+  const yMin = getFrameYMin(frame) + 0.25;
+  const yMax = getFrameYMax(frame) - 0.25;
   if (yMax <= yMin + 0.3) {
     return;
   }
@@ -692,106 +691,108 @@ function pushVerticalMullions(
     const t = index / mullionCount;
     const x0 = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
     const z0 = frame.a[2] + (frame.b[2] - frame.a[2]) * t;
-    const width = Math.max(0.08, 0.16 - glazingRatio * 0.08);
-    pushQuad(
+    const width = Math.max(0.06, 0.14 - glazingRatio * 0.06);
+    pushVerticalMullionVolume(
       geometry,
-      [x0 - width, yMin, z0 - width * 0.2],
-      [x0 + width, yMin, z0 + width * 0.2],
-      [x0 + width, yMax, z0 + width * 0.2],
-      [x0 - width, yMax, z0 - width * 0.2],
+      frame,
+      [x0, 0, z0],
+      yMin,
+      yMax,
+      width,
+      0.1,
     );
   }
 }
 
 function pushSignBands(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  frame: PartialFacadeFrame,
   levels: number,
   bandHeight: number,
 ): void {
-  const yMin = frame.yMin ?? 0;
-  const yMax = frame.yMax ?? frame.height;
+  const yMin = getFrameYMin(frame);
+  const yMax = getFrameYMax(frame);
   for (let level = 0; level < levels; level += 1) {
     const y0 = yMin + 0.35 + level * (bandHeight + 0.2);
     const y1 = Math.min(yMax - 0.12, y0 + bandHeight);
     if (y1 <= y0 + 0.08) {
       continue;
     }
-    pushQuad(
+    pushFacadeSlab(
       geometry,
-      [frame.a[0], y0, frame.a[2]],
-      [frame.b[0], y0, frame.b[2]],
-      [frame.b[0], y1, frame.b[2]],
-      [frame.a[0], y1, frame.a[2]],
+      frame,
+      y0,
+      y1,
+      0.14,
     );
   }
 }
 
 function pushTopBillboardZone(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  frame: PartialFacadeFrame,
 ): void {
-  const yMin = frame.yMin ?? 0;
-  const yMax = frame.yMax ?? frame.height;
+  const yMin = getFrameYMin(frame);
+  const yMax = getFrameYMax(frame);
   const topStart = Math.max(yMin + (yMax - yMin) * 0.18, yMax - 2.8);
   const topEnd = Math.min(yMax - 0.08, topStart + Math.min(2.8, yMax - yMin - 0.12));
   if (topEnd <= topStart + 0.08) {
     return;
   }
-  pushQuad(
+  pushFacadeSlab(
     geometry,
-    [frame.a[0], topStart, frame.a[2]],
-    [frame.b[0], topStart, frame.b[2]],
-    [frame.b[0], topEnd, frame.b[2]],
-    [frame.a[0], topEnd, frame.a[2]],
+    frame,
+    topStart,
+    topEnd,
+    0.16,
   );
 }
 
 function pushCanopyBand(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  frame: PartialFacadeFrame,
   canopyHeight: number,
 ): void {
-  const yMin = frame.yMin ?? 0;
-  const yMax = frame.yMax ?? frame.height;
+  const yMin = getFrameYMin(frame);
+  const yMax = getFrameYMax(frame);
   const y0 = Math.min(yMax - 0.35, Math.max(yMin + 0.2, yMin + 4));
   const y1 = Math.min(yMax - 0.05, y0 + Math.max(1.2, canopyHeight * 0.18));
   if (y1 <= y0 + 0.08) {
     return;
   }
-  pushQuad(
+  pushFacadeSlab(
     geometry,
-    [frame.a[0], y0, frame.a[2]],
-    [frame.b[0], y0, frame.b[2]],
-    [frame.b[0], y1, frame.b[2]],
-    [frame.a[0], y1, frame.a[2]],
+    frame,
+    y0,
+    y1,
+    0.18,
   );
 }
 
 function pushSolidPanel(
   geometry: GeometryBuffers,
-  frame: { a: Vec3; b: Vec3; height: number; yMin?: number; yMax?: number },
+  frame: PartialFacadeFrame,
   insetY: number,
 ): void {
-  const yMin = (frame.yMin ?? 0) + insetY;
-  const yMax = (frame.yMax ?? frame.height) - insetY;
+  const yMin = getFrameYMin(frame) + insetY;
+  const yMax = getFrameYMax(frame) - insetY;
   if (yMax <= yMin + 0.08) {
     return;
   }
-  pushQuad(
+  pushFacadeSlab(
     geometry,
-    [frame.a[0], yMin, frame.a[2]],
-    [frame.b[0], yMin, frame.b[2]],
-    [frame.b[0], yMax, frame.b[2]],
-    [frame.a[0], yMax, frame.a[2]],
+    frame,
+    yMin,
+    yMax,
+    0.1,
   );
 }
 
 function splitFacadeFrame(
-  frame: { a: Vec3; b: Vec3; height: number },
+  frame: FacadeFrame,
   yMin: number,
   yMax: number,
-): { a: Vec3; b: Vec3; height: number; yMin: number; yMax: number } {
+): SplitFacadeFrame {
   return {
     ...frame,
     yMin: Math.max(0, yMin),
@@ -953,7 +954,7 @@ function buildFacadeFrame(
   ring: Vec3[],
   edgeIndex: number,
   facadeHeight: number,
-): { a: Vec3; b: Vec3; height: number } | null {
+): FacadeFrame | null {
   const current = ring[edgeIndex];
   const next = ring[(edgeIndex + 1) % ring.length];
   if (!current || !next) {
@@ -976,8 +977,137 @@ function buildFacadeFrame(
     a: [current[0] + normal[0] * offset, 0, current[2] + normal[2] * offset],
     b: [next[0] + normal[0] * offset, 0, next[2] + normal[2] * offset],
     height: facadeHeight,
+    normal,
   };
 }
+
+function pushFacadeBacking(
+  geometry: GeometryBuffers,
+  frame: FacadeFrame,
+  depth: number,
+  hint: SceneFacadeHint,
+): void {
+  const insetTop = hint.facadePreset === 'glass_grid' ? 0.35 : 0.2;
+  const yMin = 0.22;
+  const yMax = Math.max(yMin + 0.8, frame.height - insetTop);
+  pushFacadeSlab(geometry, frame, yMin, yMax, depth);
+}
+
+function pushFacadeSlab(
+  geometry: GeometryBuffers,
+  frame: PartialFacadeFrame,
+  yMin: number,
+  yMax: number,
+  depth: number,
+): void {
+  if (yMax <= yMin + 0.08) {
+    return;
+  }
+  const frontA: Vec3 = [frame.a[0], yMin, frame.a[2]];
+  const frontB: Vec3 = [frame.b[0], yMin, frame.b[2]];
+  const frontC: Vec3 = [frame.b[0], yMax, frame.b[2]];
+  const frontD: Vec3 = [frame.a[0], yMax, frame.a[2]];
+  const backA: Vec3 = [
+    frame.a[0] - frame.normal[0] * depth,
+    yMin,
+    frame.a[2] - frame.normal[2] * depth,
+  ];
+  const backB: Vec3 = [
+    frame.b[0] - frame.normal[0] * depth,
+    yMin,
+    frame.b[2] - frame.normal[2] * depth,
+  ];
+  const backC: Vec3 = [
+    frame.b[0] - frame.normal[0] * depth,
+    yMax,
+    frame.b[2] - frame.normal[2] * depth,
+  ];
+  const backD: Vec3 = [
+    frame.a[0] - frame.normal[0] * depth,
+    yMax,
+    frame.a[2] - frame.normal[2] * depth,
+  ];
+
+  pushQuad(geometry, frontA, frontB, frontC, frontD);
+  pushQuad(geometry, backB, backA, backD, backC);
+  pushQuad(geometry, backA, frontA, frontD, backD);
+  pushQuad(geometry, frontB, backB, backC, frontC);
+  pushQuad(geometry, frontD, frontC, backC, backD);
+  pushQuad(geometry, backA, backB, frontB, frontA);
+}
+
+function pushVerticalMullionVolume(
+  geometry: GeometryBuffers,
+  frame: PartialFacadeFrame,
+  center: Vec3,
+  yMin: number,
+  yMax: number,
+  width: number,
+  depth: number,
+): void {
+  const edgeDx = frame.b[0] - frame.a[0];
+  const edgeDz = frame.b[2] - frame.a[2];
+  const edgeLength = Math.hypot(edgeDx, edgeDz);
+  if (edgeLength <= 1e-6) {
+    return;
+  }
+  const tangent: Vec3 = [edgeDx / edgeLength, 0, edgeDz / edgeLength];
+  const halfWidth = width / 2;
+  const left = [
+    center[0] - tangent[0] * halfWidth,
+    0,
+    center[2] - tangent[2] * halfWidth,
+  ] as Vec3;
+  const right = [
+    center[0] + tangent[0] * halfWidth,
+    0,
+    center[2] + tangent[2] * halfWidth,
+  ] as Vec3;
+  pushFacadeSlab(
+    geometry,
+    {
+      ...frame,
+      a: left,
+      b: right,
+    },
+    yMin,
+    yMax,
+    depth,
+  );
+}
+
+function resolveFacadeBackingDepth(hint: SceneFacadeHint): number {
+  if (hint.facadePreset === 'glass_grid') {
+    return 0.1;
+  }
+  if (hint.signageDensity === 'high') {
+    return 0.14;
+  }
+
+  return 0.12;
+}
+
+function getFrameYMin(frame: PartialFacadeFrame): number {
+  return 'yMin' in frame ? frame.yMin : 0;
+}
+
+function getFrameYMax(frame: PartialFacadeFrame): number {
+  return 'yMax' in frame ? frame.yMax : frame.height;
+}
+
+interface FacadeFrame {
+  a: Vec3;
+  b: Vec3;
+  height: number;
+  normal: Vec3;
+}
+
+interface SplitFacadeFrame extends FacadeFrame {
+  yMin: number;
+  yMax: number;
+}
+
+type PartialFacadeFrame = FacadeFrame | SplitFacadeFrame;
 
 function computeBounds(points: Vec3[]) {
   const xs = points.map((point) => point[0]);

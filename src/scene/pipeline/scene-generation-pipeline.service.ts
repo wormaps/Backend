@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AppLoggerService } from '../../common/logging/app-logger.service';
 import { SceneAssetProfileStep } from './steps/scene-asset-profile.step';
+import { SceneFidelityPlanStep } from './steps/scene-fidelity-plan.step';
 import { SceneGlbBuildStep } from './steps/scene-glb-build.step';
 import { SceneHeroOverrideStep } from './steps/scene-hero-override.step';
 import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
@@ -18,6 +19,7 @@ export class SceneGenerationPipelineService {
     private readonly scenePlaceResolutionStep: ScenePlaceResolutionStep,
     private readonly scenePlacePackageStep: ScenePlacePackageStep,
     private readonly sceneVisualRulesStep: SceneVisualRulesStep,
+    private readonly sceneFidelityPlanStep: SceneFidelityPlanStep,
     private readonly sceneMetaBuilderStep: SceneMetaBuilderStep,
     private readonly sceneHeroOverrideStep: SceneHeroOverrideStep,
     private readonly sceneAssetProfileStep: SceneAssetProfileStep,
@@ -91,6 +93,14 @@ export class SceneGenerationPipelineService {
       featureCount: vision.detail.provenance.mapillaryFeatureCount,
     });
 
+    const fidelityPlan = await this.sceneFidelityPlanStep.execute(
+      sceneId,
+      resolvedPlace.place,
+      storedScene.scale,
+      placePackage,
+      vision.detail,
+    );
+
     const baseMeta = this.sceneMetaBuilderStep.buildBaseMeta(
       sceneId,
       storedScene.scale,
@@ -100,7 +110,9 @@ export class SceneGenerationPipelineService {
       resolvedPlace.bounds,
       vision.detail,
       vision.metaPatch,
+      fidelityPlan,
     );
+    vision.detail.fidelityPlan = fidelityPlan;
     const merged = this.sceneHeroOverrideStep.execute(
       resolvedPlace.place,
       baseMeta,
@@ -109,10 +121,10 @@ export class SceneGenerationPipelineService {
     this.appLoggerService.info('scene.hero_override.completed', {
       ...logContext,
       step: 'hero_override',
-      overrideCount: merged.detail.heroOverridesApplied.length,
+      overrideCount: merged.detail.annotationsApplied.length,
     });
 
-    const finalizedMeta = this.sceneAssetProfileStep.execute(
+    const finalizedMeta = await this.sceneAssetProfileStep.execute(
       merged.meta,
       merged.detail,
       storedScene.scale,

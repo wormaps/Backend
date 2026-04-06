@@ -27,6 +27,7 @@ export interface SceneAssetSelection {
   billboardPanels: SceneDetail['signageClusters'];
   budget: SceneMeta['assetProfile']['budget'];
   selected: SceneMeta['assetProfile']['selected'];
+  structuralCoverage: SceneMeta['structuralCoverage'];
 }
 
 @Injectable()
@@ -38,11 +39,27 @@ export class SceneAssetProfileService {
   ): SceneAssetSelection {
     const budget = this.resolveAssetBudget(scale);
     const landmarkLocations = sceneMeta.landmarkAnchors.map((anchor) => anchor.location);
+    const coreRadiusMeters = scale === 'MEDIUM' ? 230 : 150;
+    const crossingCoreRadiusMeters = scale === 'MEDIUM' ? 320 : 160;
+    const roadCoreRadiusMeters = scale === 'MEDIUM' ? 360 : 180;
+    const walkwayCoreRadiusMeters = scale === 'MEDIUM' ? 320 : 170;
 
     const buildings = this.selectPrioritizedSample(
       sceneMeta.buildings,
       budget.buildingCount,
       [
+        this.selectItemsWithinRadius(
+          sceneMeta.buildings,
+          sceneMeta.origin,
+          (building) => averageCoordinate(building.outerRing) ?? sceneMeta.origin,
+          coreRadiusMeters,
+        ),
+        sceneMeta.buildings.filter(
+          (building) =>
+            building.heightMeters >= 28 ||
+            building.usage === 'COMMERCIAL' ||
+            building.usage === 'TRANSIT',
+        ),
         sceneMeta.buildings.filter(
           (building) => building.visualRole && building.visualRole !== 'generic',
         ),
@@ -55,8 +72,10 @@ export class SceneAssetProfileService {
       budget.crossingCount,
       sceneMeta,
       landmarkLocations,
+      crossingCoreRadiusMeters,
     );
     const priorityRoadAnchors = uniqueCoordinates([
+      sceneMeta.origin,
       ...landmarkLocations,
       ...crossings.filter((crossing) => crossing.principal).map((crossing) => crossing.center),
     ]);
@@ -66,8 +85,22 @@ export class SceneAssetProfileService {
       (road) => road.path,
       (road) => road.center,
       sceneMeta,
+      [
+        this.selectItemsWithinRadius(
+          sceneMeta.roads,
+          sceneMeta.origin,
+          (road) => road.center,
+          roadCoreRadiusMeters,
+        ),
+        sceneMeta.roads.filter(
+          (road) =>
+            road.roadClass.includes('primary') ||
+            road.roadClass.includes('trunk') ||
+            road.widthMeters >= 12,
+        ),
+      ],
       priorityRoadAnchors,
-      120,
+          240,
     );
     const walkways = this.selectPathCollection(
       sceneMeta.walkways,
@@ -75,8 +108,22 @@ export class SceneAssetProfileService {
       (walkway) => walkway.path,
       (walkway) => midpoint(walkway.path) ?? sceneMeta.origin,
       sceneMeta,
+      [
+        this.selectItemsWithinRadius(
+          sceneMeta.walkways,
+          sceneMeta.origin,
+          (walkway) => midpoint(walkway.path) ?? sceneMeta.origin,
+          walkwayCoreRadiusMeters,
+        ),
+        this.selectItemsNearPoints(
+          sceneMeta.walkways,
+          crossings.map((crossing) => crossing.center),
+          (walkway) => walkway.path,
+          120,
+        ),
+      ],
       priorityRoadAnchors,
-      120,
+      220,
     );
     const landmarkPois = sceneMeta.pois.filter((poi) => poi.isLandmark);
     const remainingPois = sceneMeta.pois.filter((poi) => !poi.isLandmark);
@@ -118,6 +165,11 @@ export class SceneAssetProfileService {
       (item) => item.anchor,
       sceneMeta,
     );
+    const structuralCoverage = this.buildStructuralCoverage(
+      sceneMeta,
+      buildings,
+      coreRadiusMeters,
+    );
 
     return {
       buildings,
@@ -143,6 +195,7 @@ export class SceneAssetProfileService {
         treeClusterCount: vegetation.length,
         billboardPanelCount: billboardPanels.length,
       },
+      structuralCoverage,
     };
   }
 
@@ -164,30 +217,30 @@ export class SceneAssetProfileService {
 
     if (scale === 'LARGE') {
       return {
-        buildingCount: 1200,
-        roadCount: 620,
-        walkwayCount: 760,
-        poiCount: 260,
-        crossingCount: 96,
-        trafficLightCount: 100,
-        streetLightCount: 140,
-        signPoleCount: 180,
-        treeClusterCount: 120,
-        billboardPanelCount: 220,
+        buildingCount: 1800,
+        roadCount: 900,
+        walkwayCount: 1100,
+        poiCount: 340,
+        crossingCount: 140,
+        trafficLightCount: 140,
+        streetLightCount: 200,
+        signPoleCount: 240,
+        treeClusterCount: 160,
+        billboardPanelCount: 280,
       };
     }
 
     return {
-      buildingCount: 700,
-      roadCount: 420,
-      walkwayCount: 520,
-      poiCount: 220,
-      crossingCount: 64,
-      trafficLightCount: 60,
-      streetLightCount: 90,
-      signPoleCount: 120,
-      treeClusterCount: 80,
-      billboardPanelCount: 160,
+      buildingCount: 1500,
+      roadCount: 800,
+      walkwayCount: 950,
+      poiCount: 320,
+      crossingCount: 120,
+      trafficLightCount: 120,
+      streetLightCount: 160,
+      signPoleCount: 220,
+      treeClusterCount: 120,
+      billboardPanelCount: 220,
     };
   }
 
@@ -286,6 +339,7 @@ export class SceneAssetProfileService {
     maxCount: number,
     sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
     landmarkLocations: Coordinate[],
+    coreRadiusMeters: number,
   ): SceneCrossingDetail[] {
     return this.selectPrioritizedSample(
       items,
@@ -297,6 +351,12 @@ export class SceneAssetProfileService {
           landmarkLocations,
           (crossing) => crossing.path,
           120,
+        ),
+        this.selectItemsWithinRadius(
+          items,
+          sceneMeta.origin,
+          (crossing) => crossing.center,
+          coreRadiusMeters,
         ),
       ],
       (crossing) => crossing.center,
@@ -310,13 +370,17 @@ export class SceneAssetProfileService {
     getPath: (item: T) => Coordinate[],
     getPoint: (item: T) => Coordinate,
     sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
+    priorityGroups: T[][],
     anchorPoints: Coordinate[],
     radiusMeters: number,
   ): T[] {
     return this.selectPrioritizedSample(
       items,
       maxCount,
-      [this.selectItemsNearPoints(items, anchorPoints, getPath, radiusMeters)],
+      [
+        ...priorityGroups,
+        this.selectItemsNearPoints(items, anchorPoints, getPath, radiusMeters),
+      ],
       getPoint,
       sceneMeta,
     );
@@ -363,7 +427,7 @@ export class SceneAssetProfileService {
       sceneMeta,
     );
 
-    return [...reservedItems, ...sampled];
+    return [...reservedItems, ...sampled].slice(0, maxCount);
   }
 
   private selectItemsNearPoints<T>(
@@ -381,6 +445,54 @@ export class SceneAssetProfileService {
         points.some((anchor) => distanceMeters(pathPoint, anchor) <= radiusMeters),
       ),
     );
+  }
+
+  private selectItemsWithinRadius<T>(
+    items: T[],
+    anchor: Coordinate,
+    getPoint: (item: T) => Coordinate,
+    radiusMeters: number,
+  ): T[] {
+    return items.filter((item) => distanceMeters(getPoint(item), anchor) <= radiusMeters);
+  }
+
+  private buildStructuralCoverage(
+    sceneMeta: SceneMeta,
+    selectedBuildings: SceneBuildingMeta[],
+    coreRadiusMeters: number,
+  ): SceneMeta['structuralCoverage'] {
+    const totalBuildings = Math.max(1, sceneMeta.buildings.length);
+    const selectedIds = new Set(selectedBuildings.map((building) => building.objectId));
+    const coreBuildings = sceneMeta.buildings.filter((building) => {
+      const center = averageCoordinate(building.outerRing) ?? sceneMeta.origin;
+      return distanceMeters(center, sceneMeta.origin) <= coreRadiusMeters;
+    });
+    const coreSelectedCount = coreBuildings.filter((building) =>
+      selectedIds.has(building.objectId),
+    ).length;
+    const fallbackCount = sceneMeta.buildings.filter(
+      (building) => building.geometryStrategy === 'fallback_massing',
+    ).length;
+    const heroLandmarks = sceneMeta.buildings.filter(
+      (building) => building.visualRole && building.visualRole !== 'generic',
+    );
+    const preservedFootprints = sceneMeta.buildings.filter(
+      (building) => building.geometryStrategy !== 'fallback_massing',
+    ).length;
+
+    return {
+      selectedBuildingCoverage: roundRatio(selectedBuildings.length, totalBuildings),
+      coreAreaBuildingCoverage:
+        coreBuildings.length === 0
+          ? 1
+          : roundRatio(coreSelectedCount, coreBuildings.length),
+      fallbackMassingRate: roundRatio(fallbackCount, totalBuildings),
+      footprintPreservationRate: roundRatio(preservedFootprints, totalBuildings),
+      heroLandmarkCoverage: roundRatio(
+        heroLandmarks.filter((building) => selectedIds.has(building.objectId)).length,
+        Math.max(1, heroLandmarks.length),
+      ),
+    };
   }
 }
 
@@ -433,4 +545,8 @@ function uniqueCoordinates(points: Coordinate[]): Coordinate[] {
     seen.add(key);
     return true;
   });
+}
+
+function roundRatio(value: number, total: number): number {
+  return Number((value / total).toFixed(3));
 }

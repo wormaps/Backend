@@ -98,8 +98,10 @@ export class SceneVisionService {
       radiusMeters: item.radiusMeters,
     }));
     const facadeHints = this.sceneFacadeVisionService.buildFacadeHints(
+      place,
       placePackage,
       mapillaryImages,
+      mapillaryFeatures,
     );
     const geometryDiagnostics =
       this.sceneGeometryDiagnosticsService.buildGeometryDiagnostics(
@@ -151,7 +153,7 @@ export class SceneVisionService {
         emissiveZoneCount: 0,
         streetFurnitureRowCount: 0,
       },
-      heroOverridesApplied: [],
+      annotationsApplied: [],
       provenance: {
         mapillaryUsed,
         mapillaryImageCount: mapillaryImages.length,

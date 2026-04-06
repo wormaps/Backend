@@ -129,6 +129,19 @@ export type RoadDecalStyleToken =
   | 'stopline_white'
   | 'arrow_yellow'
   | 'junction_amber';
+export type SceneFidelityMode =
+  | 'PROCEDURAL_ONLY'
+  | 'MATERIAL_ENRICHED'
+  | 'LANDMARK_ENRICHED'
+  | 'REALITY_OVERLAY_READY';
+export type SceneRealitySourceType =
+  | 'OSM'
+  | 'GOOGLE_PLACES'
+  | 'MAPILLARY'
+  | 'CURATED_ASSET_PACK'
+  | 'PHOTOREAL_3D_TILES'
+  | 'CAPTURED_MESH';
+export type SceneEvidenceLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface BuildingPodiumSpec {
   levels: number;
@@ -178,6 +191,92 @@ export interface ScenePlaceReadabilityDiagnostics {
   roofUnitCount: number;
   emissiveZoneCount: number;
   streetFurnitureRowCount: number;
+}
+
+export interface SceneStructuralCoverage {
+  selectedBuildingCoverage: number;
+  coreAreaBuildingCoverage: number;
+  fallbackMassingRate: number;
+  footprintPreservationRate: number;
+  heroLandmarkCoverage: number;
+}
+
+export interface SceneRealitySourceReference {
+  sourceType: SceneRealitySourceType;
+  enabled: boolean;
+  coverage: 'NONE' | 'LANDMARK' | 'CORE' | 'FULL';
+  reason: string;
+}
+
+export interface SceneFidelityPlan {
+  currentMode: SceneFidelityMode;
+  targetMode: SceneFidelityMode;
+  phase: 'PHASE_1_BASELINE' | 'PHASE_2_HYBRID_FOUNDATION';
+  coreRadiusM: number;
+  priorities: string[];
+  evidence: {
+    structure: SceneEvidenceLevel;
+    facade: SceneEvidenceLevel;
+    signage: SceneEvidenceLevel;
+    streetFurniture: SceneEvidenceLevel;
+    landmark: SceneEvidenceLevel;
+  };
+  sourceRegistry: SceneRealitySourceReference[];
+}
+
+export interface SceneLandmarkFacadeHint {
+  palette?: string[];
+  shellPalette?: string[];
+  panelPalette?: string[];
+  materialClass?: MaterialClass;
+  signageDensity?: 'low' | 'medium' | 'high';
+  emissiveStrength?: number;
+  glazingRatio?: number;
+  facadeEdgeIndex?: number | null;
+  visualRole?: VisualRole;
+}
+
+export interface SceneLandmarkAnnotation {
+  id: string;
+  objectId?: string;
+  anchor: Coordinate;
+  importance: 'primary' | 'secondary';
+  kind: 'BUILDING' | 'CROSSING' | 'PLAZA';
+  name: string;
+  facadeHint?: SceneLandmarkFacadeHint;
+}
+
+export interface SceneStreetFurnitureRowHint {
+  id: string;
+  type: 'TRAFFIC_LIGHT' | 'STREET_LIGHT' | 'SIGN_POLE';
+  points: Coordinate[];
+  principal?: boolean;
+}
+
+export interface LandmarkAnnotationManifest {
+  id: string;
+  match: {
+    placeIds: string[];
+    aliases: string[];
+  };
+  landmarks: SceneLandmarkAnnotation[];
+  crossings: Array<{
+    id: string;
+    name: string;
+    path: Coordinate[];
+    style: 'zebra' | 'signalized';
+    importance: 'primary' | 'secondary';
+  }>;
+  signageClusters: Array<{
+    id: string;
+    anchor: Coordinate;
+    panelCount: number;
+    palette: string[];
+    emissiveStrength: number;
+    widthMeters: number;
+    heightMeters: number;
+  }>;
+  streetFurnitureRows: SceneStreetFurnitureRowHint[];
 }
 
 export interface SceneEntity {
@@ -404,6 +503,8 @@ export interface SceneMeta {
     budget: SceneAssetCounts;
     selected: SceneAssetCounts;
   };
+  structuralCoverage: SceneStructuralCoverage;
+  fidelityPlan?: SceneFidelityPlan;
   roads: SceneRoadMeta[];
   buildings: SceneBuildingMeta[];
   walkways: SceneWalkwayMeta[];
@@ -427,7 +528,9 @@ export interface SceneDetail {
   roadDecals?: SceneRoadDecal[];
   geometryDiagnostics?: SceneGeometryDiagnostic[];
   placeReadabilityDiagnostics?: ScenePlaceReadabilityDiagnostics;
-  heroOverridesApplied: string[];
+  annotationsApplied: string[];
+  structuralCoverage?: SceneStructuralCoverage;
+  fidelityPlan?: SceneFidelityPlan;
   provenance: {
     mapillaryUsed: boolean;
     mapillaryImageCount: number;
@@ -451,6 +554,8 @@ export interface BootstrapResponse {
   detailStatus: SceneDetailStatus;
   glbSources: GlbSources;
   assetProfile: SceneMeta['assetProfile'];
+  structuralCoverage: SceneStructuralCoverage;
+  fidelityPlan?: SceneFidelityPlan;
   liveEndpoints: {
     state: string;
     traffic: string;

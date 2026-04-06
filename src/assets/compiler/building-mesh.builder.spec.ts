@@ -102,10 +102,14 @@ describe('building-mesh.builder', () => {
           weakEvidence: false,
         },
       ],
-      'cool',
+      'warm',
     );
 
     expect(heroPanels.positions.length).toBeGreaterThan(0);
     expect(heroPanels.indices.length).toBeGreaterThan(0);
+    const xValues = heroPanels.positions.filter((_, index) => index % 3 === 0);
+    const zValues = heroPanels.positions.filter((_, index) => index % 3 === 2);
+    expect(Math.max(...xValues) - Math.min(...xValues)).toBeGreaterThan(0.15);
+    expect(Math.max(...zValues) - Math.min(...zValues)).toBeGreaterThan(0.15);
   });
 });

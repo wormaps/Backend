@@ -334,9 +334,6 @@ export class BuildingStyleResolverService {
     roofType: RoofType,
   ): GeometryStrategy {
     const ringArea = Math.abs(polygonSignedArea(input.outerRing)) * 111_320 * 111_320;
-    if (input.outerRing.length >= 10) {
-      return 'fallback_massing';
-    }
     if (input.buildingPart === 'yes' || preset === 'mall_block') {
       return 'podium_tower';
     }

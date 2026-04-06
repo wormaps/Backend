@@ -601,6 +601,23 @@ export class SceneAssetProfileDto {
   selected!: SceneAssetCountsDto;
 }
 
+export class SceneStructuralCoverageDto {
+  @ApiProperty({ example: 0.62 })
+  selectedBuildingCoverage!: number;
+
+  @ApiProperty({ example: 0.91 })
+  coreAreaBuildingCoverage!: number;
+
+  @ApiProperty({ example: 0.08 })
+  fallbackMassingRate!: number;
+
+  @ApiProperty({ example: 0.92 })
+  footprintPreservationRate!: number;
+
+  @ApiProperty({ example: 1 })
+  heroLandmarkCoverage!: number;
+}
+
 export class SceneMetaDto {
   @ApiProperty({ example: 'scene-seoul-city-hall' })
   sceneId!: string;
@@ -663,6 +680,9 @@ export class SceneMetaDto {
 
   @ApiProperty({ type: SceneAssetProfileDto })
   assetProfile!: SceneAssetProfileDto;
+
+  @ApiProperty({ type: SceneStructuralCoverageDto })
+  structuralCoverage!: SceneStructuralCoverageDto;
 
   @ApiProperty({ type: [SceneRoadMetaDto] })
   roads!: SceneRoadMetaDto[];
@@ -800,6 +820,9 @@ export class BootstrapResponseDto {
 
   @ApiProperty({ type: SceneAssetProfileDto })
   assetProfile!: SceneAssetProfileDto;
+
+  @ApiProperty({ type: SceneStructuralCoverageDto })
+  structuralCoverage!: SceneStructuralCoverageDto;
 
   @ApiProperty({ type: BootstrapEndpointsDto })
   liveEndpoints!: BootstrapEndpointsDto;
@@ -981,7 +1004,10 @@ export class SceneDetailDto {
   signageClusters!: SceneSignageClusterDto[];
 
   @ApiProperty({ type: [String] })
-  heroOverridesApplied!: string[];
+  annotationsApplied!: string[];
+
+  @ApiProperty({ type: SceneStructuralCoverageDto, required: false })
+  structuralCoverage?: SceneStructuralCoverageDto;
 
   @ApiProperty({ example: { mapillaryUsed: true, mapillaryImageCount: 12 } })
   provenance!: Record<string, unknown>;

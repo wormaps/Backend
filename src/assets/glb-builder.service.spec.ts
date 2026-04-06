@@ -72,12 +72,12 @@ describe('GlbBuilderService', () => {
     expect(coolStyle).toMatchObject({
       materialClass: 'glass',
       bucket: 'cool-mid',
-      key: 'glass_cool-mid',
+      key: 'glass_#4d79c7',
     });
     expect(brickStyle).toMatchObject({
       materialClass: 'brick',
       bucket: 'brick',
-      key: 'brick_brick',
+      key: 'brick_#a65b42',
     });
   });
 

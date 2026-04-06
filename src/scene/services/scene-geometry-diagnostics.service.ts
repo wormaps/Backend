@@ -20,11 +20,11 @@ export class SceneGeometryDiagnosticsService {
       const strategy = hint?.geometryStrategy ?? (building.holes.length > 0
         ? 'courtyard_block'
         : complexity === 'complex'
-          ? 'fallback_massing'
+          ? 'stepped_tower'
           : 'simple_extrude');
       const fallbackReason = determineFallbackReason(building.outerRing, building.holes);
       const fallbackApplied =
-        strategy === 'fallback_massing' || fallbackReason !== 'NONE';
+        fallbackReason !== 'NONE';
 
       return {
         objectId: building.id,
@@ -62,9 +62,6 @@ function determineFallbackReason(
   }
   if (ringHasVeryThinEdge(outerRing)) {
     return 'VERY_THIN_POLYGON';
-  }
-  if (outerRing.length >= 10) {
-    return 'SELF_INTERSECTION_RISK';
   }
   return 'NONE';
 }

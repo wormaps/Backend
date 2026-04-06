@@ -4,6 +4,7 @@ import { PlacesModule } from '../places/places.module';
 import { GlbBuilderService } from '../assets/glb-builder.service';
 import { SceneGenerationPipelineService } from './pipeline/scene-generation-pipeline.service';
 import { SceneAssetProfileStep } from './pipeline/steps/scene-asset-profile.step';
+import { SceneFidelityPlanStep } from './pipeline/steps/scene-fidelity-plan.step';
 import { SceneGlbBuildStep } from './pipeline/steps/scene-glb-build.step';
 import { SceneHeroOverrideStep } from './pipeline/steps/scene-hero-override.step';
 import { SceneMetaBuilderStep } from './pipeline/steps/scene-meta-builder.step';
@@ -15,6 +16,7 @@ import { SceneService } from './scene.service';
 import { BuildingStyleResolverService } from './services/building-style-resolver.service';
 import { SceneAssetProfileService } from './services/scene-asset-profile.service';
 import { SceneFacadeVisionService } from './services/scene-facade-vision.service';
+import { SceneFidelityPlannerService } from './services/scene-fidelity-planner.service';
 import { SceneGeometryDiagnosticsService } from './services/scene-geometry-diagnostics.service';
 import { SceneHeroOverrideApplierService } from './services/scene-hero-override-applier.service';
 import { SceneHeroOverrideMatcherService } from './services/scene-hero-override-matcher.service';
@@ -40,6 +42,7 @@ import { SceneRepository } from './storage/scene.repository';
     SceneAssetProfileService,
     SceneRoadVisionService,
     SceneFacadeVisionService,
+    SceneFidelityPlannerService,
     SceneGeometryDiagnosticsService,
     SceneSignageVisionService,
     SceneHeroOverrideMatcherService,
@@ -49,6 +52,7 @@ import { SceneRepository } from './storage/scene.repository';
     ScenePlaceResolutionStep,
     ScenePlacePackageStep,
     SceneVisualRulesStep,
+    SceneFidelityPlanStep,
     SceneMetaBuilderStep,
     SceneHeroOverrideStep,
     SceneAssetProfileStep,

@@ -89,7 +89,7 @@ async function main() {
       vegetation: detail.vegetation.length,
       facadeHints: detail.facadeHints.length,
       signageClusters: detail.signageClusters.length,
-      heroOverridesApplied: detail.heroOverridesApplied.length,
+      annotationsApplied: detail.annotationsApplied.length,
       provenance: detail.provenance,
     };
     result.files = {

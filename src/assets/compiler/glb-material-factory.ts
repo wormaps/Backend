@@ -35,9 +35,9 @@ export function createSceneMaterials(doc: any) {
       .setRoughnessFactor(0.62),
     crosswalk: doc
       .createMaterial('crosswalk')
-      .setBaseColorFactor([0.97, 0.97, 0.97, 1])
+      .setBaseColorFactor([0.9, 0.9, 0.88, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.82),
+      .setRoughnessFactor(0.9),
     junctionOverlay: doc
       .createMaterial('junction-overlay')
       .setBaseColorFactor([0.94, 0.84, 0.42, 1])
@@ -110,39 +110,39 @@ export function createSceneMaterials(doc: any) {
     roofAccents: {
       cool: doc
         .createMaterial('roof-accent-cool')
-        .setBaseColorFactor([0.63, 0.8, 0.96, 1])
+        .setBaseColorFactor([0.44, 0.59, 0.74, 1])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.58),
+        .setRoughnessFactor(0.68),
       warm: doc
         .createMaterial('roof-accent-warm')
-        .setBaseColorFactor([0.94, 0.66, 0.44, 1])
+        .setBaseColorFactor([0.67, 0.46, 0.31, 1])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.62),
+        .setRoughnessFactor(0.7),
       neutral: doc
         .createMaterial('roof-accent-neutral')
-        .setBaseColorFactor([0.78, 0.8, 0.83, 1])
+        .setBaseColorFactor([0.52, 0.55, 0.6, 1])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.6),
+        .setRoughnessFactor(0.72),
     } as Record<AccentTone, any>,
     buildingPanels: {
       cool: doc
         .createMaterial('building-panel-cool')
-        .setBaseColorFactor([0.32, 0.48, 0.66, 1])
-        .setEmissiveFactor([0.12, 0.18, 0.25])
+        .setBaseColorFactor([0.16, 0.24, 0.34, 1])
+        .setEmissiveFactor([0.18, 0.25, 0.34])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.72),
+        .setRoughnessFactor(0.78),
       warm: doc
         .createMaterial('building-panel-warm')
-        .setBaseColorFactor([0.74, 0.45, 0.26, 1])
-        .setEmissiveFactor([0.26, 0.13, 0.06])
+        .setBaseColorFactor([0.4, 0.23, 0.13, 1])
+        .setEmissiveFactor([0.3, 0.14, 0.08])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.7),
+        .setRoughnessFactor(0.78),
       neutral: doc
         .createMaterial('building-panel-neutral')
-        .setBaseColorFactor([0.42, 0.45, 0.5, 1])
-        .setEmissiveFactor([0.14, 0.14, 0.16])
+        .setBaseColorFactor([0.22, 0.24, 0.28, 1])
+        .setEmissiveFactor([0.18, 0.18, 0.2])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.76),
+        .setRoughnessFactor(0.8),
     } as Record<AccentTone, any>,
     billboards: {
       cool: doc
@@ -159,10 +159,10 @@ export function createSceneMaterials(doc: any) {
         .setRoughnessFactor(0.7),
       neutral: doc
         .createMaterial('billboard-neutral')
-        .setBaseColorFactor([0.85, 0.85, 0.88, 1])
-        .setEmissiveFactor([0.28, 0.28, 0.3])
+        .setBaseColorFactor([0.62, 0.63, 0.66, 1])
+        .setEmissiveFactor([0.34, 0.34, 0.36])
         .setMetallicFactor(0)
-        .setRoughnessFactor(0.66),
+        .setRoughnessFactor(0.72),
     } as Record<AccentTone, any>,
     landmark: doc
       .createMaterial('landmark')
@@ -177,33 +177,72 @@ export function createBuildingShellMaterial(
   doc: any,
   materialClass: MaterialClass,
   bucket: ShellColorBucket,
+  explicitHex?: string,
 ) {
-  const [r, g, b] = hexToRgb(resolveShellBucketHex(bucket));
+  const [r, g, b] = hexToRgb(explicitHex ?? resolveShellBucketHex(bucket));
   const surface = resolveShellSurface(materialClass);
 
   return doc
-    .createMaterial(`building-shell-${materialClass}-${bucket}`)
+    .createMaterial(`building-shell-${materialClass}-${explicitHex ?? bucket}`)
     .setBaseColorFactor([r, g, b, 1])
     .setMetallicFactor(surface.metallicFactor)
     .setRoughnessFactor(surface.roughnessFactor);
 }
 
+export function createBuildingPanelMaterial(
+  doc: any,
+  tone: AccentTone,
+  hex: string,
+) {
+  const [r, g, b] = hexToRgb(hex);
+  const emissiveBoost = tone === 'warm' ? 0.42 : tone === 'cool' ? 0.38 : 0.28;
+  return doc
+    .createMaterial(`building-panel-${tone}-${hex}`)
+    .setBaseColorFactor([r, g, b, 1])
+    .setEmissiveFactor([
+      Math.min(0.8, r * emissiveBoost),
+      Math.min(0.8, g * emissiveBoost),
+      Math.min(0.8, b * emissiveBoost),
+    ])
+    .setMetallicFactor(0)
+    .setRoughnessFactor(0.78);
+}
+
+export function createBillboardMaterial(
+  doc: any,
+  tone: AccentTone,
+  hex: string,
+) {
+  const [r, g, b] = hexToRgb(hex);
+  const emissiveBoost = tone === 'warm' ? 0.68 : tone === 'cool' ? 0.62 : 0.48;
+  return doc
+    .createMaterial(`billboard-${tone}-${hex}`)
+    .setBaseColorFactor([r, g, b, 1])
+    .setEmissiveFactor([
+      Math.min(1, r * emissiveBoost + 0.06),
+      Math.min(1, g * emissiveBoost + 0.06),
+      Math.min(1, b * emissiveBoost + 0.06),
+    ])
+    .setMetallicFactor(0)
+    .setRoughnessFactor(0.7);
+}
+
 function resolveShellBucketHex(bucket: ShellColorBucket): string {
   switch (bucket) {
     case 'cool-light':
-      return '#d7ebf7';
+      return '#8fa7ba';
     case 'cool-mid':
-      return '#a8d0ec';
+      return '#6f899d';
     case 'neutral-light':
-      return '#eceef0';
+      return '#b8bec5';
     case 'neutral-mid':
-      return '#cfd5db';
+      return '#8f98a1';
     case 'neutral-dark':
-      return '#9aa3ab';
+      return '#626c75';
     case 'warm-light':
-      return '#ecd8c8';
+      return '#b69681';
     case 'warm-mid':
-      return '#d5ab8f';
+      return '#8d6c57';
     case 'brick':
       return '#b36a4f';
   }
