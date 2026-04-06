@@ -23,6 +23,11 @@ export function createSceneMaterials(doc: any) {
       .setBaseColorFactor([0.2, 0.21, 0.22, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(0.96),
+    roadEdge: doc
+      .createMaterial('road-edge')
+      .setBaseColorFactor([0.34, 0.34, 0.33, 1])
+      .setMetallicFactor(0)
+      .setRoughnessFactor(0.94),
     roadMarking: doc
       .createMaterial('road-marking')
       .setBaseColorFactor([0.88, 0.84, 0.65, 1])
@@ -123,6 +128,23 @@ export function createSceneMaterials(doc: any) {
         .setBaseColorFactor([0.52, 0.55, 0.6, 1])
         .setMetallicFactor(0)
         .setRoughnessFactor(0.72),
+    } as Record<AccentTone, any>,
+    roofSurfaces: {
+      cool: doc
+        .createMaterial('roof-surface-cool')
+        .setBaseColorFactor([0.32, 0.42, 0.52, 1])
+        .setMetallicFactor(0.02)
+        .setRoughnessFactor(0.84),
+      warm: doc
+        .createMaterial('roof-surface-warm')
+        .setBaseColorFactor([0.48, 0.37, 0.28, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.88),
+      neutral: doc
+        .createMaterial('roof-surface-neutral')
+        .setBaseColorFactor([0.4, 0.41, 0.43, 1])
+        .setMetallicFactor(0)
+        .setRoughnessFactor(0.9),
     } as Record<AccentTone, any>,
     buildingPanels: {
       cool: doc

@@ -1,5 +1,6 @@
 import {
   createBuildingPanelsGeometry,
+  createBuildingRoofSurfaceGeometry,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
@@ -111,5 +112,18 @@ describe('building-mesh.builder', () => {
     const zValues = heroPanels.positions.filter((_, index) => index % 3 === 2);
     expect(Math.max(...xValues) - Math.min(...xValues)).toBeGreaterThan(0.15);
     expect(Math.max(...zValues) - Math.min(...zValues)).toBeGreaterThan(0.15);
+  });
+
+  it('builds roof surface geometry so roofs read separately from wall shells', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const roofSurfaces = createBuildingRoofSurfaceGeometry(
+      origin,
+      [building],
+      () => [0, 1, 2, 0, 2, 3],
+      'cool',
+    );
+
+    expect(roofSurfaces.positions.length).toBeGreaterThan(0);
+    expect(roofSurfaces.indices.length).toBeGreaterThan(0);
   });
 });

@@ -71,6 +71,24 @@ export function createRoadBaseGeometry(
   return geometry;
 }
 
+export function createRoadEdgeGeometry(
+  origin: Coordinate,
+  roads: SceneMeta['roads'],
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+  for (const road of roads) {
+    pushPathEdgeBands(
+      origin,
+      geometry,
+      road.path,
+      Math.max(3.2, road.widthMeters),
+      Math.max(0.22, Math.min(0.42, road.widthMeters * 0.045)),
+      0.02,
+    );
+  }
+  return geometry;
+}
+
 export function createRoadMarkingsGeometry(
   origin: Coordinate,
   markings: SceneDetail['roadMarkings'],
@@ -331,6 +349,81 @@ function pushPathStrips(
       continue;
     }
     pushQuad(geometry, left[i], right[i], right[i + 1], left[i + 1]);
+  }
+}
+
+function pushPathEdgeBands(
+  origin: Coordinate,
+  geometry: GeometryBuffers,
+  path: Coordinate[],
+  width: number,
+  edgeWidth: number,
+  y: number,
+): void {
+  const localPath = path
+    .map((point) => toLocalPoint(origin, point))
+    .filter((point) => isFiniteVec3(point))
+    .filter((point, index, array) => {
+      const prev = array[index - 1];
+      return !prev || !samePointXZ(prev, point);
+    });
+
+  if (localPath.length < 2) {
+    return;
+  }
+
+  const outerHalf = width / 2;
+  const innerHalf = Math.max(0.4, outerHalf - edgeWidth);
+  const leftOuter: Vec3[] = [];
+  const leftInner: Vec3[] = [];
+  const rightOuter: Vec3[] = [];
+  const rightInner: Vec3[] = [];
+
+  for (let i = 0; i < localPath.length; i += 1) {
+    const current = localPath[i];
+    const prev = localPath[i - 1] ?? current;
+    const next = localPath[i + 1] ?? current;
+    const normal = computePathNormal(prev, current, next);
+    if (!isFiniteVec2(normal)) {
+      continue;
+    }
+    leftOuter.push([
+      current[0] + normal[0] * outerHalf,
+      y,
+      current[2] + normal[1] * outerHalf,
+    ]);
+    leftInner.push([
+      current[0] + normal[0] * innerHalf,
+      y,
+      current[2] + normal[1] * innerHalf,
+    ]);
+    rightInner.push([
+      current[0] - normal[0] * innerHalf,
+      y,
+      current[2] - normal[1] * innerHalf,
+    ]);
+    rightOuter.push([
+      current[0] - normal[0] * outerHalf,
+      y,
+      current[2] - normal[1] * outerHalf,
+    ]);
+  }
+
+  for (let i = 0; i < localPath.length - 1; i += 1) {
+    if (
+      !leftOuter[i] ||
+      !leftInner[i] ||
+      !leftOuter[i + 1] ||
+      !leftInner[i + 1] ||
+      !rightOuter[i] ||
+      !rightInner[i] ||
+      !rightOuter[i + 1] ||
+      !rightInner[i + 1]
+    ) {
+      continue;
+    }
+    pushQuad(geometry, leftOuter[i], leftInner[i], leftInner[i + 1], leftOuter[i + 1]);
+    pushQuad(geometry, rightInner[i], rightOuter[i], rightOuter[i + 1], rightInner[i + 1]);
   }
 }
 

@@ -162,6 +162,7 @@ describe('SceneFidelityPlannerService', () => {
 
     expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
     expect(plan.phase).toBe('PHASE_2_HYBRID_FOUNDATION');
+    expect(plan.evidence.facade).toBe('HIGH');
     expect(
       plan.sourceRegistry.find((source) => source.sourceType === 'MAPILLARY')
         ?.enabled,

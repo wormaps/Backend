@@ -21,6 +21,7 @@ export class SceneFidelityPlanStep {
     scale: SceneScale,
     placePackage: PlacePackage,
     detail: SceneDetail,
+    stage: 'fidelity_plan' | 'fidelity_plan_final' = 'fidelity_plan',
   ): Promise<SceneFidelityPlan> {
     const plan = this.sceneFidelityPlannerService.buildPlan(
       place,
@@ -29,7 +30,7 @@ export class SceneFidelityPlanStep {
       detail,
     );
 
-    await appendSceneDiagnosticsLog(sceneId, 'fidelity_plan', {
+    await appendSceneDiagnosticsLog(sceneId, stage, {
       currentMode: plan.currentMode,
       targetMode: plan.targetMode,
       phase: plan.phase,

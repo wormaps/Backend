@@ -6,6 +6,7 @@ import { Coordinate } from '../places/types/place.types';
 import {
   createBillboardsGeometry,
   createBuildingPanelsGeometry,
+  createBuildingRoofSurfaceGeometry,
   createBuildingShellGeometry,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
@@ -25,6 +26,7 @@ import {
   createCrosswalkGeometry,
   createGroundGeometry,
   createRoadBaseGeometry,
+  createRoadEdgeGeometry,
   createRoadDecalPathGeometry,
   createRoadDecalPolygonGeometry,
   createRoadDecalStripeGeometry,
@@ -113,6 +115,19 @@ export class GlbBuilderService {
       'road_base',
       createRoadBaseGeometry(sceneMeta.origin, assetSelection.roads),
       materials.roadBase,
+      {
+        sourceCount: sceneMeta.roads.length,
+        selectedCount: assetSelection.roads.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'road_edges',
+      createRoadEdgeGeometry(sceneMeta.origin, assetSelection.roads),
+      materials.roadEdge,
       {
         sourceCount: sceneMeta.roads.length,
         selectedCount: assetSelection.roads.length,
@@ -463,6 +478,60 @@ export class GlbBuilderService {
       Accessor,
       scene,
       buffer,
+      'building_roof_surfaces_cool',
+      createBuildingRoofSurfaceGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+        triangulate,
+        'cool',
+      ),
+      materials.roofSurfaces.cool,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'building_roof_surfaces_warm',
+      createBuildingRoofSurfaceGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+        triangulate,
+        'warm',
+      ),
+      materials.roofSurfaces.warm,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
+      'building_roof_surfaces_neutral',
+      createBuildingRoofSurfaceGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+        triangulate,
+        'neutral',
+      ),
+      materials.roofSurfaces.neutral,
+      {
+        sourceCount: assetSelection.buildings.length,
+        selectedCount: assetSelection.buildings.length,
+      },
+    );
+    this.addMeshNode(
+      doc,
+      Accessor,
+      scene,
+      buffer,
       'building_roof_accents_cool',
       this.createBuildingRoofAccentGeometry(
         sceneMeta.origin,
@@ -640,6 +709,7 @@ export class GlbBuilderService {
         facadeHints: sceneDetail.facadeHints.length,
         signageClusters: sceneDetail.signageClusters.length,
       },
+      facadeContextDiagnostics: sceneDetail.facadeContextDiagnostics,
       groupedBuildingShells: [...groupedBuildings.entries()].map(([groupKey, group]) => ({
         groupKey,
         materialClass: group.materialClass,

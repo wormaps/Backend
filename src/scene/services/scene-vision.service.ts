@@ -116,6 +116,11 @@ export class SceneVisionService {
 
     const materialClasses =
       this.sceneFacadeVisionService.summarizeMaterialClasses(facadeHints);
+    const facadeContextDiagnostics =
+      this.sceneFacadeVisionService.summarizeFacadeContextDiagnostics(
+        facadeHints,
+        placePackage,
+      );
     const landmarkAnchors = this.sceneSignageVisionService.buildLandmarkAnchors(
       placePackage,
       crossings,
@@ -136,6 +141,7 @@ export class SceneVisionService {
       intersectionProfiles,
       roadDecals,
       geometryDiagnostics,
+      facadeContextDiagnostics,
       placeReadabilityDiagnostics: {
         heroBuildingCount: 0,
         heroIntersectionCount: new Set(

@@ -60,11 +60,38 @@ describe('SceneFacadeVisionService', () => {
         usage: 'PUBLIC',
       },
     ],
-    roads: [],
+    roads: [
+      {
+        id: 'road-primary-1',
+        name: 'Main Street',
+        laneCount: 4,
+        roadClass: 'primary',
+        widthMeters: 18,
+        path: [
+          { lat: 35.6596, lng: 139.70045 },
+          { lat: 35.6593, lng: 139.7007 },
+        ],
+        direction: 'TWO_WAY',
+      },
+    ],
     walkways: [],
     pois: [],
     landmarks: [],
-    crossings: [],
+    crossings: [
+      {
+        id: 'crossing-1',
+        name: 'Core Crossing',
+        type: 'CROSSING',
+        crossing: 'traffic_signals',
+        crossingRef: null,
+        signalized: true,
+        path: [
+          { lat: 35.6595, lng: 139.7005 },
+          { lat: 35.65948, lng: 139.7006 },
+        ],
+        center: { lat: 35.65949, lng: 139.70056 },
+      },
+    ],
     streetFurniture: [],
     vegetation: [],
     landCovers: [],
@@ -96,6 +123,10 @@ describe('SceneFacadeVisionService', () => {
     expect(edgeHint!.panelPalette).toBeDefined();
     expect(coreHint!.panelPalette!.length).toBeGreaterThan(0);
     expect(edgeHint!.panelPalette!.length).toBeGreaterThan(0);
+    expect(['glass', 'metal']).toContain(coreHint!.materialClass);
+    expect(['NEON_CORE', 'COMMERCIAL_STRIP', 'TRANSIT_HUB']).toContain(
+      coreHint!.contextProfile!,
+    );
   });
 
   it('preserves explicit OSM colors when they exist', () => {
@@ -119,5 +150,19 @@ describe('SceneFacadeVisionService', () => {
     expect(firstHint).toBeDefined();
     expect(firstHint!.palette).toContain('#445566');
     expect(firstHint!.shellPalette).toContain('#445566');
+  });
+
+  it('summarizes facade context diagnostics for logging', () => {
+    const hints = service.buildFacadeHints(place, placePackage, [], []);
+    const diagnostics = service.summarizeFacadeContextDiagnostics(
+      hints,
+      placePackage,
+    );
+
+    expect(diagnostics.weakEvidenceCount).toBe(2);
+    expect(diagnostics.profileCounts.length).toBeGreaterThan(0);
+    expect(diagnostics.materialCounts.length).toBeGreaterThan(0);
+    expect(diagnostics.profileMaterialCounts.length).toBeGreaterThan(0);
+    expect(diagnostics.contextualUpgradeCount).toBeGreaterThanOrEqual(0);
   });
 });

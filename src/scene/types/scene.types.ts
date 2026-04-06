@@ -142,6 +142,12 @@ export type SceneRealitySourceType =
   | 'PHOTOREAL_3D_TILES'
   | 'CAPTURED_MESH';
 export type SceneEvidenceLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+export type SceneFacadeContextProfile =
+  | 'NEON_CORE'
+  | 'COMMERCIAL_STRIP'
+  | 'TRANSIT_HUB'
+  | 'CIVIC_CLUSTER'
+  | 'RESIDENTIAL_EDGE';
 
 export interface BuildingPodiumSpec {
   levels: number;
@@ -206,6 +212,20 @@ export interface SceneRealitySourceReference {
   enabled: boolean;
   coverage: 'NONE' | 'LANDMARK' | 'CORE' | 'FULL';
   reason: string;
+}
+
+export interface SceneFacadeContextCount {
+  key: string;
+  count: number;
+}
+
+export interface SceneFacadeContextDiagnostics {
+  weakEvidenceCount: number;
+  contextualUpgradeCount: number;
+  explicitColorBuildingCount: number;
+  profileCounts: SceneFacadeContextCount[];
+  materialCounts: SceneFacadeContextCount[];
+  profileMaterialCounts: SceneFacadeContextCount[];
 }
 
 export interface SceneFidelityPlan {
@@ -382,6 +402,8 @@ export interface SceneFacadeHint {
   shellPalette?: string[];
   panelPalette?: string[];
   weakEvidence?: boolean;
+  contextProfile?: SceneFacadeContextProfile;
+  contextualMaterialUpgrade?: boolean;
   visualRole?: VisualRole;
   baseMass?: HeroBaseMass;
   facadeSpec?: BuildingFacadeSpec;
@@ -527,6 +549,7 @@ export interface SceneDetail {
   intersectionProfiles?: SceneIntersectionProfile[];
   roadDecals?: SceneRoadDecal[];
   geometryDiagnostics?: SceneGeometryDiagnostic[];
+  facadeContextDiagnostics?: SceneFacadeContextDiagnostics;
   placeReadabilityDiagnostics?: ScenePlaceReadabilityDiagnostics;
   annotationsApplied: string[];
   structuralCoverage?: SceneStructuralCoverage;

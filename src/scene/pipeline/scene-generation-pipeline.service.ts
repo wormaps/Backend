@@ -118,6 +118,16 @@ export class SceneGenerationPipelineService {
       baseMeta,
       vision.detail,
     );
+    const finalFidelityPlan = await this.sceneFidelityPlanStep.execute(
+      sceneId,
+      resolvedPlace.place,
+      storedScene.scale,
+      placePackage,
+      merged.detail,
+      'fidelity_plan_final',
+    );
+    merged.detail.fidelityPlan = finalFidelityPlan;
+    merged.meta.fidelityPlan = finalFidelityPlan;
     this.appLoggerService.info('scene.hero_override.completed', {
       ...logContext,
       step: 'hero_override',

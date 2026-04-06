@@ -35,6 +35,11 @@ export class SceneFidelityPlannerService {
       detail.signageClusters.length + detail.facadeHints.length * 0.1;
     const furnitureDensity =
       detail.streetFurniture.length + detail.vegetation.length * 0.25;
+    const facadeEvidenceScore = this.resolveFacadeEvidenceScore(
+      coloredRatio,
+      materialRatio,
+      detail,
+    );
 
     const currentMode = this.resolveCurrentMode(
       landmarkCount,
@@ -60,9 +65,7 @@ export class SceneFidelityPlannerService {
       priorities: this.resolvePriorities(targetMode),
       evidence: {
         structure: this.resolveEvidenceLevel(placePackage.buildings.length),
-        facade: this.resolveEvidenceLevel(
-          Math.round((coloredRatio + materialRatio) * 100),
-        ),
+        facade: this.resolveEvidenceLevel(Math.round(facadeEvidenceScore)),
         signage: this.resolveEvidenceLevel(Math.round(signageDensity)),
         streetFurniture: this.resolveEvidenceLevel(Math.round(furnitureDensity)),
         landmark: this.resolveEvidenceLevel(landmarkCount * 8),
@@ -184,6 +187,28 @@ export class SceneFidelityPlannerService {
     }
 
     return base;
+  }
+
+  private resolveFacadeEvidenceScore(
+    coloredRatio: number,
+    materialRatio: number,
+    detail: SceneDetail,
+  ): number {
+    const explicitSignal = ((coloredRatio + materialRatio) / 2) * 100;
+    const mapillarySignal = Math.min(22, detail.provenance.mapillaryFeatureCount * 0.12);
+    const signageSignal = Math.min(18, detail.signageClusters.length * 1.2);
+    const annotationSignal = Math.min(12, detail.annotationsApplied.length * 0.75);
+    const weakEvidencePenalty =
+      detail.facadeHints.length > 0
+        ? (detail.facadeHints.filter((hint) => hint.weakEvidence).length /
+            detail.facadeHints.length) *
+          8
+        : 0;
+
+    return Math.max(
+      0,
+      explicitSignal + mapillarySignal + signageSignal + annotationSignal - weakEvidencePenalty,
+    );
   }
 
   private resolveEvidenceLevel(score: number): SceneFidelityPlan['evidence']['structure'] {

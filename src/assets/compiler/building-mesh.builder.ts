@@ -83,6 +83,38 @@ export function createBuildingPanelsGeometry(
   return geometry;
 }
 
+export function createBuildingRoofSurfaceGeometry(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+  triangulate: (vertices: number[], holes?: number[], dimensions?: number) => number[],
+  tone: AccentTone,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const building of buildings) {
+    if (resolveRoofTone(building) !== tone) {
+      continue;
+    }
+    const outerRing = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
+    if (outerRing.length < 3) {
+      continue;
+    }
+    const roofRing = insetRing(outerRing, building.roofType === 'gable' ? 0.08 : 0.05);
+    if (roofRing.length < 3) {
+      continue;
+    }
+    const topHeight = Math.max(4, building.heightMeters);
+    const slabMin = topHeight + 0.02;
+    const slabMax = topHeight + (building.roofType === 'gable' ? 0.18 : 0.12);
+    pushExtrudedPolygon(geometry, roofRing, [], slabMin, slabMax, triangulate);
+  }
+
+  return geometry;
+}
+
 export function createHeroCanopyGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
@@ -262,6 +294,19 @@ export function resolveAccentTone(palette: string[]): AccentTone {
     return 'cool';
   }
   return g > 0.5 ? 'cool' : 'neutral';
+}
+
+function resolveRoofTone(
+  building: SceneMeta['buildings'][number],
+): AccentTone {
+  const explicit = building.roofColor ?? building.facadeColor;
+  if (explicit) {
+    return resolveAccentTone([explicit]);
+  }
+  if (building.roofType === 'gable') {
+    return 'warm';
+  }
+  return building.preset === 'glass_tower' ? 'cool' : 'neutral';
 }
 
 function pushBuildingByStrategy(
