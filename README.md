@@ -86,6 +86,11 @@ bun run scene:shibuya
 - `weather`, `traffic`는 현재 `.glb`에 bake되지 않습니다.
 - `GET /api/scenes/{sceneId}/bootstrap`의 `glbSources`로 어떤 데이터가 GLB에 반영됐는지 확인할 수 있습니다.
 
+## 개발 문서
+
+- 대형 파일 분해(500 LOC 기준) 결과 및 모듈 책임:
+  - `docs/oversized-file-modularization-notes.md`
+
 ## 환경 변수 메모
 
 - `GOOGLE_API_KEY`
