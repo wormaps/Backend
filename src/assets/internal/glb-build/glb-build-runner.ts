@@ -6,8 +6,8 @@ import {
   createSceneMaterials,
   AccentTone,
   ShellColorBucket,
-} from '../../compiler/glb-material-factory';
-import { GeometryBuffers, Vec3 } from '../../compiler/road-mesh.builder';
+} from '../../compiler/materials';
+import { GeometryBuffers, Vec3 } from '../../compiler/road';
 import {
   appendSceneDiagnosticsLog,
   getSceneDataDir,

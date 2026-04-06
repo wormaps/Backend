@@ -5,10 +5,7 @@ import {
   SceneFacadeHint,
   SceneMeta,
 } from '../../../scene/types/scene.types';
-import {
-  AccentTone,
-  ShellColorBucket,
-} from '../../compiler/glb-material-factory';
+import { AccentTone, ShellColorBucket } from '../../compiler/materials';
 
 function hexToRgb(hex: string): [number, number, number] {
   const normalized = hex.replace('#', '');

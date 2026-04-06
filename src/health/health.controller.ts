@@ -1,8 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { ResponsePayload } from '../common/http/api-response.interceptor';
-import { ApiSuccessEnvelope } from '../docs/swagger.decorators';
-import { HealthDataDto } from '../docs/swagger.dto';
+import { ApiSuccessEnvelope } from '../docs/decorators';
+import { HealthDataDto } from '../docs/health';
 
 @ApiTags('health')
 @Controller('health')

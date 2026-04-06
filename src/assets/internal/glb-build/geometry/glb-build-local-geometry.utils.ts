@@ -5,11 +5,8 @@ import type {
   SceneMeta,
   SceneStreetFurnitureDetail,
 } from '../../../../scene/types/scene.types';
-import type { AccentTone } from '../../../compiler/glb-material-factory';
-import type {
-  GeometryBuffers,
-  Vec3,
-} from '../../../compiler/road-mesh.builder';
+import type { AccentTone } from '../../../compiler/materials';
+import type { GeometryBuffers, Vec3 } from '../../../compiler/road';
 import {
   createEmptyGeometry,
   insetRing,

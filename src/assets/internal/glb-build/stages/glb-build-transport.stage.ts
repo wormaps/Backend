@@ -11,7 +11,7 @@ import {
   createSidewalkEdgeGeometry,
   createWalkwayGeometry,
   mergeGeometryBuffers,
-} from '../../../compiler/road-mesh.builder';
+} from '../../../compiler/road';
 import {
   AssetSelection,
   MeshAddContext,

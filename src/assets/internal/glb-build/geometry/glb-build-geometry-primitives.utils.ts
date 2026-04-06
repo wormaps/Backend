@@ -1,8 +1,5 @@
 import type { Coordinate } from '../../../../places/types/place.types';
-import type {
-  GeometryBuffers,
-  Vec3,
-} from '../../../compiler/road-mesh.builder';
+import type { GeometryBuffers, Vec3 } from '../../../compiler/road';
 
 type Vec2 = { x: number; z: number };
 

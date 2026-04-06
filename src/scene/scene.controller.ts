@@ -27,7 +27,7 @@ import {
   parseRequiredQuery,
   validatePlaceId,
 } from '../common/http/query-parsers';
-import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/swagger.decorators';
+import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/decorators';
 import {
   BootstrapResponseDto,
   CreateSceneRequestDto,
@@ -38,7 +38,7 @@ import {
   SceneStateResponseDto,
   SceneTrafficResponseDto,
   SceneWeatherResponseDto,
-} from '../docs/scene.dto';
+} from '../docs/scene';
 import {
   TIME_OF_DAY_VALUES,
   WEATHER_VALUES,
@@ -179,12 +179,10 @@ export class SceneController {
   ): Promise<ResponsePayload<SceneDetail>> {
     const validatedSceneId = validatePlaceId(sceneId);
 
-    return this.sceneService
-      .getSceneDetail(validatedSceneId)
-      .then((data) => ({
-        message: 'Scene detail 조회에 성공했습니다.',
-        data,
-      }));
+    return this.sceneService.getSceneDetail(validatedSceneId).then((data) => ({
+      message: 'Scene detail 조회에 성공했습니다.',
+      data,
+    }));
   }
 
   @Get(':sceneId/places')
@@ -205,7 +203,12 @@ export class SceneController {
   @Get(':sceneId/weather')
   @ApiOperation({ summary: 'Scene weather 조회' })
   @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
-  @ApiQuery({ name: 'date', required: false, type: String, example: '2026-04-04' })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    example: '2026-04-04',
+  })
   @ApiQuery({ name: 'timeOfDay', required: false, enum: TIME_OF_DAY_VALUES })
   @ApiSuccessEnvelope({ model: SceneWeatherResponseDto })
   async getWeather(
@@ -234,7 +237,12 @@ export class SceneController {
   @Get(':sceneId/state')
   @ApiOperation({ summary: 'Scene live state 조회' })
   @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
-  @ApiQuery({ name: 'date', required: false, type: String, example: '2026-04-04' })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    example: '2026-04-04',
+  })
   @ApiQuery({ name: 'timeOfDay', required: false, enum: TIME_OF_DAY_VALUES })
   @ApiQuery({ name: 'weather', required: false, enum: WEATHER_VALUES })
   @ApiSuccessEnvelope({ model: SceneStateResponseDto })

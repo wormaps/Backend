@@ -10,12 +10,12 @@ import {
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
   createLandmarkExtrasGeometry,
-} from '../../../compiler/building-mesh.builder';
+} from '../../../compiler/building';
 import {
   createBillboardMaterial,
   createBuildingPanelMaterial,
   createBuildingShellMaterial,
-} from '../../../compiler/glb-material-factory';
+} from '../../../compiler/materials';
 import {
   AssetSelection,
   GroupedBuildings,

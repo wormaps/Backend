@@ -3,8 +3,8 @@ import {
   SceneDetail,
   SceneMeta,
 } from '../../../scene/types/scene.types';
-import { ShellColorBucket } from '../../compiler/glb-material-factory';
-import { createSceneMaterials } from '../../compiler/glb-material-factory';
+import { ShellColorBucket } from '../../compiler/materials';
+import { createSceneMaterials } from '../../compiler/materials';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 
 export type AssetSelection = ReturnType<typeof buildSceneAssetSelection>;

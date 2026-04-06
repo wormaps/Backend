@@ -10,7 +10,7 @@ import {
   validateGooglePlaceId,
   validatePlaceId,
 } from '../common/http/query-parsers';
-import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/swagger.decorators';
+import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/decorators';
 import {
   ExternalPlaceDetailDto,
   ExternalPlacePackageResponseDto,
@@ -20,7 +20,7 @@ import {
   RegistryInfoDto,
   SceneSnapshotDto,
   ExternalSceneSnapshotResponseDto,
-} from '../docs/places.dto';
+} from '../docs/places';
 import type {
   ExternalPlaceDetail,
   ExternalPlacePackageResponse,

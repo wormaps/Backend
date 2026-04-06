@@ -5,12 +5,12 @@ import {
   createEnhancedStreetLightGeometry,
   createFireHydrantGeometry,
   createTrashCanGeometry,
-} from '../../../compiler/street-furniture-mesh.builder';
+} from '../../../compiler/street-furniture';
 import {
   createBushGeometry,
   createFlowerBedGeometry,
   createTreeVariationGeometry,
-} from '../../../compiler/vegetation-mesh.builder';
+} from '../../../compiler/vegetation';
 import {
   AssetSelection,
   MeshAddContext,
