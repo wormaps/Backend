@@ -234,7 +234,7 @@ export class SceneAssetProfileService {
       roadCount: 260,
       walkwayCount: 320,
       poiCount: 120,
-      crossingCount: 56,
+      crossingCount: 96,
       trafficLightCount: 48,
       streetLightCount: 64,
       signPoleCount: 80,
@@ -250,17 +250,27 @@ export class SceneAssetProfileService {
     landmarkLocations: Coordinate[],
     coreRadiusMeters: number,
   ): SceneCrossingDetail[] {
+    if (items.length <= maxCount) {
+      return items;
+    }
+
+    const principal = items.filter((crossing) => crossing.principal);
+    const anchorNear = selectItemsNearPoints(
+      items,
+      landmarkLocations,
+      (crossing) => crossing.path,
+      120,
+    );
+    if (principal.length + anchorNear.length >= maxCount) {
+      return items;
+    }
+
     return selectPrioritizedSample(
       items,
       maxCount,
       [
-        items.filter((crossing) => crossing.principal),
-        selectItemsNearPoints(
-          items,
-          landmarkLocations,
-          (crossing) => crossing.path,
-          120,
-        ),
+        principal,
+        anchorNear,
         selectItemsWithinRadius(
           items,
           sceneMeta.origin,

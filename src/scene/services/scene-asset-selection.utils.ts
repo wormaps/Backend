@@ -107,18 +107,34 @@ export function selectPrioritizedSample<T>(
 
   const reserved = new Set<T>();
   const reservedItems: T[] = [];
-  for (const group of priorityGroups) {
-    for (const item of group) {
-      if (reserved.size >= maxCount) {
-        break;
+  const orderedGroups = priorityGroups.map((group) => group.filter(Boolean));
+  const cursors = new Array(orderedGroups.length).fill(0);
+
+  while (reserved.size < maxCount) {
+    let progressed = false;
+    for (
+      let groupIndex = 0;
+      groupIndex < orderedGroups.length;
+      groupIndex += 1
+    ) {
+      const group = orderedGroups[groupIndex];
+      const cursor = cursors[groupIndex];
+      if (cursor >= group.length) {
+        continue;
       }
+      const item = group[cursor];
+      cursors[groupIndex] = cursor + 1;
+      progressed = true;
       if (reserved.has(item)) {
         continue;
       }
       reserved.add(item);
       reservedItems.push(item);
+      if (reserved.size >= maxCount) {
+        break;
+      }
     }
-    if (reserved.size >= maxCount) {
+    if (!progressed) {
       break;
     }
   }

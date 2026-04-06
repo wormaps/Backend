@@ -12,7 +12,7 @@ async function bootstrap() {
   app.useGlobalFilters(new ApiExceptionFilter());
   setupSwagger(app);
 
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 8080;
   await app.listen(port);
 
   Logger.log(`WorMap BE listening on port ${port}`, 'Bootstrap');
