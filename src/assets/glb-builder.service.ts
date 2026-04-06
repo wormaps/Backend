@@ -2,6 +2,24 @@ import { Injectable } from '@nestjs/common';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Coordinate } from '../places/types/place.types';
+import {
+  createBuildingShellMaterial,
+  createSceneMaterials,
+  AccentTone,
+  ShellColorBucket,
+} from './compiler/glb-material-factory';
+import {
+  createCrosswalkGeometry,
+  createGroundGeometry,
+  createRoadBaseGeometry,
+  createRoadDecalPathGeometry,
+  createRoadDecalPolygonGeometry,
+  createRoadMarkingsGeometry,
+  createWalkwayGeometry,
+  GeometryBuffers,
+  mergeGeometryBuffers,
+  Vec3,
+} from './compiler/road-mesh.builder';
 import { getSceneDataDir } from '../scene/storage/scene-storage.utils';
 import { buildSceneAssetSelection } from '../scene/utils/scene-asset-profile.utils';
 import { normalizeColor } from '../scene/utils/scene-building-style.utils';
@@ -20,29 +38,10 @@ import {
   WindowPatternDensity,
 } from '../scene/types/scene.types';
 
-type Vec3 = [number, number, number];
-
-interface GeometryBuffers {
-  positions: number[];
-  normals: number[];
-  indices: number[];
-}
-
 interface Vec2 {
   x: number;
   z: number;
 }
-
-type AccentTone = 'warm' | 'cool' | 'neutral';
-type ShellColorBucket =
-  | 'cool-light'
-  | 'cool-mid'
-  | 'neutral-light'
-  | 'neutral-mid'
-  | 'neutral-dark'
-  | 'warm-light'
-  | 'warm-mid'
-  | 'brick';
 
 @Injectable()
 export class GlbBuilderService {
@@ -61,7 +60,7 @@ export class GlbBuilderService {
       sceneMeta.assetProfile.preset,
     );
 
-    const materials = this.createMaterials(doc);
+    const materials = createSceneMaterials(doc);
 
     this.addMeshNode(
       doc,
@@ -69,7 +68,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'ground',
-      this.createGroundGeometry(sceneMeta),
+      createGroundGeometry(sceneMeta),
       materials.ground,
     );
     this.addMeshNode(
@@ -78,7 +77,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'road_base',
-      this.createRoadBaseGeometry(sceneMeta.origin, assetSelection.roads),
+      createRoadBaseGeometry(sceneMeta.origin, assetSelection.roads),
       materials.roadBase,
     );
     this.addMeshNode(
@@ -87,7 +86,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'lane_overlay',
-      this.createRoadDecalPathGeometry(
+      createRoadDecalPathGeometry(
         sceneMeta.origin,
         sceneDetail.roadDecals ?? [],
         ['LANE_OVERLAY', 'STOP_LINE'],
@@ -100,7 +99,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'road_markings',
-      this.createRoadMarkingsGeometry(sceneMeta.origin, sceneDetail.roadMarkings),
+      createRoadMarkingsGeometry(sceneMeta.origin, sceneDetail.roadMarkings),
       materials.roadMarking,
     );
     this.addMeshNode(
@@ -109,17 +108,18 @@ export class GlbBuilderService {
       scene,
       buffer,
       'crosswalk_overlay',
-      this.mergeGeometryBuffers([
-        this.createCrosswalkGeometry(sceneMeta.origin, assetSelection.crossings),
-        this.createRoadDecalPathGeometry(
+      mergeGeometryBuffers([
+        createCrosswalkGeometry(sceneMeta.origin, assetSelection.crossings),
+        createRoadDecalPathGeometry(
           sceneMeta.origin,
           sceneDetail.roadDecals ?? [],
           ['CROSSWALK_OVERLAY'],
         ),
-        this.createRoadDecalPolygonGeometry(
+        createRoadDecalPolygonGeometry(
           sceneMeta.origin,
           sceneDetail.roadDecals ?? [],
           ['CROSSWALK_OVERLAY'],
+          this.triangulateRings.bind(this),
           triangulate,
         ),
       ]),
@@ -131,11 +131,12 @@ export class GlbBuilderService {
       scene,
       buffer,
       'junction_overlay',
-      this.mergeGeometryBuffers([
-        this.createRoadDecalPolygonGeometry(
+      mergeGeometryBuffers([
+        createRoadDecalPolygonGeometry(
           sceneMeta.origin,
           sceneDetail.roadDecals ?? [],
           ['JUNCTION_OVERLAY', 'ARROW_MARK'],
+          this.triangulateRings.bind(this),
           triangulate,
         ),
       ]),
@@ -147,7 +148,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'sidewalk',
-      this.createWalkwayGeometry(sceneMeta.origin, assetSelection.walkways),
+      createWalkwayGeometry(sceneMeta.origin, assetSelection.walkways),
       materials.sidewalk,
     );
     this.addMeshNode(
@@ -324,11 +325,7 @@ export class GlbBuilderService {
           group.buildings,
           triangulate,
         ),
-        this.createBuildingShellMaterial(
-          doc,
-          group.materialClass,
-          group.bucket,
-        ),
+        createBuildingShellMaterial(doc, group.materialClass, group.bucket),
       );
     }
     this.addMeshNode(
