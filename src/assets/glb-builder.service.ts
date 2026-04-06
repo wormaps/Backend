@@ -3,6 +3,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Coordinate } from '../places/types/place.types';
 import {
+  createBillboardsGeometry,
+  createBuildingPanelsGeometry,
+  createBuildingShellGeometry,
+  createLandmarkExtrasGeometry,
+  resolveAccentTone,
+} from './compiler/building-mesh.builder';
+import {
   createBuildingShellMaterial,
   createSceneMaterials,
   AccentTone,
@@ -317,13 +324,13 @@ export class GlbBuilderService {
       this.addMeshNode(
         doc,
         Accessor,
-        scene,
-        buffer,
-        `building_shells_${groupKey}`,
-        this.createBuildingShellGeometry(
-          sceneMeta.origin,
-          group.buildings,
-          triangulate,
+      scene,
+      buffer,
+      `building_shells_${groupKey}`,
+      createBuildingShellGeometry(
+        sceneMeta.origin,
+        group.buildings,
+        triangulate,
         ),
         createBuildingShellMaterial(doc, group.materialClass, group.bucket),
       );
@@ -377,7 +384,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'building_panels_cool',
-      this.createBuildingPanelsGeometry(
+      createBuildingPanelsGeometry(
         sceneMeta.origin,
         assetSelection.buildings,
         sceneDetail.facadeHints,
@@ -391,7 +398,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'building_panels_warm',
-      this.createBuildingPanelsGeometry(
+      createBuildingPanelsGeometry(
         sceneMeta.origin,
         assetSelection.buildings,
         sceneDetail.facadeHints,
@@ -405,7 +412,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'building_panels_neutral',
-      this.createBuildingPanelsGeometry(
+      createBuildingPanelsGeometry(
         sceneMeta.origin,
         assetSelection.buildings,
         sceneDetail.facadeHints,
@@ -419,7 +426,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'billboards_cool',
-      this.createBillboardsGeometry(
+      createBillboardsGeometry(
         sceneMeta.origin,
         assetSelection.billboardPanels,
         'cool',
@@ -432,7 +439,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'billboards_warm',
-      this.createBillboardsGeometry(
+      createBillboardsGeometry(
         sceneMeta.origin,
         assetSelection.billboardPanels,
         'warm',
@@ -445,7 +452,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'billboards_neutral',
-      this.createBillboardsGeometry(
+      createBillboardsGeometry(
         sceneMeta.origin,
         assetSelection.billboardPanels,
         'neutral',
@@ -458,7 +465,7 @@ export class GlbBuilderService {
       scene,
       buffer,
       'landmark_extras',
-      this.createLandmarkExtrasGeometry(
+      createLandmarkExtrasGeometry(
         sceneMeta.origin,
         sceneMeta.landmarkAnchors,
         sceneDetail.signageClusters,

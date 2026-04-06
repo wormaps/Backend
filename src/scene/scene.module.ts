@@ -12,11 +12,20 @@ import { ScenePlaceResolutionStep } from './pipeline/steps/scene-place-resolutio
 import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneController } from './scene.controller';
 import { SceneService } from './scene.service';
+import { SceneFacadeVisionService } from './services/scene-facade-vision.service';
+import { SceneGeometryDiagnosticsService } from './services/scene-geometry-diagnostics.service';
+import { SceneHeroOverrideApplierService } from './services/scene-hero-override-applier.service';
+import { SceneHeroOverrideMatcherService } from './services/scene-hero-override-matcher.service';
 import { SceneHeroOverrideService } from './services/scene-hero-override.service';
 import { SceneGenerationService } from './services/scene-generation.service';
 import { SceneLiveDataService } from './services/scene-live-data.service';
+import { SceneRoadVisionService } from './services/scene-road-vision.service';
 import { SceneReadService } from './services/scene-read.service';
+import { SceneSignageVisionService } from './services/scene-signage-vision.service';
+import { SceneStateLiveService } from './services/scene-state-live.service';
+import { SceneTrafficLiveService } from './services/scene-traffic-live.service';
 import { SceneVisionService } from './services/scene-vision.service';
+import { SceneWeatherLiveService } from './services/scene-weather-live.service';
 import { SceneRepository } from './storage/scene.repository';
 
 @Module({
@@ -25,6 +34,12 @@ import { SceneRepository } from './storage/scene.repository';
   providers: [
     GlbBuilderService,
     SceneRepository,
+    SceneRoadVisionService,
+    SceneFacadeVisionService,
+    SceneGeometryDiagnosticsService,
+    SceneSignageVisionService,
+    SceneHeroOverrideMatcherService,
+    SceneHeroOverrideApplierService,
     SceneVisionService,
     SceneHeroOverrideService,
     ScenePlaceResolutionStep,
@@ -36,6 +51,9 @@ import { SceneRepository } from './storage/scene.repository';
     SceneGlbBuildStep,
     SceneGenerationPipelineService,
     SceneReadService,
+    SceneStateLiveService,
+    SceneWeatherLiveService,
+    SceneTrafficLiveService,
     SceneLiveDataService,
     SceneGenerationService,
     SceneService,

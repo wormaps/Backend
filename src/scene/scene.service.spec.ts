@@ -26,6 +26,9 @@ import { SceneGenerationService } from './services/scene-generation.service';
 import { SceneLiveDataService } from './services/scene-live-data.service';
 import { SceneReadService } from './services/scene-read.service';
 import { SceneHeroOverrideService } from './services/scene-hero-override.service';
+import { SceneStateLiveService } from './services/scene-state-live.service';
+import { SceneTrafficLiveService } from './services/scene-traffic-live.service';
+import { SceneWeatherLiveService } from './services/scene-weather-live.service';
 import { SceneRepository } from './storage/scene.repository';
 import { SceneVisionService } from './services/scene-vision.service';
 
@@ -154,6 +157,9 @@ describe('Scene Services', () => {
         SceneAssetProfileStep,
         SceneGlbBuildStep,
         SceneReadService,
+        SceneStateLiveService,
+        SceneWeatherLiveService,
+        SceneTrafficLiveService,
         SceneLiveDataService,
         SceneRepository,
         TtlCacheService,
