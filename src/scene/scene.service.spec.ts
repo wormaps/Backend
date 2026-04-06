@@ -13,6 +13,14 @@ import { TomTomTrafficClient } from '../places/clients/tomtom-traffic.client';
 import { SnapshotBuilderService } from '../places/snapshot/snapshot-builder.service';
 import { ExternalPlaceDetail } from '../places/types/external-place.types';
 import { PlacePackage } from '../places/types/place.types';
+import { SceneGenerationPipelineService } from './pipeline/scene-generation-pipeline.service';
+import { SceneAssetProfileStep } from './pipeline/steps/scene-asset-profile.step';
+import { SceneGlbBuildStep } from './pipeline/steps/scene-glb-build.step';
+import { SceneHeroOverrideStep } from './pipeline/steps/scene-hero-override.step';
+import { SceneMetaBuilderStep } from './pipeline/steps/scene-meta-builder.step';
+import { ScenePlacePackageStep } from './pipeline/steps/scene-place-package.step';
+import { ScenePlaceResolutionStep } from './pipeline/steps/scene-place-resolution.step';
+import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneService } from './scene.service';
 import { SceneGenerationService } from './services/scene-generation.service';
 import { SceneLiveDataService } from './services/scene-live-data.service';
@@ -137,6 +145,14 @@ describe('Scene Services', () => {
       providers: [
         SceneService,
         SceneGenerationService,
+        SceneGenerationPipelineService,
+        ScenePlaceResolutionStep,
+        ScenePlacePackageStep,
+        SceneVisualRulesStep,
+        SceneMetaBuilderStep,
+        SceneHeroOverrideStep,
+        SceneAssetProfileStep,
+        SceneGlbBuildStep,
         SceneReadService,
         SceneLiveDataService,
         SceneRepository,

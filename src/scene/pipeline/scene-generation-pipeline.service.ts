@@ -1,0 +1,144 @@
+import { Injectable } from '@nestjs/common';
+import { AppLoggerService } from '../../common/logging/app-logger.service';
+import { SceneAssetProfileStep } from './steps/scene-asset-profile.step';
+import { SceneGlbBuildStep } from './steps/scene-glb-build.step';
+import { SceneHeroOverrideStep } from './steps/scene-hero-override.step';
+import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
+import { ScenePlacePackageStep } from './steps/scene-place-package.step';
+import { ScenePlaceResolutionStep } from './steps/scene-place-resolution.step';
+import { SceneVisualRulesStep } from './steps/scene-visual-rules.step';
+import type {
+  SceneGenerationPipelineInput,
+  SceneGenerationPipelineResult,
+} from './scene-generation-pipeline.types';
+
+@Injectable()
+export class SceneGenerationPipelineService {
+  constructor(
+    private readonly scenePlaceResolutionStep: ScenePlaceResolutionStep,
+    private readonly scenePlacePackageStep: ScenePlacePackageStep,
+    private readonly sceneVisualRulesStep: SceneVisualRulesStep,
+    private readonly sceneMetaBuilderStep: SceneMetaBuilderStep,
+    private readonly sceneHeroOverrideStep: SceneHeroOverrideStep,
+    private readonly sceneAssetProfileStep: SceneAssetProfileStep,
+    private readonly sceneGlbBuildStep: SceneGlbBuildStep,
+    private readonly appLoggerService: AppLoggerService,
+  ) {}
+
+  async execute(
+    input: SceneGenerationPipelineInput,
+  ): Promise<SceneGenerationPipelineResult> {
+    const { sceneId, storedScene, logContext } = input;
+
+    this.appLoggerService.info('scene.google_search.started', {
+      ...logContext,
+      provider: 'google_places',
+      step: 'google_search',
+      query: storedScene.query,
+    });
+    const resolvedPlace = await this.scenePlaceResolutionStep.execute(
+      storedScene.query,
+      storedScene.scale,
+    );
+    this.appLoggerService.info('scene.google_search.completed', {
+      ...logContext,
+      provider: 'google_places',
+      step: 'google_search',
+      candidateCount: resolvedPlace.candidateCount,
+    });
+    this.appLoggerService.info('scene.google_detail.completed', {
+      ...logContext,
+      provider: 'google_places',
+      step: 'google_detail',
+      placeId: resolvedPlace.place.placeId,
+    });
+
+    this.appLoggerService.info('scene.overpass.started', {
+      ...logContext,
+      provider: 'overpass',
+      step: 'overpass',
+      radiusM: resolvedPlace.radiusM,
+      bounds: resolvedPlace.bounds,
+    });
+    const placePackage = await this.scenePlacePackageStep.execute(
+      sceneId,
+      storedScene.requestId ?? null,
+      resolvedPlace.place,
+      resolvedPlace.bounds,
+    );
+    this.appLoggerService.info('scene.overpass.completed', {
+      ...logContext,
+      provider: 'overpass',
+      step: 'overpass',
+      buildingCount: placePackage.buildings.length,
+      roadCount: placePackage.roads.length,
+      walkwayCount: placePackage.walkways.length,
+      poiCount: placePackage.pois.length,
+    });
+
+    const vision = await this.sceneVisualRulesStep.execute(
+      sceneId,
+      resolvedPlace.place,
+      resolvedPlace.bounds,
+      placePackage,
+    );
+    this.appLoggerService.info('scene.mapillary.completed', {
+      ...logContext,
+      provider: 'mapillary',
+      step: 'vision',
+      mapillaryUsed: vision.detail.provenance.mapillaryUsed,
+      imageCount: vision.detail.provenance.mapillaryImageCount,
+      featureCount: vision.detail.provenance.mapillaryFeatureCount,
+    });
+
+    const baseMeta = this.sceneMetaBuilderStep.buildBaseMeta(
+      sceneId,
+      storedScene.scale,
+      resolvedPlace.radiusM,
+      placePackage,
+      resolvedPlace.place,
+      resolvedPlace.bounds,
+      vision.detail,
+      vision.metaPatch,
+    );
+    const merged = this.sceneHeroOverrideStep.execute(
+      resolvedPlace.place,
+      baseMeta,
+      vision.detail,
+    );
+    this.appLoggerService.info('scene.hero_override.completed', {
+      ...logContext,
+      step: 'hero_override',
+      overrideCount: merged.detail.heroOverridesApplied.length,
+    });
+
+    const finalizedMeta = this.sceneAssetProfileStep.execute(
+      merged.meta,
+      merged.detail,
+      storedScene.scale,
+    );
+    this.appLoggerService.info('scene.glb_build.started', {
+      ...logContext,
+      step: 'glb_build',
+      detailStatus: merged.detail.detailStatus,
+      selected: finalizedMeta.assetProfile.selected,
+    });
+    const assetPath = await this.sceneGlbBuildStep.execute(
+      finalizedMeta,
+      merged.detail,
+    );
+    this.appLoggerService.info('scene.glb_build.completed', {
+      ...logContext,
+      step: 'glb_build',
+      assetPath,
+    });
+
+    return {
+      place: resolvedPlace.place,
+      placePackage,
+      meta: finalizedMeta,
+      detail: merged.detail,
+      assetPath,
+    };
+  }
+}
