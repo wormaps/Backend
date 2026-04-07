@@ -5,10 +5,14 @@ import {
 } from '../../../scene/types/scene.types';
 import { ShellColorBucket } from '../../compiler/materials';
 import { createSceneMaterials } from '../../compiler/materials';
+import { createEnhancedSceneMaterials } from '../../compiler/materials';
+import type { MaterialTuningOptions } from '../../compiler/materials';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 
 export type AssetSelection = ReturnType<typeof buildSceneAssetSelection>;
-export type SceneMaterials = ReturnType<typeof createSceneMaterials>;
+export type SceneMaterials =
+  | ReturnType<typeof createSceneMaterials>
+  | ReturnType<typeof createEnhancedSceneMaterials>;
 
 export type GroupedBuildings = Map<
   string,
@@ -110,6 +114,13 @@ export interface RunnerStageHooks {
     selectedClusters: SceneDetail['signageClusters'];
     sourceCount: number;
   }>;
+  resolveWindowMaterialTone: (
+    facadeHints: SceneDetail['facadeHints'],
+  ) => 'cool' | 'warm' | 'neutral';
+  resolveHeroToneFromBuildings: (
+    buildings: SceneMeta['buildings'],
+  ) => 'cool' | 'warm' | 'neutral';
+  materialTuning: MaterialTuningOptions;
   createBuildingRoofAccentGeometry: (
     origin: SceneMeta['origin'],
     buildings: SceneMeta['buildings'],

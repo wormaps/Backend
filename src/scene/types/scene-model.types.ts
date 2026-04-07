@@ -36,6 +36,7 @@ import {
   ScenePlaceReadabilityDiagnostics,
   SceneStructuralCoverage,
   SceneScale,
+  SceneStaticAtmosphereProfile,
   SceneStatus,
   SceneDetailStatus,
   VisualArchetype,
@@ -302,6 +303,7 @@ export interface SceneDetail {
   annotationsApplied: string[];
   structuralCoverage?: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;
+  staticAtmosphere?: SceneStaticAtmosphereProfile;
   provenance: {
     mapillaryUsed: boolean;
     mapillaryImageCount: number;

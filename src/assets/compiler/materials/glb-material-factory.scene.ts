@@ -1,5 +1,21 @@
 import type { MaterialClass } from '../../../scene/types/scene.types';
 
+export interface MaterialTuningOptions {
+  shellLuminanceCap?: number;
+  panelLuminanceCap?: number;
+  billboardLuminanceCap?: number;
+  emissiveBoost?: number;
+  roadRoughnessScale?: number;
+}
+
+const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
+  shellLuminanceCap: 0.78,
+  panelLuminanceCap: 0.68,
+  billboardLuminanceCap: 0.74,
+  emissiveBoost: 1,
+  roadRoughnessScale: 1,
+};
+
 export type AccentTone = 'warm' | 'cool' | 'neutral';
 export type ShellColorBucket =
   | 'cool-light'
@@ -46,9 +62,19 @@ export interface SceneMaterials {
   buildingPanels: Record<AccentTone, any>;
   billboards: Record<AccentTone, any>;
   landmark: any;
+  facadeConcreteMid?: any;
+  facadeMetalMid?: any;
+  windowGlassReflective?: any;
+  windowGlassCurtainWall?: any;
+  buildingLightAccentSpot?: any;
+  neonSignOrange?: any;
 }
 
-export function createSceneMaterials(doc: any): SceneMaterials {
+export function createSceneMaterials(
+  doc: any,
+  tuningOptions: MaterialTuningOptions = {},
+): SceneMaterials {
+  const tuning = resolveMaterialTuningOptions(tuningOptions);
   return {
     ground: doc
       .createMaterial('ground')
@@ -59,33 +85,35 @@ export function createSceneMaterials(doc: any): SceneMaterials {
       .createMaterial('road-base')
       .setBaseColorFactor([0.2, 0.21, 0.22, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.96),
+      .setRoughnessFactor(scaleRoughness(0.96, tuning.roadRoughnessScale)),
     roadEdge: doc
       .createMaterial('road-edge')
       .setBaseColorFactor([0.34, 0.34, 0.33, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.94),
+      .setRoughnessFactor(scaleRoughness(0.94, tuning.roadRoughnessScale)),
     roadMarking: doc
       .createMaterial('road-marking')
       .setBaseColorFactor([0.88, 0.84, 0.65, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.78),
+      .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
     laneOverlay: doc
       .createMaterial('lane-overlay')
       .setBaseColorFactor([0.84, 0.8, 0.58, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.78),
+      .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
     crosswalk: doc
       .createMaterial('crosswalk')
       .setBaseColorFactor([0.78, 0.78, 0.75, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.95),
+      .setRoughnessFactor(scaleRoughness(0.95, tuning.roadRoughnessScale)),
     junctionOverlay: doc
       .createMaterial('junction-overlay')
       .setBaseColorFactor([0.94, 0.84, 0.42, 1])
-      .setEmissiveFactor([0.08, 0.06, 0.02])
+      .setEmissiveFactor(
+        scaleEmissive([0.08, 0.06, 0.02], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.74),
+      .setRoughnessFactor(scaleRoughness(0.74, tuning.roadRoughnessScale)),
     sidewalk: doc
       .createMaterial('sidewalk')
       .setBaseColorFactor([0.62, 0.61, 0.58, 1])
@@ -109,13 +137,17 @@ export function createSceneMaterials(doc: any): SceneMaterials {
     trafficLight: doc
       .createMaterial('traffic-light')
       .setBaseColorFactor([0.12, 0.13, 0.14, 1])
-      .setEmissiveFactor([0.08, 0.02, 0.01])
+      .setEmissiveFactor(
+        scaleEmissive([0.08, 0.02, 0.01], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0)
       .setRoughnessFactor(0.92),
     streetLight: doc
       .createMaterial('street-light')
       .setBaseColorFactor([0.34, 0.36, 0.39, 1])
-      .setEmissiveFactor([0.06, 0.05, 0.02])
+      .setEmissiveFactor(
+        scaleEmissive([0.06, 0.05, 0.02], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0.06)
       .setRoughnessFactor(0.76),
     signPole: doc
@@ -161,13 +193,17 @@ export function createSceneMaterials(doc: any): SceneMaterials {
     flowerBed: doc
       .createMaterial('flower-bed')
       .setBaseColorFactor([0.65, 0.45, 0.35, 1])
-      .setEmissiveFactor([0.08, 0.04, 0.02])
+      .setEmissiveFactor(
+        scaleEmissive([0.08, 0.04, 0.02], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0)
       .setRoughnessFactor(0.85),
     poi: doc
       .createMaterial('poi')
       .setBaseColorFactor([0.93, 0.39, 0.18, 1])
-      .setEmissiveFactor([0.22, 0.08, 0.03])
+      .setEmissiveFactor(
+        scaleEmissive([0.22, 0.08, 0.03], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0)
       .setRoughnessFactor(0.8),
     landCoverPark: doc
@@ -238,19 +274,25 @@ export function createSceneMaterials(doc: any): SceneMaterials {
       cool: doc
         .createMaterial('building-panel-cool')
         .setBaseColorFactor([0.16, 0.24, 0.34, 1])
-        .setEmissiveFactor([0.18, 0.25, 0.34])
+        .setEmissiveFactor(
+          scaleEmissive([0.18, 0.25, 0.34], tuning.emissiveBoost),
+        )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.78),
       warm: doc
         .createMaterial('building-panel-warm')
         .setBaseColorFactor([0.4, 0.23, 0.13, 1])
-        .setEmissiveFactor([0.3, 0.14, 0.08])
+        .setEmissiveFactor(
+          scaleEmissive([0.3, 0.14, 0.08], tuning.emissiveBoost),
+        )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.78),
       neutral: doc
         .createMaterial('building-panel-neutral')
         .setBaseColorFactor([0.22, 0.24, 0.28, 1])
-        .setEmissiveFactor([0.18, 0.18, 0.2])
+        .setEmissiveFactor(
+          scaleEmissive([0.18, 0.18, 0.2], tuning.emissiveBoost),
+        )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.8),
     } as Record<AccentTone, any>,
@@ -258,26 +300,34 @@ export function createSceneMaterials(doc: any): SceneMaterials {
       cool: doc
         .createMaterial('billboard-cool')
         .setBaseColorFactor([0.28, 0.63, 0.94, 1])
-        .setEmissiveFactor([0.16, 0.32, 0.5])
+        .setEmissiveFactor(
+          scaleEmissive([0.16, 0.32, 0.5], tuning.emissiveBoost),
+        )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.68),
       warm: doc
         .createMaterial('billboard-warm')
         .setBaseColorFactor([0.95, 0.36, 0.28, 1])
-        .setEmissiveFactor([0.55, 0.18, 0.08])
+        .setEmissiveFactor(
+          scaleEmissive([0.55, 0.18, 0.08], tuning.emissiveBoost),
+        )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.7),
       neutral: doc
         .createMaterial('billboard-neutral')
         .setBaseColorFactor([0.62, 0.63, 0.66, 1])
-        .setEmissiveFactor([0.34, 0.34, 0.36])
+        .setEmissiveFactor(
+          scaleEmissive([0.34, 0.34, 0.36], tuning.emissiveBoost),
+        )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.72),
     } as Record<AccentTone, any>,
     landmark: doc
       .createMaterial('landmark')
       .setBaseColorFactor([0.96, 0.73, 0.18, 1])
-      .setEmissiveFactor([0.25, 0.17, 0.05])
+      .setEmissiveFactor(
+        scaleEmissive([0.25, 0.17, 0.05], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0)
       .setRoughnessFactor(0.75),
   };
@@ -288,10 +338,13 @@ export function createBuildingShellMaterial(
   materialClass: MaterialClass,
   bucket: ShellColorBucket,
   explicitHex?: string,
+  tuningOptions: MaterialTuningOptions = {},
 ) {
+  const tuning = resolveMaterialTuningOptions(tuningOptions);
   const [r, g, b] = tuneShellColor(
     hexToRgb(explicitHex ?? resolveShellBucketHex(bucket)),
     materialClass,
+    tuning.shellLuminanceCap,
   );
   const surface = resolveShellSurface(materialClass);
 
@@ -306,9 +359,17 @@ export function createBuildingPanelMaterial(
   doc: any,
   tone: AccentTone,
   hex: string,
+  tuningOptions: MaterialTuningOptions = {},
 ) {
-  const [r, g, b] = tunePanelColor(hexToRgb(hex), tone);
-  const emissiveBoost = tone === 'warm' ? 0.28 : tone === 'cool' ? 0.24 : 0.18;
+  const tuning = resolveMaterialTuningOptions(tuningOptions);
+  const [r, g, b] = tunePanelColor(
+    hexToRgb(hex),
+    tone,
+    tuning.panelLuminanceCap,
+  );
+  const emissiveBoost =
+    (tone === 'warm' ? 0.28 : tone === 'cool' ? 0.24 : 0.18) *
+    tuning.emissiveBoost;
   return doc
     .createMaterial(`building-panel-${tone}-${hex}`)
     .setBaseColorFactor([r, g, b, 1])
@@ -325,9 +386,17 @@ export function createBillboardMaterial(
   doc: any,
   tone: AccentTone,
   hex: string,
+  tuningOptions: MaterialTuningOptions = {},
 ) {
-  const [r, g, b] = tuneBillboardColor(hexToRgb(hex), tone);
-  const emissiveBoost = tone === 'warm' ? 0.46 : tone === 'cool' ? 0.42 : 0.3;
+  const tuning = resolveMaterialTuningOptions(tuningOptions);
+  const [r, g, b] = tuneBillboardColor(
+    hexToRgb(hex),
+    tone,
+    tuning.billboardLuminanceCap,
+  );
+  const emissiveBoost =
+    (tone === 'warm' ? 0.46 : tone === 'cool' ? 0.42 : 0.3) *
+    tuning.emissiveBoost;
   return doc
     .createMaterial(`billboard-${tone}-${hex}`)
     .setBaseColorFactor([r, g, b, 1])
@@ -390,8 +459,9 @@ function hexToRgb(hex: string): [number, number, number] {
 function tuneShellColor(
   color: [number, number, number],
   materialClass: MaterialClass,
+  luminanceCap: number,
 ): [number, number, number] {
-  const [r, g, b] = compressLuminance(color, 0.62);
+  const [r, g, b] = compressLuminance(color, luminanceCap);
   if (materialClass === 'glass') {
     return [
       clamp01(r * 0.9),
@@ -408,8 +478,9 @@ function tuneShellColor(
 function tunePanelColor(
   color: [number, number, number],
   tone: AccentTone,
+  luminanceCap: number,
 ): [number, number, number] {
-  const [r, g, b] = compressLuminance(color, 0.5);
+  const [r, g, b] = compressLuminance(color, luminanceCap);
   if (tone === 'cool') {
     return [clamp01(r * 0.88), clamp01(g * 0.92), clamp01(b * 0.98)];
   }
@@ -422,8 +493,9 @@ function tunePanelColor(
 function tuneBillboardColor(
   color: [number, number, number],
   tone: AccentTone,
+  luminanceCap: number,
 ): [number, number, number] {
-  const [r, g, b] = compressLuminance(color, 0.66);
+  const [r, g, b] = compressLuminance(color, luminanceCap);
   if (tone === 'cool') {
     return [clamp01(r * 0.94), clamp01(g * 0.98), clamp01(b)];
   }
@@ -448,4 +520,40 @@ function compressLuminance(
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+function resolveMaterialTuningOptions(
+  tuningOptions: MaterialTuningOptions,
+): Required<MaterialTuningOptions> {
+  return {
+    shellLuminanceCap:
+      tuningOptions.shellLuminanceCap ??
+      DEFAULT_MATERIAL_TUNING.shellLuminanceCap,
+    panelLuminanceCap:
+      tuningOptions.panelLuminanceCap ??
+      DEFAULT_MATERIAL_TUNING.panelLuminanceCap,
+    billboardLuminanceCap:
+      tuningOptions.billboardLuminanceCap ??
+      DEFAULT_MATERIAL_TUNING.billboardLuminanceCap,
+    emissiveBoost:
+      tuningOptions.emissiveBoost ?? DEFAULT_MATERIAL_TUNING.emissiveBoost,
+    roadRoughnessScale:
+      tuningOptions.roadRoughnessScale ??
+      DEFAULT_MATERIAL_TUNING.roadRoughnessScale,
+  };
+}
+
+function scaleEmissive(
+  values: [number, number, number],
+  factor: number,
+): [number, number, number] {
+  return [
+    clamp01(values[0] * factor),
+    clamp01(values[1] * factor),
+    clamp01(values[2] * factor),
+  ];
+}
+
+function scaleRoughness(value: number, factor: number): number {
+  return clamp01(value * factor);
 }

@@ -8,6 +8,7 @@ import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './steps/scene-place-package.step';
 import { ScenePlaceResolutionStep } from './steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from './steps/scene-visual-rules.step';
+import { resolveSceneStaticAtmosphereProfile } from '../utils/scene-static-atmosphere.utils';
 import type {
   SceneGenerationPipelineInput,
   SceneGenerationPipelineResult,
@@ -127,6 +128,9 @@ export class SceneGenerationPipelineService {
       'fidelity_plan_final',
     );
     merged.detail.fidelityPlan = finalFidelityPlan;
+    merged.detail.staticAtmosphere = resolveSceneStaticAtmosphereProfile(
+      merged.detail,
+    );
     merged.meta.fidelityPlan = finalFidelityPlan;
     this.appLoggerService.info('scene.hero_override.completed', {
       ...logContext,

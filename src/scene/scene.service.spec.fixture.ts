@@ -284,6 +284,11 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       linearFeatures: [],
       facadeHints: [],
       signageClusters: [],
+      staticAtmosphere: {
+        preset: 'DAY_CLEAR',
+        emissiveBoost: 1,
+        roadRoughnessScale: 1,
+      },
       annotationsApplied: [],
       provenance: {
         mapillaryUsed: false,

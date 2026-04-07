@@ -1,4 +1,7 @@
-import { createSceneMaterials } from './glb-material-factory.scene';
+import {
+  createSceneMaterials,
+  MaterialTuningOptions,
+} from './glb-material-factory.scene';
 
 export type FacadeMaterialType =
   | 'brick'
@@ -319,8 +322,11 @@ function getBuildingLightParams(type: BuildingLightType): BuildingLightParams {
   }
 }
 
-export function createEnhancedSceneMaterials(doc: any) {
-  const baseMaterials = createSceneMaterials(doc);
+export function createEnhancedSceneMaterials(
+  doc: any,
+  tuningOptions: MaterialTuningOptions = {},
+) {
+  const baseMaterials = createSceneMaterials(doc, tuningOptions);
 
   return {
     ...baseMaterials,

@@ -3,8 +3,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import {
-  createSceneMaterials,
+  createEnhancedSceneMaterials,
   AccentTone,
+  MaterialTuningOptions,
   ShellColorBucket,
 } from '../../compiler/materials';
 import { GeometryBuffers, Vec3 } from '../../compiler/road';
@@ -16,6 +17,7 @@ import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profi
 import {
   groupBillboardClustersByColor,
   groupFacadeHintsByPanelColor,
+  resolveAccentToneFromPalette,
   resolveBuildingShellStyleFromHint,
 } from './glb-build-style.utils';
 import { addTransportMeshes } from './stages/glb-build-transport.stage';
@@ -46,6 +48,7 @@ import {
   SceneFacadeHint,
   SceneMeta,
 } from '../../../scene/types/scene.types';
+import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
 
 interface MeshNodeDiagnostic {
   name: string;
@@ -83,7 +86,15 @@ export class GlbBuildRunner {
       sceneDetail,
       sceneMeta.assetProfile.preset,
     );
-    const materials = createSceneMaterials(doc);
+    const materialTuning = this.resolveMaterialTuning(sceneMeta, sceneDetail);
+    const materials = createEnhancedSceneMaterials(doc, materialTuning);
+
+    this.appLoggerService.info('scene.glb_build.material_tuning', {
+      sceneId: sceneMeta.sceneId,
+      step: 'glb_build',
+      tuning: materialTuning,
+      staticAtmosphere: sceneDetail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
+    });
 
     addTransportMeshes(
       {
@@ -131,6 +142,10 @@ export class GlbBuildRunner {
           this.groupFacadeHintsByPanelColor.bind(this),
         groupBillboardClustersByColor:
           this.groupBillboardClustersByColor.bind(this),
+        resolveWindowMaterialTone: this.resolveWindowMaterialTone.bind(this),
+        resolveHeroToneFromBuildings:
+          this.resolveHeroToneFromBuildings.bind(this),
+        materialTuning,
         createBuildingRoofAccentGeometry,
       },
       { doc, Accessor, scene, buffer },
@@ -177,6 +192,8 @@ export class GlbBuildRunner {
         }),
       ),
       meshNodes: this.currentMeshDiagnostics,
+      materialTuning,
+      staticAtmosphere: sceneDetail.staticAtmosphere,
     };
 
     this.appLoggerService.info('scene.glb_build.diagnostics', {
@@ -225,6 +242,35 @@ export class GlbBuildRunner {
     sourceCount: number;
   }> {
     return groupBillboardClustersByColor(selectedClusters, sourceClusters);
+  }
+
+  private resolveWindowMaterialTone(
+    facadeHints: SceneDetail['facadeHints'],
+  ): AccentTone {
+    const palettes = facadeHints.flatMap((hint) =>
+      hint.panelPalette?.length ? hint.panelPalette : hint.palette,
+    );
+    return resolveAccentToneFromPalette(palettes);
+  }
+
+  private resolveHeroToneFromBuildings(
+    buildings: SceneMeta['buildings'],
+  ): AccentTone {
+    const colorPalette = buildings
+      .flatMap((building) => [building.facadeColor, building.roofColor])
+      .filter((color): color is string => Boolean(color));
+    return resolveAccentToneFromPalette(colorPalette);
+  }
+
+  private resolveMaterialTuning(
+    sceneMeta: SceneMeta,
+    sceneDetail: SceneDetail,
+  ): MaterialTuningOptions {
+    return resolveMaterialTuningFromScene(
+      sceneMeta,
+      sceneDetail.facadeHints,
+      sceneDetail.staticAtmosphere,
+    );
   }
 
   private buildGroupedBuildingShells(

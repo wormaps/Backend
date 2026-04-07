@@ -134,6 +134,17 @@ export type SceneFacadeContextProfile =
   | 'CIVIC_CLUSTER'
   | 'RESIDENTIAL_EDGE';
 
+export type SceneStaticAtmospherePreset =
+  | 'DAY_CLEAR'
+  | 'EVENING_BALANCED'
+  | 'NIGHT_NEON';
+
+export interface SceneStaticAtmosphereProfile {
+  preset: SceneStaticAtmospherePreset;
+  emissiveBoost: number;
+  roadRoughnessScale: number;
+}
+
 export interface BuildingPodiumSpec {
   levels: number;
   setbacks: number;
