@@ -36,9 +36,9 @@ export interface FacadeLayerMaterialProfile {
 }
 
 const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
-  shellLuminanceCap: 0.78,
-  panelLuminanceCap: 0.68,
-  billboardLuminanceCap: 0.74,
+  shellLuminanceCap: 0.82,
+  panelLuminanceCap: 0.72,
+  billboardLuminanceCap: 0.8,
   emissiveBoost: 1,
   roadRoughnessScale: 1,
 };
@@ -132,19 +132,19 @@ export function createSceneMaterials(
       .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
     laneOverlay: doc
       .createMaterial('lane-overlay')
-      .setBaseColorFactor([0.84, 0.8, 0.58, 1])
+      .setBaseColorFactor([0.9, 0.84, 0.62, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
     crosswalk: doc
       .createMaterial('crosswalk')
-      .setBaseColorFactor([0.78, 0.78, 0.75, 1])
+      .setBaseColorFactor([0.88, 0.88, 0.85, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.95, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(scaleRoughness(0.9, tuning.roadRoughnessScale)),
     junctionOverlay: doc
       .createMaterial('junction-overlay')
-      .setBaseColorFactor([0.94, 0.84, 0.42, 1])
+      .setBaseColorFactor([0.96, 0.86, 0.46, 1])
       .setEmissiveFactor(
-        scaleEmissive([0.08, 0.06, 0.02], tuning.emissiveBoost),
+        scaleEmissive([0.12, 0.08, 0.03], tuning.emissiveBoost),
       )
       .setMetallicFactor(0)
       .setRoughnessFactor(scaleRoughness(0.74, tuning.roadRoughnessScale)),
@@ -179,9 +179,7 @@ export function createSceneMaterials(
     streetLight: doc
       .createMaterial('street-light')
       .setBaseColorFactor([0.34, 0.36, 0.39, 1])
-      .setEmissiveFactor(
-        scaleEmissive([0.06, 0.05, 0.02], tuning.emissiveBoost),
-      )
+      .setEmissiveFactor(scaleEmissive([0.1, 0.08, 0.03], tuning.emissiveBoost))
       .setMetallicFactor(0.06)
       .setRoughnessFactor(0.76),
     signPole: doc
@@ -309,23 +307,21 @@ export function createSceneMaterials(
         .createMaterial('building-panel-cool')
         .setBaseColorFactor([0.16, 0.24, 0.34, 1])
         .setEmissiveFactor(
-          scaleEmissive([0.18, 0.25, 0.34], tuning.emissiveBoost),
+          scaleEmissive([0.24, 0.32, 0.42], tuning.emissiveBoost),
         )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.78),
       warm: doc
         .createMaterial('building-panel-warm')
         .setBaseColorFactor([0.4, 0.23, 0.13, 1])
-        .setEmissiveFactor(
-          scaleEmissive([0.3, 0.14, 0.08], tuning.emissiveBoost),
-        )
+        .setEmissiveFactor(scaleEmissive([0.4, 0.2, 0.1], tuning.emissiveBoost))
         .setMetallicFactor(0)
         .setRoughnessFactor(0.78),
       neutral: doc
         .createMaterial('building-panel-neutral')
         .setBaseColorFactor([0.22, 0.24, 0.28, 1])
         .setEmissiveFactor(
-          scaleEmissive([0.18, 0.18, 0.2], tuning.emissiveBoost),
+          scaleEmissive([0.24, 0.24, 0.28], tuning.emissiveBoost),
         )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.8),
@@ -335,7 +331,7 @@ export function createSceneMaterials(
         .createMaterial('billboard-cool')
         .setBaseColorFactor([0.28, 0.63, 0.94, 1])
         .setEmissiveFactor(
-          scaleEmissive([0.16, 0.32, 0.5], tuning.emissiveBoost),
+          scaleEmissive([0.24, 0.42, 0.62], tuning.emissiveBoost),
         )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.68),
@@ -343,7 +339,7 @@ export function createSceneMaterials(
         .createMaterial('billboard-warm')
         .setBaseColorFactor([0.95, 0.36, 0.28, 1])
         .setEmissiveFactor(
-          scaleEmissive([0.55, 0.18, 0.08], tuning.emissiveBoost),
+          scaleEmissive([0.72, 0.24, 0.1], tuning.emissiveBoost),
         )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.7),
@@ -351,7 +347,7 @@ export function createSceneMaterials(
         .createMaterial('billboard-neutral')
         .setBaseColorFactor([0.62, 0.63, 0.66, 1])
         .setEmissiveFactor(
-          scaleEmissive([0.34, 0.34, 0.36], tuning.emissiveBoost),
+          scaleEmissive([0.46, 0.46, 0.5], tuning.emissiveBoost),
         )
         .setMetallicFactor(0)
         .setRoughnessFactor(0.72),

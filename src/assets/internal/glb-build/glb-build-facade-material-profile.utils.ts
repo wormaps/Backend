@@ -93,7 +93,7 @@ export function resolveFacadeLayerMaterialProfile(
     windowType: resolveWindowType(averageGlazing, dominantWindowDensity),
     entranceSurface: resolveEntranceSurface(dominantFacadePreset),
     roofEquipmentSurface: resolveRoofEquipmentSurface(dominantMaterialClass),
-    heroCanopyLight: signageRatio >= 0.35 ? 'flood_light' : 'accent_spot',
+    heroCanopyLight: signageRatio >= 0.25 ? 'flood_light' : 'accent_spot',
     heroBillboardTone: resolveHeroBillboardTone(sceneDetail),
   };
 }
@@ -112,7 +112,7 @@ function resolveAtmosphereBaseProfile(
     facadeVariant: mapMaterialVariant(source.variant),
     shellSurfaceBias: mapShellSurfaceBias(source.family),
     panelSurfaceBias: mapPanelSurfaceBias(source.pattern),
-    panelEmissiveBoost: clamp(source.emissiveBoost ?? 1, 0.75, 1.45),
+    panelEmissiveBoost: clamp(source.emissiveBoost ?? 1, 0.8, 1.55),
     windowType: mapWindowType(source.windowDensity),
     entranceSurface: mapEntranceSurface(source.family),
     roofEquipmentSurface:
@@ -314,9 +314,9 @@ function resolvePanelEmissiveBoost(
   averageEmissive: number,
   signageRatio: number,
 ): number {
-  const emissiveBase = averageEmissive >= 0.65 ? 1.08 : 0.92;
-  const signageBoost = signageRatio >= 0.25 ? 1.12 : 1;
-  return Math.max(0.8, Math.min(1.35, emissiveBase * signageBoost));
+  const emissiveBase = averageEmissive >= 0.68 ? 1.16 : 0.98;
+  const signageBoost = signageRatio >= 0.22 ? 1.2 : 1.04;
+  return Math.max(0.9, Math.min(1.55, emissiveBase * signageBoost));
 }
 
 function resolveWindowType(

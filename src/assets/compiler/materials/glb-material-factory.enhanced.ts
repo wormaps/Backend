@@ -235,7 +235,7 @@ function getNeonSignParams(
   intensity: 'subtle' | 'normal' | 'bright',
 ): NeonSignParams {
   const intensityMultiplier =
-    intensity === 'subtle' ? 0.4 : intensity === 'bright' ? 1.2 : 0.75;
+    intensity === 'subtle' ? 0.52 : intensity === 'bright' ? 1.45 : 0.92;
 
   const colors: Record<
     NeonColorTone,
@@ -308,7 +308,7 @@ function getBuildingLightParams(type: BuildingLightType): BuildingLightParams {
     case 'flood_light':
       return {
         baseColor: [0.98, 0.96, 0.94],
-        emissiveFactor: [0.92, 0.88, 0.82],
+        emissiveFactor: [1, 0.96, 0.9],
       };
     case 'window_glow':
       return {
@@ -364,7 +364,7 @@ export function createEnhancedSceneMaterials(
   const heroBillboardPrimary = createNeonSignMaterial(
     doc,
     heroBillboardTone,
-    'normal',
+    'bright',
   );
 
   return {

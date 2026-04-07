@@ -28,14 +28,14 @@ export function resolveMaterialTuningFromScene(
     resolveDistrictRoadRoughnessScale(facadeHints);
 
   return {
-    shellLuminanceCap: 0.92,
+    shellLuminanceCap: 0.88,
     panelLuminanceCap: adaptivePanelCap,
-    billboardLuminanceCap: 0.82,
-    emissiveBoost: clamp(atmosphericEmissiveBoost * districtBoost, 0.9, 1.5),
+    billboardLuminanceCap: 0.86,
+    emissiveBoost: clamp(atmosphericEmissiveBoost * districtBoost, 0.95, 1.7),
     roadRoughnessScale: clamp(
       atmosphericRoadRoughnessScale * districtRoadRoughnessScale,
-      0.82,
-      1.18,
+      0.76,
+      1.2,
     ),
   };
 }
@@ -47,24 +47,24 @@ function resolveDistrictEmissiveBoost(facadeHints: SceneFacadeHint[]): number {
   let nightSignal = 0;
   for (const hint of facadeHints) {
     if (hint.districtCluster === 'nightlife_cluster') {
-      nightSignal += 1.2;
+      nightSignal += 1.45;
     } else if (
       hint.districtCluster === 'core_commercial' ||
       hint.districtCluster === 'tourist_shopping_street'
     ) {
-      nightSignal += 0.8;
+      nightSignal += 1.05;
     } else if (
       hint.districtCluster === 'industrial_lowrise' ||
       hint.districtCluster === 'suburban_detached'
     ) {
-      nightSignal -= 0.3;
+      nightSignal -= 0.25;
     }
     if (hint.evidenceStrength === 'strong') {
-      nightSignal += 0.12;
+      nightSignal += 0.18;
     }
   }
 
-  return 1 + nightSignal / (facadeHints.length * 8);
+  return 1 + nightSignal / (facadeHints.length * 7);
 }
 
 function resolveDistrictRoadRoughnessScale(
@@ -79,16 +79,16 @@ function resolveDistrictRoadRoughnessScale(
       hint.districtCluster === 'riverside_lowrise' ||
       hint.districtCluster === 'coastal_road'
     ) {
-      roughnessSignal -= 0.18;
+      roughnessSignal -= 0.2;
     } else if (
       hint.districtCluster === 'industrial_lowrise' ||
       hint.districtCluster === 'airport_logistics'
     ) {
-      roughnessSignal += 0.08;
+      roughnessSignal += 0.1;
     }
   }
 
-  return 1 + roughnessSignal / (facadeHints.length * 3);
+  return 1 + roughnessSignal / (facadeHints.length * 2.7);
 }
 
 function clamp(value: number, min: number, max: number): number {
