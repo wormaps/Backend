@@ -3,7 +3,6 @@ import type { SceneStreetFurnitureDetail } from '../../../scene/types/scene.type
 import {
   createEmptyGeometry,
   type GeometryBuffers,
-  type Vec3,
 } from '../road/road-mesh.builder';
 import {
   isFiniteVec3,
@@ -41,8 +40,8 @@ export function createBenchGeometry(
     const variant = stableVariant(
       item.objectId,
       Math.max(
-        3,
-        Math.round(4 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+        4,
+        Math.round(6 * clamp(variationProfile.furnitureVariantBoost, 1, 1.6)),
       ),
     );
     pushBenchAssembly(geometry, center, variant, variationProfile);
@@ -69,8 +68,8 @@ export function createBikeRackGeometry(
     const variant = stableVariant(
       item.objectId,
       Math.max(
-        2,
-        Math.round(3 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+        3,
+        Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.6)),
       ),
     );
     pushBikeRackAssembly(geometry, center, variant, variationProfile);
@@ -97,8 +96,8 @@ export function createTrashCanGeometry(
     const variant = stableVariant(
       item.objectId,
       Math.max(
-        2,
-        Math.round(3 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+        3,
+        Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.6)),
       ),
     );
     pushTrashCanAssembly(geometry, center, variant, variationProfile);
@@ -146,8 +145,8 @@ export function createEnhancedStreetLightGeometry(
     const variant = stableVariant(
       item.objectId,
       Math.max(
-        4,
-        Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+        5,
+        Math.round(7 * clamp(variationProfile.furnitureVariantBoost, 1, 1.6)),
       ),
     );
     pushEnhancedStreetLightAssembly(
@@ -179,8 +178,8 @@ export function createEnhancedSignPoleGeometry(
     const variant = stableVariant(
       item.objectId,
       Math.max(
-        4,
-        Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+        5,
+        Math.round(7 * clamp(variationProfile.furnitureVariantBoost, 1, 1.6)),
       ),
     );
     pushEnhancedSignPoleAssembly(geometry, center, variant, variationProfile);

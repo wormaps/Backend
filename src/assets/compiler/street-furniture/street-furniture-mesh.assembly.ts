@@ -383,7 +383,7 @@ function pushModernStreetLight(
 ): void {
   const poleHeight =
     8.5 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.2);
-  const armLength = 1.5;
+  const armLength = 1.7;
 
   pushTaperedCylinder(geometry, center, 0.12, 0.08, poleHeight, 8);
   pushBox(
@@ -417,7 +417,7 @@ function pushClassicStreetLight(
 ): void {
   const poleHeight =
     5.5 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.2);
-  const armLength = 0.9;
+  const armLength = 1.05;
 
   pushCylinder(geometry, [center[0], center[1], center[2]], 0.1, poleHeight, 8);
   pushBox(
@@ -506,7 +506,7 @@ function pushDoubleArmStreetLight(
 ): void {
   const poleHeight =
     9.2 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.22);
-  const armLength = 1.4;
+  const armLength = 1.65;
 
   pushTaperedCylinder(geometry, center, 0.14, 0.09, poleHeight, 8);
   pushBox(
@@ -576,8 +576,8 @@ export function pushEnhancedSignPoleAssembly(
   );
 
   const panelHeight = poleHeight - 0.35;
-  const panelWidth = 0.55 + variant * 0.08;
-  const panelHeightSize = 0.65 + variant * 0.05;
+  const panelWidth = 0.62 + variant * 0.09;
+  const panelHeightSize = 0.72 + variant * 0.06;
 
   pushBox(
     geometry,
@@ -638,7 +638,7 @@ export function pushEnhancedSignPoleAssembly(
 
   if (variant >= 2) {
     const arrowPanelHeight = panelHeight + 0.12;
-    const arrowWidth = 0.25;
+    const arrowWidth = 0.32;
 
     pushBox(
       geometry,
@@ -662,7 +662,7 @@ export function pushEnhancedSignPoleAssembly(
 
   if (variant >= 3) {
     const directionPanelHeight = panelHeight - panelHeightSize - 0.55;
-    const directionWidth = 0.85;
+    const directionWidth = 1.05;
 
     pushBox(
       geometry,
