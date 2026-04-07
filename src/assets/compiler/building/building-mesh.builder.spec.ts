@@ -126,6 +126,7 @@ describe('building-mesh.builder', () => {
         preset: 'NIGHT_NEON',
         emissiveBoost: 1.25,
         roadRoughnessScale: 0.9,
+        wetRoadBoost: 0.45,
       },
     );
 

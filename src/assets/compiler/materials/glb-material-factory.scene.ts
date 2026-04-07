@@ -6,6 +6,7 @@ export interface MaterialTuningOptions {
   billboardLuminanceCap?: number;
   emissiveBoost?: number;
   roadRoughnessScale?: number;
+  wetRoadBoost?: number;
 }
 
 export interface FacadeLayerMaterialProfile {
@@ -41,6 +42,7 @@ const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   billboardLuminanceCap: 0.8,
   emissiveBoost: 1,
   roadRoughnessScale: 1,
+  wetRoadBoost: 0,
 };
 
 export type AccentTone = 'warm' | 'cool' | 'neutral';
@@ -119,12 +121,22 @@ export function createSceneMaterials(
       .createMaterial('road-base')
       .setBaseColorFactor([0.2, 0.21, 0.22, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.96, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(
+        applyWetRoad(
+          scaleRoughness(0.96, tuning.roadRoughnessScale),
+          tuning.wetRoadBoost,
+        ),
+      ),
     roadEdge: doc
       .createMaterial('road-edge')
       .setBaseColorFactor([0.34, 0.34, 0.33, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.94, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(
+        applyWetRoad(
+          scaleRoughness(0.94, tuning.roadRoughnessScale),
+          tuning.wetRoadBoost,
+        ),
+      ),
     roadMarking: doc
       .createMaterial('road-marking')
       .setBaseColorFactor([0.88, 0.84, 0.65, 1])
@@ -137,13 +149,23 @@ export function createSceneMaterials(
         scaleEmissive([0.06, 0.05, 0.02], tuning.emissiveBoost),
       )
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(
+        applyWetRoad(
+          scaleRoughness(0.78, tuning.roadRoughnessScale),
+          tuning.wetRoadBoost,
+        ),
+      ),
     crosswalk: doc
       .createMaterial('crosswalk')
       .setBaseColorFactor([0.88, 0.88, 0.85, 1])
       .setEmissiveFactor(scaleEmissive([0.1, 0.1, 0.08], tuning.emissiveBoost))
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.9, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(
+        applyWetRoad(
+          scaleRoughness(0.9, tuning.roadRoughnessScale),
+          tuning.wetRoadBoost,
+        ),
+      ),
     junctionOverlay: doc
       .createMaterial('junction-overlay')
       .setBaseColorFactor([0.96, 0.86, 0.46, 1])
@@ -151,7 +173,12 @@ export function createSceneMaterials(
         scaleEmissive([0.12, 0.08, 0.03], tuning.emissiveBoost),
       )
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.74, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(
+        applyWetRoad(
+          scaleRoughness(0.74, tuning.roadRoughnessScale),
+          tuning.wetRoadBoost,
+        ),
+      ),
     sidewalk: doc
       .createMaterial('sidewalk')
       .setBaseColorFactor([0.62, 0.61, 0.58, 1])
@@ -618,7 +645,14 @@ function resolveMaterialTuningOptions(
     roadRoughnessScale:
       tuningOptions.roadRoughnessScale ??
       DEFAULT_MATERIAL_TUNING.roadRoughnessScale,
+    wetRoadBoost:
+      tuningOptions.wetRoadBoost ?? DEFAULT_MATERIAL_TUNING.wetRoadBoost,
   };
+}
+
+function applyWetRoad(baseRoughness: number, wetRoadBoost: number): number {
+  const wetAdjusted = baseRoughness * (1 - clamp01(wetRoadBoost) * 0.38);
+  return clamp01(wetAdjusted);
 }
 
 function scaleEmissive(
