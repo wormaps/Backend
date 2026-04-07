@@ -17,6 +17,7 @@ export class SceneGlbBuildStep {
       staticAtmosphere: detail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
       emissiveBoost: detail.staticAtmosphere?.emissiveBoost ?? 1,
       roadRoughnessScale: detail.staticAtmosphere?.roadRoughnessScale ?? 1,
+      wetRoadBoost: detail.staticAtmosphere?.wetRoadBoost ?? 0,
     });
 
     return this.glbBuilderService.build(meta, detail);

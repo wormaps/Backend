@@ -23,6 +23,7 @@ export function resolveMaterialTuningFromScene(
   const atmosphericEmissiveBoost = staticAtmosphere?.emissiveBoost ?? 1;
   const atmosphericRoadRoughnessScale =
     staticAtmosphere?.roadRoughnessScale ?? 1;
+  const atmosphericWetRoadBoost = staticAtmosphere?.wetRoadBoost ?? 0;
   const districtBoost = resolveDistrictEmissiveBoost(facadeHints);
   const districtRoadRoughnessScale =
     resolveDistrictRoadRoughnessScale(facadeHints);
@@ -37,6 +38,7 @@ export function resolveMaterialTuningFromScene(
       0.76,
       1.2,
     ),
+    wetRoadBoost: clamp(atmosphericWetRoadBoost, 0, 0.7),
   };
 }
 
