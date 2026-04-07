@@ -116,18 +116,18 @@ export function createRoadDecalPathGeometry(
 
     const width =
       decal.type === 'STOP_LINE'
-        ? 0.95
+        ? 1.05
         : decal.type === 'CROSSWALK_OVERLAY'
           ? decal.emphasis === 'hero'
-            ? 3.6
-            : 2.2
-          : 0.34;
+            ? 4.2
+            : 2.5
+          : 0.42;
     const y =
       decal.type === 'STOP_LINE'
-        ? 0.036
+        ? 0.042
         : decal.emphasis === 'hero'
-          ? 0.05
-          : 0.04;
+          ? 0.055
+          : 0.045;
     pushPathStrips(origin, geometry, decal.path, width, y);
   }
 
@@ -179,10 +179,10 @@ export function createRoadDecalStripeGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, 0.05, centerZ - dz - nz],
-        [centerX + dx - nx, 0.05, centerZ + dz - nz],
-        [centerX + dx + nx, 0.05, centerZ + dz + nz],
-        [centerX - dx + nx, 0.05, centerZ - dz + nz],
+        [centerX - dx - nx, 0.058, centerZ - dz - nz],
+        [centerX + dx - nx, 0.058, centerZ + dz - nz],
+        [centerX + dx + nx, 0.058, centerZ + dz + nz],
+        [centerX - dx + nx, 0.058, centerZ - dz + nz],
       );
     }
   }
@@ -225,7 +225,7 @@ export function createRoadDecalPolygonGeometry(
       continue;
     }
     const triangles = triangulateRings(ring, [], triangulate);
-    const y = decal.type === 'JUNCTION_OVERLAY' ? 0.045 : 0.05;
+    const y = decal.type === 'JUNCTION_OVERLAY' ? 0.052 : 0.058;
     for (const [a, b, c] of triangles) {
       pushTriangle(geometry, [a[0], y, a[2]], [b[0], y, b[2]], [c[0], y, c[2]]);
     }
@@ -255,9 +255,9 @@ export function createCrosswalkGeometry(
     });
     const normal = { x: -direction.z, z: direction.x };
     const length = Math.hypot(end[0] - start[0], end[2] - start[2]);
-    const stripeCount = Math.max(4, Math.min(9, Math.floor(length / 1.4)));
-    const stripeDepth = 0.8;
-    const halfWidth = crossing.principal ? 8 : 5;
+    const stripeCount = Math.max(6, Math.min(12, Math.floor(length / 1.2)));
+    const stripeDepth = crossing.principal ? 0.95 : 0.86;
+    const halfWidth = crossing.principal ? 8.8 : 5.6;
 
     for (let i = 0; i < stripeCount; i += 1) {
       const t = (i + 0.5) / stripeCount;
@@ -269,10 +269,10 @@ export function createCrosswalkGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, 0.04, centerZ - dz - nz],
-        [centerX + dx - nx, 0.04, centerZ + dz - nz],
-        [centerX + dx + nx, 0.04, centerZ + dz + nz],
-        [centerX - dx + nx, 0.04, centerZ - dz + nz],
+        [centerX - dx - nx, 0.045, centerZ - dz - nz],
+        [centerX + dx - nx, 0.045, centerZ + dz - nz],
+        [centerX + dx + nx, 0.045, centerZ + dz + nz],
+        [centerX - dx + nx, 0.045, centerZ - dz + nz],
       );
     }
   }

@@ -111,6 +111,13 @@ export class SceneRoadVisionService {
     const decals: SceneRoadDecal[] = [];
 
     for (const marking of roadMarkings) {
+      const heroCrosswalk =
+        marking.type === 'CROSSWALK' &&
+        crossings.some(
+          (crossing) =>
+            crossing.objectId === marking.objectId.replace('-marking', '') &&
+            crossing.principal,
+        );
       decals.push({
         objectId: `${marking.objectId}-decal`,
         intersectionId:
@@ -124,8 +131,10 @@ export class SceneRoadVisionService {
               ? 'STOP_LINE'
               : 'CROSSWALK_OVERLAY',
         color: marking.color,
-        emphasis: marking.type === 'CROSSWALK' ? 'hero' : 'standard',
-        priority: marking.type === 'CROSSWALK' ? 'hero' : 'standard',
+        emphasis:
+          marking.type === 'CROSSWALK' || heroCrosswalk ? 'hero' : 'standard',
+        priority:
+          marking.type === 'CROSSWALK' || heroCrosswalk ? 'hero' : 'standard',
         layer:
           marking.type === 'LANE_LINE' || marking.type === 'STOP_LINE'
             ? 'lane_overlay'
@@ -169,9 +178,9 @@ export class SceneRoadVisionService {
         styleToken: 'scramble_white',
         stripeSet: {
           centerPath: crossing.path,
-          stripeCount: 8,
-          stripeDepth: 0.9,
-          halfWidth: 8,
+          stripeCount: 11,
+          stripeDepth: 1.05,
+          halfWidth: 9,
         },
       });
     }
@@ -190,7 +199,19 @@ export class SceneRoadVisionService {
         layer: 'junction_overlay',
         shapeKind: 'polygon_fill',
         styleToken: 'junction_amber',
-        polygon: buildDiamondPolygon(profile.anchor, 10),
+        polygon: buildDiamondPolygon(profile.anchor, 12),
+      });
+      decals.push({
+        objectId: `${profile.objectId}-arrow-core`,
+        intersectionId: profile.objectId,
+        type: 'ARROW_MARK',
+        color: '#f8e8a2',
+        emphasis: 'hero',
+        priority: 'hero',
+        layer: 'junction_overlay',
+        shapeKind: 'polygon_fill',
+        styleToken: 'junction_amber',
+        polygon: buildArrowPolygon(profile.anchor, 5.4),
       });
     }
 
@@ -268,5 +289,24 @@ function buildDiamondPolygon(
     { lat: center.lat, lng: center.lng + lngDelta },
     { lat: center.lat - latDelta, lng: center.lng },
     { lat: center.lat, lng: center.lng - lngDelta },
+  ];
+}
+
+function buildArrowPolygon(
+  center: Coordinate,
+  sizeMeters: number,
+): Coordinate[] {
+  const latDelta = sizeMeters / 111_320;
+  const lngDelta =
+    sizeMeters / (111_320 * Math.cos((center.lat * Math.PI) / 180));
+
+  return [
+    { lat: center.lat + latDelta * 1.15, lng: center.lng },
+    { lat: center.lat + latDelta * 0.15, lng: center.lng + lngDelta * 0.58 },
+    { lat: center.lat + latDelta * 0.15, lng: center.lng + lngDelta * 0.24 },
+    { lat: center.lat - latDelta * 1.1, lng: center.lng + lngDelta * 0.24 },
+    { lat: center.lat - latDelta * 1.1, lng: center.lng - lngDelta * 0.24 },
+    { lat: center.lat + latDelta * 0.15, lng: center.lng - lngDelta * 0.24 },
+    { lat: center.lat + latDelta * 0.15, lng: center.lng - lngDelta * 0.58 },
   ];
 }

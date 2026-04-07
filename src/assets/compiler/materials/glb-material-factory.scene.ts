@@ -133,11 +133,15 @@ export function createSceneMaterials(
     laneOverlay: doc
       .createMaterial('lane-overlay')
       .setBaseColorFactor([0.9, 0.84, 0.62, 1])
+      .setEmissiveFactor(
+        scaleEmissive([0.06, 0.05, 0.02], tuning.emissiveBoost),
+      )
       .setMetallicFactor(0)
       .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
     crosswalk: doc
       .createMaterial('crosswalk')
       .setBaseColorFactor([0.88, 0.88, 0.85, 1])
+      .setEmissiveFactor(scaleEmissive([0.1, 0.1, 0.08], tuning.emissiveBoost))
       .setMetallicFactor(0)
       .setRoughnessFactor(scaleRoughness(0.9, tuning.roadRoughnessScale)),
     junctionOverlay: doc

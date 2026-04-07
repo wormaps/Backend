@@ -37,6 +37,8 @@ describe('road-mesh.builder', () => {
 
     expect(geometry.positions.length).toBeGreaterThan(0);
     expect(geometry.indices.length).toBeGreaterThan(0);
+    const yValues = geometry.positions.filter((_, index) => index % 3 === 1);
+    expect(Math.max(...yValues)).toBeGreaterThanOrEqual(0.058);
   });
 
   it('builds edge geometry for roads to separate asphalt from curb bands', () => {
