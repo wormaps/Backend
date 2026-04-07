@@ -7,7 +7,7 @@
 
 이번 문서는 특히 다음 두 축을 중심으로 한다.
 
-- `src/assets/compiler/building-mesh.builder.ts`
+- `src/assets/compiler/building/building-mesh.builder.ts`
 - `src/places/clients/overpass.client.ts`
 
 또한 동일 캠페인에서 함께 정리된 타깃 파일 상태도 함께 기록한다.
@@ -16,17 +16,20 @@
 
 ## 결과 요약
 
-### 타깃 파일 LOC (최종)
+### 타깃 파일 LOC (분해 시점 기준)
 
-- `src/assets/compiler/building-mesh.builder.ts`: **14**
+- `src/assets/compiler/building/building-mesh.builder.ts`: **14**
 - `src/places/clients/overpass.client.ts`: **206**
-- `src/assets/compiler/street-furniture-mesh.builder.ts`: **145**
-- `src/assets/compiler/road-mesh.builder.ts`: **356**
-- `src/assets/compiler/glb-material-factory.ts`: **2**
-- `src/docs/swagger.dto.ts`: **5**
+- `src/assets/compiler/street-furniture/street-furniture-mesh.builder.ts`: **145**
+- `src/assets/compiler/road/road-mesh.builder.ts`: **356**
+- `src/assets/compiler/materials/glb-material-factory.ts`: **2**
 - `src/scene/scene.service.spec.ts`: **259**
 
 요청 대상 파일은 모두 500 LOC 이하를 만족한다.
+
+추가로 후속 리팩터링에서 domain root minimal 원칙을 적용하여,
+`src/assets/compiler`, `src/assets/internal`, `src/docs`는
+루트 파일 없이 하위 기능 폴더 중심 구조로 전환했다.
 
 ---
 
@@ -34,55 +37,54 @@
 
 ### 엔트리 포인트 전략
 
-- 기존 import 호환성을 위해 `src/assets/compiler/building-mesh.builder.ts`를 유지한다.
-- 이 파일은 이제 구현이 아닌 **명시적 re-export 배럴** 역할만 수행한다.
+- 구현 정본은 `src/assets/compiler/building/building-mesh.builder.ts`에 둔다.
+- 해당 파일은 구현이 아닌 **명시적 re-export 배럴** 역할만 수행한다.
 
 ### 모듈 구성
 
-- `src/assets/compiler/building-mesh.shell.builder.ts`
+- `src/assets/compiler/building/building-mesh.shell.builder.ts`
   - 쉘 매싱 생성
   - strategy 분기(`simple_extrude`, `podium_tower`, `stepped_tower`, `gable_lowrise`, `courtyard_block`, `fallback_massing`)
   - `pushExtrudedPolygon`, `insetRing` 등 질량(매싱) 핵심
 
-- `src/assets/compiler/building-mesh.panels.builder.ts`
+- `src/assets/compiler/building/building-mesh.panels.builder.ts`
   - 파사드 힌트 기반 패널 생성
   - preset/facadeSpec 분기 조립
 
-- `src/assets/compiler/building-mesh.roof-surface.builder.ts`
+- `src/assets/compiler/building/building-mesh.roof-surface.builder.ts`
   - roof surface 전용 지오메트리 생성
   - 톤 필터링 + roof inset slab
 
-- `src/assets/compiler/building-mesh.hero.builder.ts`
+- `src/assets/compiler/building/building-mesh.hero.builder.ts`
   - hero canopy / roof units / billboard planes
   - standalone billboards / landmark extras
 
-- `src/assets/compiler/building-mesh.window.builder.ts`
+- `src/assets/compiler/building/building-mesh.window.builder.ts`
   - 창호 패턴/프레임/실 생성
 
-- `src/assets/compiler/building-mesh.entrance.builder.ts`
+- `src/assets/compiler/building/building-mesh.entrance.builder.ts`
   - 출입구 recess/canopy/door 조립
 
-- `src/assets/compiler/building-mesh.roof-equipment.builder.ts`
+- `src/assets/compiler/building/building-mesh.roof-equipment.builder.ts`
   - 옥상 설비(AC/antenna/mixed) 배치
 
-- `src/assets/compiler/building-mesh.facade-frame.utils.ts`
+- `src/assets/compiler/building/building-mesh.facade-frame.utils.ts`
   - facade frame 계산/분할
   - backing/slab/mullion volume 등 파사드 기반 유틸
 
-- `src/assets/compiler/building-mesh.facade-band.utils.ts`
+- `src/assets/compiler/building/building-mesh.facade-band.utils.ts`
   - 수평 밴드/사인 밴드/빌보드 존/캐노피 밴드 조립
 
-- `src/assets/compiler/building-mesh.geometry-primitives.ts`
+- `src/assets/compiler/building/building-mesh.geometry-primitives.ts`
   - `pushBox`, `pushQuad`, `pushTriangle`
 
-- `src/assets/compiler/building-mesh.tone.utils.ts`
+- `src/assets/compiler/building/building-mesh.tone.utils.ts`
   - `resolveAccentTone`
 
 ### 호환성 포인트
 
-- 외부 소비자(예: `glb-build-building-hero.stage.ts`, builder spec)는
-  기존 경로 `../compiler/building-mesh.builder`를 그대로 사용한다.
 - 공개 함수 이름/시그니처를 유지하고, 내부 구현만 파일 단위로 이동했다.
+- 이후 폴더 정리 단계에서 소비자는 feature barrel(`../compiler/building`)을 사용하도록 전환했다.
 
 ---
 
@@ -132,7 +134,7 @@
 분해 이후 다음 검증을 통과했다.
 
 - `bun run type-check`
-- `bun test src/assets/compiler/building-mesh.builder.spec.ts`
+- `bun test src/assets/compiler/building/building-mesh.builder.spec.ts`
 - `bun test src/places/clients/overpass.client.spec.ts`
 - `bun run build`
 
@@ -140,11 +142,11 @@
 
 ## 4) 유지보수 가이드
 
-1. 배럴/퍼사드 파일(`building-mesh.builder.ts`, `overpass.client.ts`)에는
+1. 배럴/퍼사드 파일(`building/building-mesh.builder.ts`, `overpass.client.ts`)에는
    가능한 구현을 넣지 않고 orchestration/re-export만 유지한다.
 
 2. 신규 로직 추가 시 우선 기존 책임에 맞는 모듈에 배치한다.
-   - geometry primitive 변경: `building-mesh.geometry-primitives.ts`
+   - geometry primitive 변경: `building/building-mesh.geometry-primitives.ts`
    - overpass query 변경: `overpass.query.ts`
    - overpass retry/fallback 변경: `overpass.transport.ts`
 

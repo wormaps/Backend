@@ -91,6 +91,35 @@ bun run scene:shibuya
 - 대형 파일 분해(500 LOC 기준) 결과 및 모듈 책임:
   - `docs/oversized-file-modularization-notes.md`
 
+## 폴더 구조 원칙 (Domain Root Minimal)
+
+- 도메인 root에는 가능한 파일을 두지 않고, 기능 폴더로 구성합니다.
+- 현재 정리된 대표 구조:
+
+```text
+src/assets/compiler/
+  building/
+  materials/
+  road/
+  street-furniture/
+  vegetation/
+
+src/assets/internal/
+  glb-build/
+
+src/docs/
+  common/
+  decorators/
+  external/
+  health/
+  places/
+  scene/
+  setup/
+```
+
+- import는 가능하면 feature 폴더 barrel(`index.ts`)을 우선 사용하고,
+  feature 내부 helper는 해당 폴더 내부 상대경로를 사용합니다.
+
 ## 환경 변수 메모
 
 - `GOOGLE_API_KEY`

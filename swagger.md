@@ -45,12 +45,12 @@ http://localhost:3000/docs-json
 
 ## 구현 위치
 
-- Swagger 설정: [`src/docs/swagger.setup.ts`](/Users/user/wormapb/src/docs/swagger.setup.ts)
-- Swagger 공통 DTO: [`src/docs/common.dto.ts`](/Users/user/wormapb/src/docs/common.dto.ts)
-- Swagger scene DTO: [`src/docs/scene.dto.ts`](/Users/user/wormapb/src/docs/scene.dto.ts)
-- Swagger places DTO: [`src/docs/places.dto.ts`](/Users/user/wormapb/src/docs/places.dto.ts)
-- 기존 Swagger DTO 정의: [`src/docs/swagger.dto.ts`](/Users/user/wormapb/src/docs/swagger.dto.ts)
-- 공통 envelope 데코레이터: [`src/docs/swagger.decorators.ts`](/Users/user/wormapb/src/docs/swagger.decorators.ts)
+- Swagger 설정: [`src/docs/setup/swagger.setup.ts`](/Users/user/wormapb/src/docs/setup/swagger.setup.ts)
+- Swagger 공통 DTO: [`src/docs/common/swagger.common.dto.ts`](/Users/user/wormapb/src/docs/common/swagger.common.dto.ts)
+- Swagger scene DTO: [`src/docs/scene/swagger.scene.dto.ts`](/Users/user/wormapb/src/docs/scene/swagger.scene.dto.ts)
+- Swagger places DTO: [`src/docs/places/swagger.places.dto.ts`](/Users/user/wormapb/src/docs/places/swagger.places.dto.ts)
+- Swagger 외부 DTO: [`src/docs/external/swagger.external.dto.ts`](/Users/user/wormapb/src/docs/external/swagger.external.dto.ts)
+- 공통 envelope 데코레이터: [`src/docs/decorators/swagger.decorators.ts`](/Users/user/wormapb/src/docs/decorators/swagger.decorators.ts)
 - 부트스트랩 연결: [`src/main.ts`](/Users/user/wormapb/src/main.ts)
 
 ## 실행
