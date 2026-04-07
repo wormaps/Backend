@@ -55,6 +55,20 @@ export type HeroBaseMass =
   | 'lowrise_strip';
 export type FacadePattern =
   | 'curtain_wall'
+  | 'repetitive_windows'
+  | 'balcony_stack'
+  | 'vertical_mullion'
+  | 'horizontal_band'
+  | 'blank_wall_heavy'
+  | 'sign_band'
+  | 'podium_retail'
+  | 'hotel_window_grid'
+  | 'industrial_panel'
+  | 'warehouse_siding'
+  | 'old_apartment_balcony'
+  | 'mixed_use_ground_retail'
+  | 'temple_roof_layer'
+  | 'shopping_arcade'
   | 'retail_screen'
   | 'mall_sign_band'
   | 'midrise_grid'
@@ -133,6 +147,181 @@ export type SceneFacadeContextProfile =
   | 'TRANSIT_HUB'
   | 'CIVIC_CLUSTER'
   | 'RESIDENTIAL_EDGE';
+
+export type EvidenceStrength = 'none' | 'weak' | 'medium' | 'strong';
+
+export type MaterialFamily =
+  | 'glass'
+  | 'concrete'
+  | 'panel'
+  | 'brick'
+  | 'metal'
+  | 'stone'
+  | 'plaster'
+  | 'wood'
+  | 'tile'
+  | 'mixed';
+
+export type MaterialVariant =
+  | 'glass_cool_light'
+  | 'glass_cool_dark'
+  | 'glass_reflective_blue'
+  | 'concrete_old_gray'
+  | 'concrete_residential_beige'
+  | 'concrete_warm_white'
+  | 'brick_red_lowrise'
+  | 'brick_dark_aged'
+  | 'tile_pink_apartment'
+  | 'metal_station_silver'
+  | 'metal_industrial_dark'
+  | 'stone_luxury_beige'
+  | 'wood_natural'
+  | 'plaster_old_town_white'
+  | 'mixed_neutral_light';
+
+export type RoofStyle =
+  | 'flat'
+  | 'gable'
+  | 'stepped'
+  | 'setback'
+  | 'podium_tower'
+  | 'mechanical_heavy'
+  | 'rooftop_garden'
+  | 'sloped_tile'
+  | 'industrial_sawtooth'
+  | 'temple_roof'
+  | 'warehouse_low_slope';
+
+export type DistrictCluster =
+  | 'core_commercial'
+  | 'secondary_retail'
+  | 'office_mixed'
+  | 'luxury_residential'
+  | 'old_residential'
+  | 'industrial_lowrise'
+  | 'nightlife_cluster'
+  | 'station_district'
+  | 'green_park_edge'
+  | 'riverside_lowrise'
+  | 'suburban_detached'
+  | 'coastal_road'
+  | 'mountain_slope_settlement'
+  | 'temple_shrine_district'
+  | 'university_district'
+  | 'airport_logistics'
+  | 'landmark_plaza'
+  | 'stadium_zone'
+  | 'tourist_shopping_street';
+
+export type StreetAtmosphereProfile =
+  | 'clean_office'
+  | 'dense_signage'
+  | 'luxury_minimal'
+  | 'tourist_heavy'
+  | 'nightlife_dense'
+  | 'industrial_sparse'
+  | 'residential_quiet'
+  | 'riverside_open'
+  | 'park_green'
+  | 'station_busy'
+  | 'coastal_relaxed'
+  | 'mountain_compact';
+
+export type VegetationProfile =
+  | 'sparse_tree_line'
+  | 'dense_tree_line'
+  | 'roadside_planters'
+  | 'pocket_park'
+  | 'forest_edge'
+  | 'coastal_palm'
+  | 'mountain_shrub'
+  | 'residential_small_tree'
+  | 'urban_minimal_green';
+
+export type RoadAtmosphereProfile =
+  | 'wide_arterial'
+  | 'dense_crosswalk'
+  | 'bus_lane_heavy'
+  | 'narrow_alley'
+  | 'riverside_road'
+  | 'industrial_truck_route'
+  | 'pedestrian_street'
+  | 'shopping_street'
+  | 'nightlife_street'
+  | 'coastal_drive'
+  | 'mountain_curve_road';
+
+export type LightingAtmosphereProfile =
+  | 'bright_daylight'
+  | 'overcast_soft'
+  | 'warm_evening'
+  | 'neon_night'
+  | 'rainy_reflection'
+  | 'snowy_diffuse'
+  | 'luxury_warm'
+  | 'industrial_cold'
+  | 'nightlife_emissive'
+  | 'park_dim';
+
+export type WeatherMoodOverlay =
+  | 'sunny_clear'
+  | 'cloudy'
+  | 'rainy'
+  | 'wet_road'
+  | 'foggy'
+  | 'snowy'
+  | 'dusk'
+  | 'night'
+  | 'humid_summer'
+  | 'cold_winter';
+
+export interface BuildingFacadeProfile {
+  family: MaterialFamily;
+  variant: MaterialVariant;
+  pattern: FacadePattern;
+  roofStyle: RoofStyle;
+  evidence: EvidenceStrength;
+  emissiveBoost?: number;
+  signDensity?: 'low' | 'medium' | 'high';
+  windowDensity?: WindowPatternDensity;
+  balconyType?: 'none' | 'minimal' | 'stacked' | 'continuous';
+  podiumStyle?: 'none' | 'compact' | 'retail' | 'grand';
+  canopyType?: 'none' | 'flat' | 'awning' | 'arcade';
+  entranceEmphasis?: 'low' | 'medium' | 'high';
+  roofEquipmentIntensity?: 'low' | 'medium' | 'high';
+  lightingStyle?: LightingAtmosphereProfile;
+}
+
+export interface DistrictAtmosphereProfile {
+  districtCluster: DistrictCluster;
+  confidence: number;
+  evidenceStrength: EvidenceStrength;
+  buildingCount: number;
+  facadeProfile: BuildingFacadeProfile;
+  streetAtmosphere: StreetAtmosphereProfile;
+  vegetationProfile: VegetationProfile;
+  roadProfile: RoadAtmosphereProfile;
+  lightingProfile: LightingAtmosphereProfile;
+  weatherOverlay: WeatherMoodOverlay;
+}
+
+export interface SceneWideAtmosphereProfile {
+  cityTone:
+    | 'dense_commercial'
+    | 'mixed_commercial'
+    | 'suburban_residential'
+    | 'industrial_fringe'
+    | 'coastal_tourist_town'
+    | 'mountain_village'
+    | 'balanced_mixed';
+  evidenceStrength: EvidenceStrength;
+  baseFacadeProfile: BuildingFacadeProfile;
+  streetAtmosphere: StreetAtmosphereProfile;
+  vegetationProfile: VegetationProfile;
+  roadProfile: RoadAtmosphereProfile;
+  lightingProfile: LightingAtmosphereProfile;
+  weatherOverlay: WeatherMoodOverlay;
+}
 
 export type SceneStaticAtmospherePreset =
   | 'DAY_CLEAR'
@@ -222,6 +411,8 @@ export interface SceneFacadeContextDiagnostics {
   profileCounts: SceneFacadeContextCount[];
   materialCounts: SceneFacadeContextCount[];
   profileMaterialCounts: SceneFacadeContextCount[];
+  districtClusterCounts?: SceneFacadeContextCount[];
+  evidenceStrengthCounts?: SceneFacadeContextCount[];
 }
 
 export interface SceneFidelityPlan {

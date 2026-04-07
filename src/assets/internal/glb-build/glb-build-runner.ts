@@ -214,6 +214,8 @@ export class GlbBuildRunner {
       facadeMaterialProfile,
       variationProfile,
       staticAtmosphere: sceneDetail.staticAtmosphere,
+      sceneWideAtmosphereProfile: sceneDetail.sceneWideAtmosphereProfile,
+      districtAtmosphereProfiles: sceneDetail.districtAtmosphereProfiles,
     };
 
     this.appLoggerService.info('scene.glb_build.diagnostics', {

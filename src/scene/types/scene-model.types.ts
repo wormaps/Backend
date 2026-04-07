@@ -17,6 +17,9 @@ import {
   BuildingPreset,
   BuildingRoofSpec,
   BuildingSignageSpec,
+  DistrictAtmosphereProfile,
+  DistrictCluster,
+  EvidenceStrength,
   FacadePreset,
   GeometryFallbackReason,
   GeometryStrategy,
@@ -37,6 +40,7 @@ import {
   SceneStructuralCoverage,
   SceneScale,
   SceneStaticAtmosphereProfile,
+  SceneWideAtmosphereProfile,
   SceneStatus,
   SceneDetailStatus,
   VisualArchetype,
@@ -152,6 +156,8 @@ export interface SceneFacadeHint {
   panelPalette?: string[];
   weakEvidence?: boolean;
   contextProfile?: import('./scene-domain.types').SceneFacadeContextProfile;
+  districtCluster?: DistrictCluster;
+  evidenceStrength?: EvidenceStrength;
   contextualMaterialUpgrade?: boolean;
   visualRole?: VisualRole;
   baseMass?: HeroBaseMass;
@@ -304,6 +310,8 @@ export interface SceneDetail {
   structuralCoverage?: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;
   staticAtmosphere?: SceneStaticAtmosphereProfile;
+  sceneWideAtmosphereProfile?: SceneWideAtmosphereProfile;
+  districtAtmosphereProfiles?: DistrictAtmosphereProfile[];
   provenance: {
     mapillaryUsed: boolean;
     mapillaryImageCount: number;

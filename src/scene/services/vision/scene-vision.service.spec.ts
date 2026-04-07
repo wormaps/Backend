@@ -134,5 +134,7 @@ describe('SceneVisionService', () => {
     expect(result.detail.roadDecals?.length).toBeGreaterThan(0);
     expect(result.detail.geometryDiagnostics?.[0]?.strategy).toBeDefined();
     expect(result.metaPatch.materialClasses[0]?.className).toBe('glass');
+    expect(result.detail.sceneWideAtmosphereProfile).toBeDefined();
+    expect(result.detail.districtAtmosphereProfiles?.length).toBeGreaterThan(0);
   });
 });

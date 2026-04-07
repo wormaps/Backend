@@ -9,6 +9,11 @@ import type {
 } from '../../types/scene.types';
 import { BuildingStyleResolverService } from './building-style-resolver.service';
 import {
+  resolveDistrictAtmosphereProfile,
+  resolveDistrictCluster,
+  resolveSceneWideAtmosphereProfile,
+} from './scene-atmosphere-district.utils';
+import {
   averageCoordinate,
   buildFacadeContext,
   densityFromEvidence,
@@ -57,6 +62,11 @@ export class SceneFacadeVisionService {
         placePackage,
         buildingAnchors,
       );
+      const mapillarySignalSummary = summarizeMapillarySignals(
+        anchor,
+        mapillaryImages,
+        mapillaryFeatures,
+      );
       const evidenceDensity = densityFromEvidence(
         nearbyImageCount,
         nearbyFeatureCount,
@@ -84,6 +94,18 @@ export class SceneFacadeVisionService {
           ? style.panelPalette
           : inferredPalette.panelPalette,
       );
+      const districtResolution = resolveDistrictCluster({
+        building,
+        anchor,
+        placeCenter: place.location,
+        context,
+        buildingAnchors,
+        mapillarySignals: {
+          ...mapillarySignalSummary,
+          nearbyImageCount,
+          nearbyFeatureCount,
+        },
+      });
       return {
         objectId: building.id,
         anchor,
@@ -118,6 +140,8 @@ export class SceneFacadeVisionService {
         signBandLevels: style.signBandLevels,
         weakEvidence: nearbyImageCount === 0 && nearbyFeatureCount === 0,
         contextProfile: context.districtProfile,
+        districtCluster: districtResolution.cluster,
+        evidenceStrength: districtResolution.evidenceStrength,
         contextualMaterialUpgrade: inferredPalette.contextualUpgrade,
       };
     });
@@ -153,6 +177,8 @@ export class SceneFacadeVisionService {
     const profileCounts = new Map<string, number>();
     const materialCounts = new Map<string, number>();
     const profileMaterialCounts = new Map<string, number>();
+    const districtClusterCounts = new Map<string, number>();
+    const evidenceStrengthCounts = new Map<string, number>();
 
     for (const hint of facadeHints) {
       const profile = hint.contextProfile ?? 'UNKNOWN';
@@ -163,6 +189,18 @@ export class SceneFacadeVisionService {
         `${profile}:${material}`,
         (profileMaterialCounts.get(`${profile}:${material}`) ?? 0) + 1,
       );
+      if (hint.districtCluster) {
+        districtClusterCounts.set(
+          hint.districtCluster,
+          (districtClusterCounts.get(hint.districtCluster) ?? 0) + 1,
+        );
+      }
+      if (hint.evidenceStrength) {
+        evidenceStrengthCounts.set(
+          hint.evidenceStrength,
+          (evidenceStrengthCounts.get(hint.evidenceStrength) ?? 0) + 1,
+        );
+      }
     }
 
     const explicitColorBuildingCount = placePackage.buildings.filter(
@@ -178,6 +216,171 @@ export class SceneFacadeVisionService {
       profileCounts: sortCounts(profileCounts),
       materialCounts: sortCounts(materialCounts),
       profileMaterialCounts: sortCounts(profileMaterialCounts).slice(0, 12),
+      districtClusterCounts: sortCounts(districtClusterCounts),
+      evidenceStrengthCounts: sortCounts(evidenceStrengthCounts),
     };
   }
+
+  buildDistrictAtmosphereProfiles(
+    facadeHints: SceneFacadeHint[],
+  ): import('../../types/scene.types').DistrictAtmosphereProfile[] {
+    const grouped = new Map<
+      NonNullable<SceneFacadeHint['districtCluster']>,
+      {
+        confidenceAccumulator: number;
+        evidenceScore: number;
+        count: number;
+      }
+    >();
+
+    for (const hint of facadeHints) {
+      if (!hint.districtCluster) {
+        continue;
+      }
+      const current = grouped.get(hint.districtCluster) ?? {
+        confidenceAccumulator: 0,
+        evidenceScore: 0,
+        count: 0,
+      };
+      current.count += 1;
+      current.confidenceAccumulator += hint.weakEvidence ? 0.42 : 0.74;
+      current.evidenceScore += rankEvidence(hint.evidenceStrength);
+      grouped.set(hint.districtCluster, current);
+    }
+
+    return [...grouped.entries()]
+      .map(([cluster, stats]) => {
+        const confidence =
+          stats.confidenceAccumulator / Math.max(1, stats.count);
+        const evidenceStrength =
+          stats.evidenceScore / Math.max(1, stats.count) >= 2.6
+            ? 'strong'
+            : stats.evidenceScore / Math.max(1, stats.count) >= 1.6
+              ? 'medium'
+              : stats.evidenceScore / Math.max(1, stats.count) >= 0.6
+                ? 'weak'
+                : 'none';
+        return {
+          ...resolveDistrictAtmosphereProfile(
+            cluster,
+            confidence,
+            evidenceStrength,
+          ),
+          buildingCount: stats.count,
+        };
+      })
+      .sort((a, b) => b.buildingCount - a.buildingCount);
+  }
+
+  resolveSceneWideAtmosphereProfile(
+    districtProfiles: import('../../types/scene.types').DistrictAtmosphereProfile[],
+  ): import('../../types/scene.types').SceneWideAtmosphereProfile {
+    return resolveSceneWideAtmosphereProfile(districtProfiles);
+  }
+}
+
+function summarizeMapillarySignals(
+  anchor: import('../../../places/types/place.types').Coordinate,
+  images: Awaited<ReturnType<MapillaryClient['getNearbyImages']>>,
+  features: Awaited<ReturnType<MapillaryClient['getMapFeatures']>>,
+): {
+  signageDensityScore: number;
+  roadMarkingComplexityScore: number;
+  trafficLightDensityScore: number;
+  treeDensityScore: number;
+  nightlifeIntensityScore: number;
+  commercialIntensityScore: number;
+  glassLikelihoodScore: number;
+} {
+  const nearbyImages = images.filter(
+    (image) => distanceMeters(anchor, image.location) <= 45,
+  ).length;
+  const nearbyFeatures = features.filter(
+    (feature) => distanceMeters(anchor, feature.location) <= 35,
+  );
+
+  const signageFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return (
+      type.includes('sign') ||
+      type.includes('billboard') ||
+      type.includes('shop')
+    );
+  }).length;
+  const roadMarkingFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return (
+      type.includes('lane') ||
+      type.includes('crosswalk') ||
+      type.includes('marking') ||
+      type.includes('arrow')
+    );
+  }).length;
+  const trafficLightFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return type.includes('traffic_light') || type.includes('signal');
+  }).length;
+  const treeFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return (
+      type.includes('tree') ||
+      type.includes('vegetation') ||
+      type.includes('plant')
+    );
+  }).length;
+  const nightlifeFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return (
+      type.includes('bar') ||
+      type.includes('pub') ||
+      type.includes('club') ||
+      type.includes('neon')
+    );
+  }).length;
+  const commercialFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return (
+      type.includes('shop') ||
+      type.includes('retail') ||
+      type.includes('restaurant') ||
+      type.includes('commercial')
+    );
+  }).length;
+  const glassFeatures = nearbyFeatures.filter((feature) => {
+    const type = feature.type.toLowerCase();
+    return (
+      type.includes('glass') ||
+      type.includes('window') ||
+      type.includes('facade')
+    );
+  }).length;
+
+  const denominator = Math.max(1, nearbyImages + nearbyFeatures.length * 0.25);
+
+  return {
+    signageDensityScore: clampScore(signageFeatures / denominator),
+    roadMarkingComplexityScore: clampScore(roadMarkingFeatures / denominator),
+    trafficLightDensityScore: clampScore(trafficLightFeatures / denominator),
+    treeDensityScore: clampScore(treeFeatures / denominator),
+    nightlifeIntensityScore: clampScore(nightlifeFeatures / denominator),
+    commercialIntensityScore: clampScore(commercialFeatures / denominator),
+    glassLikelihoodScore: clampScore(glassFeatures / denominator),
+  };
+}
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(1, Number(value.toFixed(3))));
+}
+
+function rankEvidence(value: SceneFacadeHint['evidenceStrength']): number {
+  if (value === 'strong') {
+    return 3;
+  }
+  if (value === 'medium') {
+    return 2;
+  }
+  if (value === 'weak') {
+    return 1;
+  }
+  return 0;
 }

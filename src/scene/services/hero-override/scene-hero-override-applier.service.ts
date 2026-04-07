@@ -229,6 +229,17 @@ export class SceneHeroOverrideApplierService {
           buildings.find((building) => building.objectId === objectId) ?? null;
         const buildingHeight = matchedBuilding?.heightMeters ?? 12;
         const facadeHint = annotation.facadeHint;
+        const contextProfile: SceneFacadeHint['contextProfile'] =
+          annotation.importance === 'primary'
+            ? 'NEON_CORE'
+            : 'COMMERCIAL_STRIP';
+        const districtCluster: SceneFacadeHint['districtCluster'] =
+          annotation.kind === 'PLAZA'
+            ? 'landmark_plaza'
+            : annotation.importance === 'primary'
+              ? 'landmark_plaza'
+              : 'secondary_retail';
+        const evidenceStrength: SceneFacadeHint['evidenceStrength'] = 'strong';
 
         return {
           objectId,
@@ -267,6 +278,10 @@ export class SceneHeroOverrideApplierService {
           podiumSpec: matchedBuilding?.podiumSpec,
           signageSpec: matchedBuilding?.signageSpec,
           roofSpec: matchedBuilding?.roofSpec,
+          contextProfile,
+          districtCluster,
+          evidenceStrength,
+          contextualMaterialUpgrade: true,
           weakEvidence: false,
         };
       },

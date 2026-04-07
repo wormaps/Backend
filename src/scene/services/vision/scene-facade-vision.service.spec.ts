@@ -127,6 +127,8 @@ describe('SceneFacadeVisionService', () => {
     expect(['NEON_CORE', 'COMMERCIAL_STRIP', 'TRANSIT_HUB']).toContain(
       coreHint!.contextProfile!,
     );
+    expect(coreHint!.districtCluster).toBeDefined();
+    expect(coreHint!.evidenceStrength).toBeDefined();
   });
 
   it('preserves explicit OSM colors when they exist', () => {
@@ -164,5 +166,7 @@ describe('SceneFacadeVisionService', () => {
     expect(diagnostics.materialCounts.length).toBeGreaterThan(0);
     expect(diagnostics.profileMaterialCounts.length).toBeGreaterThan(0);
     expect(diagnostics.contextualUpgradeCount).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.districtClusterCounts).toBeDefined();
+    expect(diagnostics.evidenceStrengthCounts).toBeDefined();
   });
 });

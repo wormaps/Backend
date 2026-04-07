@@ -127,6 +127,14 @@ export class SceneVisionService {
         facadeHints,
         placePackage,
       );
+    const districtAtmosphereProfiles =
+      this.sceneFacadeVisionService.buildDistrictAtmosphereProfiles(
+        facadeHints,
+      );
+    const sceneWideAtmosphereProfile =
+      this.sceneFacadeVisionService.resolveSceneWideAtmosphereProfile(
+        districtAtmosphereProfiles,
+      );
     const landmarkAnchors = this.sceneSignageVisionService.buildLandmarkAnchors(
       placePackage,
       crossings,
@@ -148,6 +156,8 @@ export class SceneVisionService {
       roadDecals,
       geometryDiagnostics,
       facadeContextDiagnostics,
+      districtAtmosphereProfiles,
+      sceneWideAtmosphereProfile,
       placeReadabilityDiagnostics: {
         heroBuildingCount: 0,
         heroIntersectionCount: new Set(

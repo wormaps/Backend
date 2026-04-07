@@ -1,10 +1,27 @@
 import { FacadeLayerMaterialProfile } from '../../compiler/materials';
-import { SceneDetail, SceneMeta } from '../../../scene/types/scene.types';
+import {
+  DistrictAtmosphereProfile,
+  FacadePattern,
+  LightingAtmosphereProfile,
+  MaterialFamily,
+  MaterialVariant,
+  SceneDetail,
+  SceneMeta,
+  SceneWideAtmosphereProfile,
+  WindowPatternDensity,
+} from '../../../scene/types/scene.types';
 
 export function resolveFacadeLayerMaterialProfile(
   sceneMeta: SceneMeta,
   sceneDetail: SceneDetail,
 ): FacadeLayerMaterialProfile {
+  const sceneWide = sceneDetail.sceneWideAtmosphereProfile;
+  const districtPrimary = sceneDetail.districtAtmosphereProfiles?.[0];
+  const baseProfile =
+    sceneWide || districtPrimary
+      ? resolveAtmosphereBaseProfile(sceneWide, districtPrimary)
+      : null;
+
   const hints = sceneDetail.facadeHints;
   if (!hints.length) {
     return {
@@ -18,6 +35,7 @@ export function resolveFacadeLayerMaterialProfile(
       roofEquipmentSurface: 'metal',
       heroCanopyLight: 'accent_spot',
       heroBillboardTone: 'orange',
+      ...baseProfile,
     };
   }
 
@@ -60,6 +78,7 @@ export function resolveFacadeLayerMaterialProfile(
   const signageRatio = denseSignageCount / hints.length;
 
   return {
+    ...baseProfile,
     facadeFamily: resolveFacadeFamily(
       dominantMaterialClass,
       dominantFacadePreset,
@@ -77,6 +96,148 @@ export function resolveFacadeLayerMaterialProfile(
     heroCanopyLight: signageRatio >= 0.35 ? 'flood_light' : 'accent_spot',
     heroBillboardTone: resolveHeroBillboardTone(sceneDetail),
   };
+}
+
+function resolveAtmosphereBaseProfile(
+  sceneWide: SceneWideAtmosphereProfile | undefined,
+  districtPrimary: DistrictAtmosphereProfile | undefined,
+): FacadeLayerMaterialProfile {
+  const source = districtPrimary?.facadeProfile ?? sceneWide?.baseFacadeProfile;
+  if (!source) {
+    return {};
+  }
+
+  return {
+    facadeFamily: mapMaterialFamily(source.family),
+    facadeVariant: mapMaterialVariant(source.variant),
+    shellSurfaceBias: mapShellSurfaceBias(source.family),
+    panelSurfaceBias: mapPanelSurfaceBias(source.pattern),
+    panelEmissiveBoost: clamp(source.emissiveBoost ?? 1, 0.75, 1.45),
+    windowType: mapWindowType(source.windowDensity),
+    entranceSurface: mapEntranceSurface(source.family),
+    roofEquipmentSurface:
+      source.roofEquipmentIntensity === 'high' ? 'metal' : 'concrete',
+    heroCanopyLight: mapHeroCanopyLight(source.lightingStyle),
+    heroBillboardTone: mapHeroBillboardTone(source.signDensity),
+  };
+}
+
+function mapMaterialFamily(
+  family: MaterialFamily,
+): FacadeLayerMaterialProfile['facadeFamily'] {
+  if (family === 'glass') return 'glass';
+  if (family === 'metal') return 'metal';
+  if (family === 'brick') return 'brick';
+  if (family === 'concrete') return 'concrete';
+  if (family === 'panel') return 'modern_glass';
+  return 'concrete';
+}
+
+function mapMaterialVariant(
+  variant: MaterialVariant,
+): FacadeLayerMaterialProfile['facadeVariant'] {
+  if (
+    variant.includes('dark') ||
+    variant === 'metal_industrial_dark' ||
+    variant === 'concrete_old_gray'
+  ) {
+    return 'dark';
+  }
+  if (
+    variant.includes('light') ||
+    variant.includes('white') ||
+    variant.includes('beige')
+  ) {
+    return 'light';
+  }
+  return 'mid';
+}
+
+function mapShellSurfaceBias(
+  family: MaterialFamily,
+): FacadeLayerMaterialProfile['shellSurfaceBias'] {
+  if (family === 'glass' || family === 'metal' || family === 'panel') {
+    return 'glossy';
+  }
+  if (family === 'brick' || family === 'plaster' || family === 'stone') {
+    return 'matte';
+  }
+  return 'balanced';
+}
+
+function mapPanelSurfaceBias(
+  pattern: FacadePattern,
+): FacadeLayerMaterialProfile['panelSurfaceBias'] {
+  if (
+    pattern === 'curtain_wall' ||
+    pattern === 'vertical_mullion' ||
+    pattern === 'shopping_arcade'
+  ) {
+    return 'glossy';
+  }
+  if (
+    pattern === 'industrial_panel' ||
+    pattern === 'warehouse_siding' ||
+    pattern === 'blank_wall_heavy'
+  ) {
+    return 'matte';
+  }
+  return 'balanced';
+}
+
+function mapWindowType(
+  windowDensity: WindowPatternDensity | undefined,
+): FacadeLayerMaterialProfile['windowType'] {
+  if (windowDensity === 'dense') {
+    return 'curtain_wall';
+  }
+  if (windowDensity === 'medium') {
+    return 'reflective';
+  }
+  return 'tinted';
+}
+
+function mapEntranceSurface(
+  family: MaterialFamily,
+): FacadeLayerMaterialProfile['entranceSurface'] {
+  if (family === 'glass' || family === 'panel') {
+    return 'glass';
+  }
+  if (family === 'metal') {
+    return 'metal';
+  }
+  return 'concrete';
+}
+
+function mapHeroCanopyLight(
+  lighting: LightingAtmosphereProfile | undefined,
+): FacadeLayerMaterialProfile['heroCanopyLight'] {
+  if (lighting === 'nightlife_emissive' || lighting === 'neon_night') {
+    return 'flood_light';
+  }
+  if (lighting === 'luxury_warm' || lighting === 'warm_evening') {
+    return 'warm_interior';
+  }
+  if (lighting === 'industrial_cold') {
+    return 'cool_interior';
+  }
+  return 'accent_spot';
+}
+
+function mapHeroBillboardTone(
+  signDensity: 'low' | 'medium' | 'high' | undefined,
+): FacadeLayerMaterialProfile['heroBillboardTone'] {
+  if (signDensity === 'high') {
+    return 'pink';
+  }
+  if (signDensity === 'medium') {
+    return 'orange';
+  }
+  return 'white';
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function resolveDominantKey(counter: Map<string, number>): string | undefined {
