@@ -52,6 +52,8 @@ import {
 import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
 import { resolveSceneVariationProfile } from './glb-build-variation.utils';
 import { resolveFacadeLayerMaterialProfile } from './glb-build-facade-material-profile.utils';
+import { resolveSceneModePolicy } from '../../../scene/utils/scene-mode-policy.utils';
+import { buildSceneFidelityMetricsReport } from '../../../scene/utils/scene-fidelity-metrics.utils';
 
 interface MeshNodeDiagnostic {
   name: string;
@@ -95,6 +97,10 @@ export class GlbBuildRunner {
         sceneMeta,
         assetSelection,
       );
+    const modePolicy = resolveSceneModePolicy(
+      sceneDetail.fidelityPlan?.targetMode,
+      sceneDetail.fidelityPlan?.currentMode,
+    );
     const materialTuning = this.resolveMaterialTuning(sceneMeta, sceneDetail);
     const variationProfile = this.resolveVariationProfile(
       adaptiveMeta,
@@ -115,6 +121,7 @@ export class GlbBuildRunner {
       step: 'glb_build',
       tuning: materialTuning,
       variationProfile,
+      modePolicy: modePolicy.id,
       staticAtmosphere: sceneDetail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
     });
 
@@ -123,6 +130,7 @@ export class GlbBuildRunner {
         addMeshNode: this.addMeshNode.bind(this),
         createCrosswalkGeometry: this.createCrosswalkGeometry.bind(this),
         triangulateRings: triangulateRingsUtil,
+        modePolicy,
       },
       { doc, Accessor, scene, buffer },
       sceneMeta,
@@ -139,6 +147,7 @@ export class GlbBuildRunner {
         createPoiGeometry,
         createLandCoverGeometry,
         variationProfile,
+        modePolicy,
         createLinearFeatureGeometry,
       },
       { doc, Accessor, scene, buffer },
@@ -171,6 +180,7 @@ export class GlbBuildRunner {
         materialTuning,
         facadeMaterialProfile,
         variationProfile,
+        modePolicy,
         staticAtmosphere: sceneDetail.staticAtmosphere,
         createBuildingRoofAccentGeometry,
       },
@@ -195,6 +205,11 @@ export class GlbBuildRunner {
     await writeFile(outputPath, glbBinary);
 
     const diagnosticsPayload = {
+      sceneScoreReport: buildSceneFidelityMetricsReport(
+        adaptiveMeta,
+        sceneDetail,
+      ),
+      modePolicy,
       assetSelection: {
         selected: assetSelection.selected,
         budget: assetSelection.budget,

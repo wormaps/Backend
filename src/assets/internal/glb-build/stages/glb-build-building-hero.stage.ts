@@ -49,6 +49,7 @@ export function addBuildingAndHeroMeshes(
     | 'materialTuning'
     | 'facadeMaterialProfile'
     | 'variationProfile'
+    | 'modePolicy'
     | 'staticAtmosphere'
     | 'createBuildingRoofAccentGeometry'
   >,
@@ -288,115 +289,121 @@ export function addBuildingAndHeroMeshes(
     },
   );
 
-  for (const billboardGroup of hooks.groupBillboardClustersByColor(
-    assetSelection.billboardPanels,
-    sceneDetail.signageClusters,
-  )) {
+  if (hooks.modePolicy.stage.includeEmissiveBillboard) {
+    for (const billboardGroup of hooks.groupBillboardClustersByColor(
+      assetSelection.billboardPanels,
+      sceneDetail.signageClusters,
+    )) {
+      hooks.addMeshNode(
+        ctx.doc,
+        ctx.Accessor,
+        ctx.scene,
+        ctx.buffer,
+        `billboards_${billboardGroup.tone}_${billboardGroup.colorHex.slice(1)}`,
+        createBillboardsGeometry(
+          sceneMeta.origin,
+          billboardGroup.selectedClusters,
+          billboardGroup.tone,
+        ),
+        createBillboardMaterial(
+          ctx.doc,
+          billboardGroup.tone,
+          billboardGroup.colorHex,
+          hooks.materialTuning,
+        ),
+        {
+          sourceCount: billboardGroup.sourceCount,
+          selectedCount: billboardGroup.selectedClusters.length,
+        },
+      );
+    }
+  }
+
+  if (hooks.modePolicy.stage.includeHeroBuilding) {
     hooks.addMeshNode(
       ctx.doc,
       ctx.Accessor,
       ctx.scene,
       ctx.buffer,
-      `billboards_${billboardGroup.tone}_${billboardGroup.colorHex.slice(1)}`,
-      createBillboardsGeometry(
-        sceneMeta.origin,
-        billboardGroup.selectedClusters,
-        billboardGroup.tone,
-      ),
-      createBillboardMaterial(
-        ctx.doc,
-        billboardGroup.tone,
-        billboardGroup.colorHex,
-        hooks.materialTuning,
-      ),
+      'hero_canopies',
+      createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
+      materials.heroCanopyPrimary ??
+        materials.buildingLightAccentSpot ??
+        materials.buildingPanels[
+          hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
+        ],
       {
-        sourceCount: billboardGroup.sourceCount,
-        selectedCount: billboardGroup.selectedClusters.length,
+        sourceCount: assetSelection.buildings.filter(
+          (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
+        ).length,
+        selectedCount: assetSelection.buildings.filter(
+          (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
+        ).length,
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'hero_roof_units',
+      createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
+      materials.heroRoofUnitPrimary ??
+        materials.facadeMetalMid ??
+        materials.roofAccents[
+          hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
+        ],
+      {
+        sourceCount: assetSelection.buildings.filter((building) =>
+          Boolean(building.roofSpec?.roofUnits),
+        ).length,
+        selectedCount: assetSelection.buildings.filter((building) =>
+          Boolean(building.roofSpec?.roofUnits),
+        ).length,
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'hero_billboard_planes',
+      createHeroBillboardPlaneGeometry(
+        sceneMeta.origin,
+        assetSelection.buildings,
+      ),
+      materials.heroBillboardPrimary ??
+        materials.neonSignOrange ??
+        materials.billboards.warm,
+      {
+        sourceCount: assetSelection.buildings.filter(
+          (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
+        ).length,
+        selectedCount: assetSelection.buildings.filter(
+          (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
+        ).length,
       },
     );
   }
-
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'hero_canopies',
-    createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.heroCanopyPrimary ??
-      materials.buildingLightAccentSpot ??
-      materials.buildingPanels[
-        hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
-      ],
-    {
-      sourceCount: assetSelection.buildings.filter(
-        (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
-      ).length,
-      selectedCount: assetSelection.buildings.filter(
-        (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
-      ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'hero_roof_units',
-    createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.heroRoofUnitPrimary ??
-      materials.facadeMetalMid ??
-      materials.roofAccents[
-        hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
-      ],
-    {
-      sourceCount: assetSelection.buildings.filter((building) =>
-        Boolean(building.roofSpec?.roofUnits),
-      ).length,
-      selectedCount: assetSelection.buildings.filter((building) =>
-        Boolean(building.roofSpec?.roofUnits),
-      ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'hero_billboard_planes',
-    createHeroBillboardPlaneGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-    ),
-    materials.heroBillboardPrimary ??
-      materials.neonSignOrange ??
-      materials.billboards.warm,
-    {
-      sourceCount: assetSelection.buildings.filter(
-        (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
-      ).length,
-      selectedCount: assetSelection.buildings.filter(
-        (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
-      ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'landmark_extras',
-    createLandmarkExtrasGeometry(
-      sceneMeta.origin,
-      sceneMeta.landmarkAnchors,
-      sceneDetail.signageClusters,
-    ),
-    materials.landmark,
-    {
-      sourceCount:
-        sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
-      selectedCount:
-        sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
-    },
-  );
+  if (hooks.modePolicy.stage.includeLandmarkExtras) {
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'landmark_extras',
+      createLandmarkExtrasGeometry(
+        sceneMeta.origin,
+        sceneMeta.landmarkAnchors,
+        sceneDetail.signageClusters,
+      ),
+      materials.landmark,
+      {
+        sourceCount:
+          sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+        selectedCount:
+          sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+      },
+    );
+  }
 }

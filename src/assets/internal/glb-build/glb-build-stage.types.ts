@@ -13,6 +13,7 @@ import type {
 import type { SceneStaticAtmosphereProfile } from '../../../scene/types/scene.types';
 import type { SceneVariationProfile } from '../../compiler/scene-variation';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
+import type { SceneModePolicy } from '../../../scene/utils/scene-mode-policy.utils';
 
 export type AssetSelection = ReturnType<typeof buildSceneAssetSelection>;
 export type SceneMaterials =
@@ -128,6 +129,7 @@ export interface RunnerStageHooks {
   materialTuning: MaterialTuningOptions;
   facadeMaterialProfile: FacadeLayerMaterialProfile;
   variationProfile: SceneVariationProfile;
+  modePolicy: SceneModePolicy;
   staticAtmosphere?: SceneStaticAtmosphereProfile;
   createBuildingRoofAccentGeometry: (
     origin: SceneMeta['origin'],

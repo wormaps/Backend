@@ -27,6 +27,7 @@ export function addStreetContextMeshes(
     | 'createPoiGeometry'
     | 'createLandCoverGeometry'
     | 'variationProfile'
+    | 'modePolicy'
     | 'createLinearFeatureGeometry'
   >,
   ctx: MeshAddContext,
@@ -97,92 +98,94 @@ export function addStreetContextMeshes(
       selectedCount: assetSelection.signPoles.length,
     },
   );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'benches',
-    createBenchGeometry(
-      sceneMeta.origin,
-      sceneDetail.streetFurniture.filter((item) => item.type === 'BENCH'),
-      hooks.variationProfile,
-    ),
-    materials.bench,
-    {
-      sourceCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'BENCH',
-      ).length,
-      selectedCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'BENCH',
-      ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'bike_racks',
-    createBikeRackGeometry(
-      sceneMeta.origin,
-      sceneDetail.streetFurniture.filter((item) => item.type === 'BIKE_RACK'),
-      hooks.variationProfile,
-    ),
-    materials.bikeRack,
-    {
-      sourceCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'BIKE_RACK',
-      ).length,
-      selectedCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'BIKE_RACK',
-      ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'trash_cans',
-    createTrashCanGeometry(
-      sceneMeta.origin,
-      sceneDetail.streetFurniture.filter((item) => item.type === 'TRASH_CAN'),
-      hooks.variationProfile,
-    ),
-    materials.trashCan,
-    {
-      sourceCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'TRASH_CAN',
-      ).length,
-      selectedCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'TRASH_CAN',
-      ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'fire_hydrants',
-    createFireHydrantGeometry(
-      sceneMeta.origin,
-      sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'FIRE_HYDRANT',
+  if (hooks.modePolicy.stage.includeMinorFurniture) {
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'benches',
+      createBenchGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter((item) => item.type === 'BENCH'),
+        hooks.variationProfile,
       ),
-      hooks.variationProfile,
-    ),
-    materials.fireHydrant,
-    {
-      sourceCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'FIRE_HYDRANT',
-      ).length,
-      selectedCount: sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'FIRE_HYDRANT',
-      ).length,
-    },
-  );
+      materials.bench,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BENCH',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BENCH',
+        ).length,
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'bike_racks',
+      createBikeRackGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter((item) => item.type === 'BIKE_RACK'),
+        hooks.variationProfile,
+      ),
+      materials.bikeRack,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BIKE_RACK',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'BIKE_RACK',
+        ).length,
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'trash_cans',
+      createTrashCanGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter((item) => item.type === 'TRASH_CAN'),
+        hooks.variationProfile,
+      ),
+      materials.trashCan,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'TRASH_CAN',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'TRASH_CAN',
+        ).length,
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'fire_hydrants',
+      createFireHydrantGeometry(
+        sceneMeta.origin,
+        sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'FIRE_HYDRANT',
+        ),
+        hooks.variationProfile,
+      ),
+      materials.fireHydrant,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'FIRE_HYDRANT',
+        ).length,
+        selectedCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'FIRE_HYDRANT',
+        ).length,
+      },
+    );
+  }
   hooks.addMeshNode(
     ctx.doc,
     ctx.Accessor,

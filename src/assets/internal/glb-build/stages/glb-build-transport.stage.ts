@@ -23,7 +23,10 @@ import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
 export function addTransportMeshes(
   hooks: Pick<
     RunnerStageHooks,
-    'addMeshNode' | 'createCrosswalkGeometry' | 'triangulateRings'
+    | 'addMeshNode'
+    | 'createCrosswalkGeometry'
+    | 'triangulateRings'
+    | 'modePolicy'
   >,
   ctx: MeshAddContext,
   sceneMeta: SceneMeta,
@@ -71,27 +74,29 @@ export function addTransportMeshes(
       selectedCount: assetSelection.roads.length,
     },
   );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'lane_overlay',
-    createRoadDecalPathGeometry(
-      sceneMeta.origin,
-      sceneDetail.roadDecals ?? [],
-      ['LANE_OVERLAY', 'STOP_LINE'],
-    ),
-    materials.laneOverlay,
-    {
-      sourceCount: (sceneDetail.roadDecals ?? []).filter(
-        (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
-      ).length,
-      selectedCount: (sceneDetail.roadDecals ?? []).filter(
-        (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
-      ).length,
-    },
-  );
+  if (hooks.modePolicy.stage.includeRoadDecal) {
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'lane_overlay',
+      createRoadDecalPathGeometry(
+        sceneMeta.origin,
+        sceneDetail.roadDecals ?? [],
+        ['LANE_OVERLAY', 'STOP_LINE'],
+      ),
+      materials.laneOverlay,
+      {
+        sourceCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+        ).length,
+        selectedCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+        ).length,
+      },
+    );
+  }
   hooks.addMeshNode(
     ctx.doc,
     ctx.Accessor,
@@ -113,65 +118,75 @@ export function addTransportMeshes(
     'crosswalk_overlay',
     mergeGeometryBuffers([
       hooks.createCrosswalkGeometry(sceneMeta.origin, assetSelection.crossings),
-      createRoadDecalStripeGeometry(
-        sceneMeta.origin,
-        sceneDetail.roadDecals ?? [],
-        ['CROSSWALK_OVERLAY'],
-      ),
-      createRoadDecalPathGeometry(
-        sceneMeta.origin,
-        sceneDetail.roadDecals ?? [],
-        ['CROSSWALK_OVERLAY'],
-      ),
-      createRoadDecalPolygonGeometry(
-        sceneMeta.origin,
-        sceneDetail.roadDecals ?? [],
-        ['CROSSWALK_OVERLAY'],
-        hooks.triangulateRings,
-        triangulate,
-      ),
+      ...(hooks.modePolicy.stage.includeRoadDecal
+        ? [
+            createRoadDecalStripeGeometry(
+              sceneMeta.origin,
+              sceneDetail.roadDecals ?? [],
+              ['CROSSWALK_OVERLAY'],
+            ),
+            createRoadDecalPathGeometry(
+              sceneMeta.origin,
+              sceneDetail.roadDecals ?? [],
+              ['CROSSWALK_OVERLAY'],
+            ),
+            createRoadDecalPolygonGeometry(
+              sceneMeta.origin,
+              sceneDetail.roadDecals ?? [],
+              ['CROSSWALK_OVERLAY'],
+              hooks.triangulateRings,
+              triangulate,
+            ),
+          ]
+        : []),
     ]),
     materials.crosswalk,
     {
       sourceCount:
         sceneDetail.crossings.length +
-        (sceneDetail.roadDecals ?? []).filter(
-          (item) => item.type === 'CROSSWALK_OVERLAY',
-        ).length,
+        (hooks.modePolicy.stage.includeRoadDecal
+          ? (sceneDetail.roadDecals ?? []).filter(
+              (item) => item.type === 'CROSSWALK_OVERLAY',
+            ).length
+          : 0),
       selectedCount:
         assetSelection.crossings.length +
-        (sceneDetail.roadDecals ?? []).filter(
-          (item) => item.type === 'CROSSWALK_OVERLAY',
+        (hooks.modePolicy.stage.includeRoadDecal
+          ? (sceneDetail.roadDecals ?? []).filter(
+              (item) => item.type === 'CROSSWALK_OVERLAY',
+            ).length
+          : 0),
+    },
+  );
+  if (hooks.modePolicy.stage.includeRoadDecal) {
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'junction_overlay',
+      mergeGeometryBuffers([
+        createRoadDecalPolygonGeometry(
+          sceneMeta.origin,
+          sceneDetail.roadDecals ?? [],
+          ['JUNCTION_OVERLAY', 'ARROW_MARK'],
+          hooks.triangulateRings,
+          triangulate,
+        ),
+      ]),
+      materials.junctionOverlay,
+      {
+        sourceCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) =>
+            item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
         ).length,
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'junction_overlay',
-    mergeGeometryBuffers([
-      createRoadDecalPolygonGeometry(
-        sceneMeta.origin,
-        sceneDetail.roadDecals ?? [],
-        ['JUNCTION_OVERLAY', 'ARROW_MARK'],
-        hooks.triangulateRings,
-        triangulate,
-      ),
-    ]),
-    materials.junctionOverlay,
-    {
-      sourceCount: (sceneDetail.roadDecals ?? []).filter(
-        (item) =>
-          item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
-      ).length,
-      selectedCount: (sceneDetail.roadDecals ?? []).filter(
-        (item) =>
-          item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
-      ).length,
-    },
-  );
+        selectedCount: (sceneDetail.roadDecals ?? []).filter(
+          (item) =>
+            item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
+        ).length,
+      },
+    );
+  }
   hooks.addMeshNode(
     ctx.doc,
     ctx.Accessor,
