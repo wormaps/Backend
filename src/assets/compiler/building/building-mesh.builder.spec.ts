@@ -1,7 +1,7 @@
 import {
   createBuildingPanelsGeometry,
-  createBuildingRoofEquipmentGeometry,
   createBuildingRoofSurfaceGeometry,
+  createBuildingRoofEquipmentGeometry,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
@@ -122,6 +122,11 @@ describe('building-mesh.builder', () => {
       [building],
       () => [0, 1, 2, 0, 2, 3],
       'cool',
+      {
+        preset: 'NIGHT_NEON',
+        emissiveBoost: 1.25,
+        roadRoughnessScale: 0.9,
+      },
     );
 
     expect(roofSurfaces.positions.length).toBeGreaterThan(0);

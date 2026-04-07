@@ -1,5 +1,8 @@
 import type { Coordinate } from '../../../places/types/place.types';
-import type { SceneMeta } from '../../../scene/types/scene.types';
+import type {
+  SceneMeta,
+  SceneStaticAtmosphereProfile,
+} from '../../../scene/types/scene.types';
 import type { AccentTone } from '../materials/glb-material-factory';
 import type { GeometryBuffers } from '../road/road-mesh.builder';
 import { createEmptyGeometry } from '../road/road-mesh.builder';
@@ -16,6 +19,7 @@ export function createBuildingRoofSurfaceGeometry(
     dimensions?: number,
   ) => number[],
   tone: AccentTone,
+  staticAtmosphere?: SceneStaticAtmosphereProfile,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -38,7 +42,7 @@ export function createBuildingRoofSurfaceGeometry(
       continue;
     }
     const topHeight = Math.max(4, building.heightMeters);
-    const roofBoost = resolveRoofSurfaceBoost(building);
+    const roofBoost = resolveRoofSurfaceBoost(building, staticAtmosphere);
     const slabMin = topHeight + 0.02;
     const slabMax =
       topHeight +
@@ -67,7 +71,14 @@ export function createBuildingRoofSurfaceGeometry(
 
 function resolveRoofSurfaceBoost(
   building: SceneMeta['buildings'][number],
+  staticAtmosphere?: SceneStaticAtmosphereProfile,
 ): number {
+  if (staticAtmosphere?.preset === 'NIGHT_NEON') {
+    return 1;
+  }
+  if (staticAtmosphere?.preset === 'EVENING_BALANCED') {
+    return 0.82;
+  }
   const units = building.roofSpec?.roofUnits ?? 0;
   if (units >= 6) {
     return 1;

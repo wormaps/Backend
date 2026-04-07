@@ -49,6 +49,7 @@ export function addBuildingAndHeroMeshes(
     | 'materialTuning'
     | 'facadeMaterialProfile'
     | 'variationProfile'
+    | 'staticAtmosphere'
     | 'createBuildingRoofAccentGeometry'
   >,
   ctx: MeshAddContext,
@@ -156,6 +157,7 @@ export function addBuildingAndHeroMeshes(
       assetSelection.buildings,
       triangulate,
       'cool',
+      hooks.staticAtmosphere,
     ),
     materials.roofAccents.cool,
     {
@@ -174,6 +176,7 @@ export function addBuildingAndHeroMeshes(
       assetSelection.buildings,
       triangulate,
       'warm',
+      hooks.staticAtmosphere,
     ),
     materials.roofAccents.warm,
     {
@@ -192,6 +195,7 @@ export function addBuildingAndHeroMeshes(
       assetSelection.buildings,
       triangulate,
       'neutral',
+      hooks.staticAtmosphere,
     ),
     materials.roofAccents.neutral,
     {

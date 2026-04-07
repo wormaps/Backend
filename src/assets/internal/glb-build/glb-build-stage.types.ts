@@ -10,6 +10,7 @@ import type {
   FacadeLayerMaterialProfile,
   MaterialTuningOptions,
 } from '../../compiler/materials';
+import type { SceneStaticAtmosphereProfile } from '../../../scene/types/scene.types';
 import type { SceneVariationProfile } from '../../compiler/scene-variation';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 
@@ -127,6 +128,7 @@ export interface RunnerStageHooks {
   materialTuning: MaterialTuningOptions;
   facadeMaterialProfile: FacadeLayerMaterialProfile;
   variationProfile: SceneVariationProfile;
+  staticAtmosphere?: SceneStaticAtmosphereProfile;
   createBuildingRoofAccentGeometry: (
     origin: SceneMeta['origin'],
     buildings: SceneMeta['buildings'],
@@ -136,6 +138,7 @@ export interface RunnerStageHooks {
       dimensions?: number,
     ) => number[],
     tone: 'cool' | 'warm' | 'neutral',
+    staticAtmosphere?: SceneStaticAtmosphereProfile,
   ) => { positions: number[]; normals: number[]; indices: number[] };
   addBuildingAndHeroMeshes: (
     ctx: MeshAddContext,
