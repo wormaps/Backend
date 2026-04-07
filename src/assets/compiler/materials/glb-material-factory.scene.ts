@@ -410,7 +410,7 @@ export function createBuildingPanelMaterial(
   const emissiveBoost =
     (tone === 'warm' ? 0.28 : tone === 'cool' ? 0.24 : 0.18) *
     tuning.emissiveBoost *
-    clamp01(facadeProfile.panelEmissiveBoost ?? 1.0);
+    clampRange(facadeProfile.panelEmissiveBoost ?? 1.0, 0.75, 1.6);
   const panelRoughness = resolvePanelRoughness(facadeProfile.panelSurfaceBias);
   return doc
     .createMaterial(`building-panel-${tone}-${hex}`)
@@ -594,6 +594,10 @@ function compressLuminance(
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+function clampRange(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function resolveMaterialTuningOptions(

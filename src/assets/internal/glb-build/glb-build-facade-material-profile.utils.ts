@@ -201,21 +201,93 @@ function resolveHeroBillboardTone(
   const palette = sceneDetail.signageClusters.flatMap(
     (cluster) => cluster.palette,
   );
-  const sample = palette.find(Boolean)?.toLowerCase();
+  const sample = palette.find(Boolean);
   if (!sample) {
     return 'orange';
   }
-  if (sample.includes('ff') || sample.startsWith('#ff')) {
+
+  const rgb = hexToRgb(sample);
+  if (!rgb) {
+    return 'orange';
+  }
+
+  const [r, g, b] = rgb;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  if (delta < 0.08 && max > 0.82) {
+    return 'white';
+  }
+  if (delta < 0.08) {
+    return 'orange';
+  }
+
+  const hue = resolveHue(r, g, b, max, delta);
+  if (hue < 22 || hue >= 338) {
     return 'red';
   }
-  if (sample.includes('00ff') || sample.includes('00fa')) {
+  if (hue < 52) {
+    return 'orange';
+  }
+  if (hue < 78) {
+    return 'yellow';
+  }
+  if (hue < 162) {
     return 'green';
   }
-  if (sample.includes('00ccff') || sample.includes('33aaff')) {
+  if (hue < 200) {
     return 'cyan';
   }
-  if (sample.includes('66') && sample.includes('ff')) {
+  if (hue < 255) {
     return 'blue';
   }
+  if (hue < 300) {
+    return 'purple';
+  }
+  if (hue < 338) {
+    return 'pink';
+  }
   return 'orange';
+}
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const raw = hex.replace('#', '').trim();
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((digit) => `${digit}${digit}`)
+          .join('')
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return null;
+  }
+  return [
+    Number.parseInt(normalized.slice(0, 2), 16) / 255,
+    Number.parseInt(normalized.slice(2, 4), 16) / 255,
+    Number.parseInt(normalized.slice(4, 6), 16) / 255,
+  ];
+}
+
+function resolveHue(
+  r: number,
+  g: number,
+  b: number,
+  max: number,
+  delta: number,
+): number {
+  if (delta === 0) {
+    return 0;
+  }
+  let hue = 0;
+  if (max === r) {
+    hue = ((g - b) / delta) % 6;
+  } else if (max === g) {
+    hue = (b - r) / delta + 2;
+  } else {
+    hue = (r - g) / delta + 4;
+  }
+  const degree = hue * 60;
+  return degree < 0 ? degree + 360 : degree;
 }
