@@ -13,6 +13,10 @@ import {
   pushUmbrellaCrown,
   toLocalPoint,
 } from './vegetation-mesh-geometry.utils';
+import {
+  DEFAULT_SCENE_VARIATION_PROFILE,
+  SceneVariationProfile,
+} from '../scene-variation';
 
 export type TreeSilhouette = 'cone' | 'sphere' | 'cylinder' | 'umbrella';
 export type TreeSize = 'small' | 'medium' | 'large';
@@ -40,7 +44,10 @@ export interface FlowerBedParams {
 function resolveTreeParams(
   item: SceneVegetationDetail,
   variant: number,
+  variationProfile: SceneVariationProfile,
 ): TreeVariationParams {
+  const detailScale = clamp(variationProfile.vegetationDetailBoost, 0.9, 1.25);
+  const densityScale = clamp(variationProfile.vegetationDensityBoost, 0.9, 1.2);
   const baseRadius = Math.max(0.8, item.radiusMeters * 0.5);
 
   const silhouettes: TreeSilhouette[] = [
@@ -72,9 +79,10 @@ function resolveTreeParams(
   return {
     silhouette,
     size,
-    trunkHeight: baseTrunkHeight * multiplier.trunk,
-    crownRadius: baseCrownRadius * multiplier.crown,
-    crownHeight: baseCrownHeight * multiplier.height,
+    trunkHeight:
+      baseTrunkHeight * multiplier.trunk * (0.96 + (detailScale - 1) * 0.4),
+    crownRadius: baseCrownRadius * multiplier.crown * densityScale,
+    crownHeight: baseCrownHeight * multiplier.height * detailScale,
   };
 }
 
@@ -89,6 +97,7 @@ function stableVariant(seed: string, modulo: number): number {
 export function createTreeVariationGeometry(
   origin: Coordinate,
   items: SceneVegetationDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -102,11 +111,16 @@ export function createTreeVariationGeometry(
       continue;
     }
 
-    const variant = stableVariant(item.objectId, 12);
-    const params = resolveTreeParams(item, variant);
+    const variantPool = Math.max(
+      12,
+      Math.round(12 * clamp(variationProfile.vegetationDetailBoost, 1, 1.5)),
+    );
+    const variant = stableVariant(item.objectId, variantPool);
+    const params = resolveTreeParams(item, variant, variationProfile);
 
     const trunkRadius = 0.08 + (params.size === 'large' ? 0.04 : 0);
-    const trunkSegments = 6;
+    const trunkSegments =
+      variationProfile.vegetationDetailBoost >= 1.15 ? 8 : 6;
 
     pushCylinder(
       geometry,
@@ -119,7 +133,8 @@ export function createTreeVariationGeometry(
     );
 
     const crownBaseY = params.trunkHeight;
-    const crownSegments = 8;
+    const crownSegments =
+      variationProfile.vegetationDetailBoost >= 1.12 ? 10 : 8;
 
     switch (params.silhouette) {
       case 'cone':
@@ -142,7 +157,7 @@ export function createTreeVariationGeometry(
           center[2],
           params.crownRadius,
           crownSegments,
-          6,
+          variationProfile.vegetationDetailBoost >= 1.15 ? 7 : 6,
         );
         break;
 
@@ -187,6 +202,7 @@ export function createTreeVariationGeometry(
 export function createBushGeometry(
   origin: Coordinate,
   items: SceneVegetationDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -200,7 +216,13 @@ export function createBushGeometry(
       continue;
     }
 
-    const variant = stableVariant(item.objectId, 6);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        6,
+        Math.round(8 * clamp(variationProfile.vegetationDetailBoost, 1, 1.5)),
+      ),
+    );
     const baseRadius = Math.max(0.4, item.radiusMeters * 0.3);
 
     const params: BushVariationParams = {
@@ -210,9 +232,16 @@ export function createBushGeometry(
         variant % 3 === 0 ? 'sparse' : variant % 3 === 1 ? 'normal' : 'dense',
     };
 
-    const clusterCount =
+    const baseClusterCount =
       params.density === 'sparse' ? 2 : params.density === 'normal' ? 3 : 4;
-    const segments = 6;
+    const clusterCount = Math.max(
+      2,
+      Math.min(
+        6,
+        Math.round(baseClusterCount * variationProfile.vegetationDensityBoost),
+      ),
+    );
+    const segments = variationProfile.vegetationDetailBoost >= 1.12 ? 8 : 6;
 
     for (let cluster = 0; cluster < clusterCount; cluster += 1) {
       const angle = (cluster / clusterCount) * Math.PI * 2 + variant * 0.5;
@@ -229,7 +258,7 @@ export function createBushGeometry(
         clusterZ,
         clusterRadius,
         segments,
-        4,
+        variationProfile.vegetationDetailBoost >= 1.12 ? 5 : 4,
       );
     }
 
@@ -243,6 +272,7 @@ export function createBushGeometry(
 export function createFlowerBedGeometry(
   origin: Coordinate,
   items: SceneVegetationDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -256,7 +286,13 @@ export function createFlowerBedGeometry(
       continue;
     }
 
-    const variant = stableVariant(item.objectId, 8);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        8,
+        Math.round(10 * clamp(variationProfile.vegetationDetailBoost, 1, 1.5)),
+      ),
+    );
     const baseRadius = Math.max(0.3, item.radiusMeters * 0.4);
 
     const params: FlowerBedParams = {
@@ -279,7 +315,16 @@ export function createFlowerBedGeometry(
       segments,
     );
 
-    const flowerCount = 3 + (params.colorVariation % 3);
+    const flowerCount = Math.max(
+      3,
+      Math.min(
+        8,
+        Math.round(
+          (3 + (params.colorVariation % 3)) *
+            variationProfile.vegetationDensityBoost,
+        ),
+      ),
+    );
     const flowerHeight = 0.15 + (params.colorVariation % 4) * 0.05;
 
     for (let flower = 0; flower < flowerCount; flower += 1) {
@@ -296,8 +341,8 @@ export function createFlowerBedGeometry(
         bedHeight + flowerHeight * 0.5,
         flowerZ,
         flowerRadius,
-        5,
-        3,
+        variationProfile.vegetationDetailBoost >= 1.12 ? 6 : 5,
+        variationProfile.vegetationDetailBoost >= 1.12 ? 4 : 3,
       );
     }
 
@@ -308,8 +353,8 @@ export function createFlowerBedGeometry(
       bedHeight + flowerHeight * 0.6,
       center[2],
       centerFlowerRadius,
-      5,
-      3,
+      variationProfile.vegetationDetailBoost >= 1.12 ? 6 : 5,
+      variationProfile.vegetationDetailBoost >= 1.12 ? 4 : 3,
     );
   }
 
@@ -357,4 +402,8 @@ export function createVegetationGeometry(
   }
 
   return geometry;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

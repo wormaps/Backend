@@ -18,10 +18,15 @@ import {
   pushFireHydrantAssembly,
   pushTrashCanAssembly,
 } from './street-furniture-mesh.assembly';
+import {
+  DEFAULT_SCENE_VARIATION_PROFILE,
+  SceneVariationProfile,
+} from '../scene-variation';
 
 export function createBenchGeometry(
   origin: Coordinate,
   items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -33,8 +38,14 @@ export function createBenchGeometry(
     if (!isFiniteVec3(center)) {
       continue;
     }
-    const variant = stableVariant(item.objectId, 3);
-    pushBenchAssembly(geometry, center, variant);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        3,
+        Math.round(4 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+      ),
+    );
+    pushBenchAssembly(geometry, center, variant, variationProfile);
   }
 
   return geometry;
@@ -43,6 +54,7 @@ export function createBenchGeometry(
 export function createBikeRackGeometry(
   origin: Coordinate,
   items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -54,8 +66,14 @@ export function createBikeRackGeometry(
     if (!isFiniteVec3(center)) {
       continue;
     }
-    const variant = stableVariant(item.objectId, 2);
-    pushBikeRackAssembly(geometry, center, variant);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        2,
+        Math.round(3 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+      ),
+    );
+    pushBikeRackAssembly(geometry, center, variant, variationProfile);
   }
 
   return geometry;
@@ -64,6 +82,7 @@ export function createBikeRackGeometry(
 export function createTrashCanGeometry(
   origin: Coordinate,
   items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -75,8 +94,14 @@ export function createTrashCanGeometry(
     if (!isFiniteVec3(center)) {
       continue;
     }
-    const variant = stableVariant(item.objectId, 2);
-    pushTrashCanAssembly(geometry, center, variant);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        2,
+        Math.round(3 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+      ),
+    );
+    pushTrashCanAssembly(geometry, center, variant, variationProfile);
   }
 
   return geometry;
@@ -85,6 +110,7 @@ export function createTrashCanGeometry(
 export function createFireHydrantGeometry(
   origin: Coordinate,
   items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -96,7 +122,7 @@ export function createFireHydrantGeometry(
     if (!isFiniteVec3(center)) {
       continue;
     }
-    pushFireHydrantAssembly(geometry, center);
+    pushFireHydrantAssembly(geometry, center, variationProfile);
   }
 
   return geometry;
@@ -105,6 +131,7 @@ export function createFireHydrantGeometry(
 export function createEnhancedStreetLightGeometry(
   origin: Coordinate,
   items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -116,8 +143,19 @@ export function createEnhancedStreetLightGeometry(
     if (!isFiniteVec3(center)) {
       continue;
     }
-    const variant = stableVariant(item.objectId, 4);
-    pushEnhancedStreetLightAssembly(geometry, center, variant);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        4,
+        Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+      ),
+    );
+    pushEnhancedStreetLightAssembly(
+      geometry,
+      center,
+      variant,
+      variationProfile,
+    );
   }
 
   return geometry;
@@ -126,6 +164,7 @@ export function createEnhancedStreetLightGeometry(
 export function createEnhancedSignPoleGeometry(
   origin: Coordinate,
   items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -137,9 +176,19 @@ export function createEnhancedSignPoleGeometry(
     if (!isFiniteVec3(center)) {
       continue;
     }
-    const variant = stableVariant(item.objectId, 4);
-    pushEnhancedSignPoleAssembly(geometry, center, variant);
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(
+        4,
+        Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.5)),
+      ),
+    );
+    pushEnhancedSignPoleAssembly(geometry, center, variant, variationProfile);
   }
 
   return geometry;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

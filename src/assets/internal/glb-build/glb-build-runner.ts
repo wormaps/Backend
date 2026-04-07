@@ -49,6 +49,7 @@ import {
   SceneMeta,
 } from '../../../scene/types/scene.types';
 import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
+import { resolveSceneVariationProfile } from './glb-build-variation.utils';
 
 interface MeshNodeDiagnostic {
   name: string;
@@ -87,12 +88,17 @@ export class GlbBuildRunner {
       sceneMeta.assetProfile.preset,
     );
     const materialTuning = this.resolveMaterialTuning(sceneMeta, sceneDetail);
+    const variationProfile = this.resolveVariationProfile(
+      sceneMeta,
+      sceneDetail,
+    );
     const materials = createEnhancedSceneMaterials(doc, materialTuning);
 
     this.appLoggerService.info('scene.glb_build.material_tuning', {
       sceneId: sceneMeta.sceneId,
       step: 'glb_build',
       tuning: materialTuning,
+      variationProfile,
       staticAtmosphere: sceneDetail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
     });
 
@@ -116,6 +122,7 @@ export class GlbBuildRunner {
         createStreetFurnitureGeometry,
         createPoiGeometry,
         createLandCoverGeometry,
+        variationProfile,
         createLinearFeatureGeometry,
       },
       { doc, Accessor, scene, buffer },
@@ -146,6 +153,7 @@ export class GlbBuildRunner {
         resolveHeroToneFromBuildings:
           this.resolveHeroToneFromBuildings.bind(this),
         materialTuning,
+        variationProfile,
         createBuildingRoofAccentGeometry,
       },
       { doc, Accessor, scene, buffer },
@@ -193,6 +201,7 @@ export class GlbBuildRunner {
       ),
       meshNodes: this.currentMeshDiagnostics,
       materialTuning,
+      variationProfile,
       staticAtmosphere: sceneDetail.staticAtmosphere,
     };
 
@@ -271,6 +280,13 @@ export class GlbBuildRunner {
       sceneDetail.facadeHints,
       sceneDetail.staticAtmosphere,
     );
+  }
+
+  private resolveVariationProfile(
+    sceneMeta: SceneMeta,
+    sceneDetail: SceneDetail,
+  ) {
+    return resolveSceneVariationProfile(sceneMeta, sceneDetail);
   }
 
   private buildGroupedBuildingShells(

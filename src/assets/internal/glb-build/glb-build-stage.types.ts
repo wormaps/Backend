@@ -7,6 +7,7 @@ import { ShellColorBucket } from '../../compiler/materials';
 import { createSceneMaterials } from '../../compiler/materials';
 import { createEnhancedSceneMaterials } from '../../compiler/materials';
 import type { MaterialTuningOptions } from '../../compiler/materials';
+import type { SceneVariationProfile } from '../../compiler/scene-variation';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 
 export type AssetSelection = ReturnType<typeof buildSceneAssetSelection>;
@@ -121,6 +122,7 @@ export interface RunnerStageHooks {
     buildings: SceneMeta['buildings'],
   ) => 'cool' | 'warm' | 'neutral';
   materialTuning: MaterialTuningOptions;
+  variationProfile: SceneVariationProfile;
   createBuildingRoofAccentGeometry: (
     origin: SceneMeta['origin'],
     buildings: SceneMeta['buildings'],

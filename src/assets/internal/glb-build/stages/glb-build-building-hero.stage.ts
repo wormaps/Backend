@@ -47,6 +47,7 @@ export function addBuildingAndHeroMeshes(
     | 'resolveWindowMaterialTone'
     | 'resolveHeroToneFromBuildings'
     | 'materialTuning'
+    | 'variationProfile'
     | 'createBuildingRoofAccentGeometry'
   >,
   ctx: MeshAddContext,

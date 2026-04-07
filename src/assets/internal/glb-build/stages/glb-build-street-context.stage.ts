@@ -26,6 +26,7 @@ export function addStreetContextMeshes(
     | 'createStreetFurnitureGeometry'
     | 'createPoiGeometry'
     | 'createLandCoverGeometry'
+    | 'variationProfile'
     | 'createLinearFeatureGeometry'
   >,
   ctx: MeshAddContext,
@@ -67,6 +68,7 @@ export function addStreetContextMeshes(
     createEnhancedStreetLightGeometry(
       sceneMeta.origin,
       assetSelection.streetLights,
+      hooks.variationProfile,
     ),
     materials.streetLight,
     {
@@ -82,7 +84,11 @@ export function addStreetContextMeshes(
     ctx.scene,
     ctx.buffer,
     'sign_poles',
-    createEnhancedSignPoleGeometry(sceneMeta.origin, assetSelection.signPoles),
+    createEnhancedSignPoleGeometry(
+      sceneMeta.origin,
+      assetSelection.signPoles,
+      hooks.variationProfile,
+    ),
     materials.signPole,
     {
       sourceCount: sceneDetail.streetFurniture.filter(
@@ -100,6 +106,7 @@ export function addStreetContextMeshes(
     createBenchGeometry(
       sceneMeta.origin,
       sceneDetail.streetFurniture.filter((item) => item.type === 'BENCH'),
+      hooks.variationProfile,
     ),
     materials.bench,
     {
@@ -120,6 +127,7 @@ export function addStreetContextMeshes(
     createBikeRackGeometry(
       sceneMeta.origin,
       sceneDetail.streetFurniture.filter((item) => item.type === 'BIKE_RACK'),
+      hooks.variationProfile,
     ),
     materials.bikeRack,
     {
@@ -140,6 +148,7 @@ export function addStreetContextMeshes(
     createTrashCanGeometry(
       sceneMeta.origin,
       sceneDetail.streetFurniture.filter((item) => item.type === 'TRASH_CAN'),
+      hooks.variationProfile,
     ),
     materials.trashCan,
     {
@@ -162,6 +171,7 @@ export function addStreetContextMeshes(
       sceneDetail.streetFurniture.filter(
         (item) => item.type === 'FIRE_HYDRANT',
       ),
+      hooks.variationProfile,
     ),
     materials.fireHydrant,
     {
@@ -179,7 +189,11 @@ export function addStreetContextMeshes(
     ctx.scene,
     ctx.buffer,
     'trees_variation',
-    createTreeVariationGeometry(sceneMeta.origin, assetSelection.vegetation),
+    createTreeVariationGeometry(
+      sceneMeta.origin,
+      assetSelection.vegetation,
+      hooks.variationProfile,
+    ),
     materials.treeVariation,
     {
       sourceCount: sceneDetail.vegetation.filter((item) => item.type === 'TREE')
@@ -195,7 +209,11 @@ export function addStreetContextMeshes(
     ctx.scene,
     ctx.buffer,
     'bushes',
-    createBushGeometry(sceneMeta.origin, assetSelection.vegetation),
+    createBushGeometry(
+      sceneMeta.origin,
+      assetSelection.vegetation,
+      hooks.variationProfile,
+    ),
     materials.bush,
     {
       sourceCount: sceneDetail.vegetation.filter(
@@ -212,7 +230,11 @@ export function addStreetContextMeshes(
     ctx.scene,
     ctx.buffer,
     'flower_beds',
-    createFlowerBedGeometry(sceneMeta.origin, assetSelection.vegetation),
+    createFlowerBedGeometry(
+      sceneMeta.origin,
+      assetSelection.vegetation,
+      hooks.variationProfile,
+    ),
     materials.flowerBed,
     {
       sourceCount: sceneDetail.vegetation.filter(

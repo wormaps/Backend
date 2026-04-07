@@ -4,14 +4,18 @@ import {
   pushCylinder,
   pushTaperedCylinder,
 } from './street-furniture-mesh.geometry.utils';
+import type { SceneVariationProfile } from '../scene-variation';
 
 export function pushBenchAssembly(
   geometry: GeometryBuffers,
   center: Vec3,
   variant: number,
+  variationProfile: SceneVariationProfile,
 ): void {
-  const benchLength = 1.8;
-  const benchWidth = 0.55;
+  const benchLength =
+    1.8 * (0.96 + (variationProfile.furnitureDetailBoost - 1) * 0.25);
+  const benchWidth =
+    0.55 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.2);
   const seatHeight = 0.45;
   const backrestHeight = 0.85;
   const legHeight = 0.42;
@@ -99,7 +103,9 @@ export function pushBikeRackAssembly(
   geometry: GeometryBuffers,
   center: Vec3,
   variant: number,
+  variationProfile: SceneVariationProfile,
 ): void {
+  const detailScale = 0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.28;
   if (variant === 0) {
     const rackWidth = 1.2;
     const rackHeight = 0.95;
@@ -155,7 +161,7 @@ export function pushBikeRackAssembly(
       [center[0] + rackWidth / 2 + 0.08, center[1] + 0.04, center[2] + 0.12],
     );
   } else {
-    const gridSpacing = 0.6;
+    const gridSpacing = 0.6 * detailScale;
     const gridCount = 3;
     const rackHeight = 0.85;
     const pipeRadius = 0.035;
@@ -206,8 +212,10 @@ export function pushTrashCanAssembly(
   geometry: GeometryBuffers,
   center: Vec3,
   variant: number,
+  variationProfile: SceneVariationProfile,
 ): void {
-  const canRadius = variant === 0 ? 0.28 : 0.35;
+  const detailScale = 0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.24;
+  const canRadius = (variant === 0 ? 0.28 : 0.35) * detailScale;
   const canHeight = variant === 0 ? 0.95 : 1.1;
   const lidHeight = 0.08;
   const baseHeight = 0.06;
@@ -259,9 +267,11 @@ export function pushTrashCanAssembly(
 export function pushFireHydrantAssembly(
   geometry: GeometryBuffers,
   center: Vec3,
+  variationProfile: SceneVariationProfile,
 ): void {
+  const detailScale = 0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.2;
   const bodyHeight = 0.75;
-  const bodyRadius = 0.12;
+  const bodyRadius = 0.12 * detailScale;
   const capHeight = 0.12;
   const nozzleRadius = 0.05;
 
@@ -346,27 +356,33 @@ export function pushEnhancedStreetLightAssembly(
   geometry: GeometryBuffers,
   center: Vec3,
   variant: number,
+  variationProfile: SceneVariationProfile,
 ): void {
   switch (variant) {
     case 0:
-      pushModernStreetLight(geometry, center);
+      pushModernStreetLight(geometry, center, variationProfile);
       break;
     case 1:
-      pushClassicStreetLight(geometry, center);
+      pushClassicStreetLight(geometry, center, variationProfile);
       break;
     case 2:
-      pushPostTopStreetLight(geometry, center);
+      pushPostTopStreetLight(geometry, center, variationProfile);
       break;
     case 3:
-      pushDoubleArmStreetLight(geometry, center);
+      pushDoubleArmStreetLight(geometry, center, variationProfile);
       break;
     default:
-      pushModernStreetLight(geometry, center);
+      pushModernStreetLight(geometry, center, variationProfile);
   }
 }
 
-function pushModernStreetLight(geometry: GeometryBuffers, center: Vec3): void {
-  const poleHeight = 8.5;
+function pushModernStreetLight(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  variationProfile: SceneVariationProfile,
+): void {
+  const poleHeight =
+    8.5 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.2);
   const armLength = 1.5;
 
   pushTaperedCylinder(geometry, center, 0.12, 0.08, poleHeight, 8);
@@ -394,8 +410,13 @@ function pushModernStreetLight(geometry: GeometryBuffers, center: Vec3): void {
   );
 }
 
-function pushClassicStreetLight(geometry: GeometryBuffers, center: Vec3): void {
-  const poleHeight = 5.5;
+function pushClassicStreetLight(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  variationProfile: SceneVariationProfile,
+): void {
+  const poleHeight =
+    5.5 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.2);
   const armLength = 0.9;
 
   pushCylinder(geometry, [center[0], center[1], center[2]], 0.1, poleHeight, 8);
@@ -438,8 +459,13 @@ function pushClassicStreetLight(geometry: GeometryBuffers, center: Vec3): void {
   );
 }
 
-function pushPostTopStreetLight(geometry: GeometryBuffers, center: Vec3): void {
-  const poleHeight = 4.2;
+function pushPostTopStreetLight(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  variationProfile: SceneVariationProfile,
+): void {
+  const poleHeight =
+    4.2 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.18);
   pushCylinder(
     geometry,
     [center[0], center[1], center[2]],
@@ -476,8 +502,10 @@ function pushPostTopStreetLight(geometry: GeometryBuffers, center: Vec3): void {
 function pushDoubleArmStreetLight(
   geometry: GeometryBuffers,
   center: Vec3,
+  variationProfile: SceneVariationProfile,
 ): void {
-  const poleHeight = 9.2;
+  const poleHeight =
+    9.2 * (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.22);
   const armLength = 1.4;
 
   pushTaperedCylinder(geometry, center, 0.14, 0.09, poleHeight, 8);
@@ -528,8 +556,11 @@ export function pushEnhancedSignPoleAssembly(
   geometry: GeometryBuffers,
   center: Vec3,
   variant: number,
+  variationProfile: SceneVariationProfile,
 ): void {
-  const poleHeight = 3.2 + variant * 0.25;
+  const poleHeight =
+    (3.2 + variant * 0.25) *
+    (0.98 + (variationProfile.furnitureDetailBoost - 1) * 0.18);
 
   pushCylinder(
     geometry,
