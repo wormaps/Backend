@@ -164,6 +164,7 @@ export class GlbBuildRunner {
         materialTuning,
         facadeMaterialProfile,
         variationProfile,
+        staticAtmosphere: sceneDetail.staticAtmosphere,
         createBuildingRoofAccentGeometry,
       },
       { doc, Accessor, scene, buffer },
