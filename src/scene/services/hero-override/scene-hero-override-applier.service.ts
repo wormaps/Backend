@@ -371,13 +371,13 @@ function buildHeroEnhancement(
     annotation.facadeHint?.visualRole ??
     (heroPrimary ? 'hero_landmark' : 'edge_landmark');
   const signBandLevels = heroPrimary
-    ? Math.max(2, building.signBandLevels ?? 2)
-    : 1;
+    ? Math.max(3, building.signBandLevels ?? 3)
+    : 2;
   const podiumSpec: BuildingPodiumSpec | undefined =
     annotation.kind === 'BUILDING'
       ? {
-          levels: heroPrimary ? 3 : 2,
-          setbacks: heroPrimary ? 2 : 1,
+          levels: heroPrimary ? 4 : 3,
+          setbacks: heroPrimary ? 3 : 2,
           cornerChamfer: building.cornerChamfer ?? heroPrimary,
           canopyEdges:
             visualRole === 'hero_landmark' || visualRole === 'retail_edge'
@@ -388,16 +388,16 @@ function buildHeroEnhancement(
   const signageSpec: BuildingSignageSpec | undefined =
     annotation.kind === 'BUILDING'
       ? {
-          billboardFaces: heroPrimary ? [dominantEdgeIndex] : [],
+          billboardFaces: [dominantEdgeIndex],
           signBandLevels,
-          screenFaces: heroPrimary ? [dominantEdgeIndex] : [],
-          emissiveZones: heroPrimary ? 3 : 1,
+          screenFaces: [dominantEdgeIndex],
+          emissiveZones: heroPrimary ? 4 : 2,
         }
       : undefined;
   const roofSpec: BuildingRoofSpec | undefined =
     annotation.kind === 'BUILDING'
       ? {
-          roofUnits: heroPrimary ? 4 : 2,
+          roofUnits: heroPrimary ? 6 : 3,
           crownType: heroPrimary ? 'screen_crown' : 'parapet_crown',
           parapet: true,
         }
@@ -421,8 +421,8 @@ function buildHeroEnhancement(
               ? 'window_grid'
               : 'solid_panel',
           topBandType: heroPrimary ? 'screen_band' : 'window_grid',
-          windowRepeatX: heroPrimary ? 8 : 5,
-          windowRepeatY: heroPrimary ? 12 : 8,
+          windowRepeatX: heroPrimary ? 10 : 7,
+          windowRepeatY: heroPrimary ? 15 : 10,
         }
       : undefined;
 

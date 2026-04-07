@@ -191,6 +191,15 @@ describe('SceneHeroOverrideService', () => {
       result.meta.buildings[0]?.signageSpec?.billboardFaces.length,
     ).toBeGreaterThan(0);
     expect(result.meta.buildings[0]?.roofSpec?.roofUnits).toBeGreaterThan(0);
+    expect(
+      result.meta.buildings[0]?.roofSpec?.roofUnits,
+    ).toBeGreaterThanOrEqual(6);
+    expect(
+      result.meta.buildings[0]?.signageSpec?.signBandLevels,
+    ).toBeGreaterThanOrEqual(3);
+    expect(result.meta.buildings[0]?.podiumSpec?.levels).toBeGreaterThanOrEqual(
+      4,
+    );
     expect(result.detail.facadeHints[0]?.facadeSpec).toBeDefined();
     expect(result.detail.facadeHints[0]?.facadeEdgeIndex).not.toBe(0);
     expect(result.detail.facadeHints[0]?.evidenceStrength).toBe('strong');
