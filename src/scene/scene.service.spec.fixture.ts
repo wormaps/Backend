@@ -26,6 +26,7 @@ import { SceneService } from './scene.service';
 import {
   BuildingStyleResolverService,
   SceneAssetProfileService,
+  SceneAtmosphereRecomputeService,
   SceneFidelityPlannerService,
   SceneGenerationService,
   SceneHeroOverrideService,
@@ -156,6 +157,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneGenerationService,
       BuildingStyleResolverService,
       SceneAssetProfileService,
+      SceneAtmosphereRecomputeService,
       SceneFidelityPlannerService,
       SceneGenerationPipelineService,
       ScenePlaceResolutionStep,

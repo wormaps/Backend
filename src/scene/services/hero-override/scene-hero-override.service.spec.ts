@@ -192,6 +192,8 @@ describe('SceneHeroOverrideService', () => {
     ).toBeGreaterThan(0);
     expect(result.meta.buildings[0]?.roofSpec?.roofUnits).toBeGreaterThan(0);
     expect(result.detail.facadeHints[0]?.facadeSpec).toBeDefined();
+    expect(result.detail.facadeHints[0]?.facadeEdgeIndex).not.toBe(0);
+    expect(result.detail.facadeHints[0]?.evidenceStrength).toBe('strong');
     expect(
       result.detail.placeReadabilityDiagnostics?.heroBuildingCount,
     ).toBeGreaterThan(0);

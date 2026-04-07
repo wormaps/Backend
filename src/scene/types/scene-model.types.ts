@@ -157,6 +157,7 @@ export interface SceneFacadeHint {
   weakEvidence?: boolean;
   contextProfile?: import('./scene-domain.types').SceneFacadeContextProfile;
   districtCluster?: DistrictCluster;
+  districtConfidence?: number;
   evidenceStrength?: EvidenceStrength;
   contextualMaterialUpgrade?: boolean;
   visualRole?: VisualRole;

@@ -8,6 +8,7 @@ import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './steps/scene-place-package.step';
 import { ScenePlaceResolutionStep } from './steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from './steps/scene-visual-rules.step';
+import { SceneAtmosphereRecomputeService } from '../services/vision';
 import { resolveSceneStaticAtmosphereProfile } from '../utils/scene-static-atmosphere.utils';
 import type {
   SceneGenerationPipelineInput,
@@ -23,6 +24,7 @@ export class SceneGenerationPipelineService {
     private readonly sceneFidelityPlanStep: SceneFidelityPlanStep,
     private readonly sceneMetaBuilderStep: SceneMetaBuilderStep,
     private readonly sceneHeroOverrideStep: SceneHeroOverrideStep,
+    private readonly sceneAtmosphereRecomputeService: SceneAtmosphereRecomputeService,
     private readonly sceneAssetProfileStep: SceneAssetProfileStep,
     private readonly sceneGlbBuildStep: SceneGlbBuildStep,
     private readonly appLoggerService: AppLoggerService,
@@ -119,39 +121,57 @@ export class SceneGenerationPipelineService {
       baseMeta,
       vision.detail,
     );
+    const recomputedAtmosphere = this.sceneAtmosphereRecomputeService.recompute(
+      merged.meta,
+      merged.detail,
+    );
+    const mergedWithAtmosphere = {
+      meta: recomputedAtmosphere.meta,
+      detail: recomputedAtmosphere.detail,
+    };
     const finalFidelityPlan = await this.sceneFidelityPlanStep.execute(
       sceneId,
       resolvedPlace.place,
       storedScene.scale,
       placePackage,
-      merged.detail,
+      mergedWithAtmosphere.detail,
       'fidelity_plan_final',
     );
-    merged.detail.fidelityPlan = finalFidelityPlan;
-    merged.detail.staticAtmosphere = resolveSceneStaticAtmosphereProfile(
-      merged.detail,
-    );
-    merged.meta.fidelityPlan = finalFidelityPlan;
+    mergedWithAtmosphere.detail.fidelityPlan = finalFidelityPlan;
+    mergedWithAtmosphere.detail.staticAtmosphere =
+      resolveSceneStaticAtmosphereProfile(mergedWithAtmosphere.detail);
+    mergedWithAtmosphere.meta.fidelityPlan = finalFidelityPlan;
+    this.appLoggerService.info('scene.atmosphere.recomputed', {
+      ...logContext,
+      step: 'atmosphere_recompute',
+      districtProfileCount:
+        mergedWithAtmosphere.detail.districtAtmosphereProfiles?.length ?? 0,
+      sceneWideTone:
+        mergedWithAtmosphere.detail.sceneWideAtmosphereProfile?.cityTone ??
+        'balanced_mixed',
+      staticAtmosphere:
+        mergedWithAtmosphere.detail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
+    });
     this.appLoggerService.info('scene.hero_override.completed', {
       ...logContext,
       step: 'hero_override',
-      overrideCount: merged.detail.annotationsApplied.length,
+      overrideCount: mergedWithAtmosphere.detail.annotationsApplied.length,
     });
 
     const finalizedMeta = await this.sceneAssetProfileStep.execute(
-      merged.meta,
-      merged.detail,
+      mergedWithAtmosphere.meta,
+      mergedWithAtmosphere.detail,
       storedScene.scale,
     );
     this.appLoggerService.info('scene.glb_build.started', {
       ...logContext,
       step: 'glb_build',
-      detailStatus: merged.detail.detailStatus,
+      detailStatus: mergedWithAtmosphere.detail.detailStatus,
       selected: finalizedMeta.assetProfile.selected,
     });
     const assetPath = await this.sceneGlbBuildStep.execute(
       finalizedMeta,
-      merged.detail,
+      mergedWithAtmosphere.detail,
     );
     this.appLoggerService.info('scene.glb_build.completed', {
       ...logContext,
@@ -163,7 +183,7 @@ export class SceneGenerationPipelineService {
       place: resolvedPlace.place,
       placePackage,
       meta: finalizedMeta,
-      detail: merged.detail,
+      detail: mergedWithAtmosphere.detail,
       assetPath,
     };
   }

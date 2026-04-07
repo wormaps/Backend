@@ -169,4 +169,15 @@ describe('SceneFacadeVisionService', () => {
     expect(diagnostics.districtClusterCounts).toBeDefined();
     expect(diagnostics.evidenceStrengthCounts).toBeDefined();
   });
+
+  it('preserves district confidence and uses it for district aggregation', () => {
+    const hints = service.buildFacadeHints(place, placePackage, [], []);
+    const districts = service.buildDistrictAtmosphereProfiles(hints);
+
+    expect(
+      hints.every((hint) => typeof hint.districtConfidence === 'number'),
+    ).toBe(true);
+    expect(districts.length).toBeGreaterThan(0);
+    expect(districts[0]!.confidence).toBeGreaterThan(0);
+  });
 });

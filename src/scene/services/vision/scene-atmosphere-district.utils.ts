@@ -175,19 +175,129 @@ export function resolveSceneWideAtmosphereProfile(
   }
 
   const byCluster = new Map<DistrictCluster, number>();
+  let totalDistrictWeight = 0;
+  const atmosphereVotes = {
+    street: new Map<StreetAtmosphereProfile, number>(),
+    vegetation: new Map<VegetationProfile, number>(),
+    road: new Map<RoadAtmosphereProfile, number>(),
+    lighting: new Map<LightingAtmosphereProfile, number>(),
+    weather: new Map<WeatherMoodOverlay, number>(),
+  };
+  const weightedFacadeFamilies = new Map<
+    BuildingFacadeProfile['family'],
+    number
+  >();
+  const weightedFacadeVariants = new Map<
+    BuildingFacadeProfile['variant'],
+    number
+  >();
+  const weightedFacadePatterns = new Map<
+    BuildingFacadeProfile['pattern'],
+    number
+  >();
+  const weightedRoofStyles = new Map<
+    BuildingFacadeProfile['roofStyle'],
+    number
+  >();
+  const weightedSignDensity = new Map<
+    NonNullable<BuildingFacadeProfile['signDensity']>,
+    number
+  >();
+  const weightedWindowDensity = new Map<
+    NonNullable<BuildingFacadeProfile['windowDensity']>,
+    number
+  >();
+  const weightedLightingStyle = new Map<
+    NonNullable<BuildingFacadeProfile['lightingStyle']>,
+    number
+  >();
+  let weightedEmissiveBoost = 0;
   let evidenceScore = 0;
+
   for (const profile of districtProfiles) {
+    const districtWeight =
+      Math.max(1, profile.buildingCount) * clamp(profile.confidence, 0.15, 1);
+    totalDistrictWeight += districtWeight;
+
     byCluster.set(
       profile.districtCluster,
-      (byCluster.get(profile.districtCluster) ?? 0) + 1,
+      (byCluster.get(profile.districtCluster) ?? 0) + districtWeight,
     );
-    evidenceScore += evidenceRank(profile.evidenceStrength);
+    evidenceScore += evidenceRank(profile.evidenceStrength) * districtWeight;
+
+    accumulateVote(
+      atmosphereVotes.street,
+      profile.streetAtmosphere,
+      districtWeight,
+    );
+    accumulateVote(
+      atmosphereVotes.vegetation,
+      profile.vegetationProfile,
+      districtWeight,
+    );
+    accumulateVote(atmosphereVotes.road, profile.roadProfile, districtWeight);
+    accumulateVote(
+      atmosphereVotes.lighting,
+      profile.lightingProfile,
+      districtWeight,
+    );
+    accumulateVote(
+      atmosphereVotes.weather,
+      profile.weatherOverlay,
+      districtWeight,
+    );
+
+    accumulateVote(
+      weightedFacadeFamilies,
+      profile.facadeProfile.family,
+      districtWeight,
+    );
+    accumulateVote(
+      weightedFacadeVariants,
+      profile.facadeProfile.variant,
+      districtWeight,
+    );
+    accumulateVote(
+      weightedFacadePatterns,
+      profile.facadeProfile.pattern,
+      districtWeight,
+    );
+    accumulateVote(
+      weightedRoofStyles,
+      profile.facadeProfile.roofStyle,
+      districtWeight,
+    );
+
+    if (profile.facadeProfile.signDensity) {
+      accumulateVote(
+        weightedSignDensity,
+        profile.facadeProfile.signDensity,
+        districtWeight,
+      );
+    }
+    if (profile.facadeProfile.windowDensity) {
+      accumulateVote(
+        weightedWindowDensity,
+        profile.facadeProfile.windowDensity,
+        districtWeight,
+      );
+    }
+    if (profile.facadeProfile.lightingStyle) {
+      accumulateVote(
+        weightedLightingStyle,
+        profile.facadeProfile.lightingStyle,
+        districtWeight,
+      );
+    }
+
+    weightedEmissiveBoost +=
+      (profile.facadeProfile.emissiveBoost ?? 1) * districtWeight;
   }
 
   const dominantCluster = [...byCluster.entries()].sort(
     (a, b) => b[1] - a[1],
   )[0]?.[0];
-  const meanEvidence = evidenceScore / districtProfiles.length;
+  const meanEvidence = evidenceScore / Math.max(1, totalDistrictWeight);
   const sceneEvidence =
     meanEvidence >= 2.6
       ? 'strong'
@@ -198,20 +308,45 @@ export function resolveSceneWideAtmosphereProfile(
           : 'none';
 
   const cityTone = mapClusterToCityTone(dominantCluster);
-  const baseFacadeProfile =
-    districtProfiles[0]?.facadeProfile ?? fallbackFacadeProfile(sceneEvidence);
+  const fallback = fallbackFacadeProfile(sceneEvidence);
+  const baseFacadeProfile: BuildingFacadeProfile = {
+    ...fallback,
+    family: resolveDominantByWeight(weightedFacadeFamilies) ?? fallback.family,
+    variant:
+      resolveDominantByWeight(weightedFacadeVariants) ?? fallback.variant,
+    pattern:
+      resolveDominantByWeight(weightedFacadePatterns) ?? fallback.pattern,
+    roofStyle:
+      resolveDominantByWeight(weightedRoofStyles) ?? fallback.roofStyle,
+    evidence: sceneEvidence,
+    emissiveBoost: clamp(
+      weightedEmissiveBoost / Math.max(1, totalDistrictWeight),
+      0.7,
+      1.4,
+    ),
+    signDensity:
+      resolveDominantByWeight(weightedSignDensity) ?? fallback.signDensity,
+    windowDensity:
+      resolveDominantByWeight(weightedWindowDensity) ?? fallback.windowDensity,
+    lightingStyle:
+      resolveDominantByWeight(weightedLightingStyle) ?? fallback.lightingStyle,
+  };
 
   return {
     cityTone,
     evidenceStrength: sceneEvidence,
     baseFacadeProfile,
     streetAtmosphere:
-      districtProfiles[0]?.streetAtmosphere ?? 'residential_quiet',
+      resolveDominantByWeight(atmosphereVotes.street) ?? 'residential_quiet',
     vegetationProfile:
-      districtProfiles[0]?.vegetationProfile ?? 'urban_minimal_green',
-    roadProfile: districtProfiles[0]?.roadProfile ?? 'wide_arterial',
-    lightingProfile: districtProfiles[0]?.lightingProfile ?? 'bright_daylight',
-    weatherOverlay: districtProfiles[0]?.weatherOverlay ?? 'sunny_clear',
+      resolveDominantByWeight(atmosphereVotes.vegetation) ??
+      'urban_minimal_green',
+    roadProfile:
+      resolveDominantByWeight(atmosphereVotes.road) ?? 'wide_arterial',
+    lightingProfile:
+      resolveDominantByWeight(atmosphereVotes.lighting) ?? 'bright_daylight',
+    weatherOverlay:
+      resolveDominantByWeight(atmosphereVotes.weather) ?? 'sunny_clear',
   };
 }
 
@@ -621,4 +756,26 @@ function evidenceRank(value: EvidenceStrength): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function accumulateVote<T extends string>(
+  target: Map<T, number>,
+  key: T,
+  weight: number,
+): void {
+  target.set(key, (target.get(key) ?? 0) + weight);
+}
+
+function resolveDominantByWeight<T extends string>(
+  weights: Map<T, number>,
+): T | undefined {
+  let topKey: T | undefined;
+  let topWeight = -1;
+  for (const [key, weight] of weights.entries()) {
+    if (weight > topWeight) {
+      topKey = key;
+      topWeight = weight;
+    }
+  }
+  return topKey;
 }

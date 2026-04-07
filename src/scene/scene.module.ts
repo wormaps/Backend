@@ -16,6 +16,7 @@ import { SceneController } from './scene.controller';
 import { SceneService } from './scene.service';
 import {
   BuildingStyleResolverService,
+  SceneAtmosphereRecomputeService,
   SceneAssetProfileService,
   SceneFacadeVisionService,
   SceneFidelityPlannerService,
@@ -46,6 +47,7 @@ import { SceneRepository } from './storage/scene.repository';
     SceneAssetProfileService,
     SceneRoadVisionService,
     SceneFacadeVisionService,
+    SceneAtmosphereRecomputeService,
     SceneFidelityPlannerService,
     SceneGeometryDiagnosticsService,
     SceneSignageVisionService,

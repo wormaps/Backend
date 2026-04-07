@@ -3,10 +3,15 @@ import type { MapillaryClient } from '../../../places/clients/mapillary.client';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
 import type {
+  DistrictAtmosphereProfile,
+  EvidenceStrength,
   MaterialClass,
+  SceneDetail,
   SceneFacadeContextDiagnostics,
   SceneFacadeHint,
+  SceneWideAtmosphereProfile,
 } from '../../types/scene.types';
+import { resolveSceneStaticAtmosphereProfile } from '../../utils/scene-static-atmosphere.utils';
 import { BuildingStyleResolverService } from './building-style-resolver.service';
 import {
   resolveDistrictAtmosphereProfile,
@@ -141,6 +146,7 @@ export class SceneFacadeVisionService {
         weakEvidence: nearbyImageCount === 0 && nearbyFeatureCount === 0,
         contextProfile: context.districtProfile,
         districtCluster: districtResolution.cluster,
+        districtConfidence: districtResolution.confidence,
         evidenceStrength: districtResolution.evidenceStrength,
         contextualMaterialUpgrade: inferredPalette.contextualUpgrade,
       };
@@ -223,7 +229,7 @@ export class SceneFacadeVisionService {
 
   buildDistrictAtmosphereProfiles(
     facadeHints: SceneFacadeHint[],
-  ): import('../../types/scene.types').DistrictAtmosphereProfile[] {
+  ): DistrictAtmosphereProfile[] {
     const grouped = new Map<
       NonNullable<SceneFacadeHint['districtCluster']>,
       {
@@ -243,7 +249,12 @@ export class SceneFacadeVisionService {
         count: 0,
       };
       current.count += 1;
-      current.confidenceAccumulator += hint.weakEvidence ? 0.42 : 0.74;
+      current.confidenceAccumulator +=
+        typeof hint.districtConfidence === 'number'
+          ? clamp(hint.districtConfidence, 0, 1)
+          : hint.weakEvidence
+            ? 0.42
+            : 0.74;
       current.evidenceScore += rankEvidence(hint.evidenceStrength);
       grouped.set(hint.districtCluster, current);
     }
@@ -252,14 +263,9 @@ export class SceneFacadeVisionService {
       .map(([cluster, stats]) => {
         const confidence =
           stats.confidenceAccumulator / Math.max(1, stats.count);
-        const evidenceStrength =
-          stats.evidenceScore / Math.max(1, stats.count) >= 2.6
-            ? 'strong'
-            : stats.evidenceScore / Math.max(1, stats.count) >= 1.6
-              ? 'medium'
-              : stats.evidenceScore / Math.max(1, stats.count) >= 0.6
-                ? 'weak'
-                : 'none';
+        const evidenceStrength = resolveEvidenceStrengthFromScore(
+          stats.evidenceScore / Math.max(1, stats.count),
+        );
         return {
           ...resolveDistrictAtmosphereProfile(
             cluster,
@@ -273,9 +279,32 @@ export class SceneFacadeVisionService {
   }
 
   resolveSceneWideAtmosphereProfile(
-    districtProfiles: import('../../types/scene.types').DistrictAtmosphereProfile[],
-  ): import('../../types/scene.types').SceneWideAtmosphereProfile {
+    districtProfiles: DistrictAtmosphereProfile[],
+  ): SceneWideAtmosphereProfile {
     return resolveSceneWideAtmosphereProfile(districtProfiles);
+  }
+
+  refreshAtmosphereProfiles(
+    detail: SceneDetail,
+  ): Pick<
+    SceneDetail,
+    | 'districtAtmosphereProfiles'
+    | 'sceneWideAtmosphereProfile'
+    | 'staticAtmosphere'
+  > {
+    const districtAtmosphereProfiles = this.buildDistrictAtmosphereProfiles(
+      detail.facadeHints,
+    );
+    const sceneWideAtmosphereProfile = this.resolveSceneWideAtmosphereProfile(
+      districtAtmosphereProfiles,
+    );
+    const staticAtmosphere = resolveSceneStaticAtmosphereProfile(detail);
+
+    return {
+      districtAtmosphereProfiles,
+      sceneWideAtmosphereProfile,
+      staticAtmosphere,
+    };
   }
 }
 
@@ -383,4 +412,21 @@ function rankEvidence(value: SceneFacadeHint['evidenceStrength']): number {
     return 1;
   }
   return 0;
+}
+
+function resolveEvidenceStrengthFromScore(score: number): EvidenceStrength {
+  if (score >= 2.6) {
+    return 'strong';
+  }
+  if (score >= 1.6) {
+    return 'medium';
+  }
+  if (score >= 0.6) {
+    return 'weak';
+  }
+  return 'none';
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

@@ -240,11 +240,15 @@ export class SceneHeroOverrideApplierService {
               ? 'landmark_plaza'
               : 'secondary_retail';
         const evidenceStrength: SceneFacadeHint['evidenceStrength'] = 'strong';
+        const inheritedFacadeEdgeIndex = detail.facadeHints.find(
+          (item) => item.objectId === objectId,
+        )?.facadeEdgeIndex;
 
         return {
           objectId,
           anchor: annotation.anchor,
-          facadeEdgeIndex: facadeHint?.facadeEdgeIndex ?? 0,
+          facadeEdgeIndex:
+            facadeHint?.facadeEdgeIndex ?? inheritedFacadeEdgeIndex ?? null,
           windowBands: Math.max(2, Math.floor(buildingHeight / 3.4)),
           billboardEligible:
             annotation.kind === 'BUILDING' &&
@@ -280,6 +284,7 @@ export class SceneHeroOverrideApplierService {
           roofSpec: matchedBuilding?.roofSpec,
           contextProfile,
           districtCluster,
+          districtConfidence: annotation.importance === 'primary' ? 0.95 : 0.78,
           evidenceStrength,
           contextualMaterialUpgrade: true,
           weakEvidence: false,
