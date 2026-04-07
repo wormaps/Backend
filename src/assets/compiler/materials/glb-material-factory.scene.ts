@@ -8,6 +8,33 @@ export interface MaterialTuningOptions {
   roadRoughnessScale?: number;
 }
 
+export interface FacadeLayerMaterialProfile {
+  facadeFamily?: 'brick' | 'concrete' | 'glass' | 'metal' | 'modern_glass';
+  facadeVariant?: 'light' | 'mid' | 'dark';
+  shellSurfaceBias?: 'matte' | 'balanced' | 'glossy';
+  panelSurfaceBias?: 'matte' | 'balanced' | 'glossy';
+  panelEmissiveBoost?: number;
+  windowType?: 'clear' | 'tinted' | 'reflective' | 'curtain_wall';
+  entranceSurface?: 'concrete' | 'metal' | 'glass';
+  roofEquipmentSurface?: 'concrete' | 'metal' | 'glass';
+  heroCanopyLight?:
+    | 'warm_interior'
+    | 'cool_interior'
+    | 'accent_spot'
+    | 'flood_light'
+    | 'window_glow';
+  heroBillboardTone?:
+    | 'red'
+    | 'orange'
+    | 'yellow'
+    | 'green'
+    | 'cyan'
+    | 'blue'
+    | 'purple'
+    | 'white'
+    | 'pink';
+}
+
 const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   shellLuminanceCap: 0.78,
   panelLuminanceCap: 0.68,
@@ -68,6 +95,13 @@ export interface SceneMaterials {
   windowGlassCurtainWall?: any;
   buildingLightAccentSpot?: any;
   neonSignOrange?: any;
+  facadePrimary?: any;
+  windowPrimary?: any;
+  entrancePrimary?: any;
+  roofEquipmentPrimary?: any;
+  heroCanopyPrimary?: any;
+  heroRoofUnitPrimary?: any;
+  heroBillboardPrimary?: any;
 }
 
 export function createSceneMaterials(
@@ -339,6 +373,7 @@ export function createBuildingShellMaterial(
   bucket: ShellColorBucket,
   explicitHex?: string,
   tuningOptions: MaterialTuningOptions = {},
+  facadeProfile: FacadeLayerMaterialProfile = {},
 ) {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const [r, g, b] = tuneShellColor(
@@ -347,12 +382,16 @@ export function createBuildingShellMaterial(
     tuning.shellLuminanceCap,
   );
   const surface = resolveShellSurface(materialClass);
+  const adjustedSurface = applySurfaceBias(
+    surface,
+    facadeProfile.shellSurfaceBias,
+  );
 
   return doc
     .createMaterial(`building-shell-${materialClass}-${explicitHex ?? bucket}`)
     .setBaseColorFactor([r, g, b, 1])
-    .setMetallicFactor(surface.metallicFactor)
-    .setRoughnessFactor(surface.roughnessFactor);
+    .setMetallicFactor(adjustedSurface.metallicFactor)
+    .setRoughnessFactor(adjustedSurface.roughnessFactor);
 }
 
 export function createBuildingPanelMaterial(
@@ -360,6 +399,7 @@ export function createBuildingPanelMaterial(
   tone: AccentTone,
   hex: string,
   tuningOptions: MaterialTuningOptions = {},
+  facadeProfile: FacadeLayerMaterialProfile = {},
 ) {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const [r, g, b] = tunePanelColor(
@@ -369,7 +409,9 @@ export function createBuildingPanelMaterial(
   );
   const emissiveBoost =
     (tone === 'warm' ? 0.28 : tone === 'cool' ? 0.24 : 0.18) *
-    tuning.emissiveBoost;
+    tuning.emissiveBoost *
+    clamp01(facadeProfile.panelEmissiveBoost ?? 1.0);
+  const panelRoughness = resolvePanelRoughness(facadeProfile.panelSurfaceBias);
   return doc
     .createMaterial(`building-panel-${tone}-${hex}`)
     .setBaseColorFactor([r, g, b, 1])
@@ -379,7 +421,39 @@ export function createBuildingPanelMaterial(
       Math.min(0.8, b * emissiveBoost),
     ])
     .setMetallicFactor(0)
-    .setRoughnessFactor(0.78);
+    .setRoughnessFactor(panelRoughness);
+}
+
+function resolvePanelRoughness(
+  bias: FacadeLayerMaterialProfile['panelSurfaceBias'],
+): number {
+  switch (bias) {
+    case 'glossy':
+      return 0.58;
+    case 'matte':
+      return 0.86;
+    default:
+      return 0.74;
+  }
+}
+
+function applySurfaceBias(
+  surface: { metallicFactor: number; roughnessFactor: number },
+  bias: FacadeLayerMaterialProfile['shellSurfaceBias'],
+): { metallicFactor: number; roughnessFactor: number } {
+  if (bias === 'glossy') {
+    return {
+      metallicFactor: clamp01(surface.metallicFactor + 0.06),
+      roughnessFactor: clamp01(surface.roughnessFactor * 0.78),
+    };
+  }
+  if (bias === 'matte') {
+    return {
+      metallicFactor: clamp01(surface.metallicFactor * 0.6),
+      roughnessFactor: clamp01(surface.roughnessFactor * 1.08),
+    };
+  }
+  return surface;
 }
 
 export function createBillboardMaterial(

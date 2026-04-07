@@ -47,6 +47,7 @@ export function addBuildingAndHeroMeshes(
     | 'resolveWindowMaterialTone'
     | 'resolveHeroToneFromBuildings'
     | 'materialTuning'
+    | 'facadeMaterialProfile'
     | 'variationProfile'
     | 'createBuildingRoofAccentGeometry'
   >,
@@ -80,6 +81,7 @@ export function addBuildingAndHeroMeshes(
         group.bucket,
         group.colorHex,
         hooks.materialTuning,
+        hooks.facadeMaterialProfile,
       ),
       {
         sourceCount: sceneMeta.buildings.length,
@@ -218,6 +220,7 @@ export function addBuildingAndHeroMeshes(
         panelGroup.tone,
         panelGroup.colorHex,
         hooks.materialTuning,
+        hooks.facadeMaterialProfile,
       ),
       {
         sourceCount: panelGroup.hints.length,
@@ -237,7 +240,8 @@ export function addBuildingAndHeroMeshes(
       assetSelection.buildings,
       sceneDetail.facadeHints,
     ),
-    materials.windowGlassCurtainWall ??
+    materials.windowPrimary ??
+      materials.windowGlassCurtainWall ??
       materials.windowGlassReflective ??
       materials.buildingPanels[
         hooks.resolveWindowMaterialTone(sceneDetail.facadeHints)
@@ -254,7 +258,9 @@ export function addBuildingAndHeroMeshes(
     ctx.buffer,
     'building_entrances',
     createBuildingEntranceGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.facadeConcreteMid ?? materials.buildingPanels.neutral,
+    materials.entrancePrimary ??
+      materials.facadeConcreteMid ??
+      materials.buildingPanels.neutral,
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
@@ -270,7 +276,7 @@ export function addBuildingAndHeroMeshes(
       sceneMeta.origin,
       assetSelection.buildings,
     ),
-    materials.roofAccents.neutral,
+    materials.roofEquipmentPrimary ?? materials.roofAccents.neutral,
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
@@ -312,7 +318,8 @@ export function addBuildingAndHeroMeshes(
     ctx.buffer,
     'hero_canopies',
     createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.buildingLightAccentSpot ??
+    materials.heroCanopyPrimary ??
+      materials.buildingLightAccentSpot ??
       materials.buildingPanels[
         hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
       ],
@@ -332,7 +339,8 @@ export function addBuildingAndHeroMeshes(
     ctx.buffer,
     'hero_roof_units',
     createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.facadeMetalMid ??
+    materials.heroRoofUnitPrimary ??
+      materials.facadeMetalMid ??
       materials.roofAccents[
         hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
       ],
@@ -355,7 +363,9 @@ export function addBuildingAndHeroMeshes(
       sceneMeta.origin,
       assetSelection.buildings,
     ),
-    materials.neonSignOrange ?? materials.billboards.warm,
+    materials.heroBillboardPrimary ??
+      materials.neonSignOrange ??
+      materials.billboards.warm,
     {
       sourceCount: assetSelection.buildings.filter(
         (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,

@@ -50,6 +50,7 @@ import {
 } from '../../../scene/types/scene.types';
 import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
 import { resolveSceneVariationProfile } from './glb-build-variation.utils';
+import { resolveFacadeLayerMaterialProfile } from './glb-build-facade-material-profile.utils';
 
 interface MeshNodeDiagnostic {
   name: string;
@@ -92,7 +93,15 @@ export class GlbBuildRunner {
       sceneMeta,
       sceneDetail,
     );
-    const materials = createEnhancedSceneMaterials(doc, materialTuning);
+    const facadeMaterialProfile = this.resolveFacadeMaterialProfile(
+      sceneMeta,
+      sceneDetail,
+    );
+    const materials = createEnhancedSceneMaterials(
+      doc,
+      materialTuning,
+      facadeMaterialProfile,
+    );
 
     this.appLoggerService.info('scene.glb_build.material_tuning', {
       sceneId: sceneMeta.sceneId,
@@ -153,6 +162,7 @@ export class GlbBuildRunner {
         resolveHeroToneFromBuildings:
           this.resolveHeroToneFromBuildings.bind(this),
         materialTuning,
+        facadeMaterialProfile,
         variationProfile,
         createBuildingRoofAccentGeometry,
       },
@@ -201,6 +211,7 @@ export class GlbBuildRunner {
       ),
       meshNodes: this.currentMeshDiagnostics,
       materialTuning,
+      facadeMaterialProfile,
       variationProfile,
       staticAtmosphere: sceneDetail.staticAtmosphere,
     };
@@ -287,6 +298,13 @@ export class GlbBuildRunner {
     sceneDetail: SceneDetail,
   ) {
     return resolveSceneVariationProfile(sceneMeta, sceneDetail);
+  }
+
+  private resolveFacadeMaterialProfile(
+    sceneMeta: SceneMeta,
+    sceneDetail: SceneDetail,
+  ) {
+    return resolveFacadeLayerMaterialProfile(sceneMeta, sceneDetail);
   }
 
   private buildGroupedBuildingShells(

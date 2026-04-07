@@ -1,5 +1,6 @@
 import {
   createSceneMaterials,
+  FacadeLayerMaterialProfile,
   MaterialTuningOptions,
 } from './glb-material-factory.scene';
 
@@ -325,8 +326,46 @@ function getBuildingLightParams(type: BuildingLightType): BuildingLightParams {
 export function createEnhancedSceneMaterials(
   doc: any,
   tuningOptions: MaterialTuningOptions = {},
+  facadeProfile: FacadeLayerMaterialProfile = {},
 ) {
   const baseMaterials = createSceneMaterials(doc, tuningOptions);
+
+  const facadeMaterialFamily =
+    facadeProfile.facadeFamily ?? resolveFacadeMaterialFamily(facadeProfile);
+  const facadeVariant = facadeProfile.facadeVariant ?? 'mid';
+  const windowType = facadeProfile.windowType ?? 'reflective';
+  const entranceSurface = facadeProfile.entranceSurface ?? 'concrete';
+  const roofEquipmentSurface = facadeProfile.roofEquipmentSurface ?? 'metal';
+  const heroCanopyLight = facadeProfile.heroCanopyLight ?? 'accent_spot';
+  const heroBillboardTone = facadeProfile.heroBillboardTone ?? 'orange';
+
+  const facadePrimary = createFacadeMaterial(
+    doc,
+    facadeMaterialFamily,
+    facadeVariant,
+  );
+  const windowPrimary = createWindowGlassMaterial(doc, windowType);
+  const entrancePrimary = createFacadeMaterial(
+    doc,
+    mapSurfaceToFacadeType(entranceSurface),
+    'mid',
+  );
+  const roofEquipmentPrimary = createFacadeMaterial(
+    doc,
+    mapSurfaceToFacadeType(roofEquipmentSurface),
+    'dark',
+  );
+  const heroCanopyPrimary = createBuildingLightMaterial(doc, heroCanopyLight);
+  const heroRoofUnitPrimary = createFacadeMaterial(
+    doc,
+    mapSurfaceToFacadeType(roofEquipmentSurface),
+    'mid',
+  );
+  const heroBillboardPrimary = createNeonSignMaterial(
+    doc,
+    heroBillboardTone,
+    'normal',
+  );
 
   return {
     ...baseMaterials,
@@ -369,5 +408,36 @@ export function createEnhancedSceneMaterials(
     buildingLightAccentSpot: createBuildingLightMaterial(doc, 'accent_spot'),
     buildingLightFlood: createBuildingLightMaterial(doc, 'flood_light'),
     buildingLightWindowGlow: createBuildingLightMaterial(doc, 'window_glow'),
+    facadePrimary,
+    windowPrimary,
+    entrancePrimary,
+    roofEquipmentPrimary,
+    heroCanopyPrimary,
+    heroRoofUnitPrimary,
+    heroBillboardPrimary,
   };
+}
+
+function resolveFacadeMaterialFamily(
+  profile: FacadeLayerMaterialProfile,
+): FacadeMaterialType {
+  if (profile.windowType === 'curtain_wall') {
+    return 'modern_glass';
+  }
+  if (profile.windowType === 'tinted' || profile.windowType === 'reflective') {
+    return 'glass';
+  }
+  return 'concrete';
+}
+
+function mapSurfaceToFacadeType(
+  surface: 'concrete' | 'metal' | 'glass',
+): FacadeMaterialType {
+  if (surface === 'metal') {
+    return 'metal';
+  }
+  if (surface === 'glass') {
+    return 'glass';
+  }
+  return 'concrete';
 }
