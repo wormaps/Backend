@@ -293,17 +293,17 @@ function getBuildingLightParams(type: BuildingLightType): BuildingLightParams {
     case 'warm_interior':
       return {
         baseColor: [0.96, 0.82, 0.58],
-        emissiveFactor: [0.72, 0.52, 0.28],
+        emissiveFactor: [0.86, 0.62, 0.34],
       };
     case 'cool_interior':
       return {
         baseColor: [0.72, 0.82, 0.92],
-        emissiveFactor: [0.48, 0.58, 0.72],
+        emissiveFactor: [0.62, 0.72, 0.84],
       };
     case 'accent_spot':
       return {
         baseColor: [0.98, 0.92, 0.78],
-        emissiveFactor: [0.85, 0.72, 0.48],
+        emissiveFactor: [0.96, 0.82, 0.55],
       };
     case 'flood_light':
       return {
@@ -313,12 +313,12 @@ function getBuildingLightParams(type: BuildingLightType): BuildingLightParams {
     case 'window_glow':
       return {
         baseColor: [0.88, 0.78, 0.62],
-        emissiveFactor: [0.62, 0.48, 0.32],
+        emissiveFactor: [0.74, 0.56, 0.36],
       };
     default:
       return {
         baseColor: [0.88, 0.78, 0.62],
-        emissiveFactor: [0.62, 0.48, 0.32],
+        emissiveFactor: [0.74, 0.56, 0.36],
       };
   }
 }

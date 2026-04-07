@@ -31,16 +31,16 @@ export class SceneSignageVisionService {
       objectId: `signage-cluster-${index + 1}`,
       anchor: hint.anchor,
       panelCount: Math.max(
-        2,
+        3,
         Math.min(
-          8,
-          signFeatures.length > 0 ? Math.ceil(signFeatures.length / 8) : 3,
+          12,
+          signFeatures.length > 0 ? Math.ceil(signFeatures.length / 6) : 4,
         ),
       ),
       palette: hint.palette,
-      emissiveStrength: Math.max(0.35, hint.emissiveStrength),
-      widthMeters: 5 + (index % 3),
-      heightMeters: 2.4 + (index % 2) * 0.8,
+      emissiveStrength: Math.max(0.48, hint.emissiveStrength * 1.1),
+      widthMeters: 5.8 + (index % 3) * 1.2,
+      heightMeters: 2.8 + (index % 2) * 1,
     }));
   }
 
