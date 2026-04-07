@@ -1,5 +1,6 @@
 import {
   createBuildingPanelsGeometry,
+  createBuildingRoofEquipmentGeometry,
   createBuildingRoofSurfaceGeometry,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
@@ -125,5 +126,15 @@ describe('building-mesh.builder', () => {
 
     expect(roofSurfaces.positions.length).toBeGreaterThan(0);
     expect(roofSurfaces.indices.length).toBeGreaterThan(0);
+  });
+
+  it('adds stronger roof equipment density for hero-driven rooftops', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const roofEquipments = createBuildingRoofEquipmentGeometry(origin, [
+      building,
+    ]);
+
+    expect(roofEquipments.positions.length).toBeGreaterThan(0);
+    expect(roofEquipments.indices.length).toBeGreaterThan(0);
   });
 });

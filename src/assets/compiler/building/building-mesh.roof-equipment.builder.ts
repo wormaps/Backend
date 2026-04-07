@@ -55,7 +55,8 @@ function resolveRoofEquipmentConfig(
 
   if (explicitUnits > 0) {
     return {
-      unitCount: explicitUnits,
+      unitCount:
+        explicitUnits + (building.visualRole === 'hero_landmark' ? 2 : 1),
       unitType: 'mixed' as const,
       spacing: 2.5,
     };
@@ -71,20 +72,20 @@ function resolveRoofEquipmentConfig(
     case 'highrise_office':
       return {
         ...baseConfig,
-        unitCount: Math.max(2, Math.floor(height / 15)),
+        unitCount: Math.max(3, Math.floor(height / 12)),
         unitType: 'mixed',
       };
     case 'commercial_midrise':
     case 'mall_podium':
       return {
         ...baseConfig,
-        unitCount: Math.max(3, Math.floor(height / 10)),
+        unitCount: Math.max(4, Math.floor(height / 9)),
         unitType: 'ac',
       };
     case 'hotel_tower':
       return {
         ...baseConfig,
-        unitCount: Math.max(4, Math.floor(height / 12)),
+        unitCount: Math.max(5, Math.floor(height / 10)),
         unitType: 'mixed',
       };
     case 'apartment_block':
@@ -97,7 +98,7 @@ function resolveRoofEquipmentConfig(
     case 'landmark_special':
       return {
         ...baseConfig,
-        unitCount: Math.max(2, Math.floor(height / 8)),
+        unitCount: Math.max(3, Math.floor(height / 7)),
         unitType: 'antenna',
       };
     default:
