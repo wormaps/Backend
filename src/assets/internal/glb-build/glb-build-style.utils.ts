@@ -71,21 +71,27 @@ export function resolveShellColorBucketFromColor(
   return 'neutral-dark';
 }
 
+const SHELL_COLOR_POOL: Record<MaterialClass, string[]> = {
+  glass: ['#5b8db8', '#4a7ca7', '#3d6b96', '#6d9ec9', '#7badd4'],
+  concrete: ['#a0a8b0', '#8c949c', '#787f87', '#949da6', '#6e767e'],
+  brick: ['#a65b42', '#8c4a35', '#b87a5c', '#7a3d2a', '#c48e70'],
+  metal: ['#6b7680', '#8b949d', '#5a6670', '#7d8a95', '#4e5a64'],
+  mixed: ['#7e868c', '#8a929a', '#6e767e', '#9ea4aa', '#5e666e'],
+};
+
 export function defaultShellColorForMaterialClass(
   materialClass: MaterialClass,
+  seed?: string,
 ): string {
-  switch (materialClass) {
-    case 'glass':
-      return '#8eb7d9';
-    case 'concrete':
-      return '#aab1b8';
-    case 'brick':
-      return '#a65b42';
-    case 'metal':
-      return '#8b949d';
-    default:
-      return '#9ea4aa';
+  const pool = SHELL_COLOR_POOL[materialClass] ?? SHELL_COLOR_POOL.mixed;
+  if (!seed) {
+    return pool[0];
   }
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return pool[hash % pool.length];
 }
 
 export function resolveMaterialClassFromBuilding(
@@ -147,7 +153,7 @@ export function resolveBuildingShellStyleFromHint(
     building.facadeColor ??
     building.roofColor ??
     hint?.palette.find(Boolean) ??
-    defaultShellColorForMaterialClass(materialClass);
+    defaultShellColorForMaterialClass(materialClass, building.objectId);
   const normalizedColor = normalizeColor(rawColor);
   const bucket = resolveShellColorBucketFromColor(
     normalizedColor,

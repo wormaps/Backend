@@ -464,15 +464,15 @@ function tuneShellColor(
   const [r, g, b] = compressLuminance(color, luminanceCap);
   if (materialClass === 'glass') {
     return [
-      clamp01(r * 0.9),
-      clamp01(g * 0.94),
+      clamp01(r * 0.95),
+      clamp01(g * 0.97),
       clamp01(Math.max(b * 1.02, r * 0.98)),
     ];
   }
   if (materialClass === 'brick') {
-    return [clamp01(r * 0.92), clamp01(g * 0.9), clamp01(b * 0.88)];
+    return [clamp01(r * 0.95), clamp01(g * 0.94), clamp01(b * 0.92)];
   }
-  return [clamp01(r * 0.94), clamp01(g * 0.94), clamp01(b * 0.94)];
+  return [clamp01(r * 0.97), clamp01(g * 0.97), clamp01(b * 0.97)];
 }
 
 function tunePanelColor(

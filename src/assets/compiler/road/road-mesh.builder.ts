@@ -56,7 +56,7 @@ export function createRoadBaseGeometry(
       geometry,
       road.path,
       Math.max(3.2, road.widthMeters),
-      0.01,
+      0.04,
     );
   }
   return geometry;

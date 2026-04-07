@@ -25,9 +25,9 @@ export function resolveMaterialTuningFromScene(
     staticAtmosphere?.roadRoughnessScale ?? 1;
 
   return {
-    shellLuminanceCap: 0.82,
+    shellLuminanceCap: 0.92,
     panelLuminanceCap: adaptivePanelCap,
-    billboardLuminanceCap: 0.78,
+    billboardLuminanceCap: 0.82,
     emissiveBoost: atmosphericEmissiveBoost,
     roadRoughnessScale: atmosphericRoadRoughnessScale,
   };
