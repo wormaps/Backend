@@ -41,11 +41,18 @@ export class SceneFidelityPlannerService {
       materialRatio,
       detail,
     );
+    const overlayReadiness = this.resolveOverlayReadiness(
+      detail,
+      mapillaryEvidence,
+      landmarkCount,
+      facadeEvidenceScore,
+    );
     const rawCoverageRatio = this.resolveAchievedCoverageRatio(
       detail,
       mapillaryEvidence,
       facadeEvidenceScore,
       landmarkCount,
+      overlayReadiness,
     );
 
     const currentMode = this.resolveCurrentMode(
@@ -59,6 +66,7 @@ export class SceneFidelityPlannerService {
       mapillaryEvidence,
       landmarkCount,
       place,
+      overlayReadiness,
     );
     const achievedCoverageRatio = Number(
       Math.max(
@@ -81,7 +89,11 @@ export class SceneFidelityPlannerService {
           ? 'PHASE_2_HYBRID_FOUNDATION'
           : 'PHASE_1_BASELINE',
       coreRadiusM: this.resolveCoreRadius(scale),
-      priorities: this.resolvePriorities(targetMode, coverageGapRatio),
+      priorities: this.resolvePriorities(
+        targetMode,
+        coverageGapRatio,
+        overlayReadiness,
+      ),
       evidence: {
         structure: this.resolveEvidenceLevel(placePackage.buildings.length),
         facade: this.resolveEvidenceLevel(Math.round(facadeEvidenceScore)),
@@ -107,19 +119,24 @@ export class SceneFidelityPlannerService {
         {
           sourceType: 'MAPILLARY',
           enabled: detail.provenance.mapillaryUsed,
-          coverage: detail.provenance.mapillaryUsed ? 'CORE' : 'NONE',
+          coverage: detail.provenance.mapillaryUsed
+            ? overlayReadiness.mapillaryReady
+              ? 'FULL'
+              : 'CORE'
+            : 'NONE',
           reason: detail.provenance.mapillaryUsed
-            ? '거리 객체와 일부 파사드/사인 힌트를 제공합니다.'
+            ? overlayReadiness.mapillaryReady
+              ? '거리 객체/파사드/사인 밀도가 충분해 overlay-ready 기준을 충족합니다.'
+              : '거리 객체와 일부 파사드/사인 힌트를 제공합니다.'
             : '현재 이 scene에서는 사용 가능한 Mapillary 증거가 부족합니다.',
         },
         {
           sourceType: 'CURATED_ASSET_PACK',
-          enabled: detail.annotationsApplied.length > 0,
-          coverage: detail.annotationsApplied.length > 0 ? 'LANDMARK' : 'NONE',
-          reason:
-            detail.annotationsApplied.length > 0
-              ? '랜드마크 주석 데이터가 있어 핵심 구역 보강이 가능합니다.'
-              : '현재는 적용 가능한 curated asset 데이터가 없습니다.',
+          enabled: overlayReadiness.curatedReady,
+          coverage: overlayReadiness.curatedReady ? 'CORE' : 'NONE',
+          reason: overlayReadiness.curatedReady
+            ? '랜드마크 주석과 근거 밀도가 충분해 curated hybrid 보강이 가능합니다.'
+            : '현재는 적용 가능한 curated asset 데이터가 없습니다.',
         },
         {
           sourceType: 'PHOTOREAL_3D_TILES',
@@ -160,13 +177,23 @@ export class SceneFidelityPlannerService {
     mapillaryEvidence: number,
     landmarkCount: number,
     place: ExternalPlaceDetail,
+    overlayReadiness: {
+      mapillaryReady: boolean;
+      curatedReady: boolean;
+      atmosphereReady: boolean;
+    },
   ): SceneFidelityPlan['targetMode'] {
     const primaryType = place.primaryType ?? '';
     if (
       mapillaryEvidence >= 80 &&
       landmarkCount >= 3 &&
+      overlayReadiness.mapillaryReady &&
+      overlayReadiness.curatedReady &&
       (primaryType.includes('tourist') ||
-        primaryType.includes('point_of_interest'))
+        primaryType.includes('point_of_interest') ||
+        primaryType.includes('transit') ||
+        primaryType.includes('shopping') ||
+        primaryType.includes('commercial'))
     ) {
       return 'REALITY_OVERLAY_READY';
     }
@@ -191,6 +218,11 @@ export class SceneFidelityPlannerService {
   private resolvePriorities(
     targetMode: SceneFidelityPlan['targetMode'],
     coverageGapRatio: number,
+    overlayReadiness: {
+      mapillaryReady: boolean;
+      curatedReady: boolean;
+      atmosphereReady: boolean;
+    },
   ): string[] {
     const base = [
       '구조 보존',
@@ -201,13 +233,21 @@ export class SceneFidelityPlannerService {
 
     const priorities =
       targetMode === 'REALITY_OVERLAY_READY'
-        ? [...base, '랜드마크 reality overlay', '핵심 블록 facade/signage 보강']
+        ? [
+            ...base,
+            '랜드마크 reality overlay',
+            '핵심 블록 facade/signage 보강',
+            'atmosphere-overlay 일관성 확보',
+          ]
         : targetMode === 'LANDMARK_ENRICHED'
           ? [...base, '랜드마크 메타데이터 보강']
           : [...base];
 
     if (coverageGapRatio > 0) {
       priorities.push('전 장소 70% 커버리지 갭 축소');
+    }
+    if (!overlayReadiness.atmosphereReady) {
+      priorities.push('atmosphere-overlay 정합성 보강');
     }
 
     return priorities;
@@ -218,6 +258,11 @@ export class SceneFidelityPlannerService {
     mapillaryEvidence: number,
     facadeEvidenceScore: number,
     landmarkCount: number,
+    overlayReadiness: {
+      mapillaryReady: boolean;
+      curatedReady: boolean;
+      atmosphereReady: boolean;
+    },
   ): number {
     const crossingScore = Math.min(1, detail.crossings.length / 120);
     const roadMarkingScore = Math.min(1, detail.roadMarkings.length / 700);
@@ -228,6 +273,10 @@ export class SceneFidelityPlannerService {
     const mapillaryScore = Math.min(1, mapillaryEvidence / 100);
     const annotationScore = Math.min(1, detail.annotationsApplied.length / 14);
     const landmarkScore = Math.min(1, landmarkCount / 3);
+    const overlayReadinessScore =
+      (overlayReadiness.mapillaryReady ? 0.45 : 0) +
+      (overlayReadiness.curatedReady ? 0.3 : 0) +
+      (overlayReadiness.atmosphereReady ? 0.25 : 0);
 
     const weighted =
       crossingScore * 0.08 +
@@ -238,7 +287,8 @@ export class SceneFidelityPlannerService {
       facadeScore * 0.25 +
       mapillaryScore * 0.3 +
       annotationScore * 0.1 +
-      landmarkScore * 0.05;
+      landmarkScore * 0.03 +
+      overlayReadinessScore * 0.02;
 
     return Number(Math.max(0, Math.min(1, weighted)).toFixed(3));
   }
@@ -289,5 +339,41 @@ export class SceneFidelityPlannerService {
     }
 
     return 'NONE';
+  }
+
+  private resolveOverlayReadiness(
+    detail: SceneDetail,
+    mapillaryEvidence: number,
+    landmarkCount: number,
+    facadeEvidenceScore: number,
+  ): {
+    mapillaryReady: boolean;
+    curatedReady: boolean;
+    atmosphereReady: boolean;
+  } {
+    const mapillaryReady =
+      detail.provenance.mapillaryUsed &&
+      mapillaryEvidence >= 85 &&
+      detail.signageClusters.length >= 1 &&
+      detail.facadeHints.length >= 1;
+
+    const curatedReady =
+      detail.annotationsApplied.length >= 2 &&
+      landmarkCount >= 3 &&
+      facadeEvidenceScore >= 70;
+
+    const staticPreset = detail.staticAtmosphere?.preset;
+    const sceneTone = detail.sceneWideAtmosphereProfile?.cityTone;
+    const weather = detail.sceneWideAtmosphereProfile?.weatherOverlay;
+    const atmosphereReady =
+      staticPreset === 'NIGHT_NEON' ||
+      (sceneTone === 'dense_commercial' &&
+        (weather === 'night' || weather === 'wet_road'));
+
+    return {
+      mapillaryReady,
+      curatedReady,
+      atmosphereReady,
+    };
   }
 }

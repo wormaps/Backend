@@ -140,6 +140,88 @@ describe('SceneFidelityPlannerService', () => {
     const plan = service.buildPlan(place, 'MEDIUM', placePackage, {
       ...baseDetail,
       annotationsApplied: ['ann-1', 'ann-2'],
+      facadeHints: [
+        {
+          objectId: 'facade-1',
+          anchor: { lat: 35.6595, lng: 139.7005 },
+          facadeEdgeIndex: 0,
+          windowBands: 8,
+          billboardEligible: true,
+          palette: ['#4d79c7'],
+          materialClass: 'glass',
+          signageDensity: 'high',
+          emissiveStrength: 0.92,
+          glazingRatio: 0.72,
+        },
+      ],
+      signageClusters: [
+        {
+          objectId: 'sig-1',
+          anchor: { lat: 35.6595, lng: 139.7005 },
+          panelCount: 5,
+          palette: ['#ff0000'],
+          emissiveStrength: 1,
+          widthMeters: 4,
+          heightMeters: 2,
+        },
+      ],
+      provenance: {
+        ...baseDetail.provenance,
+        mapillaryUsed: true,
+        mapillaryImageCount: 120,
+        mapillaryFeatureCount: 85,
+        osmTagCoverage: {
+          ...baseDetail.provenance.osmTagCoverage,
+          coloredBuildings: 1,
+          materialBuildings: 1,
+        },
+      },
+      staticAtmosphere: {
+        preset: 'NIGHT_NEON',
+        emissiveBoost: 1.25,
+        roadRoughnessScale: 0.9,
+        wetRoadBoost: 0.45,
+      },
+    });
+
+    expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
+    expect(plan.phase).toBe('PHASE_2_HYBRID_FOUNDATION');
+    expect(plan.evidence.facade).toBe('HIGH');
+    expect(plan.achievedCoverageRatio).toBeGreaterThanOrEqual(0.7);
+    expect(plan.coverageGapRatio).toBe(0);
+    expect(
+      plan.sourceRegistry.find((source) => source.sourceType === 'MAPILLARY')
+        ?.enabled,
+    ).toBe(true);
+    expect(
+      plan.sourceRegistry.find((source) => source.sourceType === 'MAPILLARY')
+        ?.coverage,
+    ).toBe('FULL');
+    expect(
+      plan.sourceRegistry.find(
+        (source) => source.sourceType === 'CURATED_ASSET_PACK',
+      )?.coverage,
+    ).toBe('CORE');
+  });
+
+  it('keeps landmark mode when atmosphere gate is missing even with high mapillary evidence', () => {
+    const plan = service.buildPlan(place, 'MEDIUM', placePackage, {
+      ...baseDetail,
+      annotationsApplied: ['ann-1', 'ann-2'],
+      facadeHints: [
+        {
+          objectId: 'facade-1',
+          anchor: { lat: 35.6595, lng: 139.7005 },
+          facadeEdgeIndex: 0,
+          windowBands: 8,
+          billboardEligible: true,
+          palette: ['#4d79c7'],
+          materialClass: 'glass',
+          signageDensity: 'high',
+          emissiveStrength: 0.92,
+          glazingRatio: 0.72,
+        },
+      ],
       signageClusters: [
         {
           objectId: 'sig-1',
@@ -164,14 +246,33 @@ describe('SceneFidelityPlannerService', () => {
       },
     });
 
+    expect(plan.currentMode).toBe('LANDMARK_ENRICHED');
     expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
     expect(plan.phase).toBe('PHASE_2_HYBRID_FOUNDATION');
-    expect(plan.evidence.facade).toBe('HIGH');
-    expect(plan.achievedCoverageRatio).toBeGreaterThanOrEqual(0.7);
-    expect(plan.coverageGapRatio).toBe(0);
-    expect(
-      plan.sourceRegistry.find((source) => source.sourceType === 'MAPILLARY')
-        ?.enabled,
-    ).toBe(true);
+  });
+
+  it('does not promote current mode using atmosphere signal only', () => {
+    const plan = service.buildPlan(place, 'MEDIUM', placePackage, {
+      ...baseDetail,
+      sceneWideAtmosphereProfile: {
+        cityTone: 'dense_commercial',
+        evidenceStrength: 'strong',
+        baseFacadeProfile: {
+          family: 'glass',
+          variant: 'glass_reflective_blue',
+          pattern: 'vertical_mullion',
+          roofStyle: 'setback',
+          evidence: 'strong',
+        },
+        streetAtmosphere: 'dense_signage',
+        vegetationProfile: 'urban_minimal_green',
+        roadProfile: 'dense_crosswalk',
+        lightingProfile: 'neon_night',
+        weatherOverlay: 'night',
+      },
+    });
+
+    expect(plan.currentMode).toBe('PROCEDURAL_ONLY');
+    expect(plan.targetMode).toBe('PROCEDURAL_ONLY');
   });
 });
