@@ -57,6 +57,7 @@ interface WindowConfig {
   frameWidth: number;
   sillDepth: number;
   pattern: 'grid' | 'horizontal' | 'vertical' | 'scattered';
+  facadeEdgeOnly: boolean;
 }
 
 function resolveWindowConfig(
@@ -79,6 +80,7 @@ function resolveWindowConfig(
     frameWidth: 0.08,
     sillDepth: 0.12,
     pattern: 'grid',
+    facadeEdgeOnly: false,
   };
 
   switch (archetype) {
@@ -86,8 +88,9 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         windowsPerFloor: density === 'dense' ? 8 : density === 'medium' ? 6 : 4,
-        windowWidth: 1.4,
-        windowHeight: 2.0,
+        windowWidth: density === 'dense' ? 1.5 : 1.4,
+        windowHeight: 2.1,
+        windowDepth: density === 'dense' ? 0.18 : 0.16,
         pattern: 'grid',
       };
     case 'apartment_block':
@@ -95,8 +98,8 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 4 : 3,
-        windowWidth: 1.0,
-        windowHeight: 1.4,
+        windowWidth: density === 'dense' ? 1.1 : 1.0,
+        windowHeight: density === 'dense' ? 1.48 : 1.4,
         pattern: 'grid',
       };
     case 'commercial_midrise':
@@ -105,18 +108,21 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         floorCount: Math.max(1, Math.floor(floorCount * 0.6)),
-        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
+        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 5 : 3,
         windowWidth: 1.6,
-        windowHeight: 1.2,
+        windowHeight: density === 'dense' ? 1.28 : 1.2,
+        sillDepth: 0.14,
         pattern: 'horizontal',
+        facadeEdgeOnly: density !== 'dense',
       };
     case 'hotel_tower':
       return {
         ...baseConfig,
         windowsPerFloor:
-          density === 'dense' ? 10 : density === 'medium' ? 8 : 6,
-        windowWidth: 1.1,
+          density === 'dense' ? 12 : density === 'medium' ? 9 : 7,
+        windowWidth: density === 'dense' ? 1.16 : 1.1,
         windowHeight: 1.6,
+        windowDepth: 0.16,
         pattern: 'grid',
       };
     case 'station_like':
@@ -124,10 +130,12 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         windowsPerFloor:
-          density === 'dense' ? 12 : density === 'medium' ? 8 : 6,
+          density === 'dense' ? 14 : density === 'medium' ? 9 : 6,
         windowWidth: 1.8,
-        windowHeight: 2.2,
+        windowHeight: density === 'dense' ? 2.28 : 2.2,
+        windowDepth: 0.2,
         pattern: 'vertical',
+        facadeEdgeOnly: density !== 'dense',
       };
     default:
       return baseConfig;
@@ -144,9 +152,11 @@ function pushWindowGrid(
     frame.b[0] - frame.a[0],
     frame.b[2] - frame.a[2],
   );
+  if (edgeLength <= 1e-6) {
+    return;
+  }
 
   const floorHeight = buildingHeight / Math.max(1, config.floorCount);
-  const windowSpacing = edgeLength / Math.max(1, config.windowsPerFloor);
 
   for (let floor = 0; floor < config.floorCount; floor += 1) {
     const floorY = floor * floorHeight + floorHeight * 0.3;
@@ -157,6 +167,9 @@ function pushWindowGrid(
     }
 
     for (let col = 0; col < config.windowsPerFloor; col += 1) {
+      if (config.facadeEdgeOnly && col > 0) {
+        continue;
+      }
       const t = (col + 0.5) / config.windowsPerFloor;
       const centerX = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
       const centerZ = frame.a[2] + (frame.b[2] - frame.a[2]) * t;
@@ -255,16 +268,7 @@ function pushWindowFrame(
     windowDepth,
     frameHalfWidth,
   );
-  pushWindowSill(
-    geometry,
-    frame,
-    centerX,
-    centerZ,
-    y0,
-    windowWidth,
-    windowDepth,
-    sillDepth,
-  );
+  pushWindowSill(geometry, frame, centerX, centerZ, y0, windowWidth, sillDepth);
 }
 
 function pushWindowFrameEdge(
@@ -314,7 +318,6 @@ function pushWindowSill(
   centerZ: number,
   y: number,
   windowWidth: number,
-  windowDepth: number,
   sillDepth: number,
 ): void {
   const sillHeight = 0.08;
@@ -323,9 +326,6 @@ function pushWindowSill(
 
   const frontX = centerX + frame.normal[0] * sillDepth;
   const frontZ = centerZ + frame.normal[2] * sillDepth;
-  const backX = centerX - frame.normal[0] * (windowDepth + 0.02);
-  const backZ = centerZ - frame.normal[2] * (windowDepth + 0.02);
-
   pushBox(
     geometry,
     [frontX - halfWidth, y - sillHeight, frontZ - halfWidth * 0.3],

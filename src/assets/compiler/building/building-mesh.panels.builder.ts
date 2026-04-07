@@ -84,6 +84,7 @@ function pushFacadePresetPanels(
   );
   const glazing = hint.glazingRatio;
   const facadeDepth = resolveFacadeBackingDepth(hint);
+  const patternIntensity = resolvePatternIntensity(hint);
 
   pushFacadeBacking(geometry, frame, facadeDepth, hint);
 
@@ -115,7 +116,7 @@ function pushFacadePresetPanels(
       Math.max(1, Math.min(2, signBandLevels || 1)),
       glazing,
       repeatX,
-      Math.max(2, Math.floor(bandCount * 0.22)),
+      Math.max(2, Math.floor(bandCount * 0.22 * patternIntensity)),
     );
     pushFacadeBandByType(
       geometry,
@@ -124,7 +125,7 @@ function pushFacadePresetPanels(
       Math.max(1, signBandLevels),
       glazing,
       repeatX,
-      Math.max(3, Math.floor(bandCount * 0.56)),
+      Math.max(3, Math.floor(bandCount * 0.56 * patternIntensity)),
     );
     pushFacadeBandByType(
       geometry,
@@ -133,7 +134,7 @@ function pushFacadePresetPanels(
       Math.max(1, Math.min(2, signBandLevels || 1)),
       glazing,
       repeatX,
-      Math.max(2, Math.floor(bandCount * 0.22)),
+      Math.max(2, Math.floor(bandCount * 0.22 * patternIntensity)),
     );
 
     if (hint.visualRole && hint.visualRole !== 'generic') {
@@ -155,7 +156,13 @@ function pushFacadePresetPanels(
 
   switch (preset) {
     case 'glass_grid':
-      pushHorizontalBands(geometry, frame, bandCount, 0.42, 0.55);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.max(2, Math.round(bandCount * patternIntensity)),
+        0.42,
+        0.55,
+      );
       pushVerticalMullions(
         geometry,
         frame,
@@ -165,22 +172,32 @@ function pushFacadePresetPanels(
       );
       break;
     case 'retail_sign_band':
-      pushSignBands(geometry, frame, signBandLevels || 2, 1.15);
+      pushSignBands(
+        geometry,
+        frame,
+        Math.max(2, Math.round((signBandLevels || 2) * patternIntensity)),
+        1.25,
+      );
       pushHorizontalBands(
         geometry,
         frame,
-        Math.max(2, bandCount - 1),
-        0.24,
+        Math.max(2, Math.round((bandCount - 1) * patternIntensity)),
+        0.26,
         0.58,
       );
       break;
     case 'mall_panel':
-      pushSignBands(geometry, frame, signBandLevels || 3, 1.4);
+      pushSignBands(
+        geometry,
+        frame,
+        Math.max(3, Math.round((signBandLevels || 3) * patternIntensity)),
+        1.5,
+      );
       pushHorizontalBands(
         geometry,
         frame,
-        Math.max(2, Math.floor(bandCount / 2)),
-        0.8,
+        Math.max(2, Math.floor((bandCount / 2) * patternIntensity)),
+        0.84,
         0.68,
       );
       if (hint.billboardEligible) {
@@ -188,24 +205,36 @@ function pushFacadePresetPanels(
       }
       break;
     case 'brick_lowrise':
-      pushHorizontalBands(geometry, frame, Math.min(3, bandCount), 0.18, 0.44);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.min(4, Math.max(2, Math.round(bandCount * patternIntensity))),
+        0.2,
+        0.46,
+      );
       if (signBandLevels > 0) {
-        pushSignBands(geometry, frame, 1, 0.95);
+        pushSignBands(geometry, frame, 1, 1.05);
       }
       break;
     case 'station_metal':
       pushHorizontalBands(
         geometry,
         frame,
-        Math.max(2, Math.floor(bandCount / 2)),
-        0.72,
+        Math.max(2, Math.floor((bandCount / 2) * patternIntensity)),
+        0.76,
         0.62,
       );
       pushCanopyBand(geometry, frame, Math.max(3, buildingHeight * 0.16));
       break;
     case 'concrete_repetitive':
     default:
-      pushHorizontalBands(geometry, frame, bandCount, 0.28, 0.5);
+      pushHorizontalBands(
+        geometry,
+        frame,
+        Math.max(2, Math.round(bandCount * patternIntensity)),
+        0.3,
+        0.52,
+      );
       break;
   }
 
@@ -223,4 +252,20 @@ function pushFacadePresetPanels(
       pushCanopyBand(geometry, frame, Math.max(4, buildingHeight * 0.12));
     }
   }
+}
+
+function resolvePatternIntensity(hint: SceneFacadeHint): number {
+  if (hint.visualRole && hint.visualRole !== 'generic') {
+    return 1.24;
+  }
+  if (hint.signageDensity === 'high') {
+    return 1.18;
+  }
+  if (hint.windowPatternDensity === 'dense') {
+    return 1.12;
+  }
+  if (hint.windowPatternDensity === 'sparse') {
+    return 0.95;
+  }
+  return 1;
 }
