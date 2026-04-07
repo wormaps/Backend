@@ -4,11 +4,14 @@ import {
   SceneStaticAtmosphereProfile,
 } from '../../../scene/types/scene.types';
 import type { MaterialTuningOptions } from '../../compiler/materials';
+import { resolveSceneFidelityModeSignal } from '../../../scene/utils/scene-fidelity-mode-signal.utils';
+import type { SceneFidelityMode } from '../../../scene/types/scene.types';
 
 export function resolveMaterialTuningFromScene(
   _sceneMeta: SceneMeta,
   facadeHints: SceneFacadeHint[],
   staticAtmosphere?: SceneStaticAtmosphereProfile,
+  targetMode?: SceneFidelityMode,
 ): MaterialTuningOptions {
   const highEmissiveFacadeCount = facadeHints.filter(
     (hint) => hint.emissiveStrength >= 0.7,
@@ -27,18 +30,29 @@ export function resolveMaterialTuningFromScene(
   const districtBoost = resolveDistrictEmissiveBoost(facadeHints);
   const districtRoadRoughnessScale =
     resolveDistrictRoadRoughnessScale(facadeHints);
+  const modeSignal = resolveSceneFidelityModeSignal(targetMode);
 
   return {
     shellLuminanceCap: 0.88,
     panelLuminanceCap: adaptivePanelCap,
     billboardLuminanceCap: 0.86,
-    emissiveBoost: clamp(atmosphericEmissiveBoost * districtBoost, 0.95, 1.7),
+    emissiveBoost: clamp(
+      atmosphericEmissiveBoost * districtBoost * modeSignal.emissiveMultiplier,
+      0.95,
+      1.85,
+    ),
     roadRoughnessScale: clamp(
-      atmosphericRoadRoughnessScale * districtRoadRoughnessScale,
+      atmosphericRoadRoughnessScale *
+        districtRoadRoughnessScale *
+        modeSignal.roadRoughnessMultiplier,
       0.76,
       1.2,
     ),
-    wetRoadBoost: clamp(atmosphericWetRoadBoost, 0, 0.7),
+    wetRoadBoost: clamp(
+      atmosphericWetRoadBoost + modeSignal.wetRoadOffset,
+      0,
+      0.72,
+    ),
   };
 }
 

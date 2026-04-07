@@ -5,6 +5,7 @@ import {
   SceneBuildingMeta,
   SceneCrossingDetail,
   SceneDetail,
+  SceneFidelityMode,
   SceneMeta,
   SceneScale,
 } from '../../types/scene.types';
@@ -16,6 +17,7 @@ import {
   selectSpatialSample,
 } from './scene-asset-selection.utils';
 import { SceneAssetSelection } from './scene-asset-profile.types';
+import { resolveSceneFidelityModeSignal } from '../../utils/scene-fidelity-mode-signal.utils';
 
 @Injectable()
 export class SceneAssetProfileService {
@@ -24,7 +26,10 @@ export class SceneAssetProfileService {
     sceneDetail: SceneDetail,
     scale: SceneScale,
   ): SceneAssetSelection {
-    const budget = this.resolveAssetBudget(scale);
+    const budget = this.resolveAdaptiveAssetBudget(
+      this.resolveAssetBudget(scale),
+      sceneDetail.fidelityPlan?.targetMode,
+    );
     const landmarkLocations = sceneMeta.landmarkAnchors.map(
       (anchor) => anchor.location,
     );
@@ -196,6 +201,24 @@ export class SceneAssetProfileService {
     };
   }
 
+  buildSceneMetaWithAssetSelection(
+    sceneMeta: SceneMeta,
+    selection: Pick<
+      SceneAssetSelection,
+      'budget' | 'selected' | 'structuralCoverage'
+    >,
+  ): SceneMeta {
+    return {
+      ...sceneMeta,
+      assetProfile: {
+        ...sceneMeta.assetProfile,
+        budget: selection.budget,
+        selected: selection.selected,
+      },
+      structuralCoverage: selection.structuralCoverage,
+    };
+  }
+
   private resolveAssetBudget(
     scale: SceneScale,
   ): SceneMeta['assetProfile']['budget'] {
@@ -243,6 +266,36 @@ export class SceneAssetProfileService {
     };
   }
 
+  private resolveAdaptiveAssetBudget(
+    baseBudget: SceneMeta['assetProfile']['budget'],
+    targetMode?: SceneFidelityMode,
+  ): SceneMeta['assetProfile']['budget'] {
+    if (!targetMode) {
+      return baseBudget;
+    }
+    const multiplier =
+      resolveSceneFidelityModeSignal(targetMode).budgetMultiplier;
+    if (multiplier === 1) {
+      return baseBudget;
+    }
+
+    return {
+      buildingCount: scaleCount(baseBudget.buildingCount, multiplier),
+      roadCount: scaleCount(baseBudget.roadCount, multiplier),
+      walkwayCount: scaleCount(baseBudget.walkwayCount, multiplier),
+      poiCount: scaleCount(baseBudget.poiCount, multiplier),
+      crossingCount: scaleCount(baseBudget.crossingCount, multiplier),
+      trafficLightCount: scaleCount(baseBudget.trafficLightCount, multiplier),
+      streetLightCount: scaleCount(baseBudget.streetLightCount, multiplier),
+      signPoleCount: scaleCount(baseBudget.signPoleCount, multiplier),
+      treeClusterCount: scaleCount(baseBudget.treeClusterCount, multiplier),
+      billboardPanelCount: scaleCount(
+        baseBudget.billboardPanelCount,
+        multiplier,
+      ),
+    };
+  }
+
   private selectCrossings(
     items: SceneCrossingDetail[],
     maxCount: number,
@@ -261,10 +314,6 @@ export class SceneAssetProfileService {
       (crossing) => crossing.path,
       120,
     );
-    if (principal.length + anchorNear.length >= maxCount) {
-      return items;
-    }
-
     return selectPrioritizedSample(
       items,
       maxCount,
@@ -387,4 +436,8 @@ function uniqueCoordinates(points: Coordinate[]): Coordinate[] {
 
 function roundRatio(value: number, total: number): number {
   return Number((value / total).toFixed(3));
+}
+
+function scaleCount(value: number, multiplier: number): number {
+  return Math.max(1, Math.round(value * multiplier));
 }

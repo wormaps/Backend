@@ -13,6 +13,7 @@ import {
   appendSceneDiagnosticsLog,
   getSceneDataDir,
 } from '../../../scene/storage/scene-storage.utils';
+import { SceneAssetProfileService } from '../../../scene/services/asset-profile';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 import {
   groupBillboardClustersByColor,
@@ -67,6 +68,7 @@ interface MeshNodeDiagnostic {
 @Injectable()
 export class GlbBuildRunner {
   private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
+  private readonly sceneAssetProfileService = new SceneAssetProfileService();
 
   constructor(
     private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
@@ -88,9 +90,14 @@ export class GlbBuildRunner {
       sceneDetail,
       sceneMeta.assetProfile.preset,
     );
+    const adaptiveMeta =
+      this.sceneAssetProfileService.buildSceneMetaWithAssetSelection(
+        sceneMeta,
+        assetSelection,
+      );
     const materialTuning = this.resolveMaterialTuning(sceneMeta, sceneDetail);
     const variationProfile = this.resolveVariationProfile(
-      sceneMeta,
+      adaptiveMeta,
       sceneDetail,
     );
     const facadeMaterialProfile = this.resolveFacadeMaterialProfile(
@@ -192,7 +199,7 @@ export class GlbBuildRunner {
         selected: assetSelection.selected,
         budget: assetSelection.budget,
       },
-      structuralCoverage: sceneMeta.structuralCoverage,
+      structuralCoverage: adaptiveMeta.structuralCoverage,
       sourceDetail: {
         crossings: sceneDetail.crossings.length,
         roadMarkings: sceneDetail.roadMarkings.length,
@@ -293,6 +300,7 @@ export class GlbBuildRunner {
       sceneMeta,
       sceneDetail.facadeHints,
       sceneDetail.staticAtmosphere,
+      sceneDetail.fidelityPlan?.targetMode,
     );
   }
 

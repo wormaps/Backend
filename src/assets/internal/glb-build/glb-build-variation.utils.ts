@@ -1,5 +1,6 @@
 import type { SceneVariationProfile } from '../../compiler/scene-variation';
 import type { SceneDetail, SceneMeta } from '../../../scene/types/scene.types';
+import { resolveSceneFidelityModeSignal } from '../../../scene/utils/scene-fidelity-mode-signal.utils';
 
 export function resolveSceneVariationProfile(
   sceneMeta: SceneMeta,
@@ -24,29 +25,42 @@ export function resolveSceneVariationProfile(
   );
   const vegetationSignal = Math.min(1, sceneDetail.vegetation.length / 80);
   const districtInfluence = resolveDistrictVariationInfluence(sceneDetail);
+  const modeSignal = resolveSceneFidelityModeSignal(
+    sceneDetail.fidelityPlan?.targetMode,
+  );
 
   return {
     vegetationDensityBoost: clamp(
       0.95 +
         vegetationCoverage * 0.25 +
-        districtInfluence.vegetationDensityBoost,
+        districtInfluence.vegetationDensityBoost +
+        modeSignal.vegetationDensityOffset,
       0.9,
-      1.25,
+      1.32,
     ),
     vegetationDetailBoost: clamp(
-      0.9 + vegetationSignal * 0.4 + districtInfluence.vegetationDetailBoost,
+      0.9 +
+        vegetationSignal * 0.4 +
+        districtInfluence.vegetationDetailBoost +
+        modeSignal.vegetationDetailOffset,
       0.9,
-      1.28,
+      1.34,
     ),
     furnitureDetailBoost: clamp(
-      0.9 + furnitureCoverage * 0.35 + districtInfluence.furnitureDetailBoost,
+      0.9 +
+        furnitureCoverage * 0.35 +
+        districtInfluence.furnitureDetailBoost +
+        modeSignal.furnitureDetailOffset,
       0.9,
-      1.28,
+      1.34,
     ),
     furnitureVariantBoost: clamp(
-      0.9 + signageSignal * 0.35 + districtInfluence.furnitureVariantBoost,
+      0.9 +
+        signageSignal * 0.35 +
+        districtInfluence.furnitureVariantBoost +
+        modeSignal.furnitureVariantOffset,
       0.9,
-      1.28,
+      1.34,
     ),
   };
 }

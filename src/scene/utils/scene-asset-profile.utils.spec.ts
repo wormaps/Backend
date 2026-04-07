@@ -235,4 +235,289 @@ describe('buildSceneAssetSelection', () => {
       selection.structuralCoverage.coreAreaBuildingCoverage,
     ).toBeGreaterThan(0.7);
   });
+
+  it('expands budget when fidelity target mode is reality overlay ready', () => {
+    const sceneMeta: SceneMeta = {
+      sceneId: 'scene-selection-budget-test',
+      placeId: 'place-selection-budget-test',
+      name: 'Selection Budget Test',
+      generatedAt: '2026-04-06T00:00:00Z',
+      origin: coordinate(37, 127),
+      camera: {
+        topView: { x: 0, y: 120, z: 80 },
+        walkViewStart: { x: 0, y: 1.7, z: 12 },
+      },
+      bounds: {
+        radiusM: 2200,
+        northEast: coordinate(37.02, 127.02),
+        southWest: coordinate(36.98, 126.98),
+      },
+      stats: {
+        buildingCount: 0,
+        roadCount: 0,
+        walkwayCount: 0,
+        poiCount: 0,
+      },
+      diagnostics: {
+        droppedBuildings: 0,
+        droppedRoads: 0,
+        droppedWalkways: 0,
+        droppedPois: 0,
+        droppedCrossings: 0,
+        droppedStreetFurniture: 0,
+        droppedVegetation: 0,
+        droppedLandCovers: 0,
+        droppedLinearFeatures: 0,
+      },
+      detailStatus: 'FULL',
+      visualCoverage: {
+        structure: 1,
+        streetDetail: 1,
+        landmark: 1,
+        signage: 1,
+      },
+      materialClasses: [],
+      landmarkAnchors: [],
+      assetProfile: {
+        preset: 'MEDIUM',
+        budget: {
+          buildingCount: 520,
+          roadCount: 260,
+          walkwayCount: 320,
+          poiCount: 120,
+          crossingCount: 96,
+          trafficLightCount: 48,
+          streetLightCount: 64,
+          signPoleCount: 80,
+          treeClusterCount: 56,
+          billboardPanelCount: 72,
+        },
+        selected: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+      },
+      structuralCoverage: {
+        selectedBuildingCoverage: 0,
+        coreAreaBuildingCoverage: 0,
+        fallbackMassingRate: 0,
+        footprintPreservationRate: 0,
+        heroLandmarkCoverage: 0,
+      },
+      roads: [],
+      buildings: [],
+      walkways: [],
+      pois: [],
+    };
+
+    const sceneDetail: SceneDetail = {
+      sceneId: sceneMeta.sceneId,
+      placeId: sceneMeta.placeId,
+      generatedAt: sceneMeta.generatedAt,
+      detailStatus: 'FULL',
+      crossings: [],
+      roadMarkings: [],
+      streetFurniture: [],
+      vegetation: [],
+      landCovers: [],
+      linearFeatures: [],
+      facadeHints: [],
+      signageClusters: [],
+      annotationsApplied: [],
+      fidelityPlan: {
+        currentMode: 'LANDMARK_ENRICHED',
+        targetMode: 'REALITY_OVERLAY_READY',
+        targetCoverageRatio: 0.7,
+        achievedCoverageRatio: 0.7,
+        coverageGapRatio: 0,
+        phase: 'PHASE_2_HYBRID_FOUNDATION',
+        coreRadiusM: 320,
+        priorities: ['test'],
+        evidence: {
+          structure: 'HIGH',
+          facade: 'HIGH',
+          signage: 'HIGH',
+          streetFurniture: 'MEDIUM',
+          landmark: 'HIGH',
+        },
+        sourceRegistry: [],
+      },
+      provenance: {
+        mapillaryUsed: true,
+        mapillaryImageCount: 100,
+        mapillaryFeatureCount: 100,
+        osmTagCoverage: {
+          coloredBuildings: 0,
+          materialBuildings: 0,
+          crossings: 0,
+          streetFurniture: 0,
+          vegetation: 0,
+        },
+        overrideCount: 0,
+      },
+    };
+
+    const selection = buildSceneAssetSelection(
+      sceneMeta,
+      sceneDetail,
+      'MEDIUM',
+    );
+
+    expect(selection.budget.roadCount).toBe(312);
+    expect(selection.budget.walkwayCount).toBe(384);
+    expect(selection.budget.crossingCount).toBe(115);
+    expect(selection.budget.billboardPanelCount).toBe(86);
+  });
+
+  it('does not exceed crossing quota even when principal and anchor-near crossings are abundant', () => {
+    const roads = Array.from({ length: 30 }, (_, index) =>
+      createRoad(index, 37.01 + index * 0.00001, 127.01 + index * 0.00001),
+    );
+    const walkways = Array.from({ length: 40 }, (_, index) =>
+      createWalkway(index, 37.01 + index * 0.00001, 127.01 + index * 0.00001),
+    );
+    const crossings = Array.from({ length: 240 }, (_, index) =>
+      createCrossing(
+        index,
+        37.0006 + index * 0.000002,
+        127.0006 + index * 0.000002,
+        index % 2 === 0,
+      ),
+    );
+
+    const sceneMeta: SceneMeta = {
+      sceneId: 'scene-selection-crossing-cap-test',
+      placeId: 'place-selection-crossing-cap-test',
+      name: 'Selection Crossing Cap Test',
+      generatedAt: '2026-04-06T00:00:00Z',
+      origin: coordinate(37, 127),
+      camera: {
+        topView: { x: 0, y: 120, z: 80 },
+        walkViewStart: { x: 0, y: 1.7, z: 12 },
+      },
+      bounds: {
+        radiusM: 2200,
+        northEast: coordinate(37.02, 127.02),
+        southWest: coordinate(36.98, 126.98),
+      },
+      stats: {
+        buildingCount: 0,
+        roadCount: roads.length,
+        walkwayCount: walkways.length,
+        poiCount: 0,
+      },
+      diagnostics: {
+        droppedBuildings: 0,
+        droppedRoads: 0,
+        droppedWalkways: 0,
+        droppedPois: 0,
+        droppedCrossings: 0,
+        droppedStreetFurniture: 0,
+        droppedVegetation: 0,
+        droppedLandCovers: 0,
+        droppedLinearFeatures: 0,
+      },
+      detailStatus: 'FULL',
+      visualCoverage: {
+        structure: 1,
+        streetDetail: 1,
+        landmark: 1,
+        signage: 1,
+      },
+      materialClasses: [],
+      landmarkAnchors: [
+        {
+          objectId: 'anchor-1',
+          name: 'Anchor',
+          location: coordinate(37.0012, 127.0012),
+          kind: 'CROSSING',
+        },
+      ],
+      assetProfile: {
+        preset: 'MEDIUM',
+        budget: {
+          buildingCount: 520,
+          roadCount: 260,
+          walkwayCount: 320,
+          poiCount: 120,
+          crossingCount: 96,
+          trafficLightCount: 48,
+          streetLightCount: 64,
+          signPoleCount: 80,
+          treeClusterCount: 56,
+          billboardPanelCount: 72,
+        },
+        selected: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+      },
+      structuralCoverage: {
+        selectedBuildingCoverage: 0,
+        coreAreaBuildingCoverage: 0,
+        fallbackMassingRate: 0,
+        footprintPreservationRate: 0,
+        heroLandmarkCoverage: 0,
+      },
+      roads,
+      buildings: [],
+      walkways,
+      pois: [],
+    };
+
+    const sceneDetail: SceneDetail = {
+      sceneId: sceneMeta.sceneId,
+      placeId: sceneMeta.placeId,
+      generatedAt: sceneMeta.generatedAt,
+      detailStatus: 'FULL',
+      crossings,
+      roadMarkings: [],
+      streetFurniture: [],
+      vegetation: [],
+      landCovers: [],
+      linearFeatures: [],
+      facadeHints: [],
+      signageClusters: [],
+      annotationsApplied: [],
+      provenance: {
+        mapillaryUsed: false,
+        mapillaryImageCount: 0,
+        mapillaryFeatureCount: 0,
+        osmTagCoverage: {
+          coloredBuildings: 0,
+          materialBuildings: 0,
+          crossings: 0,
+          streetFurniture: 0,
+          vegetation: 0,
+        },
+        overrideCount: 0,
+      },
+    };
+
+    const selection = buildSceneAssetSelection(
+      sceneMeta,
+      sceneDetail,
+      'MEDIUM',
+    );
+
+    expect(selection.crossings.length).toBeLessThanOrEqual(
+      selection.budget.crossingCount,
+    );
+  });
 });
