@@ -197,6 +197,7 @@ describe('SceneAtmosphereRecomputeService', () => {
     expect(result.detail.districtAtmosphereProfiles?.length).toBeGreaterThan(0);
     expect(result.detail.sceneWideAtmosphereProfile).toBeDefined();
     expect(result.detail.staticAtmosphere).toBeDefined();
+    expect(result.detail.staticAtmosphere?.wetRoadBoost).toBe(0);
     expect(result.meta.materialClasses[0]?.className).toBe('glass');
   });
 });

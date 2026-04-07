@@ -332,6 +332,7 @@ export interface SceneStaticAtmosphereProfile {
   preset: SceneStaticAtmospherePreset;
   emissiveBoost: number;
   roadRoughnessScale: number;
+  wetRoadBoost: number;
 }
 
 export interface BuildingPodiumSpec {

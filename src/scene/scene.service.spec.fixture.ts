@@ -290,6 +290,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
         preset: 'DAY_CLEAR',
         emissiveBoost: 1,
         roadRoughnessScale: 1,
+        wetRoadBoost: 0,
       },
       annotationsApplied: [],
       provenance: {

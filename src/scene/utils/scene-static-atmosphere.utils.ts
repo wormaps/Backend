@@ -21,6 +21,7 @@ export function resolveSceneStaticAtmosphereProfile(
       preset: 'NIGHT_NEON',
       emissiveBoost: 1.25,
       roadRoughnessScale: 0.9,
+      wetRoadBoost: 0.45,
     };
   }
 
@@ -29,6 +30,7 @@ export function resolveSceneStaticAtmosphereProfile(
       preset: 'EVENING_BALANCED',
       emissiveBoost: 1.1,
       roadRoughnessScale: 0.95,
+      wetRoadBoost: 0.22,
     };
   }
 
@@ -36,5 +38,6 @@ export function resolveSceneStaticAtmosphereProfile(
     preset: 'DAY_CLEAR',
     emissiveBoost: 1,
     roadRoughnessScale: 1,
+    wetRoadBoost: 0,
   };
 }
