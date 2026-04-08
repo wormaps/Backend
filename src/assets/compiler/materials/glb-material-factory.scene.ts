@@ -67,6 +67,7 @@ export interface SceneMaterials {
   sidewalk: any;
   curb: any;
   median: any;
+  greenStrip: any;
   sidewalkEdge: any;
   trafficLight: any;
   streetLight: any;
@@ -119,11 +120,11 @@ export function createSceneMaterials(
       .setRoughnessFactor(1),
     roadBase: doc
       .createMaterial('road-base')
-      .setBaseColorFactor([0.2, 0.21, 0.22, 1])
+      .setBaseColorFactor([0.17, 0.18, 0.2, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.96, tuning.roadRoughnessScale),
+          scaleRoughness(0.9, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
@@ -144,25 +145,25 @@ export function createSceneMaterials(
       .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
     laneOverlay: doc
       .createMaterial('lane-overlay')
-      .setBaseColorFactor([0.9, 0.84, 0.62, 1])
+      .setBaseColorFactor([0.94, 0.88, 0.68, 1])
       .setEmissiveFactor(
-        scaleEmissive([0.06, 0.05, 0.02], tuning.emissiveBoost),
+        scaleEmissive([0.09, 0.08, 0.04], tuning.emissiveBoost),
       )
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.78, tuning.roadRoughnessScale),
+          scaleRoughness(0.7, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
     crosswalk: doc
       .createMaterial('crosswalk')
-      .setBaseColorFactor([0.88, 0.88, 0.85, 1])
-      .setEmissiveFactor(scaleEmissive([0.1, 0.1, 0.08], tuning.emissiveBoost))
+      .setBaseColorFactor([0.95, 0.95, 0.92, 1])
+      .setEmissiveFactor(scaleEmissive([0.15, 0.14, 0.1], tuning.emissiveBoost))
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.9, tuning.roadRoughnessScale),
+          scaleRoughness(0.64, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
@@ -181,24 +182,29 @@ export function createSceneMaterials(
       ),
     sidewalk: doc
       .createMaterial('sidewalk')
-      .setBaseColorFactor([0.62, 0.61, 0.58, 1])
+      .setBaseColorFactor([0.58, 0.57, 0.54, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.98),
+      .setRoughnessFactor(0.99),
     curb: doc
       .createMaterial('curb')
-      .setBaseColorFactor([0.72, 0.71, 0.68, 1])
+      .setBaseColorFactor([0.82, 0.81, 0.78, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.92),
+      .setRoughnessFactor(0.76),
     median: doc
       .createMaterial('median')
-      .setBaseColorFactor([0.35, 0.52, 0.32, 1])
+      .setBaseColorFactor([0.36, 0.55, 0.33, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.96),
+      .setRoughnessFactor(0.93),
+    greenStrip: doc
+      .createMaterial('green-strip')
+      .setBaseColorFactor([0.26, 0.62, 0.3, 1])
+      .setMetallicFactor(0)
+      .setRoughnessFactor(0.86),
     sidewalkEdge: doc
       .createMaterial('sidewalk-edge')
-      .setBaseColorFactor([0.68, 0.67, 0.64, 1])
+      .setBaseColorFactor([0.74, 0.73, 0.7, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.94),
+      .setRoughnessFactor(0.82),
     trafficLight: doc
       .createMaterial('traffic-light')
       .setBaseColorFactor([0.12, 0.13, 0.14, 1])
@@ -281,9 +287,9 @@ export function createSceneMaterials(
       .setRoughnessFactor(0.4),
     landCoverPlaza: doc
       .createMaterial('landcover-plaza')
-      .setBaseColorFactor([0.79, 0.75, 0.66, 1])
+      .setBaseColorFactor([0.86, 0.83, 0.76, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.95),
+      .setRoughnessFactor(0.72),
     linearRailway: doc
       .createMaterial('linear-railway')
       .setBaseColorFactor([0.42, 0.42, 0.44, 1])

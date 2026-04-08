@@ -210,6 +210,7 @@ export function createCrosswalkGeometry(
   crossings: SceneCrossingDetail[],
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
+  const crosswalkY = 0.142;
   for (const crossing of crossings) {
     const local = crossing.path
       .map((point) => toLocalPoint(origin, point))
@@ -240,10 +241,10 @@ export function createCrosswalkGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, 0.04, centerZ - dz - nz],
-        [centerX + dx - nx, 0.04, centerZ + dz - nz],
-        [centerX + dx + nx, 0.04, centerZ + dz + nz],
-        [centerX - dx + nx, 0.04, centerZ - dz + nz],
+        [centerX - dx - nx, crosswalkY, centerZ - dz - nz],
+        [centerX + dx - nx, crosswalkY, centerZ + dz - nz],
+        [centerX + dx + nx, crosswalkY, centerZ + dz + nz],
+        [centerX - dx + nx, crosswalkY, centerZ - dz + nz],
       );
     }
   }

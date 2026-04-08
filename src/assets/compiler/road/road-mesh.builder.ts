@@ -31,6 +31,17 @@ import {
 export { createEmptyGeometry, mergeGeometryBuffers };
 export type { GeometryBuffers, Vec3 };
 
+const ROAD_BASE_Y = 0.04;
+const ROAD_MARKING_Y = 0.094;
+const LANE_OVERLAY_Y = 0.108;
+const LANE_OVERLAY_HERO_Y = 0.114;
+const STOP_LINE_Y = 0.1;
+const CROSSWALK_Y = 0.142;
+const CROSSWALK_HERO_Y = 0.146;
+const CROSSWALK_STRIPE_Y = 0.154;
+const JUNCTION_OVERLAY_Y = 0.182;
+const ARROW_MARK_Y = 0.19;
+
 export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const ne = toLocalPoint(sceneMeta.origin, sceneMeta.bounds.northEast);
@@ -58,7 +69,7 @@ export function createRoadBaseGeometry(
       geometry,
       road.path,
       Math.max(3.2, road.widthMeters * widthScale),
-      0.04 + yOffset,
+      ROAD_BASE_Y + yOffset,
     );
   }
   return geometry;
@@ -94,7 +105,7 @@ export function createRoadMarkingsGeometry(
         : marking.type === 'STOP_LINE'
           ? 0.55
           : 1.6;
-    pushPathStrips(origin, geometry, marking.path, width, 0.03);
+    pushPathStrips(origin, geometry, marking.path, width, ROAD_MARKING_Y);
   }
   return geometry;
 }
@@ -126,10 +137,14 @@ export function createRoadDecalPathGeometry(
           : 0.42;
     const y =
       decal.type === 'STOP_LINE'
-        ? 0.042
-        : decal.emphasis === 'hero'
-          ? 0.055
-          : 0.045;
+        ? STOP_LINE_Y
+        : decal.type === 'CROSSWALK_OVERLAY'
+          ? decal.emphasis === 'hero'
+            ? CROSSWALK_HERO_Y
+            : CROSSWALK_Y
+          : decal.emphasis === 'hero'
+            ? LANE_OVERLAY_HERO_Y
+            : LANE_OVERLAY_Y;
     pushPathStrips(origin, geometry, decal.path, width, y);
   }
 
@@ -181,10 +196,10 @@ export function createRoadDecalStripeGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, 0.058, centerZ - dz - nz],
-        [centerX + dx - nx, 0.058, centerZ + dz - nz],
-        [centerX + dx + nx, 0.058, centerZ + dz + nz],
-        [centerX - dx + nx, 0.058, centerZ - dz + nz],
+        [centerX - dx - nx, CROSSWALK_STRIPE_Y, centerZ - dz - nz],
+        [centerX + dx - nx, CROSSWALK_STRIPE_Y, centerZ + dz - nz],
+        [centerX + dx + nx, CROSSWALK_STRIPE_Y, centerZ + dz + nz],
+        [centerX - dx + nx, CROSSWALK_STRIPE_Y, centerZ - dz + nz],
       );
     }
   }
@@ -227,7 +242,12 @@ export function createRoadDecalPolygonGeometry(
       continue;
     }
     const triangles = triangulateRings(ring, [], triangulate);
-    const y = decal.type === 'JUNCTION_OVERLAY' ? 0.052 : 0.058;
+    const y =
+      decal.type === 'JUNCTION_OVERLAY'
+        ? JUNCTION_OVERLAY_Y
+        : decal.type === 'ARROW_MARK'
+          ? ARROW_MARK_Y
+          : CROSSWALK_STRIPE_Y;
     for (const [a, b, c] of triangles) {
       pushTriangle(geometry, [a[0], y, a[2]], [b[0], y, b[2]], [c[0], y, c[2]]);
     }
@@ -271,10 +291,10 @@ export function createCrosswalkGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, 0.045, centerZ - dz - nz],
-        [centerX + dx - nx, 0.045, centerZ + dz - nz],
-        [centerX + dx + nx, 0.045, centerZ + dz + nz],
-        [centerX - dx + nx, 0.045, centerZ - dz + nz],
+        [centerX - dx - nx, CROSSWALK_Y, centerZ - dz - nz],
+        [centerX + dx - nx, CROSSWALK_Y, centerZ + dz - nz],
+        [centerX + dx + nx, CROSSWALK_Y, centerZ + dz + nz],
+        [centerX - dx + nx, CROSSWALK_Y, centerZ - dz + nz],
       );
     }
   }

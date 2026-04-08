@@ -49,6 +49,7 @@ export function createBuildingWindowGeometry(
 }
 
 interface WindowConfig {
+  archetype: WindowArchetype;
   floorCount: number;
   windowsPerFloor: number;
   windowWidth: number;
@@ -60,13 +61,23 @@ interface WindowConfig {
   facadeEdgeOnly: boolean;
   jitterStrength: number;
   skipChance: number;
+  topBlindFloors: number;
+  serviceFloorStep: number;
+  groundFloorRule: 'none' | 'sparse' | 'full';
 }
+
+type WindowArchetype =
+  | 'apartment'
+  | 'office'
+  | 'retail'
+  | 'hotel'
+  | 'industrial';
 
 function resolveWindowConfig(
   building: SceneMeta['buildings'][number],
   hint: SceneFacadeHint,
 ): WindowConfig {
-  const archetype = building.visualArchetype ?? 'commercial_midrise';
+  const archetype = resolveWindowArchetype(building, hint);
   const density = hint.windowPatternDensity ?? 'medium';
   const height = Math.max(4, building.heightMeters);
 
@@ -74,6 +85,7 @@ function resolveWindowConfig(
   const floorCount = Math.max(2, Math.floor(height / floorHeight));
 
   const baseConfig: WindowConfig = {
+    archetype,
     floorCount,
     windowsPerFloor: 4,
     windowWidth: 1.2,
@@ -83,45 +95,55 @@ function resolveWindowConfig(
     sillDepth: 0.12,
     pattern: 'grid',
     facadeEdgeOnly: false,
-    jitterStrength: 0,
+    jitterStrength: 0.006,
     skipChance: 0,
+    topBlindFloors: 0,
+    serviceFloorStep: 0,
+    groundFloorRule: 'full',
   };
 
   switch (archetype) {
-    case 'highrise_office':
+    case 'office':
       return {
         ...baseConfig,
-        windowsPerFloor: density === 'dense' ? 8 : density === 'medium' ? 6 : 4,
+        windowsPerFloor:
+          density === 'dense' ? 10 : density === 'medium' ? 8 : 6,
         windowWidth: density === 'dense' ? 1.5 : 1.4,
         windowHeight: 2.1,
-        windowDepth: density === 'dense' ? 0.18 : 0.16,
+        windowDepth: density === 'dense' ? 0.17 : 0.16,
         pattern: 'grid',
+        topBlindFloors: 1,
+        serviceFloorStep: 8,
+        groundFloorRule: 'sparse',
       };
-    case 'apartment_block':
-    case 'house_compact':
+    case 'apartment':
       return {
         ...baseConfig,
-        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 4 : 3,
-        windowWidth: density === 'dense' ? 1.1 : 1.0,
-        windowHeight: density === 'dense' ? 1.48 : 1.4,
-        pattern: 'scattered',
-        jitterStrength: density === 'dense' ? 0.04 : 0.08,
-        skipChance: density === 'dense' ? 0.08 : 0.14,
+        windowsPerFloor: density === 'dense' ? 7 : density === 'medium' ? 5 : 4,
+        windowWidth: density === 'dense' ? 1.08 : 0.98,
+        windowHeight: density === 'dense' ? 1.5 : 1.42,
+        pattern: 'grid',
+        jitterStrength: density === 'dense' ? 0.012 : 0.016,
+        skipChance: density === 'dense' ? 0.02 : 0.035,
+        topBlindFloors: floorCount >= 8 ? 1 : 0,
+        groundFloorRule: 'sparse',
       };
-    case 'commercial_midrise':
-    case 'mall_podium':
-    case 'lowrise_shop':
+    case 'retail':
       return {
         ...baseConfig,
-        floorCount: Math.max(1, Math.floor(floorCount * 0.6)),
-        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 5 : 3,
-        windowWidth: 1.6,
-        windowHeight: density === 'dense' ? 1.28 : 1.2,
+        floorCount: Math.max(1, Math.min(4, Math.floor(floorCount * 0.45))),
+        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
+        windowWidth: 1.95,
+        windowHeight: density === 'dense' ? 1.38 : 1.26,
         sillDepth: 0.14,
         pattern: 'horizontal',
-        facadeEdgeOnly: density !== 'dense',
+        facadeEdgeOnly: density === 'sparse',
+        jitterStrength: 0.008,
+        skipChance: density === 'dense' ? 0.015 : 0.04,
+        topBlindFloors: 0,
+        groundFloorRule: 'full',
       };
-    case 'hotel_tower':
+    case 'hotel':
       return {
         ...baseConfig,
         windowsPerFloor:
@@ -130,27 +152,74 @@ function resolveWindowConfig(
         windowHeight: 1.6,
         windowDepth: 0.16,
         pattern: 'grid',
+        jitterStrength: 0.008,
+        skipChance: 0.02,
+        topBlindFloors: 1,
+        serviceFloorStep: 6,
+        groundFloorRule: 'sparse',
       };
-    case 'station_like':
-    case 'landmark_special':
+    case 'industrial':
       return {
         ...baseConfig,
-        windowsPerFloor:
-          density === 'dense' ? 14 : density === 'medium' ? 9 : 6,
-        windowWidth: 1.8,
-        windowHeight: density === 'dense' ? 2.28 : 2.2,
-        windowDepth: 0.2,
-        pattern: 'vertical',
-        facadeEdgeOnly: density !== 'dense',
+        floorCount: Math.max(1, Math.min(4, Math.floor(floorCount * 0.5))),
+        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 5 : 4,
+        windowWidth: 2.4,
+        windowHeight: density === 'dense' ? 1.22 : 1.12,
+        windowDepth: 0.14,
+        pattern: 'horizontal',
+        facadeEdgeOnly: false,
+        jitterStrength: 0.005,
+        skipChance: 0.06,
+        topBlindFloors: 0,
+        groundFloorRule: 'none',
       };
     default:
       return {
         ...baseConfig,
-        pattern: 'scattered',
-        jitterStrength: 0.05,
-        skipChance: 0.08,
+        pattern: 'grid',
+        jitterStrength: 0.01,
+        skipChance: 0.03,
       };
   }
+}
+
+function resolveWindowArchetype(
+  building: SceneMeta['buildings'][number],
+  hint: SceneFacadeHint,
+): WindowArchetype {
+  const archetype = (building.visualArchetype ??
+    hint.visualArchetype ??
+    'commercial_midrise') as string;
+  if (archetype === 'apartment_block' || archetype === 'house_compact') {
+    return 'apartment';
+  }
+  if (archetype === 'hotel_tower') {
+    return 'hotel';
+  }
+  if (archetype === 'lowrise_shop' || archetype === 'mall_podium') {
+    return 'retail';
+  }
+  if (archetype === 'station_like') {
+    return 'industrial';
+  }
+  if (archetype === 'highrise_office' || archetype === 'commercial_midrise') {
+    return 'office';
+  }
+
+  if (hint.facadePreset === 'station_metal') {
+    return 'industrial';
+  }
+  if (
+    hint.facadePreset === 'retail_sign_band' ||
+    hint.facadePreset === 'mall_panel'
+  ) {
+    return 'retail';
+  }
+  if (hint.materialClass === 'metal') {
+    return 'industrial';
+  }
+
+  return 'office';
 }
 
 function pushWindowGrid(
@@ -170,10 +239,14 @@ function pushWindowGrid(
   const floorHeight = buildingHeight / Math.max(1, config.floorCount);
 
   for (let floor = 0; floor < config.floorCount; floor += 1) {
-    const floorY = floor * floorHeight + floorHeight * 0.3;
+    const floorY = floor * floorHeight + floorHeight * 0.28;
     const floorTopY = floorY + config.windowHeight;
 
     if (floorTopY > buildingHeight - 0.5) {
+      continue;
+    }
+
+    if (floor >= config.floorCount - config.topBlindFloors) {
       continue;
     }
 
@@ -184,38 +257,102 @@ function pushWindowGrid(
       const randomBase = stableUnitNoise(
         `${frame.a[0].toFixed(2)}:${frame.a[2].toFixed(2)}:${floor}:${col}:${config.pattern}`,
       );
-      if (config.skipChance > 0 && randomBase < config.skipChance) {
+      if (!shouldEmitWindow(config, floor, col, randomBase)) {
         continue;
       }
+      const floorSpec = resolveFloorWindowSpec(config, floor, floorHeight);
       const tBase = (col + 0.5) / config.windowsPerFloor;
-      const t = clamp01(
-        tBase +
-          (config.pattern === 'scattered'
-            ? (randomBase - 0.5) * config.jitterStrength
-            : 0),
-      );
+      const t = clamp01(tBase + (randomBase - 0.5) * config.jitterStrength);
       const centerX = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
       const centerZ = frame.a[2] + (frame.b[2] - frame.a[2]) * t;
       const sizeScale =
-        config.pattern === 'scattered'
-          ? 0.9 +
-            stableUnitNoise(`${floor}:${col}:${config.windowsPerFloor}`) * 0.22
-          : 1;
+        0.96 +
+        stableUnitNoise(`${floor}:${col}:${config.windowsPerFloor}`) * 0.08;
 
       pushWindowFrame(
         geometry,
         frame,
         centerX,
         centerZ,
-        floorY,
-        config.windowWidth * sizeScale,
-        config.windowHeight * sizeScale,
+        floorY + floorSpec.yOffset,
+        floorSpec.windowWidth * sizeScale,
+        floorSpec.windowHeight * sizeScale,
         config.windowDepth,
         config.frameWidth,
         config.sillDepth,
       );
     }
   }
+}
+
+function shouldEmitWindow(
+  config: WindowConfig,
+  floor: number,
+  col: number,
+  randomBase: number,
+): boolean {
+  if (config.groundFloorRule === 'none' && floor === 0) {
+    return false;
+  }
+  if (config.groundFloorRule === 'sparse' && floor === 0 && col % 2 === 1) {
+    return false;
+  }
+  if (
+    config.serviceFloorStep > 0 &&
+    floor > 0 &&
+    floor % config.serviceFloorStep === 0
+  ) {
+    if (config.archetype === 'office') {
+      return col % 3 !== 1;
+    }
+    if (config.archetype === 'hotel') {
+      return col % 4 !== 0;
+    }
+  }
+  if (config.archetype === 'apartment' && floor % 2 === 1 && col % 5 === 0) {
+    return false;
+  }
+  if (config.archetype === 'industrial' && floor > 0 && col % 3 === 2) {
+    return false;
+  }
+  if (config.skipChance > 0 && randomBase < config.skipChance) {
+    return false;
+  }
+  return true;
+}
+
+function resolveFloorWindowSpec(
+  config: WindowConfig,
+  floor: number,
+  floorHeight: number,
+): { windowWidth: number; windowHeight: number; yOffset: number } {
+  if (config.archetype === 'retail' && floor === 0) {
+    return {
+      windowWidth: config.windowWidth * 1.28,
+      windowHeight: Math.max(config.windowHeight * 1.35, floorHeight * 0.68),
+      yOffset: floorHeight * 0.08,
+    };
+  }
+  if (config.archetype === 'industrial') {
+    return {
+      windowWidth: config.windowWidth * 1.2,
+      windowHeight: config.windowHeight * 0.84,
+      yOffset: floorHeight * 0.18,
+    };
+  }
+  if (config.archetype === 'apartment' && floor === 0) {
+    return {
+      windowWidth: config.windowWidth,
+      windowHeight: config.windowHeight * 0.9,
+      yOffset: floorHeight * 0.04,
+    };
+  }
+
+  return {
+    windowWidth: config.windowWidth,
+    windowHeight: config.windowHeight,
+    yOffset: 0,
+  };
 }
 
 function stableUnitNoise(seed: string): number {

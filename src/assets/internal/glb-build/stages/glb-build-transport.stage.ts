@@ -220,7 +220,7 @@ export function addTransportMeshes(
     ctx.buffer,
     'medians',
     createMedianGeometry(sceneMeta.origin, assetSelection.roads),
-    materials.median,
+    materials.greenStrip,
     {
       sourceCount: sceneMeta.roads.filter((road) => road.widthMeters >= 8)
         .length,
