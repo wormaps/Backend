@@ -115,7 +115,7 @@ export function createSceneMaterials(
   return {
     ground: doc
       .createMaterial('ground')
-      .setBaseColorFactor([0.64, 0.64, 0.62, 1])
+      .setBaseColorFactor([0.52, 0.55, 0.5, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(1),
     roadBase: doc

@@ -35,6 +35,16 @@ interface ParsedDiagnosticsEntry {
   }>;
 }
 
+interface GeometryDiagnosticsShape {
+  collisionRiskCount?: number;
+  groundedGapCount?: number;
+}
+type SceneGeometryDiagnosticWithCorrection = {
+  objectId?: string;
+  collisionRiskCount?: number;
+  groundedGapCount?: number;
+};
+
 interface OracleApprovalFilePayload {
   state?: 'APPROVED' | 'REJECTED';
   approvedBy?: string;
@@ -94,6 +104,12 @@ export class SceneQualityGateService {
       thresholds.criticalInvalidGeometryMax
     ) {
       reasonCodes.push('CRITICAL_INVALID_GEOMETRY');
+    }
+    if (this.hasCriticalCollision(sceneDetail.geometryDiagnostics)) {
+      reasonCodes.push('CRITICAL_COLLISION_DETECTED');
+    }
+    if (this.hasCriticalGroundingGap(sceneDetail.geometryDiagnostics)) {
+      reasonCodes.push('CRITICAL_GROUNDING_GAP_DETECTED');
     }
     if (oracleApproval.required && oracleApproval.state !== 'APPROVED') {
       reasonCodes.push('ORACLE_APPROVAL_REQUIRED');
@@ -320,6 +336,38 @@ export class SceneQualityGateService {
       missingSourceCount: skippedNodes.filter(
         (node) => node.skippedReason === 'missing_source',
       ).length,
+    };
+  }
+
+  private hasCriticalCollision(
+    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+  ): boolean {
+    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
+    return (marker?.collisionRiskCount ?? 0) > 0;
+  }
+
+  private hasCriticalGroundingGap(
+    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+  ): boolean {
+    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
+    return (marker?.groundedGapCount ?? 0) > 0;
+  }
+
+  private findGeometryCorrectionDiagnostics(
+    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+  ): GeometryDiagnosticsShape | null {
+    if (!geometryDiagnostics || geometryDiagnostics.length === 0) {
+      return null;
+    }
+    const marker = geometryDiagnostics.find(
+      (item) => item.objectId === '__geometry_correction__',
+    ) as SceneGeometryDiagnosticWithCorrection | null;
+    if (!marker) {
+      return null;
+    }
+    return {
+      collisionRiskCount: marker.collisionRiskCount,
+      groundedGapCount: marker.groundedGapCount,
     };
   }
 }

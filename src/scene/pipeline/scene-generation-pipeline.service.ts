@@ -3,6 +3,7 @@ import { AppLoggerService } from '../../common/logging/app-logger.service';
 import { SceneAssetProfileStep } from './steps/scene-asset-profile.step';
 import { SceneFidelityPlanStep } from './steps/scene-fidelity-plan.step';
 import { SceneGlbBuildStep } from './steps/scene-glb-build.step';
+import { SceneGeometryCorrectionStep } from './steps/scene-geometry-correction.step';
 import { SceneHeroOverrideStep } from './steps/scene-hero-override.step';
 import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './steps/scene-place-package.step';
@@ -26,6 +27,7 @@ export class SceneGenerationPipelineService {
     private readonly sceneHeroOverrideStep: SceneHeroOverrideStep,
     private readonly sceneAtmosphereRecomputeService: SceneAtmosphereRecomputeService,
     private readonly sceneAssetProfileStep: SceneAssetProfileStep,
+    private readonly sceneGeometryCorrectionStep: SceneGeometryCorrectionStep,
     private readonly sceneGlbBuildStep: SceneGlbBuildStep,
     private readonly appLoggerService: AppLoggerService,
   ) {}
@@ -159,20 +161,26 @@ export class SceneGenerationPipelineService {
       overrideCount: mergedWithAtmosphere.detail.annotationsApplied.length,
     });
 
-    const finalizedMeta = await this.sceneAssetProfileStep.execute(
+    const corrected = this.sceneGeometryCorrectionStep.execute(
       mergedWithAtmosphere.meta,
       mergedWithAtmosphere.detail,
+    );
+
+    const finalizedMeta = await this.sceneAssetProfileStep.execute(
+      corrected.meta,
+      corrected.detail,
       storedScene.scale,
     );
     this.appLoggerService.info('scene.glb_build.started', {
       ...logContext,
       step: 'glb_build',
       detailStatus: mergedWithAtmosphere.detail.detailStatus,
+      geometryDiagnostics: corrected.detail.geometryDiagnostics,
       selected: finalizedMeta.assetProfile.selected,
     });
     const assetPath = await this.sceneGlbBuildStep.execute(
       finalizedMeta,
-      mergedWithAtmosphere.detail,
+      corrected.detail,
       {
         pipelineMs: Date.now() - pipelineStartedAt,
       },
@@ -187,7 +195,7 @@ export class SceneGenerationPipelineService {
       place: resolvedPlace.place,
       placePackage,
       meta: finalizedMeta,
-      detail: mergedWithAtmosphere.detail,
+      detail: corrected.detail,
       assetPath,
     };
   }

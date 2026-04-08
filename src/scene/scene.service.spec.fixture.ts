@@ -17,6 +17,7 @@ import { SceneGenerationPipelineService } from './pipeline/scene-generation-pipe
 import { SceneAssetProfileStep } from './pipeline/steps/scene-asset-profile.step';
 import { SceneFidelityPlanStep } from './pipeline/steps/scene-fidelity-plan.step';
 import { SceneGlbBuildStep } from './pipeline/steps/scene-glb-build.step';
+import { SceneGeometryCorrectionStep } from './pipeline/steps/scene-geometry-correction.step';
 import { SceneHeroOverrideStep } from './pipeline/steps/scene-hero-override.step';
 import { SceneMetaBuilderStep } from './pipeline/steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './pipeline/steps/scene-place-package.step';
@@ -170,6 +171,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneMetaBuilderStep,
       SceneHeroOverrideStep,
       SceneAssetProfileStep,
+      SceneGeometryCorrectionStep,
       SceneGlbBuildStep,
       SceneReadService,
       SceneStateLiveService,

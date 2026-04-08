@@ -96,6 +96,8 @@ export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
   podiumSpec?: BuildingPodiumSpec;
   signageSpec?: BuildingSignageSpec;
   roofSpec?: BuildingRoofSpec;
+  collisionRisk?: 'none' | 'road_overlap';
+  groundOffsetM?: number;
 }
 
 export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {

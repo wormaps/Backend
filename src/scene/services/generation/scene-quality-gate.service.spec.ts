@@ -4,6 +4,17 @@ import { join } from 'node:path';
 import { SceneQualityGateService } from './scene-quality-gate.service';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
 
+type SceneGeometryDiagnosticWithCorrection = {
+  objectId: string;
+  strategy: 'fallback_massing';
+  fallbackApplied: boolean;
+  fallbackReason: 'NONE';
+  hasHoles: false;
+  polygonComplexity: 'simple';
+  collisionRiskCount: number;
+  groundedGapCount: number;
+};
+
 function coordinate(lat: number, lng: number) {
   return { lat, lng };
 }
@@ -87,6 +98,45 @@ describe('SceneQualityGateService', () => {
     expect(rejectedResult.oracleApproval.state).toBe('REJECTED');
     expect(rejectedResult.state).toBe('FAIL');
     expect(rejectedResult.reasonCodes).toContain('ORACLE_APPROVAL_REQUIRED');
+  });
+
+  it('fails when geometry diagnostics report collisions and grounding gaps', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-geom-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-geometry';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+    const correctionDiagnostic: SceneGeometryDiagnosticWithCorrection = {
+      objectId: '__geometry_correction__',
+      strategy: 'fallback_massing',
+      fallbackApplied: true,
+      fallbackReason: 'NONE',
+      hasHoles: false,
+      polygonComplexity: 'simple',
+      collisionRiskCount: 3,
+      groundedGapCount: 1,
+    };
+    detail.geometryDiagnostics = [
+      correctionDiagnostic as unknown as NonNullable<
+        SceneDetail['geometryDiagnostics']
+      >[number],
+    ];
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: [{ name: 'road_base', skipped: false }],
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.state).toBe('FAIL');
+    expect(result.reasonCodes).toContain('CRITICAL_COLLISION_DETECTED');
+    expect(result.reasonCodes).toContain('CRITICAL_GROUNDING_GAP_DETECTED');
   });
 });
 

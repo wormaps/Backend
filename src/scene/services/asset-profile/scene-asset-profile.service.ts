@@ -269,7 +269,7 @@ export class SceneAssetProfileService {
     }
 
     return {
-      buildingCount: 520,
+      buildingCount: 760,
       roadCount: 260,
       walkwayCount: 320,
       poiCount: 120,
