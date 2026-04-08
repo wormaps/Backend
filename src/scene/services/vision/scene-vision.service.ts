@@ -45,14 +45,34 @@ export class SceneVisionService {
     >;
     let detailStatus: SceneDetail['detailStatus'] = 'OSM_ONLY';
     let mapillaryUsed = false;
+    let mapillaryImageStrategy:
+      | 'bbox'
+      | 'bbox_expanded'
+      | 'feature_radius'
+      | 'none'
+      | undefined;
+    let mapillaryImageAttempts:
+      | Array<{
+          mode: 'bbox' | 'feature_radius';
+          label: string;
+          resultCount: number;
+        }>
+      | undefined;
 
     if (this.mapillaryClient.isConfigured()) {
       try {
-        [mapillaryImages, mapillaryFeatures] = await Promise.all([
-          this.mapillaryClient.getNearbyImages(bounds),
-          this.mapillaryClient.getMapFeatures(bounds),
-        ]);
-        mapillaryUsed = true;
+        mapillaryFeatures = await this.mapillaryClient.getMapFeatures(bounds);
+        const imageFetch =
+          await this.mapillaryClient.getNearbyImagesWithDiagnostics(bounds, {
+            featureAnchors: mapillaryFeatures.map(
+              (feature) => feature.location,
+            ),
+          });
+        mapillaryImages = imageFetch.images;
+        mapillaryImageStrategy = imageFetch.diagnostics.strategy;
+        mapillaryImageAttempts = imageFetch.diagnostics.attempts;
+        mapillaryUsed =
+          mapillaryImages.length > 0 || mapillaryFeatures.length > 0;
         detailStatus =
           mapillaryImages.length > 0 || mapillaryFeatures.length > 0
             ? 'FULL'
@@ -180,6 +200,8 @@ export class SceneVisionService {
         mapillaryUsed,
         mapillaryImageCount: mapillaryImages.length,
         mapillaryFeatureCount: mapillaryFeatures.length,
+        mapillaryImageStrategy,
+        mapillaryImageAttempts,
         osmTagCoverage: {
           coloredBuildings: placePackage.buildings.filter(
             (building) => building.facadeColor || building.roofColor,

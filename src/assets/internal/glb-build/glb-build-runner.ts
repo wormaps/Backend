@@ -85,6 +85,8 @@ interface FacadeColorDiversityMetrics {
 export class GlbBuildRunner {
   private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
   private readonly sceneAssetProfileService = new SceneAssetProfileService();
+  private totalTriangleBudget = 2_500_000;
+  private totalTriangleCount = 0;
 
   constructor(
     private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
@@ -98,6 +100,7 @@ export class GlbBuildRunner {
     },
   ): Promise<string> {
     const buildStartedAt = Date.now();
+    this.totalTriangleCount = 0;
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
@@ -483,6 +486,22 @@ export class GlbBuildRunner {
       });
       return;
     }
+
+    const triangleCount = geometry.indices.length / 3;
+    if (this.totalTriangleCount + triangleCount > this.totalTriangleBudget) {
+      this.currentMeshDiagnostics.push({
+        name,
+        vertices: geometry.positions.length / 3,
+        triangles: triangleCount,
+        skipped: true,
+        sourceCount: trace.sourceCount,
+        selectedCount: trace.selectedCount,
+        skippedReason: 'polygon_budget_exceeded',
+      });
+      return;
+    }
+
+    this.totalTriangleCount += triangleCount;
 
     this.currentMeshDiagnostics.push({
       name,

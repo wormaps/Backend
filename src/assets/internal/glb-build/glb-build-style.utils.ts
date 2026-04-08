@@ -202,7 +202,7 @@ export function groupFacadeHintsByPanelColor(
       ? hint.panelPalette
       : hint.palette;
     const colorHex = normalizeColor(
-      hint.accentColor ?? hint.trimColor ?? paletteSource[0] ?? '#5a6470',
+      hint.panelPalette?.[0] ?? hint.mainColor ?? paletteSource[0] ?? '#5a6470',
     );
     const tone = resolveAccentToneFromPalette(paletteSource);
     const panelPreset = hint.facadePreset ?? 'default';

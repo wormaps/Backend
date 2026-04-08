@@ -321,6 +321,16 @@ export interface SceneDetail {
     mapillaryUsed: boolean;
     mapillaryImageCount: number;
     mapillaryFeatureCount: number;
+    mapillaryImageStrategy?:
+      | 'bbox'
+      | 'bbox_expanded'
+      | 'feature_radius'
+      | 'none';
+    mapillaryImageAttempts?: Array<{
+      mode: 'bbox' | 'feature_radius';
+      label: string;
+      resultCount: number;
+    }>;
     osmTagCoverage: {
       coloredBuildings: number;
       materialBuildings: number;

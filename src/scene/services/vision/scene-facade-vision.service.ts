@@ -106,6 +106,7 @@ export class SceneFacadeVisionService {
       const channels = resolveFacadeColorChannels({
         palette,
         roofColor: building.roofColor,
+        districtProfile: context.districtProfile,
       });
       const districtResolution = resolveDistrictCluster({
         building,

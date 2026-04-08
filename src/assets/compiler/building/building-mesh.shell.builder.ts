@@ -113,6 +113,15 @@ function pushBuildingByStrategy(
 
   const strategy = resolveBuildingGeometryStrategy(building, holes, outerRing);
   const height = Math.max(4, building.heightMeters);
+  const lodLevel = (building as { lodLevel?: string }).lodLevel ?? 'HIGH';
+
+  const simplifiedRing =
+    lodLevel === 'LOW'
+      ? simplifyRing(outerRing, 1.5)
+      : lodLevel === 'MEDIUM'
+        ? simplifyRing(outerRing, 0.8)
+        : outerRing;
+  const simplifiedHoles = lodLevel === 'LOW' ? [] : holes;
 
   switch (strategy) {
     case 'podium_tower': {
@@ -122,50 +131,64 @@ function pushBuildingByStrategy(
       );
       pushExtrudedPolygon(
         geometry,
-        outerRing,
-        holes,
+        simplifiedRing,
+        simplifiedHoles,
         0,
         podiumHeight,
         triangulate,
       );
-      const insetRatio = building.cornerChamfer ? 0.2 : 0.14;
-      const towerRing = insetRing(outerRing, insetRatio);
-      if (towerRing.length >= 3) {
-        const towerTop = Math.max(podiumHeight + 4, height);
-        pushExtrudedPolygon(
-          geometry,
-          towerRing,
-          [],
-          podiumHeight,
-          towerTop,
-          triangulate,
-        );
+      if (lodLevel === 'HIGH') {
+        const insetRatio = building.cornerChamfer ? 0.2 : 0.14;
+        const towerRing = insetRing(simplifiedRing, insetRatio);
+        if (towerRing.length >= 3) {
+          const towerTop = Math.max(podiumHeight + 4, height);
+          pushExtrudedPolygon(
+            geometry,
+            towerRing,
+            [],
+            podiumHeight,
+            towerTop,
+            triangulate,
+          );
+        }
       }
       break;
     }
     case 'stepped_tower': {
       const baseTop = Math.max(8, height * 0.58);
-      pushExtrudedPolygon(geometry, outerRing, holes, 0, baseTop, triangulate);
-      let currentRing = outerRing;
-      const stageCount = Math.max(2, Math.min(3, building.setbackLevels ?? 2));
-      for (let stage = 0; stage < stageCount; stage += 1) {
-        currentRing = insetRing(currentRing, 0.12 + stage * 0.04);
-        if (currentRing.length < 3) {
-          break;
-        }
-        const stageMin = baseTop + stage * ((height - baseTop) / stageCount);
-        const stageMax =
-          stage === stageCount - 1
-            ? height
-            : baseTop + (stage + 1) * ((height - baseTop) / stageCount);
-        pushExtrudedPolygon(
-          geometry,
-          currentRing,
-          [],
-          stageMin,
-          stageMax,
-          triangulate,
+      pushExtrudedPolygon(
+        geometry,
+        simplifiedRing,
+        simplifiedHoles,
+        0,
+        baseTop,
+        triangulate,
+      );
+      if (lodLevel === 'HIGH') {
+        let currentRing = simplifiedRing;
+        const stageCount = Math.max(
+          2,
+          Math.min(3, building.setbackLevels ?? 2),
         );
+        for (let stage = 0; stage < stageCount; stage += 1) {
+          currentRing = insetRing(currentRing, 0.12 + stage * 0.04);
+          if (currentRing.length < 3) {
+            break;
+          }
+          const stageMin = baseTop + stage * ((height - baseTop) / stageCount);
+          const stageMax =
+            stage === stageCount - 1
+              ? height
+              : baseTop + (stage + 1) * ((height - baseTop) / stageCount);
+          pushExtrudedPolygon(
+            geometry,
+            currentRing,
+            [],
+            stageMin,
+            stageMax,
+            triangulate,
+          );
+        }
       }
       break;
     }
@@ -173,21 +196,30 @@ function pushBuildingByStrategy(
       const roofBaseHeight = Math.max(3.2, height * 0.72);
       pushExtrudedPolygon(
         geometry,
-        outerRing,
-        holes,
+        simplifiedRing,
+        simplifiedHoles,
         0,
         roofBaseHeight,
         triangulate,
       );
-      pushGableRoof(geometry, outerRing, roofBaseHeight, height);
+      if (lodLevel === 'HIGH') {
+        pushGableRoof(geometry, simplifiedRing, roofBaseHeight, height);
+      }
       break;
     }
     case 'courtyard_block': {
-      pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
+      pushExtrudedPolygon(
+        geometry,
+        simplifiedRing,
+        simplifiedHoles,
+        0,
+        height,
+        triangulate,
+      );
       break;
     }
     case 'fallback_massing': {
-      const bounds = computeBounds(outerRing);
+      const bounds = computeBounds(simplifiedRing);
       pushBox(
         geometry,
         [bounds.minX, 0, bounds.minZ],
@@ -197,7 +229,14 @@ function pushBuildingByStrategy(
     }
     case 'simple_extrude':
     default: {
-      pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
+      pushExtrudedPolygon(
+        geometry,
+        simplifiedRing,
+        simplifiedHoles,
+        0,
+        height,
+        triangulate,
+      );
       break;
     }
   }
@@ -408,4 +447,34 @@ function resolveBuildingGeometryStrategy(
     return 'fallback_massing';
   }
   return building.geometryStrategy ?? 'simple_extrude';
+}
+
+function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {
+  if (ring.length <= 4) {
+    return ring;
+  }
+  const result: Vec3[] = [ring[0]];
+  for (let i = 1; i < ring.length - 1; i += 1) {
+    const prev = result[result.length - 1];
+    const curr = ring[i];
+    const dist = Math.sqrt((curr[0] - prev[0]) ** 2 + (curr[2] - prev[2]) ** 2);
+    if (dist >= tolerance) {
+      result.push(curr);
+    }
+  }
+  result.push(ring[ring.length - 1]);
+  return result.length >= 3 ? result : ring;
+}
+
+function simplifyRingToBox(ring: Vec3[]): Vec3[] {
+  if (ring.length <= 4) {
+    return ring;
+  }
+  const bounds = computeBounds(ring);
+  return [
+    [bounds.minX, 0, bounds.minZ],
+    [bounds.maxX, 0, bounds.minZ],
+    [bounds.maxX, 0, bounds.maxZ],
+    [bounds.minX, 0, bounds.maxZ],
+  ];
 }

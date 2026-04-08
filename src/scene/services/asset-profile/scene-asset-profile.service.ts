@@ -38,31 +38,47 @@ export class SceneAssetProfileService {
     const roadCoreRadiusMeters = scale === 'MEDIUM' ? 360 : 180;
     const walkwayCoreRadiusMeters = scale === 'MEDIUM' ? 320 : 170;
 
+    const allBuildingsWithDistance = sceneMeta.buildings.map((building) => {
+      const center = averageCoordinate(building.outerRing) ?? sceneMeta.origin;
+      return {
+        ...building,
+        _distanceM: distanceMeters(center, sceneMeta.origin),
+      };
+    });
+
     const buildings = selectPrioritizedSample(
-      sceneMeta.buildings,
+      allBuildingsWithDistance,
       budget.buildingCount,
       [
         selectItemsWithinRadius(
-          sceneMeta.buildings,
+          allBuildingsWithDistance,
           sceneMeta.origin,
           (building) =>
             averageCoordinate(building.outerRing) ?? sceneMeta.origin,
           coreRadiusMeters,
         ),
-        sceneMeta.buildings.filter(
+        allBuildingsWithDistance.filter(
           (building) =>
             building.heightMeters >= 28 ||
             building.usage === 'COMMERCIAL' ||
             building.usage === 'TRANSIT',
         ),
-        sceneMeta.buildings.filter(
+        allBuildingsWithDistance.filter(
           (building) =>
             building.visualRole && building.visualRole !== 'generic',
         ),
       ],
       (building) => averageCoordinate(building.outerRing) ?? sceneMeta.origin,
       sceneMeta,
-    );
+    ).map((building) => {
+      const center = averageCoordinate(building.outerRing) ?? sceneMeta.origin;
+      const dist = distanceMeters(center, sceneMeta.origin);
+      const lodLevel = dist <= 200 ? 'HIGH' : dist <= 400 ? 'MEDIUM' : 'LOW';
+      return {
+        ...building,
+        lodLevel,
+      };
+    }) as SceneMeta['buildings'];
     const crossings = this.selectCrossings(
       sceneDetail.crossings,
       budget.crossingCount,

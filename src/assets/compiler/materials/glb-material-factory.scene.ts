@@ -124,7 +124,7 @@ export function createSceneMaterials(
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.9, tuning.roadRoughnessScale),
+          scaleRoughness(0.65, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
@@ -134,7 +134,7 @@ export function createSceneMaterials(
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.94, tuning.roadRoughnessScale),
+          scaleRoughness(0.72, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
@@ -184,7 +184,7 @@ export function createSceneMaterials(
       .createMaterial('sidewalk')
       .setBaseColorFactor([0.58, 0.57, 0.54, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(0.99),
+      .setRoughnessFactor(0.78),
     curb: doc
       .createMaterial('curb')
       .setBaseColorFactor([0.82, 0.81, 0.78, 1])
@@ -424,7 +424,8 @@ export function createBuildingShellMaterial(
     .createMaterial(`building-shell-${materialClass}-${explicitHex ?? bucket}`)
     .setBaseColorFactor([r, g, b, 1])
     .setMetallicFactor(adjustedSurface.metallicFactor)
-    .setRoughnessFactor(adjustedSurface.roughnessFactor);
+    .setRoughnessFactor(adjustedSurface.roughnessFactor)
+    .setDoubleSided(true);
 }
 
 export function createBuildingPanelMaterial(

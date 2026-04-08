@@ -67,6 +67,7 @@ export function uniquePalette(
 export function resolveFacadeColorChannels(input: {
   palette: string[];
   roofColor?: string | null;
+  districtProfile?: FacadeContext['districtProfile'];
 }): {
   mainColor: string;
   accentColor: string;
@@ -74,15 +75,22 @@ export function resolveFacadeColorChannels(input: {
   roofColor: string;
 } {
   const base = normalizeColor(input.palette[0] ?? '#8e939a');
-  const accent = ensureDistinctColor(
-    normalizeColor(input.palette[1] ?? darkenHex(base, 0.92)),
+  const districtAccent = resolveDistrictAccent(
+    input.districtProfile ?? 'RESIDENTIAL_EDGE',
     base,
-    () => darkenHex(base, 0.86),
   );
+  const accentSeed = normalizeColor(
+    isNearNeutral(base)
+      ? districtAccent
+      : (input.palette[1] ?? darkenHex(base, 0.82)),
+  );
+  const accent = ensureDistinctColor(accentSeed, base, () => districtAccent);
   const trim = ensureDistinctColor(
-    normalizeColor(input.palette[2] ?? desaturateHex(base, 0.18)),
+    normalizeColor(
+      input.palette[2] ?? desaturateHex(darkenHex(base, 0.9), 0.08),
+    ),
     base,
-    () => desaturateHex(darkenHex(base, 0.9), 0.22),
+    () => desaturateHex(darkenHex(districtAccent, 0.86), 0.18),
   );
   const roof = ensureDistinctColor(
     normalizeColor(input.roofColor ?? darkenHex(base, 0.84)),
@@ -105,6 +113,34 @@ function resolveContextualMaterialClass(
   materialClass: MaterialClass;
   contextualUpgrade: boolean;
 } {
+  const hasExplicitGlassMaterial = [
+    building.facadeMaterial,
+    building.roofMaterial,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes('glass'));
+
+  const shouldReduceInferredCommercialGlass =
+    style.materialClass === 'glass' &&
+    !hasExplicitGlassMaterial &&
+    style.preset !== 'glass_tower' &&
+    (building.usage === 'COMMERCIAL' || building.usage === 'MIXED') &&
+    (context.districtProfile === 'NEON_CORE' ||
+      context.districtProfile === 'COMMERCIAL_STRIP' ||
+      context.districtProfile === 'TRANSIT_HUB');
+
+  if (shouldReduceInferredCommercialGlass) {
+    const selector = stableIndex(
+      `${building.id}:inferred-commercial-glass:${context.districtProfile}`,
+      8,
+    );
+    return {
+      materialClass:
+        selector <= 4 ? 'metal' : selector <= 6 ? 'concrete' : 'glass',
+      contextualUpgrade: true,
+    };
+  }
+
   if (style.materialClass !== 'mixed') {
     if (
       style.materialClass === 'concrete' &&
@@ -120,10 +156,12 @@ function resolveContextualMaterialClass(
         materialClass:
           stableIndex(
             `${building.id}:commercial-upgrade:${context.districtProfile}`,
-            4,
-          ) <= 1
+            6,
+          ) <= 3
             ? 'metal'
-            : 'glass',
+            : stableIndex(`${building.id}:commercial-upgrade-fallback`, 3) === 0
+              ? 'glass'
+              : 'concrete',
         contextualUpgrade: true,
       };
     }
@@ -141,7 +179,11 @@ function resolveContextualMaterialClass(
   ) {
     return {
       materialClass:
-        stableIndex(`${building.id}:transit`, 2) === 0 ? 'metal' : 'glass',
+        stableIndex(`${building.id}:transit`, 6) <= 3
+          ? 'metal'
+          : stableIndex(`${building.id}:transit-fallback`, 3) === 0
+            ? 'glass'
+            : 'concrete',
       contextualUpgrade: false,
     };
   }
@@ -156,8 +198,12 @@ function resolveContextualMaterialClass(
         context.tallNeighborCount >= 2 ||
         context.crossingCount >= 2 ||
         context.poiNeighborCount >= 3
-          ? 'glass'
-          : 'metal',
+          ? stableIndex(`${building.id}:commercial-heavy`, 5) === 0
+            ? 'glass'
+            : 'metal'
+          : stableIndex(`${building.id}:commercial-light`, 4) === 0
+            ? 'glass'
+            : 'concrete',
       contextualUpgrade: false,
     };
   }
@@ -415,9 +461,9 @@ function resolveDistrictBias(profile: FacadeContext['districtProfile']): {
   // Oracle guardrail: keep this small (≈8%), cap at 12%
   switch (profile) {
     case 'NEON_CORE':
-      return { satDelta: 0.08, lumDelta: -0.03 };
+      return { satDelta: 0.11, lumDelta: -0.032 };
     case 'COMMERCIAL_STRIP':
-      return { satDelta: 0.05, lumDelta: 0.015 };
+      return { satDelta: 0.075, lumDelta: 0.012 };
     case 'TRANSIT_HUB':
       return { satDelta: -0.03, lumDelta: 0.01 };
     case 'CIVIC_CLUSTER':
@@ -602,4 +648,30 @@ function hexToRgb(hex: string): [number, number, number] {
 
 function normalizeColor(value: string): string {
   return new BuildingStyleResolverService().normalizeColor(value);
+}
+
+function isNearNeutral(hex: string): boolean {
+  const [r, g, b] = hexToRgb(hex);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  return max - min < 0.13;
+}
+
+function resolveDistrictAccent(
+  profile: FacadeContext['districtProfile'],
+  base: string,
+): string {
+  const variants =
+    profile === 'NEON_CORE'
+      ? ['#ff5d5d', '#ff7a59', '#ffb703', '#7c4dff']
+      : profile === 'COMMERCIAL_STRIP'
+        ? ['#3eaed8', '#4f9bb7', '#00bcd4', '#5aa9e6']
+        : profile === 'TRANSIT_HUB'
+          ? ['#4f7ca8', '#5f7f9f', '#6886a1', '#5e8faf']
+          : profile === 'CIVIC_CLUSTER'
+            ? ['#5f7f9f', '#74879a', '#6b7f90', '#7a8ea3']
+            : ['#5c8b61', '#6a8f73', '#4f9bb7', '#8a7f6b'];
+  const accent =
+    variants[stableIndex(`${profile}:${base}`, variants.length)] ?? '#5c8b61';
+  return ensureDistinctColor(accent, base, () => darkenHex(accent, 0.88));
 }
