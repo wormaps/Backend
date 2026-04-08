@@ -27,10 +27,10 @@ export const MODE_POLICY_MATRIX: Record<SceneModePolicyId, SceneModePolicy> = {
   procedural_only: {
     id: 'procedural_only',
     stage: {
-      includeRoadDecal: false,
+      includeRoadDecal: true,
       includeEmissiveBillboard: false,
       includeHeroBuilding: false,
-      includeMinorFurniture: false,
+      includeMinorFurniture: true,
       includeLandmarkExtras: false,
     },
     density: {

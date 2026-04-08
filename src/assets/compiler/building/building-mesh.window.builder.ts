@@ -17,12 +17,10 @@ export function createBuildingWindowGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const hintMap = new Map(facadeHints.map((hint) => [hint.objectId, hint]));
+  const fallbackHint = buildFallbackFacadeHint(facadeHints[0]);
 
   for (const building of buildings) {
-    const hint = hintMap.get(building.objectId);
-    if (!hint) {
-      continue;
-    }
+    const hint = hintMap.get(building.objectId) ?? fallbackHint;
 
     const outerRing = normalizeLocalRing(
       toLocalRing(origin, building.outerRing),
@@ -112,8 +110,8 @@ function resolveWindowConfig(
         windowHeight: 2.1,
         windowDepth: density === 'dense' ? 0.17 : 0.16,
         pattern: 'grid',
-        topBlindFloors: 1,
-        serviceFloorStep: 8,
+        topBlindFloors: floorCount >= 14 ? 1 : 0,
+        serviceFloorStep: 12,
         groundFloorRule: 'sparse',
       };
     case 'apartment':
@@ -124,8 +122,8 @@ function resolveWindowConfig(
         windowHeight: density === 'dense' ? 1.5 : 1.42,
         pattern: 'grid',
         jitterStrength: density === 'dense' ? 0.012 : 0.016,
-        skipChance: density === 'dense' ? 0.02 : 0.035,
-        topBlindFloors: floorCount >= 8 ? 1 : 0,
+        skipChance: density === 'dense' ? 0.01 : 0.02,
+        topBlindFloors: floorCount >= 12 ? 1 : 0,
         groundFloorRule: 'sparse',
       };
     case 'retail':
@@ -137,9 +135,9 @@ function resolveWindowConfig(
         windowHeight: density === 'dense' ? 1.38 : 1.26,
         sillDepth: 0.14,
         pattern: 'horizontal',
-        facadeEdgeOnly: density === 'sparse',
+        facadeEdgeOnly: false,
         jitterStrength: 0.008,
-        skipChance: density === 'dense' ? 0.015 : 0.04,
+        skipChance: density === 'dense' ? 0.008 : 0.015,
         topBlindFloors: 0,
         groundFloorRule: 'full',
       };
@@ -153,9 +151,9 @@ function resolveWindowConfig(
         windowDepth: 0.16,
         pattern: 'grid',
         jitterStrength: 0.008,
-        skipChance: 0.02,
-        topBlindFloors: 1,
-        serviceFloorStep: 6,
+        skipChance: 0.01,
+        topBlindFloors: floorCount >= 16 ? 1 : 0,
+        serviceFloorStep: 10,
         groundFloorRule: 'sparse',
       };
     case 'industrial':
@@ -169,7 +167,7 @@ function resolveWindowConfig(
         pattern: 'horizontal',
         facadeEdgeOnly: false,
         jitterStrength: 0.005,
-        skipChance: 0.06,
+        skipChance: 0.03,
         topBlindFloors: 0,
         groundFloorRule: 'none',
       };
@@ -178,7 +176,7 @@ function resolveWindowConfig(
         ...baseConfig,
         pattern: 'grid',
         jitterStrength: 0.01,
-        skipChance: 0.03,
+        skipChance: 0.015,
       };
   }
 }
@@ -362,6 +360,48 @@ function stableUnitNoise(seed: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0) / 4294967295;
+}
+
+function buildFallbackFacadeHint(seedHint?: SceneFacadeHint): SceneFacadeHint {
+  return {
+    objectId: '__fallback__',
+    anchor: { lat: 0, lng: 0 },
+    facadeEdgeIndex: null,
+    windowBands: 0,
+    billboardEligible: false,
+    palette: seedHint?.palette ?? ['#b0b4bc'],
+    materialClass: seedHint?.materialClass ?? 'mixed',
+    signageDensity: seedHint?.signageDensity ?? 'low',
+    emissiveStrength: seedHint?.emissiveStrength ?? 0,
+    glazingRatio: seedHint?.glazingRatio ?? 0.28,
+    visualArchetype: seedHint?.visualArchetype,
+    geometryStrategy: seedHint?.geometryStrategy,
+    facadePreset: seedHint?.facadePreset,
+    podiumLevels: seedHint?.podiumLevels,
+    setbackLevels: seedHint?.setbackLevels,
+    cornerChamfer: seedHint?.cornerChamfer,
+    roofAccentType: seedHint?.roofAccentType,
+    windowPatternDensity: seedHint?.windowPatternDensity ?? 'medium',
+    signBandLevels: seedHint?.signBandLevels,
+    shellPalette: seedHint?.shellPalette,
+    panelPalette: seedHint?.panelPalette,
+    mainColor: seedHint?.mainColor,
+    accentColor: seedHint?.accentColor,
+    trimColor: seedHint?.trimColor,
+    roofColor: seedHint?.roofColor,
+    weakEvidence: true,
+    contextProfile: seedHint?.contextProfile,
+    districtCluster: seedHint?.districtCluster,
+    districtConfidence: seedHint?.districtConfidence,
+    evidenceStrength: seedHint?.evidenceStrength,
+    contextualMaterialUpgrade: seedHint?.contextualMaterialUpgrade,
+    visualRole: seedHint?.visualRole,
+    baseMass: seedHint?.baseMass,
+    facadeSpec: seedHint?.facadeSpec,
+    podiumSpec: seedHint?.podiumSpec,
+    signageSpec: seedHint?.signageSpec,
+    roofSpec: seedHint?.roofSpec,
+  };
 }
 
 function clamp01(value: number): number {

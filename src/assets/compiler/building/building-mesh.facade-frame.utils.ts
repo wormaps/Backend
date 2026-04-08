@@ -45,7 +45,7 @@ export function buildFacadeFrame(
   const centroid = averagePoint(ring);
   const edge = [next[0] - current[0], 0, next[2] - current[2]] as Vec3;
   const edgeLength = Math.hypot(edge[0], edge[2]);
-  if (edgeLength <= 0.4) {
+  if (edgeLength <= 0.28) {
     return null;
   }
   let normal: Vec3 = [-edge[2] / edgeLength, 0, edge[0] / edgeLength];

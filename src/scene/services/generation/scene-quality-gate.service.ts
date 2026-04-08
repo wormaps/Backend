@@ -186,7 +186,9 @@ export class SceneQualityGateService {
 
     const skippedNodes = meshNodes.filter((node) => node.skipped === true);
     const polygonBudgetNodes = skippedNodes.filter(
-      (node) => node.skippedReason === 'polygon_budget_exceeded',
+      (node) =>
+        node.skippedReason === 'polygon_budget_exceeded' ||
+        node.skippedReason === 'polygon_budget_reserved_for_critical',
     );
     const invalidNodes = skippedNodes.filter(
       (node) => node.skippedReason === 'empty_or_invalid_geometry',

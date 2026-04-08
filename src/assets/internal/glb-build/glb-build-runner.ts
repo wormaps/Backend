@@ -87,6 +87,21 @@ export class GlbBuildRunner {
   private readonly sceneAssetProfileService = new SceneAssetProfileService();
   private totalTriangleBudget = 2_500_000;
   private totalTriangleCount = 0;
+  private protectedTriangleCount = 0;
+  private readonly protectedTriangleReserve = 180_000;
+  private readonly budgetProtectedMeshNames = new Set<string>([
+    'road_base',
+    'road_edges',
+    'road_markings',
+    'lane_overlay',
+    'crosswalk_overlay',
+    'junction_overlay',
+    'building_windows',
+    'traffic_lights',
+    'street_lights',
+    'sign_poles',
+  ]);
+  private readonly budgetProtectedMeshPrefixes = ['building_panels_'];
 
   constructor(
     private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
@@ -101,6 +116,7 @@ export class GlbBuildRunner {
   ): Promise<string> {
     const buildStartedAt = Date.now();
     this.totalTriangleCount = 0;
+    this.protectedTriangleCount = 0;
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
@@ -488,6 +504,28 @@ export class GlbBuildRunner {
     }
 
     const triangleCount = geometry.indices.length / 3;
+    const isBudgetProtectedMesh = this.isBudgetProtectedMesh(name);
+    if (!isBudgetProtectedMesh) {
+      const nonProtectedBudget = Math.max(
+        0,
+        this.totalTriangleBudget - this.protectedTriangleReserve,
+      );
+      const nonProtectedTriangleCount =
+        this.totalTriangleCount - this.protectedTriangleCount;
+      if (nonProtectedTriangleCount + triangleCount > nonProtectedBudget) {
+        this.currentMeshDiagnostics.push({
+          name,
+          vertices: geometry.positions.length / 3,
+          triangles: triangleCount,
+          skipped: true,
+          sourceCount: trace.sourceCount,
+          selectedCount: trace.selectedCount,
+          skippedReason: 'polygon_budget_reserved_for_critical',
+        });
+        return;
+      }
+    }
+
     if (this.totalTriangleCount + triangleCount > this.totalTriangleBudget) {
       this.currentMeshDiagnostics.push({
         name,
@@ -502,6 +540,9 @@ export class GlbBuildRunner {
     }
 
     this.totalTriangleCount += triangleCount;
+    if (isBudgetProtectedMesh) {
+      this.protectedTriangleCount += triangleCount;
+    }
 
     this.currentMeshDiagnostics.push({
       name,
@@ -552,6 +593,15 @@ export class GlbBuildRunner {
       return 'selection_cut';
     }
     return 'empty_or_invalid_geometry';
+  }
+
+  private isBudgetProtectedMesh(name: string): boolean {
+    if (this.budgetProtectedMeshNames.has(name)) {
+      return true;
+    }
+    return this.budgetProtectedMeshPrefixes.some((prefix) =>
+      name.startsWith(prefix),
+    );
   }
 
   private normalizeLocalRing(ring: Vec3[], direction: 'CW' | 'CCW'): Vec3[] {

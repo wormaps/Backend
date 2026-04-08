@@ -1,5 +1,6 @@
 import {
   createBuildingPanelsGeometry,
+  createBuildingWindowGeometry,
   createBuildingRoofSurfaceGeometry,
   createBuildingRoofEquipmentGeometry,
   createHeroBillboardPlaneGeometry,
@@ -142,5 +143,13 @@ describe('building-mesh.builder', () => {
 
     expect(roofEquipments.positions.length).toBeGreaterThan(0);
     expect(roofEquipments.indices.length).toBeGreaterThan(0);
+  });
+
+  it('generates fallback windows even when facade hints are missing', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const windows = createBuildingWindowGeometry(origin, [building], []);
+
+    expect(windows.positions.length).toBeGreaterThan(0);
+    expect(windows.indices.length).toBeGreaterThan(0);
   });
 });
