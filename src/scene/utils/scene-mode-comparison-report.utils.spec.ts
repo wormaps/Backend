@@ -278,14 +278,30 @@ describe('buildSceneModeComparisonReport', () => {
     });
 
     expect(report.baseline.mode).toBe('PROCEDURAL_ONLY');
+    expect(report.baseline.source).toBe('synthetic');
+    expect(report.baseline.generationMs).toBeNull();
+    expect(report.baseline.glbBytes).toBeNull();
     expect(report.target.mode).toBe('REALITY_OVERLAY_READY');
+    expect(report.target.source).toBe('actual');
     expect(report.target.generationMs).toBe(1300);
     expect(report.target.glbBytes).toBe(620000);
+    expect(report.delta.generationMs).toBeNull();
+    expect(report.delta.glbBytes).toBeNull();
     expect(report.target.emissiveAvg).toBeGreaterThan(
       report.baseline.emissiveAvg,
     );
     expect(report.target.overallScore).toBeGreaterThan(
       report.baseline.overallScore,
+    );
+    expect(report.baseline.overallScore).toBeCloseTo(
+      Number(
+        (
+          report.baseline.scoreBreakdownStructure * 0.4 +
+          report.baseline.scoreBreakdownAtmosphere * 0.3 +
+          report.baseline.scoreBreakdownPlaceReadability * 0.3
+        ).toFixed(3),
+      ),
+      3,
     );
   });
 });

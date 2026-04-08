@@ -9,6 +9,7 @@ import {
 } from './scene-fidelity-metrics.utils';
 
 export interface SceneModeComparisonRow {
+  source: 'actual' | 'synthetic';
   mode: SceneFidelityMode;
   buildings: number;
   roads: number;
@@ -19,8 +20,11 @@ export interface SceneModeComparisonRow {
   wetnessAvg: number;
   fallbackProceduralRate: number;
   heroOverrideRate: number;
-  generationMs: number;
-  glbBytes: number;
+  generationMs: number | null;
+  glbBytes: number | null;
+  scoreBreakdownStructure: number;
+  scoreBreakdownAtmosphere: number;
+  scoreBreakdownPlaceReadability: number;
   overallScore: number;
 }
 
@@ -40,8 +44,8 @@ export interface SceneModeComparisonReport {
     wetnessAvg: number;
     fallbackProceduralRate: number;
     heroOverrideRate: number;
-    generationMs: number;
-    glbBytes: number;
+    generationMs: number | null;
+    glbBytes: number | null;
     overallScore: number;
   };
 }
@@ -57,18 +61,16 @@ export function buildSceneModeComparisonReport(
   const targetReport = buildSceneFidelityMetricsReport(sceneMeta, sceneDetail);
   const baselineReport = buildBaselineMetricsReport(sceneMeta, sceneDetail);
 
-  const baselineRow = buildComparisonRow(
-    baselineReport,
-    sceneDetail,
-    params.generationMs,
-    params.glbBytes,
-  );
-  const targetRow = buildComparisonRow(
-    targetReport,
-    sceneDetail,
-    params.generationMs,
-    params.glbBytes,
-  );
+  const baselineRow = buildComparisonRow(baselineReport, sceneDetail, {
+    source: 'synthetic',
+    generationMs: null,
+    glbBytes: null,
+  });
+  const targetRow = buildComparisonRow(targetReport, sceneDetail, {
+    source: 'actual',
+    generationMs: params.generationMs,
+    glbBytes: params.glbBytes,
+  });
 
   return {
     sceneId: sceneMeta.sceneId,
@@ -90,8 +92,8 @@ export function buildSceneModeComparisonReport(
       heroOverrideRate: round(
         targetRow.heroOverrideRate - baselineRow.heroOverrideRate,
       ),
-      generationMs: targetRow.generationMs - baselineRow.generationMs,
-      glbBytes: targetRow.glbBytes - baselineRow.glbBytes,
+      generationMs: null,
+      glbBytes: null,
       overallScore: round(targetRow.overallScore - baselineRow.overallScore),
     },
   };
@@ -100,10 +102,14 @@ export function buildSceneModeComparisonReport(
 function buildComparisonRow(
   metrics: SceneFidelityMetricsReport,
   sceneDetail: SceneDetail,
-  generationMs: number,
-  glbBytes: number,
+  runStats: {
+    source: 'actual' | 'synthetic';
+    generationMs: number | null;
+    glbBytes: number | null;
+  },
 ): SceneModeComparisonRow {
   return {
+    source: runStats.source,
     mode: metrics.mode.targetMode,
     buildings: metrics.counts.buildings,
     roads: metrics.counts.roads,
@@ -117,8 +123,11 @@ function buildComparisonRow(
     wetnessAvg: metrics.quality.wetnessAvg,
     fallbackProceduralRate: metrics.quality.fallbackProceduralRate,
     heroOverrideRate: metrics.quality.heroOverrideRate,
-    generationMs,
-    glbBytes,
+    generationMs: runStats.generationMs,
+    glbBytes: runStats.glbBytes,
+    scoreBreakdownStructure: metrics.score.breakdown.structure,
+    scoreBreakdownAtmosphere: metrics.score.breakdown.atmosphere,
+    scoreBreakdownPlaceReadability: metrics.score.breakdown.placeReadability,
     overallScore: metrics.score.overall,
   };
 }
@@ -128,6 +137,17 @@ function buildBaselineMetricsReport(
   sceneDetail: SceneDetail,
 ): SceneFidelityMetricsReport {
   const base = buildSceneFidelityMetricsReport(sceneMeta, sceneDetail);
+  const breakdown = {
+    structure: round(base.score.breakdown.structure * 0.86),
+    atmosphere: round(base.score.breakdown.atmosphere * 0.5),
+    placeReadability: round(base.score.breakdown.placeReadability * 0.6),
+  };
+  const overall = round(
+    breakdown.structure * 0.4 +
+      breakdown.atmosphere * 0.3 +
+      breakdown.placeReadability * 0.3,
+  );
+
   return {
     ...base,
     mode: {
@@ -147,12 +167,8 @@ function buildBaselineMetricsReport(
     },
     score: {
       ...base.score,
-      overall: round(base.score.overall * 0.62),
-      breakdown: {
-        structure: round(base.score.breakdown.structure * 0.86),
-        atmosphere: round(base.score.breakdown.atmosphere * 0.5),
-        placeReadability: round(base.score.breakdown.placeReadability * 0.6),
-      },
+      overall,
+      breakdown,
     },
   };
 }
