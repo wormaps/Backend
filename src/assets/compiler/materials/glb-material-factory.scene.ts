@@ -37,9 +37,9 @@ export interface FacadeLayerMaterialProfile {
 }
 
 const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
-  shellLuminanceCap: 0.82,
-  panelLuminanceCap: 0.72,
-  billboardLuminanceCap: 0.8,
+  shellLuminanceCap: 0.88,
+  panelLuminanceCap: 0.78,
+  billboardLuminanceCap: 0.84,
   emissiveBoost: 1,
   roadRoughnessScale: 1,
   wetRoadBoost: 0,
@@ -568,7 +568,8 @@ function tuneShellColor(
   materialClass: MaterialClass,
   luminanceCap: number,
 ): [number, number, number] {
-  const [r, g, b] = compressLuminance(color, luminanceCap);
+  const adaptiveCap = resolveAdaptiveLuminanceCap(color, luminanceCap, 0.06);
+  const [r, g, b] = compressLuminance(color, adaptiveCap);
   if (materialClass === 'glass') {
     return [
       clamp01(r * 0.95),
@@ -587,7 +588,8 @@ function tunePanelColor(
   tone: AccentTone,
   luminanceCap: number,
 ): [number, number, number] {
-  const [r, g, b] = compressLuminance(color, luminanceCap);
+  const adaptiveCap = resolveAdaptiveLuminanceCap(color, luminanceCap, 0.08);
+  const [r, g, b] = compressLuminance(color, adaptiveCap);
   if (tone === 'cool') {
     return [clamp01(r * 0.88), clamp01(g * 0.92), clamp01(b * 0.98)];
   }
@@ -602,7 +604,8 @@ function tuneBillboardColor(
   tone: AccentTone,
   luminanceCap: number,
 ): [number, number, number] {
-  const [r, g, b] = compressLuminance(color, luminanceCap);
+  const adaptiveCap = resolveAdaptiveLuminanceCap(color, luminanceCap, 0.05);
+  const [r, g, b] = compressLuminance(color, adaptiveCap);
   if (tone === 'cool') {
     return [clamp01(r * 0.94), clamp01(g * 0.98), clamp01(b)];
   }
@@ -631,6 +634,18 @@ function clamp01(value: number): number {
 
 function clampRange(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function resolveAdaptiveLuminanceCap(
+  color: [number, number, number],
+  baseCap: number,
+  maxBoost: number,
+): number {
+  const [r, g, b] = color;
+  const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+  const luminance = r * 0.299 + g * 0.587 + b * 0.114;
+  const boost = Math.min(maxBoost, saturation * 0.1 + (1 - luminance) * 0.03);
+  return clamp01(baseCap + boost);
 }
 
 function resolveMaterialTuningOptions(

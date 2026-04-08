@@ -154,6 +154,10 @@ export interface SceneFacadeHint {
   signBandLevels?: number;
   shellPalette?: string[];
   panelPalette?: string[];
+  mainColor?: string;
+  accentColor?: string;
+  trimColor?: string;
+  roofColor?: string;
   weakEvidence?: boolean;
   contextProfile?: import('./scene-domain.types').SceneFacadeContextProfile;
   districtCluster?: DistrictCluster;

@@ -53,6 +53,7 @@ export function inferBuildingPalette(
 
 export function uniquePalette(
   values: Array<string | null | undefined>,
+  limit = 3,
 ): string[] {
   return [
     ...new Set(
@@ -60,7 +61,40 @@ export function uniquePalette(
         .filter((value): value is string => Boolean(value))
         .map((value) => normalizeColor(value)),
     ),
-  ].slice(0, 3);
+  ].slice(0, Math.max(1, limit));
+}
+
+export function resolveFacadeColorChannels(input: {
+  palette: string[];
+  roofColor?: string | null;
+}): {
+  mainColor: string;
+  accentColor: string;
+  trimColor: string;
+  roofColor: string;
+} {
+  const base = normalizeColor(input.palette[0] ?? '#8e939a');
+  const accent = ensureDistinctColor(
+    normalizeColor(input.palette[1] ?? darkenHex(base, 0.92)),
+    base,
+    () => darkenHex(base, 0.86),
+  );
+  const trim = ensureDistinctColor(
+    normalizeColor(input.palette[2] ?? desaturateHex(base, 0.18)),
+    base,
+    () => desaturateHex(darkenHex(base, 0.9), 0.22),
+  );
+  const roof = ensureDistinctColor(
+    normalizeColor(input.roofColor ?? darkenHex(base, 0.84)),
+    base,
+    () => darkenHex(base, 0.76),
+  );
+  return {
+    mainColor: base,
+    accentColor: accent,
+    trimColor: trim,
+    roofColor: roof,
+  };
 }
 
 function resolveContextualMaterialClass(
@@ -383,6 +417,47 @@ function darkenHex(hex: string, factor: number): string {
       Math.max(0, Math.min(255, value)).toString(16).padStart(2, '0'),
     )
     .join('')}`;
+}
+
+function desaturateHex(hex: string, amount: number): string {
+  const normalized = hex.replace('#', '');
+  const red = parseInt(normalized.slice(0, 2), 16) / 255;
+  const green = parseInt(normalized.slice(2, 4), 16) / 255;
+  const blue = parseInt(normalized.slice(4, 6), 16) / 255;
+  const gray = red * 0.299 + green * 0.587 + blue * 0.114;
+  const mix = Math.max(0, Math.min(1, amount));
+  const toChannel = (value: number): string =>
+    Math.round((value * (1 - mix) + gray * mix) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toChannel(red)}${toChannel(green)}${toChannel(blue)}`;
+}
+
+function ensureDistinctColor(
+  candidate: string,
+  from: string,
+  fallback: () => string,
+): string {
+  return colorDistance(candidate, from) < 0.08
+    ? normalizeColor(fallback())
+    : candidate;
+}
+
+function colorDistance(a: string, b: string): number {
+  const aRgb = hexToRgb(a);
+  const bRgb = hexToRgb(b);
+  const dr = aRgb[0] - bRgb[0];
+  const dg = aRgb[1] - bRgb[1];
+  const db = aRgb[2] - bRgb[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '');
+  const red = parseInt(normalized.slice(0, 2), 16) / 255;
+  const green = parseInt(normalized.slice(2, 4), 16) / 255;
+  const blue = parseInt(normalized.slice(4, 6), 16) / 255;
+  return [red, green, blue];
 }
 
 function normalizeColor(value: string): string {

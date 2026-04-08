@@ -31,13 +31,20 @@ export function resolveAccentToneFromPalette(palette: string[]): AccentTone {
   }
 
   const [r, g, b] = hexToRgb(sample);
-  if (Math.abs(r - b) <= 0.08 && Math.abs(r - g) <= 0.08) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const saturation = max <= 0 ? 0 : (max - min) / max;
+  if (
+    Math.abs(r - b) <= 0.05 &&
+    Math.abs(r - g) <= 0.05 &&
+    saturation <= 0.16
+  ) {
     return 'neutral';
   }
-  if (r >= b + 0.06) {
+  if (r >= b + 0.045) {
     return 'warm';
   }
-  if (b >= r + 0.06) {
+  if (b >= r + 0.045) {
     return 'cool';
   }
   return g > 0.5 ? 'cool' : 'neutral';
@@ -149,6 +156,7 @@ export function resolveBuildingShellStyleFromHint(
   const materialClass =
     hint?.materialClass ?? resolveMaterialClassFromBuilding(building);
   const rawColor =
+    hint?.mainColor ??
     hint?.shellPalette?.[0] ??
     building.facadeColor ??
     building.roofColor ??
@@ -193,12 +201,20 @@ export function groupFacadeHintsByPanelColor(
     const paletteSource = hint.panelPalette?.length
       ? hint.panelPalette
       : hint.palette;
-    const colorHex = normalizeColor(paletteSource[0] ?? '#5a6470');
+    const colorHex = normalizeColor(
+      hint.accentColor ?? hint.trimColor ?? paletteSource[0] ?? '#5a6470',
+    );
     const tone = resolveAccentToneFromPalette(paletteSource);
     const panelPreset = hint.facadePreset ?? 'default';
     const materialClass = hint.materialClass ?? 'mixed';
     const density = hint.windowPatternDensity ?? 'medium';
-    const key = `${tone}:${colorHex}:${panelPreset}:${materialClass}:${density}`;
+    const accentBand = quantizeColorBand(
+      hint.accentColor ?? paletteSource[1] ?? colorHex,
+    );
+    const trimBand = quantizeColorBand(
+      hint.trimColor ?? paletteSource[2] ?? colorHex,
+    );
+    const key = `${tone}:${colorHex}:${accentBand}:${trimBand}:${panelPreset}:${materialClass}:${density}`;
     const current = groups.get(key) ?? {
       groupKey: key,
       tone,
@@ -251,4 +267,14 @@ export function groupBillboardClustersByColor(
     groups.set(key, current);
   }
   return [...groups.values()];
+}
+
+function quantizeColorBand(hex: string): string {
+  const [r, g, b] = hexToRgb(normalizeColor(hex));
+  const q = (value: number): string => {
+    const channel = Math.round(value * 255);
+    const bucketed = Math.round(channel / 24) * 24;
+    return Math.max(0, Math.min(255, bucketed)).toString(16).padStart(2, '0');
+  };
+  return `#${q(r)}${q(g)}${q(b)}`;
 }

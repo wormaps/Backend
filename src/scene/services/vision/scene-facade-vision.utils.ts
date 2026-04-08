@@ -13,5 +13,6 @@ export type {
 export {
   hasExplicitBuildingColor,
   inferBuildingPalette,
+  resolveFacadeColorChannels,
   uniquePalette,
 } from './scene-facade-vision.palette.utils';

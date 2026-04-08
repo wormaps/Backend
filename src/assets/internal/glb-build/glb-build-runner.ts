@@ -68,6 +68,19 @@ interface MeshNodeDiagnostic {
   layer?: string;
 }
 
+interface FacadeColorDiversityMetrics {
+  facadeHintCount: number;
+  uniqueMainColorCount: number;
+  uniqueAccentColorCount: number;
+  uniqueTrimColorCount: number;
+  uniqueRoofColorCount: number;
+  uniqueShellPaletteColorCount: number;
+  uniquePanelPaletteColorCount: number;
+  neutralToneRatio: number;
+  shellGroupCount: number;
+  panelGroupCount: number;
+}
+
 @Injectable()
 export class GlbBuildRunner {
   private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
@@ -222,6 +235,11 @@ export class GlbBuildRunner {
       },
     );
 
+    const facadeColorDiversity = this.buildFacadeColorDiversityMetrics(
+      sceneDetail,
+      groupedBuildings,
+    );
+
     const diagnosticsPayload = {
       sceneScoreReport: buildSceneFidelityMetricsReport(
         adaptiveMeta,
@@ -252,6 +270,7 @@ export class GlbBuildRunner {
         }),
       ),
       meshNodes: this.currentMeshDiagnostics,
+      facadeColorDiversity,
       materialTuning,
       facadeMaterialProfile,
       variationProfile,
@@ -386,6 +405,60 @@ export class GlbBuildRunner {
     }
 
     return groupedBuildings;
+  }
+
+  private buildFacadeColorDiversityMetrics(
+    sceneDetail: SceneDetail,
+    groupedBuildings: GroupedBuildings,
+  ): FacadeColorDiversityMetrics {
+    const hints = sceneDetail.facadeHints;
+    const uniqueMainColorCount = new Set(
+      hints
+        .map((hint) => hint.mainColor)
+        .filter((value): value is string => Boolean(value)),
+    ).size;
+    const uniqueAccentColorCount = new Set(
+      hints
+        .map((hint) => hint.accentColor)
+        .filter((value): value is string => Boolean(value)),
+    ).size;
+    const uniqueTrimColorCount = new Set(
+      hints
+        .map((hint) => hint.trimColor)
+        .filter((value): value is string => Boolean(value)),
+    ).size;
+    const uniqueRoofColorCount = new Set(
+      hints
+        .map((hint) => hint.roofColor)
+        .filter((value): value is string => Boolean(value)),
+    ).size;
+    const uniqueShellPaletteColorCount = new Set(
+      hints.flatMap((hint) => hint.shellPalette ?? []),
+    ).size;
+    const uniquePanelPaletteColorCount = new Set(
+      hints.flatMap((hint) => hint.panelPalette ?? []),
+    ).size;
+    const neutralCount = hints.filter(
+      (hint) =>
+        resolveAccentToneFromPalette(
+          hint.panelPalette?.length ? hint.panelPalette : hint.palette,
+        ) === 'neutral',
+    ).length;
+
+    return {
+      facadeHintCount: hints.length,
+      uniqueMainColorCount,
+      uniqueAccentColorCount,
+      uniqueTrimColorCount,
+      uniqueRoofColorCount,
+      uniqueShellPaletteColorCount,
+      uniquePanelPaletteColorCount,
+      neutralToneRatio:
+        hints.length > 0 ? Number((neutralCount / hints.length).toFixed(3)) : 0,
+      shellGroupCount: groupedBuildings.size,
+      panelGroupCount: groupFacadeHintsByPanelColor(sceneDetail.facadeHints)
+        .length,
+    };
   }
 
   private addMeshNode(

@@ -25,6 +25,7 @@ import {
   distanceMeters,
   hasExplicitBuildingColor,
   inferBuildingPalette,
+  resolveFacadeColorChannels,
   sortCounts,
   uniquePalette,
 } from './scene-facade-vision.utils';
@@ -88,17 +89,24 @@ export class SceneFacadeVisionService {
         hasExplicitBuildingColor(building)
           ? style.palette
           : inferredPalette.palette,
+        4,
       );
       const shellPalette = uniquePalette(
         hasExplicitBuildingColor(building)
           ? style.shellPalette
           : inferredPalette.shellPalette,
+        3,
       );
       const panelPalette = uniquePalette(
         hasExplicitBuildingColor(building)
           ? style.panelPalette
           : inferredPalette.panelPalette,
+        3,
       );
+      const channels = resolveFacadeColorChannels({
+        palette,
+        roofColor: building.roofColor,
+      });
       const districtResolution = resolveDistrictCluster({
         building,
         anchor,
@@ -123,6 +131,10 @@ export class SceneFacadeVisionService {
         palette,
         shellPalette,
         panelPalette,
+        mainColor: channels.mainColor,
+        accentColor: channels.accentColor,
+        trimColor: channels.trimColor,
+        roofColor: channels.roofColor,
         materialClass: inferredPalette.materialClass,
         signageDensity: evidenceDensity,
         emissiveStrength:
@@ -165,7 +177,7 @@ export class SceneFacadeVisionService {
         palette: [],
       };
       current.count += 1;
-      current.palette = uniquePalette([...current.palette, ...hint.palette]);
+      current.palette = uniquePalette([...current.palette, ...hint.palette], 4);
       buckets.set(hint.materialClass, current);
     }
 

@@ -18,10 +18,10 @@ export function resolveMaterialTuningFromScene(
   ).length;
   const adaptivePanelCap =
     highEmissiveFacadeCount >= 6
-      ? 0.74
+      ? 0.82
       : highEmissiveFacadeCount >= 2
-        ? 0.7
-        : 0.68;
+        ? 0.8
+        : 0.78;
 
   const atmosphericEmissiveBoost = staticAtmosphere?.emissiveBoost ?? 1;
   const atmosphericRoadRoughnessScale =
@@ -33,9 +33,9 @@ export function resolveMaterialTuningFromScene(
   const modeSignal = resolveSceneFidelityModeSignal(targetMode);
 
   return {
-    shellLuminanceCap: 0.88,
+    shellLuminanceCap: 0.92,
     panelLuminanceCap: adaptivePanelCap,
-    billboardLuminanceCap: 0.86,
+    billboardLuminanceCap: 0.9,
     emissiveBoost: clamp(
       atmosphericEmissiveBoost * districtBoost * modeSignal.emissiveMultiplier,
       0.95,
