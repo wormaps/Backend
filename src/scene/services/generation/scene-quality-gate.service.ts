@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   SceneDetail,
   SceneMeta,
+  SceneOracleApprovalStatus,
   SceneQualityGateMeshSummary,
   SceneQualityGateReasonCode,
   SceneQualityGateResult,
@@ -34,6 +35,13 @@ interface ParsedDiagnosticsEntry {
   }>;
 }
 
+interface OracleApprovalFilePayload {
+  state?: 'APPROVED' | 'REJECTED';
+  approvedBy?: string;
+  approvedAt?: string;
+  note?: string;
+}
+
 @Injectable()
 export class SceneQualityGateService {
   async evaluate(
@@ -42,6 +50,10 @@ export class SceneQualityGateService {
   ): Promise<SceneQualityGateResult> {
     const fidelityPlan = sceneDetail.fidelityPlan ?? sceneMeta.fidelityPlan;
     const thresholds = this.resolveThresholds(fidelityPlan?.phase);
+    const oracleApproval = await this.resolveOracleApproval(
+      sceneMeta.sceneId,
+      fidelityPlan?.phase,
+    );
     const metrics = buildSceneFidelityMetricsReport(sceneMeta, sceneDetail);
     const modeComparison = buildSceneModeComparisonReport(
       sceneMeta,
@@ -83,6 +95,9 @@ export class SceneQualityGateService {
     ) {
       reasonCodes.push('CRITICAL_INVALID_GEOMETRY');
     }
+    if (oracleApproval.required && oracleApproval.state !== 'APPROVED') {
+      reasonCodes.push('ORACLE_APPROVAL_REQUIRED');
+    }
 
     const artifactRefs = {
       diagnosticsLogPath: getSceneDiagnosticsLogPath(sceneMeta.sceneId),
@@ -110,13 +125,29 @@ export class SceneQualityGateService {
       thresholds,
       meshSummary,
       artifactRefs,
+      oracleApproval,
       decidedAt: new Date().toISOString(),
     };
   }
 
   private resolveThresholds(
-    phase?: 'PHASE_1_BASELINE' | 'PHASE_2_HYBRID_FOUNDATION',
+    phase?:
+      | 'PHASE_1_BASELINE'
+      | 'PHASE_2_HYBRID_FOUNDATION'
+      | 'PHASE_3_PRODUCTION_LOCK',
   ): SceneQualityGateThresholds {
+    if (phase === 'PHASE_3_PRODUCTION_LOCK') {
+      return {
+        coverageGapMax: 0,
+        overallMin: 0.78,
+        structureMin: 0.68,
+        placeReadabilityMin: 0.45,
+        modeDeltaOverallMin: 0,
+        criticalPolygonBudgetExceededMax: 0,
+        criticalInvalidGeometryMax: 0,
+      };
+    }
+
     if (phase === 'PHASE_2_HYBRID_FOUNDATION') {
       return {
         coverageGapMax: 0,
@@ -137,6 +168,85 @@ export class SceneQualityGateService {
       modeDeltaOverallMin: -0.2,
       criticalPolygonBudgetExceededMax: 0,
       criticalInvalidGeometryMax: 0,
+    };
+  }
+
+  private async resolveOracleApproval(
+    sceneId: string,
+    phase?:
+      | 'PHASE_1_BASELINE'
+      | 'PHASE_2_HYBRID_FOUNDATION'
+      | 'PHASE_3_PRODUCTION_LOCK',
+  ): Promise<SceneOracleApprovalStatus> {
+    if (phase !== 'PHASE_3_PRODUCTION_LOCK') {
+      return {
+        required: false,
+        state: 'NOT_REQUIRED',
+        source: 'auto',
+      };
+    }
+
+    const approvalFilePath = join(
+      getSceneDataDir(),
+      `${sceneId}.oracle-approval.json`,
+    );
+
+    let raw = '';
+    try {
+      raw = await readFile(approvalFilePath, 'utf8');
+    } catch {
+      return {
+        required: true,
+        state: 'PENDING',
+        source: 'approval_file',
+        approvalFilePath,
+        note: 'Oracle approval file is missing.',
+      };
+    }
+
+    let parsed: OracleApprovalFilePayload | null = null;
+    try {
+      parsed = JSON.parse(raw) as OracleApprovalFilePayload;
+    } catch {
+      return {
+        required: true,
+        state: 'PENDING',
+        source: 'approval_file',
+        approvalFilePath,
+        note: 'Oracle approval file is not valid JSON.',
+      };
+    }
+
+    if (parsed?.state === 'APPROVED') {
+      return {
+        required: true,
+        state: 'APPROVED',
+        source: 'approval_file',
+        approvalFilePath,
+        approvedBy: parsed.approvedBy,
+        approvedAt: parsed.approvedAt,
+        note: parsed.note,
+      };
+    }
+
+    if (parsed?.state === 'REJECTED') {
+      return {
+        required: true,
+        state: 'REJECTED',
+        source: 'approval_file',
+        approvalFilePath,
+        approvedBy: parsed.approvedBy,
+        approvedAt: parsed.approvedAt,
+        note: parsed.note,
+      };
+    }
+
+    return {
+      required: true,
+      state: 'PENDING',
+      source: 'approval_file',
+      approvalFilePath,
+      note: 'Oracle approval state must be APPROVED or REJECTED.',
     };
   }
 

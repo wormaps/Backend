@@ -280,6 +280,11 @@ describe('Scene Services', () => {
         diagnosticsLogPath: '/tmp/diagnostics.log',
         modeComparisonPath: '/tmp/mode-comparison.json',
       },
+      oracleApproval: {
+        required: false,
+        state: 'NOT_REQUIRED',
+        source: 'auto',
+      },
       decidedAt: '2026-01-01T00:00:00.000Z',
     });
 

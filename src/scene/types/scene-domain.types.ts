@@ -422,7 +422,10 @@ export interface SceneFidelityPlan {
   targetCoverageRatio: number;
   achievedCoverageRatio: number;
   coverageGapRatio: number;
-  phase: 'PHASE_1_BASELINE' | 'PHASE_2_HYBRID_FOUNDATION';
+  phase:
+    | 'PHASE_1_BASELINE'
+    | 'PHASE_2_HYBRID_FOUNDATION'
+    | 'PHASE_3_PRODUCTION_LOCK';
   coreRadiusM: number;
   priorities: string[];
   evidence: {
@@ -446,7 +449,24 @@ export type SceneQualityGateReasonCode =
   | 'CRITICAL_BUDGET_SKIP'
   | 'CRITICAL_INVALID_GEOMETRY'
   | 'STRUCTURE_SCORE_BELOW_MIN'
-  | 'PLACE_READABILITY_SCORE_BELOW_MIN';
+  | 'PLACE_READABILITY_SCORE_BELOW_MIN'
+  | 'ORACLE_APPROVAL_REQUIRED';
+
+export type SceneOracleApprovalState =
+  | 'NOT_REQUIRED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export interface SceneOracleApprovalStatus {
+  required: boolean;
+  state: SceneOracleApprovalState;
+  source: 'auto' | 'approval_file';
+  approvalFilePath?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  note?: string;
+}
 
 export interface SceneQualityGateThresholds {
   coverageGapMax: number;
@@ -504,6 +524,7 @@ export interface SceneQualityGateResult {
   thresholds: SceneQualityGateThresholds;
   meshSummary: SceneQualityGateMeshSummary;
   artifactRefs: SceneQualityGateArtifactRefs;
+  oracleApproval: SceneOracleApprovalStatus;
   decidedAt: string;
 }
 

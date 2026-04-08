@@ -275,4 +275,69 @@ describe('SceneFidelityPlannerService', () => {
     expect(plan.currentMode).toBe('PROCEDURAL_ONLY');
     expect(plan.targetMode).toBe('PROCEDURAL_ONLY');
   });
+
+  it('upgrades to phase 3 production lock with strong evidence set', () => {
+    const richPackage: PlacePackage = {
+      ...placePackage,
+      landmarks: [
+        ...placePackage.landmarks,
+        {
+          id: 'landmark-2',
+          name: 'LM-2',
+          type: 'LANDMARK',
+          location: { lat: 35.65952, lng: 139.70052 },
+        },
+      ],
+    };
+
+    const plan = service.buildPlan(place, 'MEDIUM', richPackage, {
+      ...baseDetail,
+      annotationsApplied: ['ann-1', 'ann-2', 'ann-3'],
+      facadeHints: [
+        {
+          objectId: 'facade-1',
+          anchor: { lat: 35.6595, lng: 139.7005 },
+          facadeEdgeIndex: 0,
+          windowBands: 8,
+          billboardEligible: true,
+          palette: ['#4d79c7', '#e1f3ff'],
+          materialClass: 'glass',
+          signageDensity: 'high',
+          emissiveStrength: 0.95,
+          glazingRatio: 0.74,
+        },
+      ],
+      signageClusters: [
+        {
+          objectId: 'sig-1',
+          anchor: { lat: 35.6595, lng: 139.7005 },
+          panelCount: 6,
+          palette: ['#ff0000', '#00ffff'],
+          emissiveStrength: 1,
+          widthMeters: 4,
+          heightMeters: 2,
+        },
+      ],
+      provenance: {
+        ...baseDetail.provenance,
+        mapillaryUsed: true,
+        mapillaryImageCount: 4,
+        mapillaryFeatureCount: 130,
+        osmTagCoverage: {
+          ...baseDetail.provenance.osmTagCoverage,
+          coloredBuildings: 1,
+          materialBuildings: 1,
+        },
+      },
+      staticAtmosphere: {
+        preset: 'NIGHT_NEON',
+        emissiveBoost: 1.25,
+        roadRoughnessScale: 0.9,
+        wetRoadBoost: 0.45,
+      },
+    });
+
+    expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
+    expect(plan.phase).toBe('PHASE_3_PRODUCTION_LOCK');
+  });
 });

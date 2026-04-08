@@ -86,7 +86,7 @@ export class SceneFidelityPlannerService {
       coverageGapRatio,
       phase:
         targetMode === 'REALITY_OVERLAY_READY'
-          ? 'PHASE_2_HYBRID_FOUNDATION'
+          ? this.resolveProductionPhase(detail, facadeEvidenceScore)
           : 'PHASE_1_BASELINE',
       coreRadiusM: this.resolveCoreRadius(scale),
       priorities: this.resolvePriorities(
@@ -375,5 +375,26 @@ export class SceneFidelityPlannerService {
       curatedReady,
       atmosphereReady,
     };
+  }
+
+  private resolveProductionPhase(
+    detail: SceneDetail,
+    facadeEvidenceScore: number,
+  ): SceneFidelityPlan['phase'] {
+    const strongMapillary =
+      detail.provenance.mapillaryUsed &&
+      detail.provenance.mapillaryFeatureCount >= 120 &&
+      detail.provenance.mapillaryImageCount >= 3;
+    const strongFacade =
+      detail.facadeHints.length >= 1 &&
+      detail.signageClusters.length >= 1 &&
+      facadeEvidenceScore >= 85;
+    const strongAnnotations = detail.annotationsApplied.length >= 3;
+
+    if (strongMapillary && strongFacade && strongAnnotations) {
+      return 'PHASE_3_PRODUCTION_LOCK';
+    }
+
+    return 'PHASE_2_HYBRID_FOUNDATION';
   }
 }
