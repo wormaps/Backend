@@ -33,6 +33,7 @@ export class SceneGenerationPipelineService {
   async execute(
     input: SceneGenerationPipelineInput,
   ): Promise<SceneGenerationPipelineResult> {
+    const pipelineStartedAt = Date.now();
     const { sceneId, storedScene, logContext } = input;
 
     this.appLoggerService.info('scene.google_search.started', {
@@ -172,6 +173,9 @@ export class SceneGenerationPipelineService {
     const assetPath = await this.sceneGlbBuildStep.execute(
       finalizedMeta,
       mergedWithAtmosphere.detail,
+      {
+        pipelineMs: Date.now() - pipelineStartedAt,
+      },
     );
     this.appLoggerService.info('scene.glb_build.completed', {
       ...logContext,

@@ -54,6 +54,7 @@ import { resolveSceneVariationProfile } from './glb-build-variation.utils';
 import { resolveFacadeLayerMaterialProfile } from './glb-build-facade-material-profile.utils';
 import { resolveSceneModePolicy } from '../../../scene/utils/scene-mode-policy.utils';
 import { buildSceneFidelityMetricsReport } from '../../../scene/utils/scene-fidelity-metrics.utils';
+import { buildSceneModeComparisonReport } from '../../../scene/utils/scene-mode-comparison-report.utils';
 
 interface MeshNodeDiagnostic {
   name: string;
@@ -76,7 +77,14 @@ export class GlbBuildRunner {
     private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
   ) {}
 
-  async build(sceneMeta: SceneMeta, sceneDetail: SceneDetail): Promise<string> {
+  async build(
+    sceneMeta: SceneMeta,
+    sceneDetail: SceneDetail,
+    runMetrics?: {
+      pipelineMs?: number;
+    },
+  ): Promise<string> {
+    const buildStartedAt = Date.now();
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
@@ -204,11 +212,22 @@ export class GlbBuildRunner {
     );
     await writeFile(outputPath, glbBinary);
 
+    const comparisonReport = buildSceneModeComparisonReport(
+      adaptiveMeta,
+      sceneDetail,
+      {
+        generationMs:
+          (runMetrics?.pipelineMs ?? 0) + (Date.now() - buildStartedAt),
+        glbBytes: glbBinary.byteLength,
+      },
+    );
+
     const diagnosticsPayload = {
       sceneScoreReport: buildSceneFidelityMetricsReport(
         adaptiveMeta,
         sceneDetail,
       ),
+      sceneModeComparisonReport: comparisonReport,
       modePolicy,
       assetSelection: {
         selected: assetSelection.selected,
@@ -250,6 +269,16 @@ export class GlbBuildRunner {
       sceneMeta.sceneId,
       'glb_build',
       diagnosticsPayload,
+    );
+    await appendSceneDiagnosticsLog(
+      sceneMeta.sceneId,
+      'mode_comparison',
+      comparisonReport as unknown as Record<string, unknown>,
+    );
+    await writeFile(
+      join(getSceneDataDir(), `${sceneMeta.sceneId}.mode-comparison.json`),
+      JSON.stringify(comparisonReport, null, 2),
+      'utf8',
     );
 
     return outputPath;

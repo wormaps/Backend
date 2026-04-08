@@ -10,7 +10,13 @@ export class SceneGlbBuildStep {
     private readonly appLoggerService: AppLoggerService,
   ) {}
 
-  execute(meta: SceneMeta, detail: SceneDetail): Promise<string> {
+  execute(
+    meta: SceneMeta,
+    detail: SceneDetail,
+    runMetrics?: {
+      pipelineMs?: number;
+    },
+  ): Promise<string> {
     this.appLoggerService.info('scene.glb_build.static_atmosphere', {
       sceneId: meta.sceneId,
       step: 'glb_build',
@@ -20,6 +26,6 @@ export class SceneGlbBuildStep {
       wetRoadBoost: detail.staticAtmosphere?.wetRoadBoost ?? 0,
     });
 
-    return this.glbBuilderService.build(meta, detail);
+    return this.glbBuilderService.build(meta, detail, runMetrics);
   }
 }
