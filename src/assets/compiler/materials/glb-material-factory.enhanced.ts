@@ -235,7 +235,7 @@ function getNeonSignParams(
   intensity: 'subtle' | 'normal' | 'bright',
 ): NeonSignParams {
   const intensityMultiplier =
-    intensity === 'subtle' ? 0.52 : intensity === 'bright' ? 1.45 : 0.92;
+    intensity === 'subtle' ? 0.52 : intensity === 'bright' ? 1.15 : 0.92;
 
   const colors: Record<
     NeonColorTone,
@@ -256,9 +256,9 @@ function getNeonSignParams(
   return {
     baseColor: color.base,
     emissiveFactor: [
-      color.emissive[0] * intensityMultiplier,
-      color.emissive[1] * intensityMultiplier,
-      color.emissive[2] * intensityMultiplier,
+      Math.min(1, color.emissive[0] * intensityMultiplier),
+      Math.min(1, color.emissive[1] * intensityMultiplier),
+      Math.min(1, color.emissive[2] * intensityMultiplier),
     ],
   };
 }
