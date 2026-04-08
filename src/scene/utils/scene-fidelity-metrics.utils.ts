@@ -59,8 +59,12 @@ export function buildSceneFidelityMetricsReport(
   const heroOverrides = sceneMeta.buildings.filter(
     (building) => building.visualRole && building.visualRole !== 'generic',
   ).length;
+  const selectedHeroOverrides = Math.min(
+    heroOverrides,
+    sceneMeta.assetProfile.selected.buildingCount,
+  );
   const heroOverrideRate = Number(
-    (heroOverrides / selectedBuildings).toFixed(3),
+    (selectedHeroOverrides / selectedBuildings).toFixed(3),
   );
   const fallbackProceduralRate = Number(
     (

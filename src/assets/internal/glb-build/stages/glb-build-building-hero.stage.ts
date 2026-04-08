@@ -263,8 +263,8 @@ export function addBuildingAndHeroMeshes(
     ctx.buffer,
     'building_entrances',
     createBuildingEntranceGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.facadePrimary ??
-      materials.entrancePrimary ??
+    materials.entrancePrimary ??
+      materials.facadePrimary ??
       materials.facadeConcreteMid ??
       materials.buildingPanels.neutral,
     {

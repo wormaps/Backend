@@ -105,6 +105,9 @@ export function resolveSceneModePolicy(
   targetMode?: SceneFidelityMode,
   currentMode?: SceneFidelityMode,
 ): SceneModePolicy {
+  if (targetMode === 'PROCEDURAL_ONLY') {
+    return MODE_POLICY_MATRIX.procedural_only;
+  }
   if (targetMode === 'REALITY_OVERLAY_READY') {
     return MODE_POLICY_MATRIX.overlay_ready;
   }

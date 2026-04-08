@@ -456,6 +456,7 @@ export class GlbBuildRunner {
     if (
       geometry.positions.length % 3 !== 0 ||
       geometry.normals.length !== geometry.positions.length ||
+      geometry.indices.length % 3 !== 0 ||
       geometry.indices.some((index) => !Number.isInteger(index) || index < 0)
     ) {
       throw new Error('GLB geometry buffer shape is invalid.');
