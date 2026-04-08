@@ -39,14 +39,14 @@ export function resolveSceneFidelityModeSignal(
   }
   if (targetMode === 'LANDMARK_ENRICHED') {
     return {
-      budgetMultiplier: 1.1,
-      emissiveMultiplier: 1.04,
+      budgetMultiplier: 1.18,
+      emissiveMultiplier: 1.07,
       roadRoughnessMultiplier: 0.98,
-      wetRoadOffset: 0.02,
-      vegetationDensityOffset: 0.02,
-      vegetationDetailOffset: 0.03,
-      furnitureDetailOffset: 0.05,
-      furnitureVariantOffset: 0.05,
+      wetRoadOffset: 0.03,
+      vegetationDensityOffset: 0.03,
+      vegetationDetailOffset: 0.04,
+      furnitureDetailOffset: 0.11,
+      furnitureVariantOffset: 0.1,
     };
   }
   if (targetMode === 'MATERIAL_ENRICHED') {

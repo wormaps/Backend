@@ -179,6 +179,19 @@ function resolvePaletteFamily(
   building: PlacePackage['buildings'][number],
   context: FacadeContext,
 ): string[][] {
+  const archetype = style.visualArchetype;
+
+  const archetypeBand = resolveArchetypePaletteBand(
+    archetype,
+    materialClass,
+    context,
+  );
+  if (archetypeBand) {
+    return archetypeBand.map((palette) =>
+      applyDistrictBiasWithinBand(palette, context),
+    );
+  }
+
   if (context.districtProfile === 'TRANSIT_HUB') {
     if (materialClass === 'glass' || materialClass === 'metal') {
       return [
@@ -186,14 +199,14 @@ function resolvePaletteFamily(
         ['#445769', '#a9b6c1', '#e4ebf0'],
         ['#5a778f', '#cad3da', '#f0f4f7'],
         ['#74828e', '#c7cbd1', '#edf0f2'],
-      ];
+      ].map((palette) => applyDistrictBiasWithinBand(palette, context));
     }
     return [
       ['#999289', '#d6d0c7', '#eeebe4'],
       ['#8d8d88', '#d1d0cc', '#ececea'],
       ['#a39b90', '#dcd4ca', '#f0ece5'],
       ['#85888e', '#ccd0d5', '#e8edf0'],
-    ];
+    ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (context.districtProfile === 'NEON_CORE') {
     if (materialClass === 'glass') {
@@ -204,7 +217,7 @@ function resolvePaletteFamily(
         ['#6f8698', '#c6d1d9', '#eef3f5'],
         ['#2f475f', '#8fa5b5', '#dbe4eb'],
         ['#657f94', '#b7c9d6', '#e7eff4'],
-      ];
+      ].map((palette) => applyDistrictBiasWithinBand(palette, context));
     }
     if (materialClass === 'metal') {
       return [
@@ -212,7 +225,7 @@ function resolvePaletteFamily(
         ['#4a5764', '#96a6b3', '#d6dee5'],
         ['#6a747d', '#bac3ca', '#e7ecef'],
         ['#72716f', '#bdbab6', '#e6e1da'],
-      ];
+      ].map((palette) => applyDistrictBiasWithinBand(palette, context));
     }
     return [
       ['#8d8780', '#cfc9c1', '#ece8e2'],
@@ -221,7 +234,7 @@ function resolvePaletteFamily(
       ['#b39f8e', '#ded1c3', '#f3ebe2'],
       ['#999189', '#d3ccc4', '#eeebe5'],
       ['#76736f', '#bbb8b3', '#e2dfd8'],
-    ];
+    ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (context.districtProfile === 'COMMERCIAL_STRIP') {
     if (materialClass === 'glass') {
@@ -230,7 +243,7 @@ function resolvePaletteFamily(
         ['#6886a1', '#c7d7e5', '#eef5fa'],
         ['#7390a8', '#cad7e2', '#eef4f8'],
         ['#4b708c', '#b8cbd8', '#e9f0f4'],
-      ];
+      ].map((palette) => applyDistrictBiasWithinBand(palette, context));
     }
     if (materialClass === 'metal') {
       return [
@@ -238,7 +251,7 @@ function resolvePaletteFamily(
         ['#7e8891', '#c1c9cf', '#edf1f4'],
         ['#66727d', '#aeb8c1', '#dde4ea'],
         ['#5c6670', '#a5b0ba', '#d7dfe6'],
-      ];
+      ].map((palette) => applyDistrictBiasWithinBand(palette, context));
     }
     return [
       ['#a8a39b', '#d9d5ce', '#f2efea'],
@@ -247,7 +260,7 @@ function resolvePaletteFamily(
       ['#beb2a6', '#e1d8cd', '#f6f1ea'],
       ['#97918a', '#cdc7be', '#ece7df'],
       ['#c0b2a1', '#e1d5c8', '#f4eee6'],
-    ];
+    ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (context.districtProfile === 'CIVIC_CLUSTER') {
     if (materialClass === 'glass') {
@@ -255,7 +268,7 @@ function resolvePaletteFamily(
         ['#7a8ea3', '#d6dee6', '#eef4f8'],
         ['#889cad', '#d9e1e8', '#f4f7fa'],
         ['#7f8f9c', '#d0d8df', '#edf2f6'],
-      ];
+      ].map((palette) => applyDistrictBiasWithinBand(palette, context));
     }
     return [
       ['#a39d94', '#d5d0c9', '#f0ece7'],
@@ -263,7 +276,7 @@ function resolvePaletteFamily(
       ['#b4a697', '#ddd2c6', '#f3eee8'],
       ['#989b9f', '#d0d4d8', '#eceff1'],
       ['#c4b8aa', '#e1d8cf', '#f4f0ea'],
-    ];
+    ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (materialClass === 'glass') {
     return context.centerBias === 'core'
@@ -272,13 +285,13 @@ function resolvePaletteFamily(
           ['#4f7ca8', '#b9d0e4', '#edf6fd'],
           ['#5e8faf', '#d4e1ec', '#f4f8fb'],
           ['#7a8ea3', '#d6dee6', '#eef4f8'],
-        ]
+        ].map((palette) => applyDistrictBiasWithinBand(palette, context))
       : [
           ['#7c9ebb', '#d5e2ec', '#f2f7fb'],
           ['#7390a8', '#cad7e2', '#eef4f8'],
           ['#889cad', '#d9e1e8', '#f4f7fa'],
           ['#6886a1', '#c7d7e5', '#eef5fa'],
-        ];
+        ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (materialClass === 'brick') {
     return [
@@ -286,7 +299,7 @@ function resolvePaletteFamily(
       ['#9b5c46', '#c98663', '#e7ccb8'],
       ['#7b4635', '#b36c4d', '#ddbea9'],
       ['#945745', '#bf8568', '#e6d2c2'],
-    ];
+    ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (materialClass === 'metal') {
     return [
@@ -294,7 +307,7 @@ function resolvePaletteFamily(
       ['#7e8891', '#c1c9cf', '#edf1f4'],
       ['#66727d', '#aeb8c1', '#dde4ea'],
       ['#77848f', '#c7d0d7', '#eef3f7'],
-    ];
+    ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   if (style.preset === 'mall_block' || building.usage === 'COMMERCIAL') {
     return context.centerBias === 'core'
@@ -303,13 +316,13 @@ function resolvePaletteFamily(
           ['#9b938c', '#d3cdc6', '#f0ece8'],
           ['#c6aa93', '#e4d4c3', '#f7efe7'],
           ['#a79b8d', '#d6cec5', '#f2ede8'],
-        ]
+        ].map((palette) => applyDistrictBiasWithinBand(palette, context))
       : [
           ['#a8a39b', '#d9d5ce', '#f2efea'],
           ['#b6a794', '#ded2c3', '#f5eee8'],
           ['#9d9a93', '#d0ccc6', '#ece8e3'],
           ['#beb2a6', '#e1d8cd', '#f6f1ea'],
-        ];
+        ].map((palette) => applyDistrictBiasWithinBand(palette, context));
   }
   return [
     ['#a39d94', '#d5d0c9', '#f0ece7'],
@@ -318,7 +331,134 @@ function resolvePaletteFamily(
     ['#8e939a', '#c9ced4', '#e7ebef'],
     ['#c0b6ab', '#e0d8cf', '#f3f0ea'],
     ['#7f848b', '#c4cbd2', '#e4e9ed'],
-  ];
+  ].map((palette) => applyDistrictBiasWithinBand(palette, context));
+}
+
+function resolveArchetypePaletteBand(
+  archetype: BuildingStyleProfile['visualArchetype'],
+  materialClass: MaterialClass,
+  context: FacadeContext,
+): string[][] | null {
+  if (archetype === 'apartment_block' || archetype === 'house_compact') {
+    return [
+      ['#c8beb1', '#e5ddd3', '#f4efe9'],
+      ['#bdb8b2', '#ddd9d3', '#eeece8'],
+      ['#b7c1cc', '#dde4eb', '#eef2f6'],
+      ['#d4cdc3', '#e8e1d7', '#f5f1eb'],
+    ];
+  }
+  if (archetype === 'highrise_office' || archetype === 'commercial_midrise') {
+    return [
+      ['#6f859c', '#b7c6d3', '#e6edf3'],
+      ['#5d7388', '#aab9c6', '#dfe7ee'],
+      ['#8794a1', '#c6cdd3', '#edf0f3'],
+      ['#4f6478', '#9fb0be', '#d8e3ec'],
+    ];
+  }
+  if (archetype === 'mall_podium' || archetype === 'lowrise_shop') {
+    return context.districtProfile === 'NEON_CORE'
+      ? [
+          ['#3e4958', '#f4eee8', '#ff7a59'],
+          ['#2f3b4a', '#f2f6fb', '#3ec1d3'],
+          ['#4b4250', '#f8f2e8', '#ffb703'],
+          ['#404654', '#f4f1ec', '#00d084'],
+        ]
+      : [
+          ['#505a67', '#ece6de', '#d87b59'],
+          ['#5b6773', '#f0ebe3', '#c86b5d'],
+          ['#4c5965', '#f2eee9', '#d29a4a'],
+          ['#56606b', '#ece8e0', '#4f9bb7'],
+        ];
+  }
+  if (archetype === 'hotel_tower') {
+    return [
+      ['#6b7f90', '#d2dbe2', '#f0f4f7'],
+      ['#74879a', '#d8dde2', '#f3f6f8'],
+      ['#5f7386', '#c7d2dc', '#ebf0f4'],
+      ['#8b9198', '#d7d9dc', '#f0f1f2'],
+    ];
+  }
+  if (
+    archetype === 'station_like' ||
+    materialClass === 'metal' ||
+    context.districtProfile === 'TRANSIT_HUB'
+  ) {
+    return [
+      ['#5f666e', '#a9b0b7', '#dfe3e7'],
+      ['#6a6761', '#b3aaa0', '#e1d9cf'],
+      ['#4f5963', '#98a3ad', '#d2dbe3'],
+      ['#6f726f', '#b9bbb8', '#e6e7e5'],
+    ];
+  }
+  return null;
+}
+
+function applyDistrictBiasWithinBand(
+  palette: string[],
+  context: FacadeContext,
+): string[] {
+  const { satDelta, lumDelta } = resolveDistrictBias(context.districtProfile);
+  return palette.map((hex, index) => {
+    const attenuation = index === 0 ? 1 : index === 1 ? 0.85 : 0.72;
+    return adjustHexSaturationLuminance(
+      hex,
+      satDelta * attenuation,
+      lumDelta * attenuation,
+    );
+  });
+}
+
+function resolveDistrictBias(profile: FacadeContext['districtProfile']): {
+  satDelta: number;
+  lumDelta: number;
+} {
+  // Oracle guardrail: keep this small (≈8%), cap at 12%
+  switch (profile) {
+    case 'NEON_CORE':
+      return { satDelta: 0.08, lumDelta: -0.03 };
+    case 'COMMERCIAL_STRIP':
+      return { satDelta: 0.05, lumDelta: 0.015 };
+    case 'TRANSIT_HUB':
+      return { satDelta: -0.03, lumDelta: 0.01 };
+    case 'CIVIC_CLUSTER':
+      return { satDelta: -0.02, lumDelta: 0.018 };
+    case 'RESIDENTIAL_EDGE':
+    default:
+      return { satDelta: 0.02, lumDelta: 0.012 };
+  }
+}
+
+function adjustHexSaturationLuminance(
+  hex: string,
+  saturationDelta: number,
+  luminanceDelta: number,
+): string {
+  const [r, g, b] = hexToRgb(hex);
+  const gray = r * 0.299 + g * 0.587 + b * 0.114;
+  const sat = clamp01(1 + clampRange(saturationDelta, -0.12, 0.12));
+
+  const sr = clamp01(gray + (r - gray) * sat);
+  const sg = clamp01(gray + (g - gray) * sat);
+  const sb = clamp01(gray + (b - gray) * sat);
+
+  const lumFactor = 1 + clampRange(luminanceDelta, -0.12, 0.12);
+  return toHex([sr * lumFactor, sg * lumFactor, sb * lumFactor]);
+}
+
+function toHex([r, g, b]: [number, number, number]): string {
+  const toChannel = (value: number): string =>
+    Math.round(clamp01(value) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toChannel(r)}${toChannel(g)}${toChannel(b)}`;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function clampRange(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function resolvePanelPalette(

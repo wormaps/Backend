@@ -25,7 +25,7 @@ export class SceneSignageVisionService {
         const rightDist = squaredDistance(right.anchor, place.location);
         return leftDist - rightDist;
       })
-      .slice(0, 12);
+      .slice(0, 18);
 
     return clusterSource.map((hint, index) => ({
       objectId: `signage-cluster-${index + 1}`,
@@ -33,12 +33,12 @@ export class SceneSignageVisionService {
       panelCount: Math.max(
         3,
         Math.min(
-          12,
-          signFeatures.length > 0 ? Math.ceil(signFeatures.length / 6) : 4,
+          14,
+          signFeatures.length > 0 ? Math.ceil(signFeatures.length / 5) : 5,
         ),
       ),
       palette: hint.palette,
-      emissiveStrength: Math.max(0.48, hint.emissiveStrength * 1.1),
+      emissiveStrength: Math.max(0.52, hint.emissiveStrength * 1.14),
       widthMeters: 5.8 + (index % 3) * 1.2,
       heightMeters: 2.8 + (index % 2) * 1,
     }));
@@ -50,7 +50,7 @@ export class SceneSignageVisionService {
   ) {
     const crossingAnchors = crossings
       .filter((crossing) => crossing.principal)
-      .slice(0, 4)
+      .slice(0, 6)
       .map((crossing) => ({
         objectId: crossing.objectId,
         name: crossing.name,
@@ -58,14 +58,24 @@ export class SceneSignageVisionService {
         kind: 'CROSSING' as const,
       }));
 
-    const landmarkAnchors = placePackage.landmarks.slice(0, 6).map((poi) => ({
+    const landmarkAnchors = placePackage.landmarks.slice(0, 10).map((poi) => ({
       objectId: poi.id,
       name: poi.name,
       location: poi.location,
       kind: 'BUILDING' as const,
     }));
 
-    return [...crossingAnchors, ...landmarkAnchors];
+    const poiAnchors = placePackage.pois
+      .filter((poi) => poi.type === 'LANDMARK' || poi.type === 'SHOP')
+      .slice(0, 6)
+      .map((poi) => ({
+        objectId: poi.id,
+        name: poi.name,
+        location: poi.location,
+        kind: 'BUILDING' as const,
+      }));
+
+    return [...crossingAnchors, ...landmarkAnchors, ...poiAnchors];
   }
 }
 

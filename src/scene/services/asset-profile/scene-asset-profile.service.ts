@@ -275,23 +275,37 @@ export class SceneAssetProfileService {
     }
     const multiplier =
       resolveSceneFidelityModeSignal(targetMode).budgetMultiplier;
-    if (multiplier === 1) {
+    const isLandmarkTarget = targetMode === 'LANDMARK_ENRICHED';
+    const targetMultiplier = isLandmarkTarget ? 1.2 : multiplier;
+    if (targetMultiplier === 1) {
       return baseBudget;
     }
 
     return {
-      buildingCount: scaleCount(baseBudget.buildingCount, multiplier),
-      roadCount: scaleCount(baseBudget.roadCount, multiplier),
-      walkwayCount: scaleCount(baseBudget.walkwayCount, multiplier),
-      poiCount: scaleCount(baseBudget.poiCount, multiplier),
-      crossingCount: scaleCount(baseBudget.crossingCount, multiplier),
-      trafficLightCount: scaleCount(baseBudget.trafficLightCount, multiplier),
-      streetLightCount: scaleCount(baseBudget.streetLightCount, multiplier),
-      signPoleCount: scaleCount(baseBudget.signPoleCount, multiplier),
-      treeClusterCount: scaleCount(baseBudget.treeClusterCount, multiplier),
+      buildingCount: scaleCount(baseBudget.buildingCount, targetMultiplier),
+      roadCount: scaleCount(baseBudget.roadCount, targetMultiplier),
+      walkwayCount: scaleCount(baseBudget.walkwayCount, targetMultiplier),
+      poiCount: scaleCount(baseBudget.poiCount, targetMultiplier),
+      crossingCount: scaleCount(baseBudget.crossingCount, targetMultiplier),
+      trafficLightCount: scaleCount(
+        baseBudget.trafficLightCount,
+        targetMultiplier * (isLandmarkTarget ? 1.14 : 1),
+      ),
+      streetLightCount: scaleCount(
+        baseBudget.streetLightCount,
+        targetMultiplier * (isLandmarkTarget ? 1.18 : 1),
+      ),
+      signPoleCount: scaleCount(
+        baseBudget.signPoleCount,
+        targetMultiplier * (isLandmarkTarget ? 1.2 : 1),
+      ),
+      treeClusterCount: scaleCount(
+        baseBudget.treeClusterCount,
+        targetMultiplier,
+      ),
       billboardPanelCount: scaleCount(
         baseBudget.billboardPanelCount,
-        multiplier,
+        targetMultiplier * (isLandmarkTarget ? 1.16 : 1),
       ),
     };
   }
