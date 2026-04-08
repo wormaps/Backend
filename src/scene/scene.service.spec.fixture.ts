@@ -29,6 +29,7 @@ import {
   SceneAtmosphereRecomputeService,
   SceneFidelityPlannerService,
   SceneGenerationService,
+  SceneQualityGateService,
   SceneHeroOverrideService,
   SceneLiveDataService,
   SceneReadService,
@@ -143,6 +144,7 @@ export interface SceneSpecContext {
   tomTomTrafficClient: jest.Mocked<TomTomTrafficClient>;
   sceneVisionService: jest.Mocked<SceneVisionService>;
   sceneHeroOverrideService: jest.Mocked<SceneHeroOverrideService>;
+  qualityGateService: jest.Mocked<SceneQualityGateService>;
   appLoggerService: jest.Mocked<AppLoggerService>;
 }
 
@@ -159,6 +161,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneAssetProfileService,
       SceneAtmosphereRecomputeService,
       SceneFidelityPlannerService,
+      SceneQualityGateService,
       SceneGenerationPipelineService,
       ScenePlaceResolutionStep,
       ScenePlacePackageStep,
@@ -221,6 +224,48 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
         },
       },
       {
+        provide: SceneQualityGateService,
+        useValue: {
+          evaluate: jest.fn().mockResolvedValue({
+            version: 'qg.v1',
+            state: 'PASS',
+            reasonCodes: [],
+            scores: {
+              overall: 0.8,
+              breakdown: {
+                structure: 0.82,
+                atmosphere: 0.74,
+                placeReadability: 0.78,
+              },
+              modeDeltaOverallScore: 0.12,
+            },
+            thresholds: {
+              coverageGapMax: 1,
+              overallMin: 0.45,
+              structureMin: 0.45,
+              placeReadabilityMin: 0,
+              modeDeltaOverallMin: -0.2,
+              criticalPolygonBudgetExceededMax: 0,
+              criticalInvalidGeometryMax: 0,
+            },
+            meshSummary: {
+              totalSkipped: 0,
+              polygonBudgetExceededCount: 0,
+              criticalPolygonBudgetExceededCount: 0,
+              emptyOrInvalidGeometryCount: 0,
+              criticalEmptyOrInvalidGeometryCount: 0,
+              selectionCutCount: 0,
+              missingSourceCount: 0,
+            },
+            artifactRefs: {
+              diagnosticsLogPath: '/tmp/diagnostics.log',
+              modeComparisonPath: '/tmp/mode-comparison.json',
+            },
+            decidedAt: '2026-01-01T00:00:00.000Z',
+          }),
+        },
+      },
+      {
         provide: MapillaryClient,
         useValue: {
           isConfigured: jest.fn().mockReturnValue(false),
@@ -265,6 +310,9 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
   const sceneHeroOverrideService = module.get(
     SceneHeroOverrideService,
   ) as unknown as jest.Mocked<SceneHeroOverrideService>;
+  const qualityGateService = module.get(
+    SceneQualityGateService,
+  ) as unknown as jest.Mocked<SceneQualityGateService>;
   const appLoggerService = module.get(
     AppLoggerService,
   ) as unknown as jest.Mocked<AppLoggerService>;
@@ -340,6 +388,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
     tomTomTrafficClient,
     sceneVisionService,
     sceneHeroOverrideService,
+    qualityGateService,
     appLoggerService,
   };
 }

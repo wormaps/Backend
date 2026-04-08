@@ -56,6 +56,7 @@ export class SceneReadService {
       assetProfile: stored.meta.assetProfile,
       structuralCoverage: stored.meta.structuralCoverage,
       fidelityPlan: stored.meta.fidelityPlan,
+      qualityGate: stored.meta.qualityGate,
       liveEndpoints: {
         state: `/api/scenes/${scene.sceneId}/state`,
         traffic: `/api/scenes/${scene.sceneId}/traffic`,
@@ -149,6 +150,8 @@ export class SceneReadService {
         detail: {
           sceneId,
           status: storedScene.scene.status,
+          qualityGate: storedScene.scene.qualityGate ?? null,
+          failureCategory: storedScene.scene.failureCategory ?? null,
         },
         status: HttpStatus.CONFLICT,
       });

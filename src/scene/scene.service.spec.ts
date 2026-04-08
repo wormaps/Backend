@@ -34,6 +34,7 @@ describe('Scene Services', () => {
       glbBuilderService,
       googlePlacesClient,
       overpassClient,
+      qualityGateService,
       appLoggerService,
     } = context!;
 
@@ -56,6 +57,12 @@ describe('Scene Services', () => {
     expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
     expect(refreshed.radiusM).toBe(600);
     expect(refreshed.status).toBe('READY');
+    expect(refreshed.failureCategory).toBeNull();
+    expect(refreshed.qualityGate).toMatchObject({
+      version: 'qg.v1',
+      state: 'PASS',
+      reasonCodes: [],
+    });
     expect(refreshed.assetUrl).toBe(
       '/api/scenes/scene-seoul-city-hall/assets/base.glb',
     );
@@ -83,6 +90,10 @@ describe('Scene Services', () => {
       mapillary: false,
       weatherBaked: false,
       trafficBaked: false,
+    });
+    expect(bootstrap.qualityGate).toMatchObject({
+      version: 'qg.v1',
+      state: 'PASS',
     });
     expect(meta.roads[0]?.objectId).toBe('road-22');
     expect(meta.roads[0]?.path).toHaveLength(3);
@@ -122,6 +133,7 @@ describe('Scene Services', () => {
     ]);
 
     expect(glbBuilderService.build).toHaveBeenCalledTimes(1);
+    expect(qualityGateService.evaluate).toHaveBeenCalledTimes(1);
     expect(overpassClient.buildPlacePackage).toHaveBeenCalledWith(
       placeDetail,
       expect.objectContaining({
@@ -219,6 +231,88 @@ describe('Scene Services', () => {
       '검색 결과에 해당하는 장소를 찾을 수 없습니다.',
     );
     expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails scene without retry when quality gate rejects output', async () => {
+    const {
+      generationService,
+      readService,
+      googlePlacesClient,
+      overpassClient,
+      qualityGateService,
+    } = context!;
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    qualityGateService.evaluate.mockResolvedValueOnce({
+      version: 'qg.v1',
+      state: 'FAIL',
+      failureCategory: 'QUALITY_GATE_REJECTED',
+      reasonCodes: ['CRITICAL_BUDGET_SKIP', 'OVERALL_SCORE_BELOW_MIN'],
+      scores: {
+        overall: 0.32,
+        breakdown: {
+          structure: 0.41,
+          atmosphere: 0.21,
+          placeReadability: 0.18,
+        },
+        modeDeltaOverallScore: -0.26,
+      },
+      thresholds: {
+        coverageGapMax: 1,
+        overallMin: 0.45,
+        structureMin: 0.45,
+        placeReadabilityMin: 0,
+        modeDeltaOverallMin: -0.2,
+        criticalPolygonBudgetExceededMax: 0,
+        criticalInvalidGeometryMax: 0,
+      },
+      meshSummary: {
+        totalSkipped: 8,
+        polygonBudgetExceededCount: 4,
+        criticalPolygonBudgetExceededCount: 1,
+        emptyOrInvalidGeometryCount: 2,
+        criticalEmptyOrInvalidGeometryCount: 0,
+        selectionCutCount: 1,
+        missingSourceCount: 1,
+      },
+      artifactRefs: {
+        diagnosticsLogPath: '/tmp/diagnostics.log',
+        modeComparisonPath: '/tmp/mode-comparison.json',
+      },
+      decidedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const scene = await generationService.createScene(
+      'Seoul City Hall Gate Fail',
+      'MEDIUM',
+    );
+    await generationService.waitForIdle();
+
+    const failed = await readService.getScene(scene.sceneId);
+    expect(failed.status).toBe('FAILED');
+    expect(failed.failureCategory).toBe('QUALITY_GATE_REJECTED');
+    expect(failed.failureReason).toContain('CRITICAL_BUDGET_SKIP');
+    expect(failed.qualityGate).toMatchObject({
+      state: 'FAIL',
+      reasonCodes: ['CRITICAL_BUDGET_SKIP', 'OVERALL_SCORE_BELOW_MIN'],
+    });
+    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(1);
+
+    await expect(readService.getBootstrap(scene.sceneId)).rejects.toMatchObject(
+      {
+        response: {
+          code: 'SCENE_NOT_READY',
+          detail: {
+            status: 'FAILED',
+            failureCategory: 'QUALITY_GATE_REJECTED',
+            qualityGate: expect.objectContaining({
+              state: 'FAIL',
+            }),
+          },
+        },
+      },
+    );
   });
 
   it('applies different collection bounds for each scene scale', async () => {

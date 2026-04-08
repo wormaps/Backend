@@ -36,7 +36,9 @@ import {
   RoofType,
   SceneFacadeContextDiagnostics,
   SceneFidelityPlan,
+  SceneFailureCategory,
   ScenePlaceReadabilityDiagnostics,
+  SceneQualityGateResult,
   SceneStructuralCoverage,
   SceneScale,
   SceneStaticAtmosphereProfile,
@@ -62,6 +64,8 @@ export interface SceneEntity {
   createdAt: string;
   updatedAt: string;
   failureReason?: string | null;
+  failureCategory?: SceneFailureCategory | null;
+  qualityGate?: SceneQualityGateResult | null;
 }
 
 export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
@@ -287,6 +291,7 @@ export interface SceneMeta {
   };
   structuralCoverage: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;
+  qualityGate?: SceneQualityGateResult;
   roads: SceneRoadMeta[];
   buildings: SceneBuildingMeta[];
   walkways: SceneWalkwayMeta[];
@@ -314,6 +319,7 @@ export interface SceneDetail {
   annotationsApplied: string[];
   structuralCoverage?: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;
+  qualityGate?: SceneQualityGateResult;
   staticAtmosphere?: SceneStaticAtmosphereProfile;
   sceneWideAtmosphereProfile?: SceneWideAtmosphereProfile;
   districtAtmosphereProfiles?: DistrictAtmosphereProfile[];

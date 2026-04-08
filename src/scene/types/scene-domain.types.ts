@@ -435,6 +435,78 @@ export interface SceneFidelityPlan {
   sourceRegistry: SceneRealitySourceReference[];
 }
 
+export type SceneFailureCategory = 'GENERATION_ERROR' | 'QUALITY_GATE_REJECTED';
+
+export type SceneQualityGateState = 'PASS' | 'FAIL' | 'SKIPPED';
+
+export type SceneQualityGateReasonCode =
+  | 'COVERAGE_GAP_PRESENT'
+  | 'OVERALL_SCORE_BELOW_MIN'
+  | 'MODE_DELTA_BELOW_MIN'
+  | 'CRITICAL_BUDGET_SKIP'
+  | 'CRITICAL_INVALID_GEOMETRY'
+  | 'STRUCTURE_SCORE_BELOW_MIN'
+  | 'PLACE_READABILITY_SCORE_BELOW_MIN';
+
+export interface SceneQualityGateThresholds {
+  coverageGapMax: number;
+  overallMin: number;
+  structureMin: number;
+  placeReadabilityMin: number;
+  modeDeltaOverallMin: number;
+  criticalPolygonBudgetExceededMax: number;
+  criticalInvalidGeometryMax: number;
+}
+
+export interface SceneQualityGateScores {
+  overall: number;
+  breakdown: {
+    structure: number;
+    atmosphere: number;
+    placeReadability: number;
+  };
+  modeDeltaOverallScore: number;
+}
+
+export interface SceneQualityGateMeshSummary {
+  totalSkipped: number;
+  polygonBudgetExceededCount: number;
+  criticalPolygonBudgetExceededCount: number;
+  emptyOrInvalidGeometryCount: number;
+  criticalEmptyOrInvalidGeometryCount: number;
+  selectionCutCount: number;
+  missingSourceCount: number;
+}
+
+export interface SceneQualityGateArtifactRefs {
+  diagnosticsLogPath: string;
+  modeComparisonPath: string;
+}
+
+export interface SceneQualityGateInput {
+  version: 'qg.v1';
+  sceneId: string;
+  fidelityPlan?: Pick<
+    SceneFidelityPlan,
+    'phase' | 'targetMode' | 'coverageGapRatio'
+  >;
+  scores: SceneQualityGateScores;
+  meshSummary: SceneQualityGateMeshSummary;
+  artifactRefs: SceneQualityGateArtifactRefs;
+}
+
+export interface SceneQualityGateResult {
+  version: 'qg.v1';
+  state: SceneQualityGateState;
+  failureCategory?: SceneFailureCategory;
+  reasonCodes: SceneQualityGateReasonCode[];
+  scores: SceneQualityGateScores;
+  thresholds: SceneQualityGateThresholds;
+  meshSummary: SceneQualityGateMeshSummary;
+  artifactRefs: SceneQualityGateArtifactRefs;
+  decidedAt: string;
+}
+
 export interface SceneLandmarkFacadeHint {
   palette?: string[];
   shellPalette?: string[];

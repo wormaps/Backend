@@ -15,6 +15,7 @@ import {
 } from './scene-model.types';
 import {
   SceneFidelityPlan,
+  SceneQualityGateResult,
   SceneScale,
   SceneStructuralCoverage,
 } from './scene-domain.types';
@@ -29,6 +30,7 @@ export interface BootstrapResponse {
   assetProfile: SceneMeta['assetProfile'];
   structuralCoverage: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;
+  qualityGate?: SceneQualityGateResult;
   liveEndpoints: {
     state: string;
     traffic: string;

@@ -8,9 +8,12 @@ import { isFiniteCoordinate } from '../../../places/utils/geo.utils';
 import { SceneGenerationPipelineService } from '../../pipeline/scene-generation-pipeline.service';
 import { SceneRepository } from '../../storage/scene.repository';
 import { getSceneDataDir } from '../../storage/scene-storage.utils';
+import { SceneQualityGateService } from './scene-quality-gate.service';
 import type {
   SceneCreateOptions,
   SceneEntity,
+  SceneFailureCategory,
+  SceneQualityGateResult,
   SceneScale,
   StoredScene,
 } from '../../types/scene.types';
@@ -24,6 +27,7 @@ export class SceneGenerationService {
   constructor(
     private readonly sceneRepository: SceneRepository,
     private readonly sceneGenerationPipelineService: SceneGenerationPipelineService,
+    private readonly sceneQualityGateService: SceneQualityGateService,
     private readonly appLoggerService: AppLoggerService,
   ) {}
 
@@ -142,32 +146,69 @@ export class SceneGenerationService {
         storedScene,
         logContext,
       });
+      const qualityGate = await this.sceneQualityGateService.evaluate(
+        result.meta,
+        result.detail,
+      );
+      const qualityPass = qualityGate.state === 'PASS';
+      const failureCategory = qualityPass ? null : 'QUALITY_GATE_REJECTED';
 
       await this.sceneRepository.update(sceneId, (current) => ({
         ...current,
         attempts: current.attempts + 1,
         place: result.place,
-        meta: result.meta,
-        detail: result.detail,
+        meta: {
+          ...result.meta,
+          qualityGate,
+        },
+        detail: {
+          ...result.detail,
+          qualityGate,
+        },
         scene: {
           ...current.scene,
           placeId: result.place.placeId,
           name: result.place.displayName,
           centerLat: result.place.location.lat,
           centerLng: result.place.location.lng,
-          status: 'READY',
+          status: qualityPass ? 'READY' : 'FAILED',
           assetUrl: result.assetPath
             ? `/api/scenes/${sceneId}/assets/base.glb`
             : null,
-          failureReason: null,
+          failureReason: qualityPass
+            ? null
+            : this.buildQualityFailureReason(qualityGate),
+          failureCategory,
+          qualityGate,
           updatedAt: new Date().toISOString(),
         },
       }));
-      this.appLoggerService.info('scene.ready', {
-        ...logContext,
-        step: 'complete',
-        status: 'READY',
-      });
+      if (qualityPass) {
+        this.appLoggerService.info('scene.ready', {
+          ...logContext,
+          step: 'complete',
+          status: 'READY',
+          qualityGate: {
+            version: qualityGate.version,
+            state: qualityGate.state,
+            reasonCodes: qualityGate.reasonCodes,
+          },
+        });
+      } else {
+        this.appLoggerService.warn('scene.quality_gate.rejected', {
+          ...logContext,
+          step: 'quality_gate',
+          status: 'FAILED',
+          failureCategory,
+          qualityGate: {
+            version: qualityGate.version,
+            state: qualityGate.state,
+            reasonCodes: qualityGate.reasonCodes,
+            scores: qualityGate.scores,
+            thresholds: qualityGate.thresholds,
+          },
+        });
+      }
     } catch (error) {
       this.appLoggerService.error('scene.generation.failed', {
         ...logContext,
@@ -186,8 +227,37 @@ export class SceneGenerationService {
     const attempts = storedScene.attempts + 1;
     const failureReason =
       error instanceof Error ? error.message : 'Scene generation failed';
+    const qualityGate = this.resolveQualityGateFromError(error);
+    const failureCategory: SceneFailureCategory = qualityGate
+      ? 'QUALITY_GATE_REJECTED'
+      : 'GENERATION_ERROR';
 
     if (attempts < this.maxGenerationAttempts) {
+      if (failureCategory === 'QUALITY_GATE_REJECTED') {
+        await this.sceneRepository.update(sceneId, (current) => ({
+          ...current,
+          attempts,
+          scene: {
+            ...current.scene,
+            status: 'FAILED',
+            failureReason,
+            failureCategory,
+            qualityGate,
+            updatedAt: new Date().toISOString(),
+          },
+        }));
+        this.appLoggerService.warn('scene.quality_gate.non_retry', {
+          requestId: storedScene.requestId ?? null,
+          sceneId,
+          source: storedScene.generationSource ?? 'api',
+          step: 'quality_gate',
+          attempts,
+          failureReason,
+          failureCategory,
+        });
+        return;
+      }
+
       this.appLoggerService.warn('scene.retrying', {
         requestId: storedScene.requestId ?? null,
         sceneId,
@@ -196,6 +266,7 @@ export class SceneGenerationService {
         attempts,
         maxAttempts: this.maxGenerationAttempts,
         failureReason,
+        failureCategory,
       });
       await this.sceneRepository.update(sceneId, (current) => ({
         ...current,
@@ -204,6 +275,8 @@ export class SceneGenerationService {
           ...current.scene,
           status: 'PENDING',
           failureReason,
+          failureCategory,
+          qualityGate,
           updatedAt: new Date().toISOString(),
         },
       }));
@@ -218,6 +291,8 @@ export class SceneGenerationService {
         ...current.scene,
         status: 'FAILED',
         failureReason,
+        failureCategory,
+        qualityGate,
         updatedAt: new Date().toISOString(),
       },
     }));
@@ -228,7 +303,37 @@ export class SceneGenerationService {
       step: 'failed',
       attempts,
       failureReason,
+      failureCategory,
     });
+  }
+
+  private resolveQualityGateFromError(
+    error: unknown,
+  ): SceneQualityGateResult | null {
+    if (!(error instanceof Error)) {
+      return null;
+    }
+
+    const maybeResult = (
+      error as Error & {
+        qualityGate?: SceneQualityGateResult;
+      }
+    ).qualityGate;
+    if (!maybeResult) {
+      return null;
+    }
+
+    return maybeResult;
+  }
+
+  private buildQualityFailureReason(
+    qualityGate: SceneQualityGateResult,
+  ): string {
+    const reasonCodes = qualityGate.reasonCodes;
+    if (reasonCodes.length === 0) {
+      return 'Quality gate rejected this scene.';
+    }
+    return `Quality gate rejected this scene: ${reasonCodes.join(', ')}`;
   }
 
   private async getStoredScene(sceneId: string): Promise<StoredScene> {
