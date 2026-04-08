@@ -323,13 +323,16 @@ function resolveWindowType(
   averageGlazing: number,
   dominantWindowDensity?: string,
 ): FacadeLayerMaterialProfile['windowType'] {
-  if (averageGlazing >= 0.62 || dominantWindowDensity === 'dense') {
+  if (dominantWindowDensity === 'dense') {
+    return averageGlazing >= 0.7 ? 'curtain_wall' : 'reflective';
+  }
+  if (averageGlazing >= 0.7) {
     return 'curtain_wall';
   }
-  if (averageGlazing >= 0.46) {
+  if (averageGlazing >= 0.5) {
     return 'reflective';
   }
-  if (averageGlazing >= 0.32) {
+  if (averageGlazing >= 0.3) {
     return 'tinted';
   }
   return 'clear';

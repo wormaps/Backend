@@ -107,6 +107,7 @@ export interface RunnerStageHooks {
   groupFacadeHintsByPanelColor: (
     facadeHints: SceneDetail['facadeHints'],
   ) => Array<{
+    groupKey: string;
     tone: 'cool' | 'warm' | 'neutral';
     colorHex: string;
     hints: SceneDetail['facadeHints'];

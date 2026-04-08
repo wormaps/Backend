@@ -58,6 +58,8 @@ interface WindowConfig {
   sillDepth: number;
   pattern: 'grid' | 'horizontal' | 'vertical' | 'scattered';
   facadeEdgeOnly: boolean;
+  jitterStrength: number;
+  skipChance: number;
 }
 
 function resolveWindowConfig(
@@ -81,6 +83,8 @@ function resolveWindowConfig(
     sillDepth: 0.12,
     pattern: 'grid',
     facadeEdgeOnly: false,
+    jitterStrength: 0,
+    skipChance: 0,
   };
 
   switch (archetype) {
@@ -100,7 +104,9 @@ function resolveWindowConfig(
         windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 4 : 3,
         windowWidth: density === 'dense' ? 1.1 : 1.0,
         windowHeight: density === 'dense' ? 1.48 : 1.4,
-        pattern: 'grid',
+        pattern: 'scattered',
+        jitterStrength: density === 'dense' ? 0.04 : 0.08,
+        skipChance: density === 'dense' ? 0.08 : 0.14,
       };
     case 'commercial_midrise':
     case 'mall_podium':
@@ -138,7 +144,12 @@ function resolveWindowConfig(
         facadeEdgeOnly: density !== 'dense',
       };
     default:
-      return baseConfig;
+      return {
+        ...baseConfig,
+        pattern: 'scattered',
+        jitterStrength: 0.05,
+        skipChance: 0.08,
+      };
   }
 }
 
@@ -170,9 +181,26 @@ function pushWindowGrid(
       if (config.facadeEdgeOnly && col > 0) {
         continue;
       }
-      const t = (col + 0.5) / config.windowsPerFloor;
+      const randomBase = stableUnitNoise(
+        `${frame.a[0].toFixed(2)}:${frame.a[2].toFixed(2)}:${floor}:${col}:${config.pattern}`,
+      );
+      if (config.skipChance > 0 && randomBase < config.skipChance) {
+        continue;
+      }
+      const tBase = (col + 0.5) / config.windowsPerFloor;
+      const t = clamp01(
+        tBase +
+          (config.pattern === 'scattered'
+            ? (randomBase - 0.5) * config.jitterStrength
+            : 0),
+      );
       const centerX = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
       const centerZ = frame.a[2] + (frame.b[2] - frame.a[2]) * t;
+      const sizeScale =
+        config.pattern === 'scattered'
+          ? 0.9 +
+            stableUnitNoise(`${floor}:${col}:${config.windowsPerFloor}`) * 0.22
+          : 1;
 
       pushWindowFrame(
         geometry,
@@ -180,14 +208,27 @@ function pushWindowGrid(
         centerX,
         centerZ,
         floorY,
-        config.windowWidth,
-        config.windowHeight,
+        config.windowWidth * sizeScale,
+        config.windowHeight * sizeScale,
         config.windowDepth,
         config.frameWidth,
         config.sillDepth,
       );
     }
   }
+}
+
+function stableUnitNoise(seed: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
 function pushWindowFrame(

@@ -51,12 +51,14 @@ export function createRoadBaseGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   for (const road of roads) {
+    const widthScale = resolveRoadWidthScale(road);
+    const yOffset = resolveRoadYOffset(road);
     pushPathStrips(
       origin,
       geometry,
       road.path,
-      Math.max(3.2, road.widthMeters),
-      0.04,
+      Math.max(3.2, road.widthMeters * widthScale),
+      0.04 + yOffset,
     );
   }
   return geometry;
@@ -285,12 +287,14 @@ export function createWalkwayGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   for (const walkway of walkways) {
+    const widthScale = resolveWalkwayWidthScale(walkway);
+    const yOffset = resolveWalkwayYOffset(walkway);
     pushPathStrips(
       origin,
       geometry,
       walkway.path,
-      Math.max(2, walkway.widthMeters),
-      0.015,
+      Math.max(1.8, walkway.widthMeters * widthScale),
+      0.015 + yOffset,
     );
   }
   return geometry;
@@ -353,4 +357,59 @@ export function createSidewalkEdgeGeometry(
     );
   }
   return geometry;
+}
+
+function resolveRoadWidthScale(road: SceneMeta['roads'][number]): number {
+  const className = road.roadClass.toLowerCase();
+  if (className.includes('motorway') || className.includes('trunk')) {
+    return 1.14;
+  }
+  if (className.includes('primary')) {
+    return 1.08;
+  }
+  if (className.includes('secondary')) {
+    return 1.04;
+  }
+  if (className.includes('tertiary')) {
+    return 0.98;
+  }
+  if (className.includes('residential') || className.includes('service')) {
+    return 0.9;
+  }
+  return road.laneCount >= 4 ? 1.08 : road.laneCount <= 1 ? 0.9 : 1;
+}
+
+function resolveRoadYOffset(road: SceneMeta['roads'][number]): number {
+  const surface = road.surface?.toLowerCase() ?? '';
+  if (surface.includes('cobblestone') || surface.includes('sett')) {
+    return 0.008;
+  }
+  if (surface.includes('gravel') || surface.includes('unpaved')) {
+    return 0.004;
+  }
+  return 0;
+}
+
+function resolveWalkwayWidthScale(
+  walkway: SceneMeta['walkways'][number],
+): number {
+  const type = walkway.walkwayType.toLowerCase();
+  if (type.includes('footway') || type.includes('pedestrian')) {
+    return 1.08;
+  }
+  if (type.includes('steps') || type.includes('path')) {
+    return 0.9;
+  }
+  return 1;
+}
+
+function resolveWalkwayYOffset(walkway: SceneMeta['walkways'][number]): number {
+  const surface = walkway.surface?.toLowerCase() ?? '';
+  if (surface.includes('paving_stones') || surface.includes('tiles')) {
+    return 0.004;
+  }
+  if (surface.includes('wood')) {
+    return 0.006;
+  }
+  return 0;
 }

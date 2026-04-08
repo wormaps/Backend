@@ -213,7 +213,7 @@ export function addBuildingAndHeroMeshes(
       ctx.Accessor,
       ctx.scene,
       ctx.buffer,
-      `building_panels_${panelGroup.tone}_${panelGroup.colorHex.slice(1)}`,
+      `building_panels_${panelGroup.tone}_${panelGroup.colorHex.slice(1)}_${Math.abs(hashKey((panelGroup as { groupKey?: string }).groupKey ?? `${panelGroup.tone}:${panelGroup.colorHex}`)).toString(36)}`,
       createBuildingPanelsGeometry(
         sceneMeta.origin,
         assetSelection.buildings,
@@ -406,4 +406,12 @@ export function addBuildingAndHeroMeshes(
       },
     );
   }
+}
+
+function hashKey(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33 + value.charCodeAt(index)) | 0;
+  }
+  return hash;
 }

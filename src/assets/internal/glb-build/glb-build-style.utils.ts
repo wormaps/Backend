@@ -159,9 +159,13 @@ export function resolveBuildingShellStyleFromHint(
     normalizedColor,
     materialClass,
   );
+  const facadePreset = hint?.facadePreset ?? building.facadePreset ?? 'default';
+  const windowDensity = hint?.windowPatternDensity ?? 'medium';
+  const archetype =
+    hint?.visualArchetype ?? building.visualArchetype ?? 'generic';
 
   return {
-    key: `${materialClass}_${normalizedColor}`,
+    key: `${materialClass}_${bucket}_${normalizedColor}_${facadePreset}_${windowDensity}_${archetype}`,
     materialClass,
     bucket,
     colorHex: normalizedColor,
@@ -171,13 +175,19 @@ export function resolveBuildingShellStyleFromHint(
 export function groupFacadeHintsByPanelColor(
   facadeHints: SceneDetail['facadeHints'],
 ): Array<{
+  groupKey: string;
   tone: AccentTone;
   colorHex: string;
   hints: SceneDetail['facadeHints'];
 }> {
   const groups = new Map<
     string,
-    { tone: AccentTone; colorHex: string; hints: SceneDetail['facadeHints'] }
+    {
+      groupKey: string;
+      tone: AccentTone;
+      colorHex: string;
+      hints: SceneDetail['facadeHints'];
+    }
   >();
   for (const hint of facadeHints) {
     const paletteSource = hint.panelPalette?.length
@@ -185,8 +195,16 @@ export function groupFacadeHintsByPanelColor(
       : hint.palette;
     const colorHex = normalizeColor(paletteSource[0] ?? '#5a6470');
     const tone = resolveAccentToneFromPalette(paletteSource);
-    const key = `${tone}:${colorHex}`;
-    const current = groups.get(key) ?? { tone, colorHex, hints: [] };
+    const panelPreset = hint.facadePreset ?? 'default';
+    const materialClass = hint.materialClass ?? 'mixed';
+    const density = hint.windowPatternDensity ?? 'medium';
+    const key = `${tone}:${colorHex}:${panelPreset}:${materialClass}:${density}`;
+    const current = groups.get(key) ?? {
+      groupKey: key,
+      tone,
+      colorHex,
+      hints: [],
+    };
     current.hints.push(hint);
     groups.set(key, current);
   }

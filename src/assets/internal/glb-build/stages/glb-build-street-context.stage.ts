@@ -41,6 +41,20 @@ export function addStreetContextMeshes(
     dimensions?: number,
   ) => number[],
 ): void {
+  const benchItems = selectMinorFurniture(sceneDetail.streetFurniture, 'BENCH');
+  const bikeRackItems = selectMinorFurniture(
+    sceneDetail.streetFurniture,
+    'BIKE_RACK',
+  );
+  const trashCanItems = selectMinorFurniture(
+    sceneDetail.streetFurniture,
+    'TRASH_CAN',
+  );
+  const hydrantItems = selectMinorFurniture(
+    sceneDetail.streetFurniture,
+    'FIRE_HYDRANT',
+  );
+
   hooks.addMeshNode(
     ctx.doc,
     ctx.Accessor,
@@ -105,19 +119,13 @@ export function addStreetContextMeshes(
       ctx.scene,
       ctx.buffer,
       'benches',
-      createBenchGeometry(
-        sceneMeta.origin,
-        sceneDetail.streetFurniture.filter((item) => item.type === 'BENCH'),
-        hooks.variationProfile,
-      ),
+      createBenchGeometry(sceneMeta.origin, benchItems, hooks.variationProfile),
       materials.bench,
       {
         sourceCount: sceneDetail.streetFurniture.filter(
           (item) => item.type === 'BENCH',
         ).length,
-        selectedCount: sceneDetail.streetFurniture.filter(
-          (item) => item.type === 'BENCH',
-        ).length,
+        selectedCount: benchItems.length,
       },
     );
     hooks.addMeshNode(
@@ -128,7 +136,7 @@ export function addStreetContextMeshes(
       'bike_racks',
       createBikeRackGeometry(
         sceneMeta.origin,
-        sceneDetail.streetFurniture.filter((item) => item.type === 'BIKE_RACK'),
+        bikeRackItems,
         hooks.variationProfile,
       ),
       materials.bikeRack,
@@ -136,9 +144,7 @@ export function addStreetContextMeshes(
         sourceCount: sceneDetail.streetFurniture.filter(
           (item) => item.type === 'BIKE_RACK',
         ).length,
-        selectedCount: sceneDetail.streetFurniture.filter(
-          (item) => item.type === 'BIKE_RACK',
-        ).length,
+        selectedCount: bikeRackItems.length,
       },
     );
     hooks.addMeshNode(
@@ -149,7 +155,7 @@ export function addStreetContextMeshes(
       'trash_cans',
       createTrashCanGeometry(
         sceneMeta.origin,
-        sceneDetail.streetFurniture.filter((item) => item.type === 'TRASH_CAN'),
+        trashCanItems,
         hooks.variationProfile,
       ),
       materials.trashCan,
@@ -157,9 +163,7 @@ export function addStreetContextMeshes(
         sourceCount: sceneDetail.streetFurniture.filter(
           (item) => item.type === 'TRASH_CAN',
         ).length,
-        selectedCount: sceneDetail.streetFurniture.filter(
-          (item) => item.type === 'TRASH_CAN',
-        ).length,
+        selectedCount: trashCanItems.length,
       },
     );
     hooks.addMeshNode(
@@ -170,9 +174,7 @@ export function addStreetContextMeshes(
       'fire_hydrants',
       createFireHydrantGeometry(
         sceneMeta.origin,
-        sceneDetail.streetFurniture.filter(
-          (item) => item.type === 'FIRE_HYDRANT',
-        ),
+        hydrantItems,
         hooks.variationProfile,
       ),
       materials.fireHydrant,
@@ -180,9 +182,7 @@ export function addStreetContextMeshes(
         sourceCount: sceneDetail.streetFurniture.filter(
           (item) => item.type === 'FIRE_HYDRANT',
         ).length,
-        selectedCount: sceneDetail.streetFurniture.filter(
-          (item) => item.type === 'FIRE_HYDRANT',
-        ).length,
+        selectedCount: hydrantItems.length,
       },
     );
   }
@@ -389,4 +389,11 @@ export function addStreetContextMeshes(
       ).length,
     },
   );
+}
+
+function selectMinorFurniture(
+  items: SceneDetail['streetFurniture'],
+  type: SceneDetail['streetFurniture'][number]['type'],
+): SceneDetail['streetFurniture'] {
+  return items.filter((item) => item.type === type);
 }

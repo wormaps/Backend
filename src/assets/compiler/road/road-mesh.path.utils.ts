@@ -81,7 +81,6 @@ export function pushPathEdgeBands(
   }
 
   const outerHalf = width / 2;
-  const innerHalf = Math.max(0.4, outerHalf - edgeWidth);
   const leftOuter: Vec3[] = [];
   const leftInner: Vec3[] = [];
   const rightOuter: Vec3[] = [];
@@ -95,20 +94,22 @@ export function pushPathEdgeBands(
     if (!isFiniteVec2(normal)) {
       continue;
     }
+    const localEdgeWidth = edgeWidth * edgeWidthVariation(i, localPath.length);
+    const localInnerHalf = Math.max(0.4, outerHalf - localEdgeWidth);
     leftOuter.push([
       current[0] + normal[0] * outerHalf,
       y,
       current[2] + normal[1] * outerHalf,
     ]);
     leftInner.push([
-      current[0] + normal[0] * innerHalf,
+      current[0] + normal[0] * localInnerHalf,
       y,
-      current[2] + normal[1] * innerHalf,
+      current[2] + normal[1] * localInnerHalf,
     ]);
     rightInner.push([
-      current[0] - normal[0] * innerHalf,
+      current[0] - normal[0] * localInnerHalf,
       y,
-      current[2] - normal[1] * innerHalf,
+      current[2] - normal[1] * localInnerHalf,
     ]);
     rightOuter.push([
       current[0] - normal[0] * outerHalf,
@@ -145,6 +146,14 @@ export function pushPathEdgeBands(
       rightInner[i + 1],
     );
   }
+}
+
+function edgeWidthVariation(index: number, total: number): number {
+  if (total <= 1) {
+    return 1;
+  }
+  const t = index / Math.max(1, total - 1);
+  return 0.86 + 0.22 * (Math.sin(t * Math.PI * 2.2) * 0.5 + 0.5);
 }
 
 export function pushPathCurb(

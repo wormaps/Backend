@@ -72,13 +72,15 @@ describe('GlbBuilderService', () => {
     expect(coolStyle).toMatchObject({
       materialClass: 'glass',
       bucket: 'cool-mid',
-      key: 'glass_#4d79c7',
+      colorHex: '#4d79c7',
     });
+    expect(coolStyle.key.startsWith('glass_cool-mid_#4d79c7_')).toBe(true);
     expect(brickStyle).toMatchObject({
       materialClass: 'brick',
       bucket: 'brick',
-      key: 'brick_#a65b42',
+      colorHex: '#a65b42',
     });
+    expect(brickStyle.key.startsWith('brick_brick_#a65b42_')).toBe(true);
   });
 
   it('normalizes local outer rings to counter-clockwise winding', () => {
