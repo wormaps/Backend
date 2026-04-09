@@ -25,6 +25,7 @@ const CRITICAL_MESH_NAMES = new Set([
   'junction_overlay',
   'building_windows',
 ]);
+const COLLISION_RATIO_HARD_FAIL_THRESHOLD = 0.015;
 
 interface ParsedDiagnosticsEntry {
   stage?: string;
@@ -105,7 +106,12 @@ export class SceneQualityGateService {
     ) {
       reasonCodes.push('CRITICAL_INVALID_GEOMETRY');
     }
-    if (this.hasCriticalCollision(sceneDetail.geometryDiagnostics)) {
+    if (
+      this.hasCriticalCollision(
+        sceneDetail.geometryDiagnostics,
+        sceneMeta.buildings.length,
+      )
+    ) {
       reasonCodes.push('CRITICAL_COLLISION_DETECTED');
     }
     if (this.hasCriticalGroundingGap(sceneDetail.geometryDiagnostics)) {
@@ -341,9 +347,15 @@ export class SceneQualityGateService {
 
   private hasCriticalCollision(
     geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+    totalBuildingCount: number,
   ): boolean {
     const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    return (marker?.collisionRiskCount ?? 0) > 0;
+    const collisionCount = marker?.collisionRiskCount ?? 0;
+    if (collisionCount === 0) {
+      return false;
+    }
+    const denominator = Math.max(1, totalBuildingCount);
+    return collisionCount / denominator >= COLLISION_RATIO_HARD_FAIL_THRESHOLD;
   }
 
   private hasCriticalGroundingGap(

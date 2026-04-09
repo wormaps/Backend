@@ -8,7 +8,7 @@ import { createEmptyGeometry } from '../road/road-mesh.builder';
 import { normalizeLocalRing, toLocalRing } from './building-mesh-utils';
 import type { FacadeFrame } from './building-mesh.facade-frame.utils';
 import { buildFacadeFrame } from './building-mesh.facade-frame.utils';
-import { pushBox, pushQuad } from './building-mesh.geometry-primitives';
+import { pushQuad } from './building-mesh.geometry-primitives';
 
 export function createBuildingWindowGeometry(
   origin: Coordinate,
@@ -18,9 +18,17 @@ export function createBuildingWindowGeometry(
   const geometry = createEmptyGeometry();
   const hintMap = new Map(facadeHints.map((hint) => [hint.objectId, hint]));
   const fallbackHint = buildFallbackFacadeHint(facadeHints[0]);
+  const budget = {
+    remainingTriangles: MAX_WINDOW_TRIANGLES,
+  };
 
   for (const building of buildings) {
+    if (budget.remainingTriangles < WINDOW_TRIANGLES_PER_EMIT_ESTIMATE) {
+      break;
+    }
     const hint = hintMap.get(building.objectId) ?? fallbackHint;
+    const lodLevel =
+      (building as { lodLevel?: 'HIGH' | 'MEDIUM' | 'LOW' }).lodLevel ?? 'HIGH';
 
     const outerRing = normalizeLocalRing(
       toLocalRing(origin, building.outerRing),
@@ -30,16 +38,27 @@ export function createBuildingWindowGeometry(
       continue;
     }
 
-    const windowConfig = resolveWindowConfig(building, hint);
+    const windowConfig = resolveWindowConfig(building, hint, lodLevel);
     const height = Math.max(4, building.heightMeters);
+    const targetEdgeIndices = resolveWindowEdgeIndices(
+      outerRing,
+      hint,
+      lodLevel,
+    );
+    if (targetEdgeIndices.length === 0) {
+      continue;
+    }
 
-    for (let edgeIndex = 0; edgeIndex < outerRing.length; edgeIndex += 1) {
+    for (const edgeIndex of targetEdgeIndices) {
+      if (budget.remainingTriangles < WINDOW_TRIANGLES_PER_EMIT_ESTIMATE) {
+        break;
+      }
       const frame = buildFacadeFrame(outerRing, edgeIndex, height);
       if (!frame) {
         continue;
       }
 
-      pushWindowGrid(geometry, frame, windowConfig, height);
+      pushWindowGrid(geometry, frame, windowConfig, height, budget);
     }
   }
 
@@ -64,6 +83,9 @@ interface WindowConfig {
   groundFloorRule: 'none' | 'sparse' | 'full';
 }
 
+const MAX_WINDOW_TRIANGLES = 900_000;
+const WINDOW_TRIANGLES_PER_EMIT_ESTIMATE = 8;
+
 type WindowArchetype =
   | 'apartment'
   | 'office'
@@ -74,13 +96,16 @@ type WindowArchetype =
 function resolveWindowConfig(
   building: SceneMeta['buildings'][number],
   hint: SceneFacadeHint,
+  lodLevel: 'HIGH' | 'MEDIUM' | 'LOW',
 ): WindowConfig {
   const archetype = resolveWindowArchetype(building, hint);
   const density = hint.windowPatternDensity ?? 'medium';
   const height = Math.max(4, building.heightMeters);
 
-  const floorHeight = 3.2;
-  const floorCount = Math.max(2, Math.floor(height / floorHeight));
+  const floorHeight = 3.6;
+  const rawFloorCount = Math.max(2, Math.floor(height / floorHeight));
+  const floorLimit = lodLevel === 'LOW' ? 6 : lodLevel === 'MEDIUM' ? 12 : 18;
+  const floorCount = Math.min(rawFloorCount, floorLimit);
 
   const baseConfig: WindowConfig = {
     archetype,
@@ -104,8 +129,7 @@ function resolveWindowConfig(
     case 'office':
       return {
         ...baseConfig,
-        windowsPerFloor:
-          density === 'dense' ? 10 : density === 'medium' ? 8 : 6,
+        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 5 : 4,
         windowWidth: density === 'dense' ? 1.5 : 1.4,
         windowHeight: 2.1,
         windowDepth: density === 'dense' ? 0.17 : 0.16,
@@ -117,7 +141,7 @@ function resolveWindowConfig(
     case 'apartment':
       return {
         ...baseConfig,
-        windowsPerFloor: density === 'dense' ? 7 : density === 'medium' ? 5 : 4,
+        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
         windowWidth: density === 'dense' ? 1.08 : 0.98,
         windowHeight: density === 'dense' ? 1.5 : 1.42,
         pattern: 'grid',
@@ -130,7 +154,7 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         floorCount: Math.max(1, Math.min(4, Math.floor(floorCount * 0.45))),
-        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
+        windowsPerFloor: density === 'dense' ? 4 : density === 'medium' ? 3 : 2,
         windowWidth: 1.95,
         windowHeight: density === 'dense' ? 1.38 : 1.26,
         sillDepth: 0.14,
@@ -144,8 +168,7 @@ function resolveWindowConfig(
     case 'hotel':
       return {
         ...baseConfig,
-        windowsPerFloor:
-          density === 'dense' ? 12 : density === 'medium' ? 9 : 7,
+        windowsPerFloor: density === 'dense' ? 7 : density === 'medium' ? 6 : 5,
         windowWidth: density === 'dense' ? 1.16 : 1.1,
         windowHeight: 1.6,
         windowDepth: 0.16,
@@ -160,7 +183,7 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         floorCount: Math.max(1, Math.min(4, Math.floor(floorCount * 0.5))),
-        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 5 : 4,
+        windowsPerFloor: density === 'dense' ? 4 : density === 'medium' ? 3 : 2,
         windowWidth: 2.4,
         windowHeight: density === 'dense' ? 1.22 : 1.12,
         windowDepth: 0.14,
@@ -179,6 +202,62 @@ function resolveWindowConfig(
         skipChance: 0.015,
       };
   }
+}
+
+function resolveWindowEdgeIndices(
+  outerRing: Vec3[],
+  hint: SceneFacadeHint,
+  lodLevel: 'HIGH' | 'MEDIUM' | 'LOW',
+): number[] {
+  if (hint.facadeEdgeIndex !== null && hint.facadeEdgeIndex !== undefined) {
+    const normalized = normalizeEdgeIndex(
+      hint.facadeEdgeIndex,
+      outerRing.length,
+    );
+    if (normalized !== null) {
+      return [normalized];
+    }
+  }
+
+  const edgeIndices = Array.from(
+    { length: outerRing.length },
+    (_, index) => index,
+  );
+  if (lodLevel === 'HIGH') {
+    return edgeIndices;
+  }
+
+  if (lodLevel === 'MEDIUM') {
+    return edgeIndices.filter((_, index) => index % 2 === 0);
+  }
+
+  const longest = edgeIndices
+    .map((index) => ({
+      index,
+      length: edgeLengthAt(outerRing, index),
+    }))
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 1)
+    .map((item) => item.index);
+
+  return longest;
+}
+
+function normalizeEdgeIndex(index: number, ringLength: number): number | null {
+  if (!Number.isFinite(index) || ringLength <= 0) {
+    return null;
+  }
+  const normalized = Math.trunc(index) % ringLength;
+  return normalized >= 0 ? normalized : normalized + ringLength;
+}
+
+function edgeLengthAt(ring: Vec3[], edgeIndex: number): number {
+  if (ring.length === 0) {
+    return 0;
+  }
+  const a = ring[edgeIndex % ring.length];
+  const b = ring[(edgeIndex + 1) % ring.length];
+  return Math.hypot(b[0] - a[0], b[2] - a[2]);
 }
 
 function resolveWindowArchetype(
@@ -225,6 +304,7 @@ function pushWindowGrid(
   frame: FacadeFrame,
   config: WindowConfig,
   buildingHeight: number,
+  budget: { remainingTriangles: number },
 ): void {
   const edgeLength = Math.hypot(
     frame.b[0] - frame.a[0],
@@ -249,6 +329,9 @@ function pushWindowGrid(
     }
 
     for (let col = 0; col < config.windowsPerFloor; col += 1) {
+      if (budget.remainingTriangles < WINDOW_TRIANGLES_PER_EMIT_ESTIMATE) {
+        return;
+      }
       if (config.facadeEdgeOnly && col > 0) {
         continue;
       }
@@ -278,6 +361,10 @@ function pushWindowGrid(
         config.windowDepth,
         config.frameWidth,
         config.sillDepth,
+      );
+      budget.remainingTriangles = Math.max(
+        0,
+        budget.remainingTriangles - WINDOW_TRIANGLES_PER_EMIT_ESTIMATE,
       );
     }
   }
@@ -441,10 +528,7 @@ function pushWindowFrame(
   const frontRightX = rightX + frame.normal[0] * frontOffset;
   const frontRightZ = rightZ + frame.normal[2] * frontOffset;
 
-  const backLeftX = leftX - frame.normal[0] * windowDepth;
-  const backLeftZ = leftZ - frame.normal[2] * windowDepth;
-  const backRightX = rightX - frame.normal[0] * windowDepth;
-  const backRightZ = rightZ - frame.normal[2] * windowDepth;
+  const frameDepth = Math.max(0.05, Math.min(windowDepth, 0.12));
 
   const y0 = floorY;
   const y1 = floorY + windowHeight;
@@ -457,14 +541,6 @@ function pushWindowFrame(
     [frontLeftX, y1, frontLeftZ],
   );
 
-  pushQuad(
-    geometry,
-    [backRightX, y0, backRightZ],
-    [backLeftX, y0, backLeftZ],
-    [backLeftX, y1, backLeftZ],
-    [backRightX, y1, backRightZ],
-  );
-
   const frameHalfWidth = frameWidth / 2;
   pushWindowFrameEdge(
     geometry,
@@ -473,7 +549,7 @@ function pushWindowFrame(
     leftZ,
     y0,
     y1,
-    windowDepth,
+    frameDepth,
     frameHalfWidth,
   );
   pushWindowFrameEdge(
@@ -483,7 +559,7 @@ function pushWindowFrame(
     rightZ,
     y0,
     y1,
-    windowDepth,
+    frameDepth,
     frameHalfWidth,
   );
   pushWindowSill(geometry, frame, centerX, centerZ, y0, windowWidth, sillDepth);
@@ -538,15 +614,17 @@ function pushWindowSill(
   windowWidth: number,
   sillDepth: number,
 ): void {
-  const sillHeight = 0.08;
+  const sillHeight = 0.06;
   const sillWidth = windowWidth + 0.1;
   const halfWidth = sillWidth / 2;
 
   const frontX = centerX + frame.normal[0] * sillDepth;
   const frontZ = centerZ + frame.normal[2] * sillDepth;
-  pushBox(
+  pushQuad(
     geometry,
     [frontX - halfWidth, y - sillHeight, frontZ - halfWidth * 0.3],
-    [frontX + halfWidth, y, frontZ + halfWidth * 0.3],
+    [frontX + halfWidth, y - sillHeight, frontZ + halfWidth * 0.3],
+    [frontX + halfWidth, y - sillHeight * 0.4, frontZ + halfWidth * 0.3],
+    [frontX - halfWidth, y - sillHeight * 0.4, frontZ - halfWidth * 0.3],
   );
 }

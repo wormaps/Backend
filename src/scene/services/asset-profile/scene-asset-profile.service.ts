@@ -292,7 +292,7 @@ export class SceneAssetProfileService {
     const multiplier =
       resolveSceneFidelityModeSignal(targetMode).budgetMultiplier;
     const isLandmarkTarget = targetMode === 'LANDMARK_ENRICHED';
-    const targetMultiplier = isLandmarkTarget ? 1.2 : multiplier;
+    const targetMultiplier = isLandmarkTarget ? 1.1 : multiplier;
     if (targetMultiplier === 1) {
       return baseBudget;
     }

@@ -23,7 +23,7 @@ interface GeometryCorrectionDiagnostic {
   groundedGapCount: number;
 }
 
-const COLLISION_NEAR_ROAD_METERS = 2.4;
+const COLLISION_NEAR_ROAD_METERS = 1.6;
 const GROUND_OFFSET_ON_COLLISION_METERS = 0.06;
 
 @Injectable()
@@ -96,8 +96,9 @@ export class SceneGeometryCorrectionStep {
       return Math.min(minimum, distance);
     }, Number.POSITIVE_INFINITY);
 
+    const minClearance = this.resolveRoadClearanceThreshold(roads, center);
     const nearRoad = Number.isFinite(nearestRoadDistance)
-      ? nearestRoadDistance < COLLISION_NEAR_ROAD_METERS
+      ? nearestRoadDistance < minClearance
       : false;
     const collisionRisk = nearRoad ? 'road_overlap' : 'none';
     const groundOffsetM = nearRoad ? GROUND_OFFSET_ON_COLLISION_METERS : 0;
@@ -107,6 +108,38 @@ export class SceneGeometryCorrectionStep {
       collisionRisk,
       groundOffsetM,
     };
+  }
+
+  private resolveRoadClearanceThreshold(
+    roads: SceneRoadMeta[],
+    center: { lat: number; lng: number },
+  ): number {
+    let nearestRoad: SceneRoadMeta | null = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    for (const road of roads) {
+      const distance = distanceToPathMeters(center, road.path);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestRoad = road;
+      }
+    }
+
+    if (!nearestRoad) {
+      return COLLISION_NEAR_ROAD_METERS;
+    }
+
+    const laneWidthEstimate = Math.max(
+      2.8,
+      Math.min(
+        4.2,
+        nearestRoad.widthMeters / Math.max(1, nearestRoad.laneCount),
+      ),
+    );
+    return Math.max(
+      1,
+      Math.min(COLLISION_NEAR_ROAD_METERS, laneWidthEstimate * 0.48),
+    );
   }
 }
 

@@ -7,6 +7,7 @@ import {
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
 } from './building-mesh.builder';
+import type { SceneMeta } from '../../../scene/types/scene.types';
 
 function coordinate(lat: number, lng: number) {
   return { lat, lng };
@@ -151,5 +152,32 @@ describe('building-mesh.builder', () => {
 
     expect(windows.positions.length).toBeGreaterThan(0);
     expect(windows.indices.length).toBeGreaterThan(0);
+  });
+
+  it('caps window geometry for large building batches', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const largeBuildingSet = Array.from(
+      { length: 1800 },
+      (_, index): SceneMeta['buildings'][number] => ({
+        ...building,
+        objectId: `building-${index}`,
+        osmWayId: `building_${index}`,
+        heightMeters: 48,
+        outerRing: [
+          coordinate(35.659 + index * 0.000001, 139.7),
+          coordinate(35.659 + index * 0.000001, 139.7002),
+          coordinate(35.6592 + index * 0.000001, 139.7002),
+          coordinate(35.6592 + index * 0.000001, 139.7),
+        ],
+        visualArchetype: 'highrise_office',
+        windowPatternDensity: 'dense',
+      }),
+    );
+
+    const windows = createBuildingWindowGeometry(origin, largeBuildingSet, []);
+    const triangleCount = windows.indices.length / 3;
+
+    expect(triangleCount).toBeGreaterThan(0);
+    expect(triangleCount).toBeLessThanOrEqual(920000);
   });
 });

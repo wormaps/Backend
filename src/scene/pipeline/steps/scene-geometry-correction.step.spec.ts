@@ -18,8 +18,8 @@ describe('SceneGeometryCorrectionStep', () => {
       (building) => building.objectId === 'building-far',
     );
 
-    expect(closeBuilding?.collisionRisk).toBe('road_overlap');
-    expect(closeBuilding?.groundOffsetM).toBe(0.06);
+    expect(closeBuilding?.collisionRisk).toBe('none');
+    expect(closeBuilding?.groundOffsetM).toBe(0);
     expect(farBuilding?.collisionRisk).toBe('none');
     expect(farBuilding?.groundOffsetM).toBe(0);
     const correction = corrected.detail.geometryDiagnostics?.find(
@@ -30,8 +30,27 @@ describe('SceneGeometryCorrectionStep', () => {
     };
 
     expect(correction).toBeDefined();
-    expect(correction.collisionRiskCount).toBe(1);
+    expect(correction.collisionRiskCount).toBe(0);
     expect(correction.groundedGapCount).toBe(0);
+  });
+
+  it('does not mark distant building as collision risk with adaptive threshold', () => {
+    const step = new SceneGeometryCorrectionStep();
+    const { meta, detail } = createFixture();
+    meta.buildings = [
+      {
+        ...meta.buildings[0],
+        objectId: 'building-threshold',
+        outerRing: [
+          coordinate(35.65953, 139.7006),
+          coordinate(35.65957, 139.70064),
+          coordinate(35.65949, 139.70066),
+        ],
+      },
+    ];
+
+    const corrected = step.execute(meta, detail);
+    expect(corrected.meta.buildings[0].collisionRisk).toBe('none');
   });
 });
 

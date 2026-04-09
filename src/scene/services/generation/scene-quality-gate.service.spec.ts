@@ -15,6 +15,8 @@ type SceneGeometryDiagnosticWithCorrection = {
   groundedGapCount: number;
 };
 
+const COLLISION_HARD_FAIL_RATIO = 0.015;
+
 function coordinate(lat: number, lng: number) {
   return { lat, lng };
 }
@@ -137,6 +139,47 @@ describe('SceneQualityGateService', () => {
     expect(result.state).toBe('FAIL');
     expect(result.reasonCodes).toContain('CRITICAL_COLLISION_DETECTED');
     expect(result.reasonCodes).toContain('CRITICAL_GROUNDING_GAP_DETECTED');
+  });
+
+  it('does not fail for low collision ratio alone', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-collide-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-collision-ratio';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    meta.buildings = Array.from({ length: 200 }, (_, index) => ({
+      ...meta.buildings[0],
+      objectId: `building-${index}`,
+      osmWayId: `building_${index}`,
+    }));
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+    detail.geometryDiagnostics = [
+      {
+        objectId: '__geometry_correction__',
+        strategy: 'fallback_massing',
+        fallbackApplied: true,
+        fallbackReason: 'NONE',
+        hasHoles: false,
+        polygonComplexity: 'simple',
+        collisionRiskCount: Math.floor(
+          200 * (COLLISION_HARD_FAIL_RATIO - 0.005),
+        ),
+        groundedGapCount: 0,
+      } as unknown as NonNullable<SceneDetail['geometryDiagnostics']>[number],
+    ];
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: [{ name: 'road_base', skipped: false }],
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.reasonCodes).not.toContain('CRITICAL_COLLISION_DETECTED');
   });
 });
 
