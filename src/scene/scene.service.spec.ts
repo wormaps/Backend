@@ -266,6 +266,8 @@ describe('Scene Services', () => {
         modeDeltaOverallMin: -0.2,
         criticalPolygonBudgetExceededMax: 0,
         criticalInvalidGeometryMax: 0,
+        maxSkippedMeshesWarn: 180,
+        maxMissingSourceWarn: 48,
       },
       meshSummary: {
         totalSkipped: 8,

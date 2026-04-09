@@ -452,6 +452,8 @@ export type SceneQualityGateReasonCode =
   | 'CRITICAL_GROUNDING_GAP_DETECTED'
   | 'STRUCTURE_SCORE_BELOW_MIN'
   | 'PLACE_READABILITY_SCORE_BELOW_MIN'
+  | 'MESH_SKIPPED_COUNT_ABOVE_WARN_MAX'
+  | 'MISSING_SOURCE_COUNT_ABOVE_WARN_MAX'
   | 'ORACLE_APPROVAL_REQUIRED';
 
 export type SceneOracleApprovalState =
@@ -478,6 +480,8 @@ export interface SceneQualityGateThresholds {
   modeDeltaOverallMin: number;
   criticalPolygonBudgetExceededMax: number;
   criticalInvalidGeometryMax: number;
+  maxSkippedMeshesWarn: number;
+  maxMissingSourceWarn: number;
 }
 
 export interface SceneQualityGateScores {

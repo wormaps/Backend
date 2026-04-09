@@ -154,6 +154,19 @@ describe('SceneFacadeVisionService', () => {
     expect(firstHint!.shellPalette).toContain('#445566');
   });
 
+  it('applies weak-evidence palette drift for non-explicit colors', () => {
+    const hints = service.buildFacadeHints(place, placePackage, [], []);
+
+    expect(hints).toHaveLength(2);
+    for (const hint of hints) {
+      expect(hint.weakEvidence).toBe(true);
+      expect(hint.palette.length).toBeGreaterThanOrEqual(3);
+      expect(hint.panelPalette?.length ?? 0).toBeGreaterThanOrEqual(3);
+      expect(hint.contextualMaterialUpgrade).toBe(true);
+      expect(hint.palette).not.toContain('#9ea4aa');
+    }
+  });
+
   it('summarizes facade context diagnostics for logging', () => {
     const hints = service.buildFacadeHints(place, placePackage, [], []);
     const diagnostics = service.summarizeFacadeContextDiagnostics(

@@ -7,7 +7,7 @@ export function getSceneDataDir(): string {
     return configured;
   }
 
-  return join(process.cwd(), 'data', 'scenes');
+  return join(process.cwd(), 'data', 'scene');
 }
 
 export function getSceneDiagnosticsLogPath(sceneId: string): string {

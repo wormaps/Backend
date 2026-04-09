@@ -1,16 +1,13 @@
 import { Test } from '@nestjs/testing';
-import { access, mkdtemp, readFile } from 'node:fs/promises';
+import { access, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { AppModule } from '../src/app.module';
 import { SceneService } from '../src/scene/scene.service';
 import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
 
 async function main() {
-  const originalSceneDataDir = process.env.SCENE_DATA_DIR;
-  const smokeDataDir =
-    originalSceneDataDir ??
-    (await mkdtemp(join(tmpdir(), 'wormapb-shibuya-smoke-')));
+  const smokeDataDir = join(process.cwd(), 'data', 'scene');
+  await mkdir(smokeDataDir, { recursive: true });
   process.env.SCENE_DATA_DIR = smokeDataDir;
 
   const moduleRef = await Test.createTestingModule({
@@ -56,7 +53,10 @@ async function main() {
     await access(detailPath);
     const storedSceneRaw = await readFile(jsonPath, 'utf8');
 
-    if (storedSceneRaw.includes('"latitude"') || storedSceneRaw.includes('"longitude"')) {
+    if (
+      storedSceneRaw.includes('"latitude"') ||
+      storedSceneRaw.includes('"longitude"')
+    ) {
       throw new Error('Stored scene JSON must use lat/lng keys only.');
     }
 
@@ -99,7 +99,9 @@ async function main() {
       detailPath,
     };
   } else {
-    throw new Error(`Shibuya scene generation failed with status=${scene.status}`);
+    throw new Error(
+      `Shibuya scene generation failed with status=${scene.status}`,
+    );
   }
 
   console.log(JSON.stringify(result, null, 2));

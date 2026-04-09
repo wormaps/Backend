@@ -120,63 +120,66 @@ export function createSceneMaterials(
       .setRoughnessFactor(1),
     roadBase: doc
       .createMaterial('road-base')
-      .setBaseColorFactor([0.17, 0.18, 0.2, 1])
+      .setBaseColorFactor([0.14, 0.15, 0.17, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.65, tuning.roadRoughnessScale),
+          scaleRoughness(0.69, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
     roadEdge: doc
       .createMaterial('road-edge')
-      .setBaseColorFactor([0.34, 0.34, 0.33, 1])
+      .setBaseColorFactor([0.38, 0.38, 0.36, 1])
       .setMetallicFactor(0)
       .setRoughnessFactor(
         applyWetRoad(
-          scaleRoughness(0.72, tuning.roadRoughnessScale),
+          scaleRoughness(0.76, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
     roadMarking: doc
       .createMaterial('road-marking')
-      .setBaseColorFactor([0.88, 0.84, 0.65, 1])
+      .setBaseColorFactor([0.96, 0.93, 0.74, 1])
       .setMetallicFactor(0)
-      .setRoughnessFactor(scaleRoughness(0.78, tuning.roadRoughnessScale)),
+      .setRoughnessFactor(
+        applyWetOverlay(
+          scaleRoughness(0.82, tuning.roadRoughnessScale),
+          tuning.wetRoadBoost,
+        ),
+      ),
     laneOverlay: doc
       .createMaterial('lane-overlay')
-      .setBaseColorFactor([0.94, 0.88, 0.68, 1])
+      .setBaseColorFactor([0.98, 0.91, 0.64, 1])
       .setEmissiveFactor(
-        scaleEmissive([0.09, 0.08, 0.04], tuning.emissiveBoost),
+        scaleEmissive([0.14, 0.12, 0.05], tuning.emissiveBoost),
       )
       .setMetallicFactor(0)
       .setRoughnessFactor(
-        applyWetRoad(
-          scaleRoughness(0.7, tuning.roadRoughnessScale),
+        applyWetOverlay(
+          scaleRoughness(0.74, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
     crosswalk: doc
       .createMaterial('crosswalk')
-      .setBaseColorFactor([0.95, 0.95, 0.92, 1])
-      .setEmissiveFactor(scaleEmissive([0.15, 0.14, 0.1], tuning.emissiveBoost))
+      .setBaseColorFactor([0.99, 0.99, 0.96, 1])
+      .setEmissiveFactor(scaleEmissive([0.2, 0.18, 0.11], tuning.emissiveBoost))
       .setMetallicFactor(0)
       .setRoughnessFactor(
-        applyWetRoad(
-          scaleRoughness(0.64, tuning.roadRoughnessScale),
+        applyWetOverlay(
+          scaleRoughness(0.72, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
     junctionOverlay: doc
       .createMaterial('junction-overlay')
-      .setBaseColorFactor([0.96, 0.86, 0.46, 1])
-      .setEmissiveFactor(
-        scaleEmissive([0.12, 0.08, 0.03], tuning.emissiveBoost),
-      )
+      .setBaseColorFactor([0.99, 0.9, 0.42, 1])
+      .setEmissiveFactor(scaleEmissive([0.2, 0.12, 0.04], tuning.emissiveBoost))
       .setMetallicFactor(0)
       .setRoughnessFactor(
-        applyWetRoad(
-          scaleRoughness(0.74, tuning.roadRoughnessScale),
+        applyWetOverlay(
+          scaleRoughness(0.78, tuning.roadRoughnessScale),
           tuning.wetRoadBoost,
         ),
       ),
@@ -674,6 +677,11 @@ function resolveMaterialTuningOptions(
 
 function applyWetRoad(baseRoughness: number, wetRoadBoost: number): number {
   const wetAdjusted = baseRoughness * (1 - clamp01(wetRoadBoost) * 0.38);
+  return clamp01(wetAdjusted);
+}
+
+function applyWetOverlay(baseRoughness: number, wetRoadBoost: number): number {
+  const wetAdjusted = baseRoughness * (1 - clamp01(wetRoadBoost) * 0.2);
   return clamp01(wetAdjusted);
 }
 

@@ -29,6 +29,7 @@ export class SceneAssetProfileService {
     const budget = this.resolveAdaptiveAssetBudget(
       this.resolveAssetBudget(scale),
       sceneDetail.fidelityPlan?.targetMode,
+      sceneMeta,
     );
     const landmarkLocations = sceneMeta.landmarkAnchors.map(
       (anchor) => anchor.location,
@@ -285,44 +286,82 @@ export class SceneAssetProfileService {
   private resolveAdaptiveAssetBudget(
     baseBudget: SceneMeta['assetProfile']['budget'],
     targetMode?: SceneFidelityMode,
+    sceneMeta?: SceneMeta,
   ): SceneMeta['assetProfile']['budget'] {
-    if (!targetMode) {
-      return baseBudget;
-    }
-    const multiplier =
-      resolveSceneFidelityModeSignal(targetMode).budgetMultiplier;
-    const isLandmarkTarget = targetMode === 'LANDMARK_ENRICHED';
-    const targetMultiplier = isLandmarkTarget ? 1.1 : multiplier;
-    if (targetMultiplier === 1) {
-      return baseBudget;
+    let scaledBudget = baseBudget;
+
+    if (targetMode) {
+      const multiplier =
+        resolveSceneFidelityModeSignal(targetMode).budgetMultiplier;
+      const isLandmarkTarget = targetMode === 'LANDMARK_ENRICHED';
+      const targetMultiplier = isLandmarkTarget ? 1.1 : multiplier;
+      if (targetMultiplier !== 1) {
+        scaledBudget = {
+          buildingCount: scaleCount(baseBudget.buildingCount, targetMultiplier),
+          roadCount: scaleCount(baseBudget.roadCount, targetMultiplier),
+          walkwayCount: scaleCount(baseBudget.walkwayCount, targetMultiplier),
+          poiCount: scaleCount(baseBudget.poiCount, targetMultiplier),
+          crossingCount: scaleCount(baseBudget.crossingCount, targetMultiplier),
+          trafficLightCount: scaleCount(
+            baseBudget.trafficLightCount,
+            targetMultiplier * (isLandmarkTarget ? 1.14 : 1),
+          ),
+          streetLightCount: scaleCount(
+            baseBudget.streetLightCount,
+            targetMultiplier * (isLandmarkTarget ? 1.18 : 1),
+          ),
+          signPoleCount: scaleCount(
+            baseBudget.signPoleCount,
+            targetMultiplier * (isLandmarkTarget ? 1.2 : 1),
+          ),
+          treeClusterCount: scaleCount(
+            baseBudget.treeClusterCount,
+            targetMultiplier,
+          ),
+          billboardPanelCount: scaleCount(
+            baseBudget.billboardPanelCount,
+            targetMultiplier * (isLandmarkTarget ? 1.16 : 1),
+          ),
+        };
+      }
     }
 
+    if (!sceneMeta) {
+      return scaledBudget;
+    }
+
+    return this.applyDensityRecoveryFloor(sceneMeta, scaledBudget);
+  }
+
+  private applyDensityRecoveryFloor(
+    sceneMeta: SceneMeta,
+    budget: SceneMeta['assetProfile']['budget'],
+  ): SceneMeta['assetProfile']['budget'] {
+    const floorRatio = 0.56;
+    const walkwayFloorRatio = 0.52;
+    const buildingCountFloor = Math.max(
+      budget.buildingCount,
+      Math.round(sceneMeta.buildings.length * floorRatio),
+    );
+    const roadCountFloor = Math.max(
+      budget.roadCount,
+      Math.round(sceneMeta.roads.length * floorRatio),
+    );
+    const walkwayCountFloor = Math.max(
+      budget.walkwayCount,
+      Math.round(sceneMeta.walkways.length * walkwayFloorRatio),
+    );
+    const poiCountFloor = Math.max(
+      budget.poiCount,
+      Math.round(sceneMeta.pois.length * 0.16),
+    );
+
     return {
-      buildingCount: scaleCount(baseBudget.buildingCount, targetMultiplier),
-      roadCount: scaleCount(baseBudget.roadCount, targetMultiplier),
-      walkwayCount: scaleCount(baseBudget.walkwayCount, targetMultiplier),
-      poiCount: scaleCount(baseBudget.poiCount, targetMultiplier),
-      crossingCount: scaleCount(baseBudget.crossingCount, targetMultiplier),
-      trafficLightCount: scaleCount(
-        baseBudget.trafficLightCount,
-        targetMultiplier * (isLandmarkTarget ? 1.14 : 1),
-      ),
-      streetLightCount: scaleCount(
-        baseBudget.streetLightCount,
-        targetMultiplier * (isLandmarkTarget ? 1.18 : 1),
-      ),
-      signPoleCount: scaleCount(
-        baseBudget.signPoleCount,
-        targetMultiplier * (isLandmarkTarget ? 1.2 : 1),
-      ),
-      treeClusterCount: scaleCount(
-        baseBudget.treeClusterCount,
-        targetMultiplier,
-      ),
-      billboardPanelCount: scaleCount(
-        baseBudget.billboardPanelCount,
-        targetMultiplier * (isLandmarkTarget ? 1.16 : 1),
-      ),
+      ...budget,
+      buildingCount: buildingCountFloor,
+      roadCount: roadCountFloor,
+      walkwayCount: walkwayCountFloor,
+      poiCount: poiCountFloor,
     };
   }
 

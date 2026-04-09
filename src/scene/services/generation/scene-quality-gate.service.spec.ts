@@ -181,6 +181,69 @@ describe('SceneQualityGateService', () => {
     const result = await service.evaluate(meta, detail);
     expect(result.reasonCodes).not.toContain('CRITICAL_COLLISION_DETECTED');
   });
+
+  it('fails when skipped mesh and missing-source warn thresholds are exceeded', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-meshwarn-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-mesh-warn';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+
+    const skippedNodes = Array.from({ length: 181 }, (_, index) => ({
+      name: `node-${index}`,
+      skipped: true,
+      skippedReason: index < 49 ? 'missing_source' : 'selection_cut',
+    }));
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: skippedNodes,
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.state).toBe('FAIL');
+    expect(result.reasonCodes).toContain('MESH_SKIPPED_COUNT_ABOVE_WARN_MAX');
+    expect(result.reasonCodes).toContain('MISSING_SOURCE_COUNT_ABOVE_WARN_MAX');
+  });
+
+  it('passes warn-threshold checks when skipped mesh and missing-source stay under limits', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-meshok-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-mesh-ok';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+
+    const skippedNodes = Array.from({ length: 150 }, (_, index) => ({
+      name: `node-${index}`,
+      skipped: true,
+      skippedReason: index < 40 ? 'missing_source' : 'selection_cut',
+    }));
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: skippedNodes,
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.reasonCodes).not.toContain(
+      'MESH_SKIPPED_COUNT_ABOVE_WARN_MAX',
+    );
+    expect(result.reasonCodes).not.toContain(
+      'MISSING_SOURCE_COUNT_ABOVE_WARN_MAX',
+    );
+  });
 });
 
 function createSceneMeta(

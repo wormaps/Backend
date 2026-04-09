@@ -120,6 +120,12 @@ export class SceneQualityGateService {
     if (oracleApproval.required && oracleApproval.state !== 'APPROVED') {
       reasonCodes.push('ORACLE_APPROVAL_REQUIRED');
     }
+    if (meshSummary.totalSkipped > thresholds.maxSkippedMeshesWarn) {
+      reasonCodes.push('MESH_SKIPPED_COUNT_ABOVE_WARN_MAX');
+    }
+    if (meshSummary.missingSourceCount > thresholds.maxMissingSourceWarn) {
+      reasonCodes.push('MISSING_SOURCE_COUNT_ABOVE_WARN_MAX');
+    }
 
     const artifactRefs = {
       diagnosticsLogPath: getSceneDiagnosticsLogPath(sceneMeta.sceneId),
@@ -167,6 +173,8 @@ export class SceneQualityGateService {
         modeDeltaOverallMin: 0,
         criticalPolygonBudgetExceededMax: 0,
         criticalInvalidGeometryMax: 0,
+        maxSkippedMeshesWarn: 80,
+        maxMissingSourceWarn: 20,
       };
     }
 
@@ -179,6 +187,8 @@ export class SceneQualityGateService {
         modeDeltaOverallMin: 0,
         criticalPolygonBudgetExceededMax: 0,
         criticalInvalidGeometryMax: 0,
+        maxSkippedMeshesWarn: 120,
+        maxMissingSourceWarn: 32,
       };
     }
 
@@ -190,6 +200,8 @@ export class SceneQualityGateService {
       modeDeltaOverallMin: -0.2,
       criticalPolygonBudgetExceededMax: 0,
       criticalInvalidGeometryMax: 0,
+      maxSkippedMeshesWarn: 180,
+      maxMissingSourceWarn: 48,
     };
   }
 

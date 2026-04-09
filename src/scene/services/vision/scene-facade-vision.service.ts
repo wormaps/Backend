@@ -54,6 +54,7 @@ export class SceneFacadeVisionService {
         this.buildingStyleResolverService.resolveBuildingStyle(building);
       const anchor =
         averageCoordinate(building.outerRing) ?? building.outerRing[0];
+      const explicitBuildingColor = hasExplicitBuildingColor(building);
       const nearbyImageCount = mapillaryImages.filter(
         (image) => distanceMeters(anchor, image.location) <= 45,
       ).length;
@@ -85,26 +86,34 @@ export class SceneFacadeVisionService {
         style,
         context,
       );
+      const weakEvidence = nearbyImageCount === 0 && nearbyFeatureCount === 0;
       const palette = uniquePalette(
-        hasExplicitBuildingColor(building)
-          ? style.palette
-          : inferredPalette.palette,
+        explicitBuildingColor ? style.palette : inferredPalette.palette,
         4,
       );
       const shellPalette = uniquePalette(
-        hasExplicitBuildingColor(building)
+        explicitBuildingColor
           ? style.shellPalette
           : inferredPalette.shellPalette,
         3,
       );
       const panelPalette = uniquePalette(
-        hasExplicitBuildingColor(building)
+        explicitBuildingColor
           ? style.panelPalette
           : inferredPalette.panelPalette,
         3,
       );
-      const channels = resolveFacadeColorChannels({
+      const antiUniformPalette = applyWeakEvidencePaletteDrift({
+        buildingId: building.id,
+        weakEvidence,
+        hasExplicitColor: explicitBuildingColor,
+        districtProfile: context.districtProfile,
         palette,
+        shellPalette,
+        panelPalette,
+      });
+      const channels = resolveFacadeColorChannels({
+        palette: antiUniformPalette.palette,
         roofColor: building.roofColor,
         districtProfile: context.districtProfile,
       });
@@ -129,9 +138,9 @@ export class SceneFacadeVisionService {
           ),
         windowBands: style.windowBands,
         billboardEligible: style.billboardEligible,
-        palette,
-        shellPalette,
-        panelPalette,
+        palette: antiUniformPalette.palette,
+        shellPalette: antiUniformPalette.shellPalette,
+        panelPalette: antiUniformPalette.panelPalette,
         mainColor: channels.mainColor,
         accentColor: channels.accentColor,
         trimColor: channels.trimColor,
@@ -156,12 +165,14 @@ export class SceneFacadeVisionService {
         roofAccentType: style.roofAccentType,
         windowPatternDensity: style.windowPatternDensity,
         signBandLevels: style.signBandLevels,
-        weakEvidence: nearbyImageCount === 0 && nearbyFeatureCount === 0,
+        weakEvidence,
         contextProfile: context.districtProfile,
         districtCluster: districtResolution.cluster,
         districtConfidence: districtResolution.confidence,
         evidenceStrength: districtResolution.evidenceStrength,
-        contextualMaterialUpgrade: inferredPalette.contextualUpgrade,
+        contextualMaterialUpgrade:
+          inferredPalette.contextualUpgrade ||
+          antiUniformPalette.contextualUpgradeBoost,
       };
     });
   }
@@ -442,4 +453,134 @@ function resolveEvidenceStrengthFromScore(score: number): EvidenceStrength {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function applyWeakEvidencePaletteDrift(input: {
+  buildingId: string;
+  weakEvidence: boolean;
+  hasExplicitColor: boolean;
+  districtProfile: string;
+  palette: string[];
+  shellPalette: string[];
+  panelPalette: string[];
+}): {
+  palette: string[];
+  shellPalette: string[];
+  panelPalette: string[];
+  contextualUpgradeBoost: boolean;
+} {
+  if (!input.weakEvidence || input.hasExplicitColor) {
+    return {
+      palette: input.palette,
+      shellPalette: input.shellPalette,
+      panelPalette: input.panelPalette,
+      contextualUpgradeBoost: false,
+    };
+  }
+
+  const districtSeed = resolveWeakEvidenceDistrictPalette(
+    input.districtProfile,
+  );
+  const variant =
+    districtSeed[stableVariant(input.buildingId, districtSeed.length)]!;
+  const shellBase = input.shellPalette[0] ?? input.palette[0] ?? variant[0];
+  const shellSecondary =
+    input.shellPalette[1] ?? input.palette[1] ?? variant[1];
+  const shellPrimaryDrift = mixHex(shellBase, variant[0], 0.24);
+  const shellSecondaryDrift = mixHex(shellSecondary, variant[1], 0.22);
+  const panelPalette = uniquePalette(
+    [variant[0], variant[1], variant[2], ...input.panelPalette],
+    3,
+  );
+  const palette = uniquePalette(
+    [shellPrimaryDrift, shellSecondaryDrift, variant[2], ...input.palette],
+    4,
+  );
+  const shellPalette = uniquePalette(
+    [shellPrimaryDrift, shellSecondaryDrift, ...input.shellPalette],
+    3,
+  );
+
+  return {
+    palette,
+    shellPalette,
+    panelPalette,
+    contextualUpgradeBoost: true,
+  };
+}
+
+function stableVariant(seed: string, modulo: number): number {
+  if (modulo <= 0) {
+    return 0;
+  }
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return hash % modulo;
+}
+
+function resolveWeakEvidenceDistrictPalette(
+  districtProfile: string,
+): [string, string, string][] {
+  if (districtProfile === 'NEON_CORE') {
+    return [
+      ['#314f6e', '#94b4cd', '#f4f1df'],
+      ['#4b4668', '#a6a2cd', '#f0ede3'],
+      ['#5a4250', '#c39ab0', '#f4ece2'],
+      ['#314f53', '#7fb9b8', '#f5f0e5'],
+    ];
+  }
+  if (districtProfile === 'COMMERCIAL_STRIP') {
+    return [
+      ['#4a5e72', '#a3bdd1', '#f1eee7'],
+      ['#6a594c', '#bda98d', '#f3eee6'],
+      ['#5f4f69', '#b09cc1', '#efe9e1'],
+      ['#3f5f57', '#97bfad', '#f0ede4'],
+    ];
+  }
+  if (districtProfile === 'TRANSIT_HUB') {
+    return [
+      ['#5c6673', '#b7c0ca', '#ecebe7'],
+      ['#6d645a', '#c2b6aa', '#f1ece4'],
+      ['#536273', '#a8b9c9', '#eceae4'],
+      ['#5f5a67', '#b3acbf', '#ece8e0'],
+    ];
+  }
+  return [
+    ['#6a6f78', '#bfc4cb', '#eceae3'],
+    ['#746b61', '#c5baad', '#efeae1'],
+    ['#5f6e6d', '#aec0be', '#ece8e1'],
+    ['#6f6671', '#b9b0bd', '#ece8e0'],
+  ];
+}
+
+function mixHex(source: string, target: string, ratio: number): string {
+  const t = clamp(ratio, 0, 1);
+  const [sr, sg, sb] = hexToRgb(source);
+  const [tr, tg, tb] = hexToRgb(target);
+  return toHex([
+    Math.round(sr + (tr - sr) * t),
+    Math.round(sg + (tg - sg) * t),
+    Math.round(sb + (tb - sb) * t),
+  ]);
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '');
+  const full =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : normalized;
+  const value = Number.parseInt(full, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function toHex(rgb: [number, number, number]): string {
+  return `#${rgb
+    .map((channel) => clamp(channel, 0, 255).toString(16).padStart(2, '0'))
+    .join('')}`;
 }

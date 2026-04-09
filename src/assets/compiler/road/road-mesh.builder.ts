@@ -101,10 +101,10 @@ export function createRoadMarkingsGeometry(
   for (const marking of markings) {
     const width =
       marking.type === 'LANE_LINE'
-        ? 0.24
+        ? 0.3
         : marking.type === 'STOP_LINE'
-          ? 0.55
-          : 1.6;
+          ? 0.68
+          : 2.1;
     pushPathStrips(origin, geometry, marking.path, width, ROAD_MARKING_Y);
   }
   return geometry;
@@ -129,12 +129,14 @@ export function createRoadDecalPathGeometry(
 
     const width =
       decal.type === 'STOP_LINE'
-        ? 1.05
+        ? 1.2
         : decal.type === 'CROSSWALK_OVERLAY'
           ? decal.emphasis === 'hero'
-            ? 4.2
-            : 2.5
-          : 0.42;
+            ? 4.8
+            : 3.2
+          : decal.emphasis === 'hero'
+            ? 0.52
+            : 0.46;
     const y =
       decal.type === 'STOP_LINE'
         ? STOP_LINE_Y
@@ -183,8 +185,15 @@ export function createRoadDecalStripeGeometry(
     });
     const normal = { x: -direction.z, z: direction.x };
     const stripeCount = Math.max(1, decal.stripeSet.stripeCount);
-    const stripeDepth = decal.stripeSet.stripeDepth;
-    const halfWidth = decal.stripeSet.halfWidth;
+    const heroStripe = decal.emphasis === 'hero';
+    const stripeDepth = Math.max(
+      heroStripe ? 0.98 : 0.82,
+      decal.stripeSet.stripeDepth * (heroStripe ? 1.04 : 1),
+    );
+    const halfWidth = Math.max(
+      heroStripe ? 8.6 : 5.8,
+      decal.stripeSet.halfWidth * (heroStripe ? 1.06 : 1),
+    );
 
     for (let i = 0; i < stripeCount; i += 1) {
       const t = (i + 0.5) / stripeCount;
@@ -277,9 +286,17 @@ export function createCrosswalkGeometry(
     });
     const normal = { x: -direction.z, z: direction.x };
     const length = Math.hypot(end[0] - start[0], end[2] - start[2]);
-    const stripeCount = Math.max(6, Math.min(12, Math.floor(length / 1.2)));
-    const stripeDepth = crossing.principal ? 0.95 : 0.86;
-    const halfWidth = crossing.principal ? 8.8 : 5.6;
+    const signalizedBoost = crossing.style === 'signalized' ? 1 : 0;
+    const halfWidth = crossing.principal ? 9.6 : 6.3;
+    const corridorCapacity = Math.max(
+      6,
+      Math.floor(length / Math.max(0.75, halfWidth * 0.2)),
+    );
+    const stripeCountBase = crossing.principal
+      ? Math.max(10, Math.min(16, Math.floor(length / 0.92) + signalizedBoost))
+      : Math.max(7, Math.min(12, Math.floor(length / 1.08) + signalizedBoost));
+    const stripeCount = Math.min(stripeCountBase, corridorCapacity);
+    const stripeDepth = crossing.principal ? 1.08 : 0.94;
 
     for (let i = 0; i < stripeCount; i += 1) {
       const t = (i + 0.5) / stripeCount;

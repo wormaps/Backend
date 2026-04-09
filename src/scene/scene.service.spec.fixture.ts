@@ -1,6 +1,5 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TtlCacheService } from '../cache/ttl-cache.service';
 import { GlbBuilderService } from '../assets/glb-builder.service';
@@ -150,9 +149,10 @@ export interface SceneSpecContext {
 }
 
 export async function createSceneSpecContext(): Promise<SceneSpecContext> {
-  process.env.SCENE_DATA_DIR = await mkdtemp(
-    join(tmpdir(), 'wormapb-scene-test-'),
-  );
+  const testSceneDataDir = join(process.cwd(), 'data', 'scene', '.spec-temp');
+  await rm(testSceneDataDir, { recursive: true, force: true });
+  await mkdir(testSceneDataDir, { recursive: true });
+  process.env.SCENE_DATA_DIR = testSceneDataDir;
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
@@ -405,6 +405,10 @@ export async function cleanupSceneSpecContext(
 ): Promise<void> {
   if (context) {
     await context.generationService.waitForIdle();
+  }
+  const current = process.env.SCENE_DATA_DIR;
+  if (current && current.includes(join('data', 'scene', '.spec-temp'))) {
+    await rm(current, { recursive: true, force: true });
   }
   delete process.env.SCENE_DATA_DIR;
 }

@@ -58,10 +58,10 @@ bun run scene:shibuya
 
 ## 주요 산출물
 
-- `data/scenes/{sceneId}.json`
-- `data/scenes/{sceneId}.meta.json`
-- `data/scenes/{sceneId}.detail.json`
-- `data/scenes/{sceneId}.glb`
+- `data/scene/{sceneId}.json`
+- `data/scene/{sceneId}.meta.json`
+- `data/scene/{sceneId}.detail.json`
+- `data/scene/{sceneId}.glb`
 
 ## 주요 API
 
