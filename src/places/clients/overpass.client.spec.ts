@@ -82,7 +82,9 @@ describe('OverpassClient', () => {
           }),
         ),
     });
-    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(
+      fetcher as typeof fetch,
+    );
 
     const result = await client.buildPlacePackage(place);
 
@@ -164,7 +166,9 @@ describe('OverpassClient', () => {
       ok: true,
       text: () => Promise.resolve(JSON.stringify(response)),
     });
-    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(
+      fetcher as typeof fetch,
+    );
 
     const result = await client.buildPlacePackage(place, { radiusM: 600 });
 
@@ -231,16 +235,20 @@ describe('OverpassClient', () => {
       text: () => Promise.resolve(JSON.stringify(response)),
     });
 
-    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(
+      fetcher as typeof fetch,
+    );
     const result = await client.buildPlacePackage(place);
 
     expect(result.buildings).toHaveLength(1);
     expect(result.buildings[0]?.outerRing).toHaveLength(4);
     expect(result.buildings[0]?.holes).toHaveLength(1);
     expect(result.buildings[0]?.holes[0]).toHaveLength(4);
-    expect(result.buildings[0]?.footprint).toEqual(result.buildings[0]?.outerRing);
-    expect(polygonSignedArea(result.buildings[0]!.outerRing)).toBeLessThan(0);
-    expect(polygonSignedArea(result.buildings[0]!.holes[0]!)).toBeGreaterThan(0);
+    expect(result.buildings[0]?.footprint).toEqual(
+      result.buildings[0]?.outerRing,
+    );
+    expect(polygonSignedArea(result.buildings[0].outerRing)).toBeLessThan(0);
+    expect(polygonSignedArea(result.buildings[0].holes[0])).toBeGreaterThan(0);
   });
 
   it('should fallback to the next overpass endpoint when the first one fails', async () => {
@@ -279,7 +287,9 @@ describe('OverpassClient', () => {
       .mockResolvedValueOnce(emptyResponse)
       .mockResolvedValueOnce(emptyResponse);
 
-    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(
+      fetcher as typeof fetch,
+    );
     const result = await client.buildPlacePackage(place);
 
     expect(fetcher).toHaveBeenCalledTimes(4);
@@ -316,7 +326,9 @@ describe('OverpassClient', () => {
       .mockRejectedValueOnce(new Error('timeout-4'))
       .mockResolvedValue(buildingResponse);
 
-    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(
+      fetcher as typeof fetch,
+    );
     const result = await client.buildPlacePackage(place, {
       bounds: {
         northEast: { lat: 37.3, lng: 127.3 },
@@ -375,7 +387,9 @@ describe('OverpassClient', () => {
       .mockResolvedValueOnce(coreResponse)
       .mockRejectedValue(new Error('optional-scope-down'));
 
-    const client = new OverpassClient(logger).withFetcher(fetcher as typeof fetch);
+    const client = new OverpassClient(logger).withFetcher(
+      fetcher as typeof fetch,
+    );
     const result = await client.buildPlacePackage(place);
 
     expect(result.buildings).toHaveLength(1);

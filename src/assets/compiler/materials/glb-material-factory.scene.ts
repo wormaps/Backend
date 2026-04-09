@@ -7,6 +7,21 @@ export interface MaterialTuningOptions {
   emissiveBoost?: number;
   roadRoughnessScale?: number;
   wetRoadBoost?: number;
+  overlayDepthBias?: number;
+}
+
+export interface GlbMaterial {
+  setBaseColorFactor(value: [number, number, number, number]): GlbMaterial;
+  setMetallicFactor(value: number): GlbMaterial;
+  setRoughnessFactor(value: number): GlbMaterial;
+  setEmissiveFactor(value: [number, number, number]): GlbMaterial;
+  setDoubleSided(value: boolean): GlbMaterial;
+  setAlphaMode(value: 'OPAQUE' | 'MASK' | 'BLEND'): GlbMaterial;
+  setAlphaCutoff(value: number): GlbMaterial;
+}
+
+export interface GlbMaterialDocument {
+  createMaterial(name: string): GlbMaterial;
 }
 
 export interface FacadeLayerMaterialProfile {
@@ -43,6 +58,7 @@ const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   emissiveBoost: 1,
   roadRoughnessScale: 1,
   wetRoadBoost: 0,
+  overlayDepthBias: 1,
 };
 
 export type AccentTone = 'warm' | 'cool' | 'neutral';
@@ -57,61 +73,63 @@ export type ShellColorBucket =
   | 'brick';
 
 export interface SceneMaterials {
-  ground: any;
-  roadBase: any;
-  roadEdge: any;
-  roadMarking: any;
-  laneOverlay: any;
-  crosswalk: any;
-  junctionOverlay: any;
-  sidewalk: any;
-  curb: any;
-  median: any;
-  greenStrip: any;
-  sidewalkEdge: any;
-  trafficLight: any;
-  streetLight: any;
-  signPole: any;
-  bench: any;
-  bikeRack: any;
-  trashCan: any;
-  fireHydrant: any;
-  tree: any;
-  treeVariation: any;
-  bush: any;
-  flowerBed: any;
-  poi: any;
-  landCoverPark: any;
-  landCoverWater: any;
-  landCoverPlaza: any;
-  linearRailway: any;
-  linearBridge: any;
-  linearWaterway: any;
-  roofAccents: Record<AccentTone, any>;
-  roofSurfaces: Record<AccentTone, any>;
-  buildingPanels: Record<AccentTone, any>;
-  billboards: Record<AccentTone, any>;
-  landmark: any;
-  facadeConcreteMid?: any;
-  facadeMetalMid?: any;
-  windowGlassReflective?: any;
-  windowGlassCurtainWall?: any;
-  buildingLightAccentSpot?: any;
-  neonSignOrange?: any;
-  facadePrimary?: any;
-  windowPrimary?: any;
-  entrancePrimary?: any;
-  roofEquipmentPrimary?: any;
-  heroCanopyPrimary?: any;
-  heroRoofUnitPrimary?: any;
-  heroBillboardPrimary?: any;
+  ground: GlbMaterial;
+  roadBase: GlbMaterial;
+  roadEdge: GlbMaterial;
+  roadMarking: GlbMaterial;
+  laneOverlay: GlbMaterial;
+  crosswalk: GlbMaterial;
+  junctionOverlay: GlbMaterial;
+  sidewalk: GlbMaterial;
+  curb: GlbMaterial;
+  median: GlbMaterial;
+  greenStrip: GlbMaterial;
+  sidewalkEdge: GlbMaterial;
+  trafficLight: GlbMaterial;
+  streetLight: GlbMaterial;
+  signPole: GlbMaterial;
+  bench: GlbMaterial;
+  bikeRack: GlbMaterial;
+  trashCan: GlbMaterial;
+  fireHydrant: GlbMaterial;
+  tree: GlbMaterial;
+  treeVariation: GlbMaterial;
+  bush: GlbMaterial;
+  flowerBed: GlbMaterial;
+  poi: GlbMaterial;
+  landCoverPark: GlbMaterial;
+  landCoverWater: GlbMaterial;
+  landCoverPlaza: GlbMaterial;
+  linearRailway: GlbMaterial;
+  linearBridge: GlbMaterial;
+  linearWaterway: GlbMaterial;
+  roofAccents: Record<AccentTone, GlbMaterial>;
+  roofSurfaces: Record<AccentTone, GlbMaterial>;
+  buildingPanels: Record<AccentTone, GlbMaterial>;
+  billboards: Record<AccentTone, GlbMaterial>;
+  landmark: GlbMaterial;
+  facadeConcreteMid?: GlbMaterial;
+  facadeMetalMid?: GlbMaterial;
+  windowGlassReflective?: GlbMaterial;
+  windowGlassCurtainWall?: GlbMaterial;
+  buildingLightAccentSpot?: GlbMaterial;
+  neonSignOrange?: GlbMaterial;
+  facadePrimary?: GlbMaterial;
+  windowPrimary?: GlbMaterial;
+  entrancePrimary?: GlbMaterial;
+  roofEquipmentPrimary?: GlbMaterial;
+  heroCanopyPrimary?: GlbMaterial;
+  heroRoofUnitPrimary?: GlbMaterial;
+  heroBillboardPrimary?: GlbMaterial;
 }
 
 export function createSceneMaterials(
-  doc: any,
+  doc: GlbMaterialDocument,
   tuningOptions: MaterialTuningOptions = {},
 ): SceneMaterials {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
+  const overlayBias = resolveOverlayDepthBias(tuning.overlayDepthBias);
+  const overlayCutoff = clampRange(0.022 / overlayBias, 0.008, 0.03);
   return {
     ground: doc
       .createMaterial('ground')
@@ -142,6 +160,9 @@ export function createSceneMaterials(
       .createMaterial('road-marking')
       .setBaseColorFactor([0.96, 0.93, 0.74, 1])
       .setMetallicFactor(0)
+      .setAlphaMode('MASK')
+      .setAlphaCutoff(overlayCutoff)
+      .setDoubleSided(false)
       .setRoughnessFactor(
         applyWetOverlay(
           scaleRoughness(0.82, tuning.roadRoughnessScale),
@@ -155,6 +176,9 @@ export function createSceneMaterials(
         scaleEmissive([0.14, 0.12, 0.05], tuning.emissiveBoost),
       )
       .setMetallicFactor(0)
+      .setAlphaMode('MASK')
+      .setAlphaCutoff(clampRange(overlayCutoff + 0.002, 0.01, 0.032))
+      .setDoubleSided(false)
       .setRoughnessFactor(
         applyWetOverlay(
           scaleRoughness(0.74, tuning.roadRoughnessScale),
@@ -166,6 +190,9 @@ export function createSceneMaterials(
       .setBaseColorFactor([0.99, 0.99, 0.96, 1])
       .setEmissiveFactor(scaleEmissive([0.2, 0.18, 0.11], tuning.emissiveBoost))
       .setMetallicFactor(0)
+      .setAlphaMode('MASK')
+      .setAlphaCutoff(clampRange(overlayCutoff + 0.001, 0.01, 0.031))
+      .setDoubleSided(false)
       .setRoughnessFactor(
         applyWetOverlay(
           scaleRoughness(0.72, tuning.roadRoughnessScale),
@@ -177,6 +204,9 @@ export function createSceneMaterials(
       .setBaseColorFactor([0.99, 0.9, 0.42, 1])
       .setEmissiveFactor(scaleEmissive([0.2, 0.12, 0.04], tuning.emissiveBoost))
       .setMetallicFactor(0)
+      .setAlphaMode('MASK')
+      .setAlphaCutoff(clampRange(overlayCutoff + 0.003, 0.011, 0.033))
+      .setDoubleSided(false)
       .setRoughnessFactor(
         applyWetOverlay(
           scaleRoughness(0.78, tuning.roadRoughnessScale),
@@ -404,13 +434,13 @@ export function createSceneMaterials(
 }
 
 export function createBuildingShellMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   materialClass: MaterialClass,
   bucket: ShellColorBucket,
   explicitHex?: string,
   tuningOptions: MaterialTuningOptions = {},
   facadeProfile: FacadeLayerMaterialProfile = {},
-) {
+): GlbMaterial {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const [r, g, b] = tuneShellColor(
     hexToRgb(explicitHex ?? resolveShellBucketHex(bucket)),
@@ -432,12 +462,12 @@ export function createBuildingShellMaterial(
 }
 
 export function createBuildingPanelMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   tone: AccentTone,
   hex: string,
   tuningOptions: MaterialTuningOptions = {},
   facadeProfile: FacadeLayerMaterialProfile = {},
-) {
+): GlbMaterial {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const [r, g, b] = tunePanelColor(
     hexToRgb(hex),
@@ -494,11 +524,11 @@ function applySurfaceBias(
 }
 
 export function createBillboardMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   tone: AccentTone,
   hex: string,
   tuningOptions: MaterialTuningOptions = {},
-) {
+): GlbMaterial {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const [r, g, b] = tuneBillboardColor(
     hexToRgb(hex),
@@ -672,7 +702,14 @@ function resolveMaterialTuningOptions(
       DEFAULT_MATERIAL_TUNING.roadRoughnessScale,
     wetRoadBoost:
       tuningOptions.wetRoadBoost ?? DEFAULT_MATERIAL_TUNING.wetRoadBoost,
+    overlayDepthBias:
+      tuningOptions.overlayDepthBias ??
+      DEFAULT_MATERIAL_TUNING.overlayDepthBias,
   };
+}
+
+function resolveOverlayDepthBias(value: number): number {
+  return clampRange(value, 0.4, 2.4);
 }
 
 function applyWetRoad(baseRoughness: number, wetRoadBoost: number): number {

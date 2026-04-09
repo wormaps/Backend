@@ -13,6 +13,9 @@ type SceneGeometryDiagnosticWithCorrection = {
   polygonComplexity: 'simple';
   collisionRiskCount: number;
   groundedGapCount: number;
+  openShellCount: number;
+  roofWallGapCount: number;
+  invalidSetbackJoinCount: number;
 };
 
 const COLLISION_HARD_FAIL_RATIO = 0.015;
@@ -119,6 +122,9 @@ describe('SceneQualityGateService', () => {
       polygonComplexity: 'simple',
       collisionRiskCount: 3,
       groundedGapCount: 1,
+      openShellCount: 0,
+      roofWallGapCount: 0,
+      invalidSetbackJoinCount: 0,
     };
     detail.geometryDiagnostics = [
       correctionDiagnostic as unknown as NonNullable<
@@ -166,6 +172,9 @@ describe('SceneQualityGateService', () => {
           200 * (COLLISION_HARD_FAIL_RATIO - 0.005),
         ),
         groundedGapCount: 0,
+        openShellCount: 0,
+        roofWallGapCount: 0,
+        invalidSetbackJoinCount: 0,
       } as unknown as NonNullable<SceneDetail['geometryDiagnostics']>[number],
     ];
 
@@ -180,6 +189,45 @@ describe('SceneQualityGateService', () => {
 
     const result = await service.evaluate(meta, detail);
     expect(result.reasonCodes).not.toContain('CRITICAL_COLLISION_DETECTED');
+  });
+
+  it('fails when geometry diagnostics report shell closure and roof-wall gaps', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-closure-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-closure';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+    detail.geometryDiagnostics = [
+      {
+        objectId: '__geometry_correction__',
+        strategy: 'fallback_massing',
+        fallbackApplied: true,
+        fallbackReason: 'NONE',
+        hasHoles: false,
+        polygonComplexity: 'simple',
+        collisionRiskCount: 0,
+        groundedGapCount: 0,
+        openShellCount: 2,
+        roofWallGapCount: 1,
+        invalidSetbackJoinCount: 1,
+      } as unknown as NonNullable<SceneDetail['geometryDiagnostics']>[number],
+    ];
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: [{ name: 'road_base', skipped: false }],
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.state).toBe('FAIL');
+    expect(result.reasonCodes).toContain('CRITICAL_SHELL_CLOSURE_DETECTED');
+    expect(result.reasonCodes).toContain('CRITICAL_ROOF_WALL_GAP_DETECTED');
   });
 
   it('fails when skipped mesh and missing-source warn thresholds are exceeded', async () => {

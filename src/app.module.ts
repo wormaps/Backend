@@ -6,6 +6,12 @@ import { PlacesModule } from './places/places.module';
 import { SceneModule } from './scene/scene.module';
 
 @Module({
-  imports: [LoggingModule, CacheModule, HealthModule, PlacesModule, SceneModule],
+  imports: [
+    LoggingModule,
+    CacheModule,
+    HealthModule,
+    PlacesModule,
+    SceneModule,
+  ],
 })
 export class AppModule {}

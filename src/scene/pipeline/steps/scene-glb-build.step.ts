@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { GlbBuilderService } from '../../../assets/glb-builder.service';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
+import { readFile } from 'node:fs/promises';
+import { getSceneDiagnosticsLogPath } from '../../storage/scene-storage.utils';
+
+interface BuildingClosureDiagnosticsShape {
+  openShellCount?: number;
+  roofWallGapCount?: number;
+  invalidSetbackJoinCount?: number;
+}
 
 @Injectable()
 export class SceneGlbBuildStep {
@@ -10,7 +18,7 @@ export class SceneGlbBuildStep {
     private readonly appLoggerService: AppLoggerService,
   ) {}
 
-  execute(
+  async execute(
     meta: SceneMeta,
     detail: SceneDetail,
     runMetrics?: {
@@ -26,6 +34,75 @@ export class SceneGlbBuildStep {
       wetRoadBoost: detail.staticAtmosphere?.wetRoadBoost ?? 0,
     });
 
-    return this.glbBuilderService.build(meta, detail, runMetrics);
+    const assetPath = await this.glbBuilderService.build(
+      meta,
+      detail,
+      runMetrics,
+    );
+
+    const closureDiagnostics = await this.resolveBuildingClosureDiagnostics(
+      meta.sceneId,
+    );
+    if (closureDiagnostics) {
+      const geometryDiagnostics = detail.geometryDiagnostics ?? [];
+      const markerIndex = geometryDiagnostics.findIndex(
+        (entry) => entry.objectId === '__geometry_correction__',
+      );
+      if (markerIndex >= 0) {
+        const existingMarker = geometryDiagnostics[markerIndex];
+        geometryDiagnostics[markerIndex] = {
+          ...existingMarker,
+          openShellCount:
+            closureDiagnostics.openShellCount ?? existingMarker.openShellCount,
+          roofWallGapCount:
+            closureDiagnostics.roofWallGapCount ??
+            existingMarker.roofWallGapCount,
+          invalidSetbackJoinCount:
+            closureDiagnostics.invalidSetbackJoinCount ??
+            existingMarker.invalidSetbackJoinCount,
+        };
+        detail.geometryDiagnostics = geometryDiagnostics;
+      }
+    }
+
+    return assetPath;
+  }
+
+  private async resolveBuildingClosureDiagnostics(
+    sceneId: string,
+  ): Promise<BuildingClosureDiagnosticsShape | null> {
+    let raw = '';
+    try {
+      raw = await readFile(getSceneDiagnosticsLogPath(sceneId), 'utf8');
+    } catch {
+      return null;
+    }
+
+    const entries = raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        try {
+          return JSON.parse(line) as {
+            stage?: string;
+            buildingClosureDiagnostics?: BuildingClosureDiagnosticsShape;
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          stage?: string;
+          buildingClosureDiagnostics?: BuildingClosureDiagnosticsShape;
+        } => Boolean(entry),
+      )
+      .filter((entry) => entry.stage === 'glb_build');
+
+    const latest = entries.at(-1);
+    return latest?.buildingClosureDiagnostics ?? null;
   }
 }

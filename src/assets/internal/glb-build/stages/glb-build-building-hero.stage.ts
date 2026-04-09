@@ -1,4 +1,6 @@
 import {
+  collectBuildingRoofSurfaceMetrics,
+  collectBuildingShellClosureMetrics,
   createBillboardsGeometry,
   createBuildingEntranceGeometry,
   createBuildingPanelsGeometry,
@@ -25,6 +27,28 @@ import {
   SceneMaterials,
 } from '../glb-build-stage.types';
 import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
+
+export interface BuildingClosureDiagnostics {
+  openShellCount: number;
+  roofWallGapCount: number;
+  invalidSetbackJoinCount: number;
+}
+
+export function collectBuildingClosureDiagnostics(
+  sceneMeta: SceneMeta,
+  buildings: SceneMeta['buildings'],
+): BuildingClosureDiagnostics {
+  const shellMetrics = collectBuildingShellClosureMetrics(
+    sceneMeta.origin,
+    buildings,
+  );
+  const roofMetrics = collectBuildingRoofSurfaceMetrics(buildings);
+  return {
+    openShellCount: shellMetrics.openShellCount,
+    roofWallGapCount: roofMetrics.roofWallGapRiskCount,
+    invalidSetbackJoinCount: shellMetrics.invalidSetbackJoinCount,
+  };
+}
 
 export function resolveWindowTriangleBudgetForSelection(
   selectedBuildingCount: number,

@@ -24,7 +24,14 @@ const CRITICAL_MESH_NAMES = new Set([
   'crosswalk_overlay',
   'junction_overlay',
   'building_windows',
+  'building_roof_surfaces_cool',
+  'building_roof_surfaces_warm',
+  'building_roof_surfaces_neutral',
+  'building_roof_accents_cool',
+  'building_roof_accents_warm',
+  'building_roof_accents_neutral',
 ]);
+const CRITICAL_MESH_PREFIXES = ['building_shells_'];
 const COLLISION_RATIO_HARD_FAIL_THRESHOLD = 0.015;
 
 interface ParsedDiagnosticsEntry {
@@ -39,11 +46,17 @@ interface ParsedDiagnosticsEntry {
 interface GeometryDiagnosticsShape {
   collisionRiskCount?: number;
   groundedGapCount?: number;
+  openShellCount?: number;
+  roofWallGapCount?: number;
+  invalidSetbackJoinCount?: number;
 }
 type SceneGeometryDiagnosticWithCorrection = {
   objectId?: string;
   collisionRiskCount?: number;
   groundedGapCount?: number;
+  openShellCount?: number;
+  roofWallGapCount?: number;
+  invalidSetbackJoinCount?: number;
 };
 
 interface OracleApprovalFilePayload {
@@ -116,6 +129,12 @@ export class SceneQualityGateService {
     }
     if (this.hasCriticalGroundingGap(sceneDetail.geometryDiagnostics)) {
       reasonCodes.push('CRITICAL_GROUNDING_GAP_DETECTED');
+    }
+    if (this.hasCriticalShellClosure(sceneDetail.geometryDiagnostics)) {
+      reasonCodes.push('CRITICAL_SHELL_CLOSURE_DETECTED');
+    }
+    if (this.hasCriticalRoofWallGap(sceneDetail.geometryDiagnostics)) {
+      reasonCodes.push('CRITICAL_ROOF_WALL_GAP_DETECTED');
     }
     if (oracleApproval.required && oracleApproval.state !== 'APPROVED') {
       reasonCodes.push('ORACLE_APPROVAL_REQUIRED');
@@ -342,11 +361,11 @@ export class SceneQualityGateService {
       totalSkipped: skippedNodes.length,
       polygonBudgetExceededCount: polygonBudgetNodes.length,
       criticalPolygonBudgetExceededCount: polygonBudgetNodes.filter((node) =>
-        CRITICAL_MESH_NAMES.has(node.name ?? ''),
+        this.isCriticalMeshNode(node.name),
       ).length,
       emptyOrInvalidGeometryCount: invalidNodes.length,
       criticalEmptyOrInvalidGeometryCount: invalidNodes.filter((node) =>
-        CRITICAL_MESH_NAMES.has(node.name ?? ''),
+        this.isCriticalMeshNode(node.name),
       ).length,
       selectionCutCount: skippedNodes.filter(
         (node) => node.skippedReason === 'selection_cut',
@@ -377,6 +396,32 @@ export class SceneQualityGateService {
     return (marker?.groundedGapCount ?? 0) > 0;
   }
 
+  private hasCriticalShellClosure(
+    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+  ): boolean {
+    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
+    const openShellCount = marker?.openShellCount ?? 0;
+    const invalidSetbackJoinCount = marker?.invalidSetbackJoinCount ?? 0;
+    return openShellCount > 0 || invalidSetbackJoinCount > 0;
+  }
+
+  private hasCriticalRoofWallGap(
+    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+  ): boolean {
+    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
+    return (marker?.roofWallGapCount ?? 0) > 0;
+  }
+
+  private isCriticalMeshNode(name?: string): boolean {
+    if (!name) {
+      return false;
+    }
+    if (CRITICAL_MESH_NAMES.has(name)) {
+      return true;
+    }
+    return CRITICAL_MESH_PREFIXES.some((prefix) => name.startsWith(prefix));
+  }
+
   private findGeometryCorrectionDiagnostics(
     geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
   ): GeometryDiagnosticsShape | null {
@@ -392,6 +437,9 @@ export class SceneQualityGateService {
     return {
       collisionRiskCount: marker.collisionRiskCount,
       groundedGapCount: marker.groundedGapCount,
+      openShellCount: marker.openShellCount,
+      roofWallGapCount: marker.roofWallGapCount,
+      invalidSetbackJoinCount: marker.invalidSetbackJoinCount,
     };
   }
 }

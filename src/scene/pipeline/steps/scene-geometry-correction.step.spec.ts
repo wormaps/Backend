@@ -27,11 +27,17 @@ describe('SceneGeometryCorrectionStep', () => {
     ) as {
       collisionRiskCount?: number;
       groundedGapCount?: number;
+      openShellCount?: number;
+      roofWallGapCount?: number;
+      invalidSetbackJoinCount?: number;
     };
 
     expect(correction).toBeDefined();
     expect(correction.collisionRiskCount).toBe(0);
     expect(correction.groundedGapCount).toBe(0);
+    expect(correction.openShellCount).toBe(0);
+    expect(correction.roofWallGapCount).toBe(0);
+    expect(correction.invalidSetbackJoinCount).toBe(0);
   });
 
   it('does not mark distant building as collision risk with adaptive threshold', () => {

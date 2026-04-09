@@ -1,6 +1,8 @@
 import {
   createSceneMaterials,
   FacadeLayerMaterialProfile,
+  GlbMaterial,
+  GlbMaterialDocument,
   MaterialTuningOptions,
 } from './glb-material-factory.scene';
 
@@ -19,10 +21,10 @@ export interface FacadeMaterialParams {
 }
 
 export function createFacadeMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   type: FacadeMaterialType,
   variant: 'light' | 'mid' | 'dark' = 'mid',
-): any {
+): GlbMaterial {
   const params = getFacadeMaterialParams(type, variant);
   return doc
     .createMaterial(`facade-${type}-${variant}`)
@@ -136,9 +138,9 @@ export type WindowGlassType =
   | 'curtain_wall';
 
 export function createWindowGlassMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   type: WindowGlassType,
-): any {
+): GlbMaterial {
   const params = getWindowGlassParams(type);
   return doc
     .createMaterial(`window-glass-${type}`)
@@ -212,10 +214,10 @@ export type NeonColorTone =
   | 'pink';
 
 export function createNeonSignMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   tone: NeonColorTone,
   intensity: 'subtle' | 'normal' | 'bright' = 'normal',
-): any {
+): GlbMaterial {
   const params = getNeonSignParams(tone, intensity);
   return doc
     .createMaterial(`neon-sign-${tone}-${intensity}`)
@@ -271,9 +273,9 @@ export type BuildingLightType =
   | 'window_glow';
 
 export function createBuildingLightMaterial(
-  doc: any,
+  doc: GlbMaterialDocument,
   type: BuildingLightType,
-): any {
+): GlbMaterial {
   const params = getBuildingLightParams(type);
   return doc
     .createMaterial(`building-light-${type}`)
@@ -324,7 +326,7 @@ function getBuildingLightParams(type: BuildingLightType): BuildingLightParams {
 }
 
 export function createEnhancedSceneMaterials(
-  doc: any,
+  doc: GlbMaterialDocument,
   tuningOptions: MaterialTuningOptions = {},
   facadeProfile: FacadeLayerMaterialProfile = {},
 ) {

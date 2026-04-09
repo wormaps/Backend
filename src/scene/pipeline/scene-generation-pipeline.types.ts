@@ -1,10 +1,6 @@
 import type { GeoBounds, PlacePackage } from '../../places/types/place.types';
 import type { ExternalPlaceDetail } from '../../places/types/external-place.types';
-import type {
-  SceneDetail,
-  SceneMeta,
-  StoredScene,
-} from '../types/scene.types';
+import type { SceneDetail, SceneMeta, StoredScene } from '../types/scene.types';
 
 export interface SceneGenerationLogContext {
   requestId: string | null;

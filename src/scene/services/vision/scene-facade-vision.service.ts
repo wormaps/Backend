@@ -492,7 +492,7 @@ function applyWeakEvidencePaletteDrift(input: {
     input.districtProfile,
   );
   const variant =
-    districtSeed[stableVariant(input.buildingId, districtSeed.length)]!;
+    districtSeed[stableVariant(input.buildingId, districtSeed.length)];
   const shellBase = input.shellPalette[0] ?? input.palette[0] ?? variant[0];
   const shellSecondary =
     input.shellPalette[1] ?? input.palette[1] ?? variant[1];
@@ -504,14 +504,20 @@ function applyWeakEvidencePaletteDrift(input: {
     0.44,
   );
   const vividVariant = mixHex(variant[0], '#ffd166', saturationMix);
+  const extraVariant = resolveAdditionalWeakEvidenceAccent(
+    input.buildingId,
+    input.districtProfile,
+    variant,
+  );
   const panelPalette = uniquePalette(
     [
       vividVariant,
       mixHex(variant[1], '#6bc2ff', saturationMix * 0.8),
       variant[2],
+      extraVariant,
       ...input.panelPalette,
     ],
-    3,
+    4,
   );
   const palette = uniquePalette(
     [
@@ -527,8 +533,13 @@ function applyWeakEvidencePaletteDrift(input: {
     4,
   );
   const shellPalette = uniquePalette(
-    [shellPrimaryDrift, shellSecondaryDrift, ...input.shellPalette],
-    3,
+    [
+      shellPrimaryDrift,
+      shellSecondaryDrift,
+      mixHex(variant[2], '#f1efe9', 0.18),
+      ...input.shellPalette,
+    ],
+    4,
   );
 
   return {
@@ -537,6 +548,26 @@ function applyWeakEvidencePaletteDrift(input: {
     panelPalette,
     contextualUpgradeBoost: true,
   };
+}
+
+function resolveAdditionalWeakEvidenceAccent(
+  buildingId: string,
+  districtProfile: string,
+  variant: [string, string, string],
+): string {
+  const candidatePool =
+    districtProfile === 'NEON_CORE'
+      ? ['#ff6b6b', '#5cc8ff', '#ffd166', '#8b5cf6']
+      : districtProfile === 'COMMERCIAL_STRIP'
+        ? ['#4cc9f0', '#f8961e', '#90be6d', '#577590']
+        : districtProfile === 'TRANSIT_HUB'
+          ? ['#8fa8bf', '#c6d0d8', '#7f8c99', '#b2c1cf']
+          : ['#9db5c2', '#c7b8a9', '#a6b39f', '#b2a8bc'];
+  const picked =
+    candidatePool[
+      stableVariant(`${buildingId}:weak-extra`, candidatePool.length)
+    ] ?? candidatePool[0];
+  return mixHex(variant[0], picked, 0.32);
 }
 
 function resolveExplicitSignalBoost(

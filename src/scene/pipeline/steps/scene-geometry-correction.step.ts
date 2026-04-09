@@ -21,10 +21,16 @@ interface GeometryCorrectionDiagnostic {
   polygonComplexity: 'simple';
   collisionRiskCount: number;
   groundedGapCount: number;
+  openShellCount: number;
+  roofWallGapCount: number;
+  invalidSetbackJoinCount: number;
 }
 
 const COLLISION_NEAR_ROAD_METERS = 1.6;
 const GROUND_OFFSET_ON_COLLISION_METERS = 0.06;
+const MIN_RING_VERTICES_FOR_CLOSURE = 3;
+const MIN_SETBACK_USABLE_VERTICES = 3;
+const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
 
 @Injectable()
 export class SceneGeometryCorrectionStep {
@@ -40,6 +46,10 @@ export class SceneGeometryCorrectionStep {
     const groundedGapCount = correctedBuildings.filter(
       (building) => (building.groundOffsetM ?? 0) > 0.06,
     ).length;
+    const closureDiagnostics =
+      this.resolveClosureDiagnostics(correctedBuildings);
+    const { openShellCount, roofWallGapCount, invalidSetbackJoinCount } =
+      closureDiagnostics;
 
     const correctedMeta: SceneMeta = {
       ...meta,
@@ -53,12 +63,20 @@ export class SceneGeometryCorrectionStep {
         {
           objectId: '__geometry_correction__',
           strategy: 'fallback_massing',
-          fallbackApplied: collisionRiskCount > 0 || groundedGapCount > 0,
+          fallbackApplied:
+            collisionRiskCount > 0 ||
+            groundedGapCount > 0 ||
+            openShellCount > 0 ||
+            roofWallGapCount > 0 ||
+            invalidSetbackJoinCount > 0,
           fallbackReason: 'NONE',
           hasHoles: false,
           polygonComplexity: 'simple',
           collisionRiskCount,
           groundedGapCount,
+          openShellCount,
+          roofWallGapCount,
+          invalidSetbackJoinCount,
         } as GeometryCorrectionDiagnostic,
       ],
     };
@@ -66,6 +84,9 @@ export class SceneGeometryCorrectionStep {
     void appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction', {
       collisionRiskCount,
       groundedGapCount,
+      openShellCount,
+      roofWallGapCount,
+      invalidSetbackJoinCount,
       buildingCount: correctedBuildings.length,
       correctedCount: correctedBuildings.filter(
         (building) => building.collisionRisk === 'road_overlap',
@@ -75,6 +96,44 @@ export class SceneGeometryCorrectionStep {
     return {
       meta: correctedMeta,
       detail: correctedDetail,
+    };
+  }
+
+  private resolveClosureDiagnostics(buildings: SceneBuildingMeta[]): {
+    openShellCount: number;
+    roofWallGapCount: number;
+    invalidSetbackJoinCount: number;
+  } {
+    let openShellCount = 0;
+    let roofWallGapCount = 0;
+    let invalidSetbackJoinCount = 0;
+
+    for (const building of buildings) {
+      const vertexCount = normalizeRingVertexCount(building.outerRing.length);
+      if (vertexCount < MIN_RING_VERTICES_FOR_CLOSURE) {
+        openShellCount += 1;
+      }
+
+      if (building.roofType === 'gable' && vertexCount < 4) {
+        roofWallGapCount += 1;
+      }
+
+      const setbackLevels = Math.max(0, building.setbackLevels ?? 0);
+      if (setbackLevels > 0) {
+        const estimatedRemaining = Math.max(0, vertexCount - setbackLevels);
+        const likelyInvalidJoin =
+          estimatedRemaining < MIN_SETBACK_USABLE_VERTICES ||
+          setbackLevels > MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE;
+        if (likelyInvalidJoin) {
+          invalidSetbackJoinCount += 1;
+        }
+      }
+    }
+
+    return {
+      openShellCount,
+      roofWallGapCount,
+      invalidSetbackJoinCount,
     };
   }
 
@@ -228,4 +287,8 @@ function distanceMeters(
     (a.lat - b.lat) * metersPerLat,
     (a.lng - b.lng) * metersPerLng,
   );
+}
+
+function normalizeRingVertexCount(count: number): number {
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 }

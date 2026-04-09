@@ -296,33 +296,15 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
   const liveDataService = module.get(SceneLiveDataService);
   const repository = module.get(SceneRepository);
   const ttlCacheService = module.get(TtlCacheService);
-  const glbBuilderService = module.get(
-    GlbBuilderService,
-  ) as unknown as jest.Mocked<GlbBuilderService>;
-  const googlePlacesClient = module.get(
-    GooglePlacesClient,
-  ) as unknown as jest.Mocked<GooglePlacesClient>;
-  const overpassClient = module.get(
-    OverpassClient,
-  ) as unknown as jest.Mocked<OverpassClient>;
-  const openMeteoClient = module.get(
-    OpenMeteoClient,
-  ) as unknown as jest.Mocked<OpenMeteoClient>;
-  const tomTomTrafficClient = module.get(
-    TomTomTrafficClient,
-  ) as unknown as jest.Mocked<TomTomTrafficClient>;
-  const sceneVisionService = module.get(
-    SceneVisionService,
-  ) as unknown as jest.Mocked<SceneVisionService>;
-  const sceneHeroOverrideService = module.get(
-    SceneHeroOverrideService,
-  ) as unknown as jest.Mocked<SceneHeroOverrideService>;
-  const qualityGateService = module.get(
-    SceneQualityGateService,
-  ) as unknown as jest.Mocked<SceneQualityGateService>;
-  const appLoggerService = module.get(
-    AppLoggerService,
-  ) as unknown as jest.Mocked<AppLoggerService>;
+  const glbBuilderService = module.get(GlbBuilderService);
+  const googlePlacesClient = module.get(GooglePlacesClient);
+  const overpassClient = module.get(OverpassClient);
+  const openMeteoClient = module.get(OpenMeteoClient);
+  const tomTomTrafficClient = module.get(TomTomTrafficClient);
+  const sceneVisionService = module.get(SceneVisionService);
+  const sceneHeroOverrideService = module.get(SceneHeroOverrideService);
+  const qualityGateService = module.get(SceneQualityGateService);
+  const appLoggerService = module.get(AppLoggerService);
 
   await repository.clear();
   ttlCacheService.clear();

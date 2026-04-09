@@ -120,7 +120,11 @@ export function createTreeVariationGeometry(
 
     const trunkRadius = 0.08 + (params.size === 'large' ? 0.04 : 0);
     const trunkSegments =
-      variationProfile.vegetationDetailBoost >= 1.15 ? 8 : 6;
+      variationProfile.vegetationDetailBoost >= 1.15
+        ? 10
+        : variationProfile.vegetationDetailBoost >= 1.02
+          ? 8
+          : 6;
 
     pushCylinder(
       geometry,
@@ -134,7 +138,11 @@ export function createTreeVariationGeometry(
 
     const crownBaseY = params.trunkHeight;
     const crownSegments =
-      variationProfile.vegetationDetailBoost >= 1.12 ? 10 : 8;
+      variationProfile.vegetationDetailBoost >= 1.18
+        ? 12
+        : variationProfile.vegetationDetailBoost >= 1.08
+          ? 10
+          : 8;
 
     switch (params.silhouette) {
       case 'cone':
@@ -157,7 +165,7 @@ export function createTreeVariationGeometry(
           center[2],
           params.crownRadius,
           crownSegments,
-          variationProfile.vegetationDetailBoost >= 1.15 ? 7 : 6,
+          variationProfile.vegetationDetailBoost >= 1.15 ? 8 : 6,
         );
         break;
 
@@ -258,7 +266,7 @@ export function createBushGeometry(
         clusterZ,
         clusterRadius,
         segments,
-        variationProfile.vegetationDetailBoost >= 1.12 ? 5 : 4,
+        variationProfile.vegetationDetailBoost >= 1.12 ? 6 : 4,
       );
     }
 

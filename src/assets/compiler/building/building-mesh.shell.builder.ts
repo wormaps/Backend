@@ -22,6 +22,66 @@ import {
 const MIN_FOUNDATION_DEPTH = 0.35;
 const MAX_FOUNDATION_DEPTH = 0.9;
 
+export interface BuildingShellClosureMetrics {
+  openShellCount: number;
+  invalidSetbackJoinCount: number;
+}
+
+const INITIAL_SHELL_CLOSURE_METRICS: BuildingShellClosureMetrics = {
+  openShellCount: 0,
+  invalidSetbackJoinCount: 0,
+};
+
+export function collectBuildingShellClosureMetrics(
+  origin: Coordinate,
+  buildings: SceneMeta['buildings'],
+): BuildingShellClosureMetrics {
+  const metrics: BuildingShellClosureMetrics = {
+    ...INITIAL_SHELL_CLOSURE_METRICS,
+  };
+
+  for (const building of buildings) {
+    const outerRing = normalizeLocalRing(
+      toLocalRing(origin, building.outerRing),
+      'CCW',
+    );
+    const holes = building.holes
+      .map((ring) => normalizeLocalRing(toLocalRing(origin, ring), 'CW'))
+      .filter((ring) => ring.length >= 3);
+
+    if (outerRing.length < 3) {
+      metrics.openShellCount += 1;
+      continue;
+    }
+
+    const strategy = resolveBuildingGeometryStrategy(
+      building,
+      holes,
+      outerRing,
+    );
+    const isFallback = strategy === 'fallback_massing';
+
+    if (!isFallback && strategy !== 'courtyard_block' && holes.length > 0) {
+      metrics.openShellCount += 1;
+    }
+
+    const setbackLevels = Math.max(0, building.setbackLevels ?? 0);
+    if (strategy === 'stepped_tower' && setbackLevels > 0) {
+      let currentRing = outerRing;
+      for (let stage = 0; stage < setbackLevels; stage += 1) {
+        const nextRing = insetRing(currentRing, 0.12 + stage * 0.04);
+        if (nextRing.length < 3) {
+          metrics.invalidSetbackJoinCount += 1;
+          break;
+        }
+        currentRing = nextRing;
+      }
+    }
+  }
+
+  return metrics;
+}
+
 export function createBuildingShellGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
@@ -506,17 +566,4 @@ function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {
   }
   result.push(ring[ring.length - 1]);
   return result.length >= 3 ? result : ring;
-}
-
-function simplifyRingToBox(ring: Vec3[]): Vec3[] {
-  if (ring.length <= 4) {
-    return ring;
-  }
-  const bounds = computeBounds(ring);
-  return [
-    [bounds.minX, 0, bounds.minZ],
-    [bounds.maxX, 0, bounds.minZ],
-    [bounds.maxX, 0, bounds.maxZ],
-    [bounds.minX, 0, bounds.maxZ],
-  ];
 }

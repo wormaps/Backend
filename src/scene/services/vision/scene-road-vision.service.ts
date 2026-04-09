@@ -281,9 +281,9 @@ function buildScramblePathOverlays(
     return [];
   }
   const points = crossing.path;
-  const start = points[0]!;
-  const end = points[points.length - 1]!;
-  const center = midpoint(points) ?? points[Math.floor(points.length / 2)]!;
+  const start = points[0];
+  const end = points[points.length - 1];
+  const center = midpoint(points) ?? points[Math.floor(points.length / 2)];
   const overlays: Omit<SceneRoadDecal, 'objectId'>[] = [];
   for (let level = 1; level <= depth; level += 1) {
     const ratio = level / (depth + 1);

@@ -31,6 +31,12 @@ export function resolveMaterialTuningFromScene(
   const districtRoadRoughnessScale =
     resolveDistrictRoadRoughnessScale(facadeHints);
   const modeSignal = resolveSceneFidelityModeSignal(targetMode);
+  const weakEvidenceRatio =
+    facadeHints.length > 0
+      ? facadeHints.filter((hint) => hint.weakEvidence).length /
+        facadeHints.length
+      : 0;
+  const overlayDepthBias = clamp(1.15 + weakEvidenceRatio * 0.95, 1, 2.2);
 
   return {
     shellLuminanceCap: 0.92,
@@ -53,6 +59,7 @@ export function resolveMaterialTuningFromScene(
       0,
       0.72,
     ),
+    overlayDepthBias,
   };
 }
 

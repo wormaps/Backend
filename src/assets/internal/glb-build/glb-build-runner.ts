@@ -26,6 +26,7 @@ import { addStreetContextMeshes } from './stages/glb-build-street-context.stage'
 import {
   addBuildingAndHeroMeshes,
   buildGroupedBuildingShells,
+  collectBuildingClosureDiagnostics,
 } from './stages/glb-build-building-hero.stage';
 import { GroupedBuildings } from './glb-build-stage.types';
 import {
@@ -81,6 +82,12 @@ interface FacadeColorDiversityMetrics {
   panelGroupCount: number;
 }
 
+interface BuildingClosureDiagnosticsMetrics {
+  openShellCount: number;
+  roofWallGapCount: number;
+  invalidSetbackJoinCount: number;
+}
+
 @Injectable()
 export class GlbBuildRunner {
   private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
@@ -97,11 +104,22 @@ export class GlbBuildRunner {
     'crosswalk_overlay',
     'junction_overlay',
     'building_windows',
+    'building_roof_surfaces_cool',
+    'building_roof_surfaces_warm',
+    'building_roof_surfaces_neutral',
+    'building_roof_accents_cool',
+    'building_roof_accents_warm',
+    'building_roof_accents_neutral',
+    'building_entrances',
+    'building_roof_equipment',
     'traffic_lights',
     'street_lights',
     'sign_poles',
   ]);
-  private readonly budgetProtectedMeshPrefixes = ['building_panels_'];
+  private readonly budgetProtectedMeshPrefixes = [
+    'building_panels_',
+    'building_shells_',
+  ];
 
   constructor(
     private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
@@ -207,6 +225,11 @@ export class GlbBuildRunner {
       assetSelection,
     );
 
+    const buildingClosureDiagnostics = this.collectBuildingClosureDiagnostics(
+      adaptiveMeta,
+      assetSelection,
+    );
+
     addBuildingAndHeroMeshes(
       {
         addMeshNode: this.addMeshNode.bind(this),
@@ -288,6 +311,7 @@ export class GlbBuildRunner {
           count: group.buildings.length,
         }),
       ),
+      buildingClosureDiagnostics,
       meshNodes: this.currentMeshDiagnostics,
       facadeColorDiversity,
       materialTuning,
@@ -320,6 +344,16 @@ export class GlbBuildRunner {
     );
 
     return outputPath;
+  }
+
+  private collectBuildingClosureDiagnostics(
+    sceneMeta: SceneMeta,
+    assetSelection: ReturnType<typeof buildSceneAssetSelection>,
+  ): BuildingClosureDiagnosticsMetrics {
+    return collectBuildingClosureDiagnostics(
+      sceneMeta,
+      assetSelection.buildings,
+    );
   }
 
   private resolveBuildingShellStyle(

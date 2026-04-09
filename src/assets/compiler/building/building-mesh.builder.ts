@@ -1,6 +1,12 @@
-export { createBuildingShellGeometry } from './building-mesh.shell.builder';
+export {
+  createBuildingShellGeometry,
+  collectBuildingShellClosureMetrics,
+} from './building-mesh.shell.builder';
 export { createBuildingPanelsGeometry } from './building-mesh.panels.builder';
-export { createBuildingRoofSurfaceGeometry } from './building-mesh.roof-surface.builder';
+export {
+  createBuildingRoofSurfaceGeometry,
+  collectBuildingRoofSurfaceMetrics,
+} from './building-mesh.roof-surface.builder';
 export {
   createBillboardsGeometry,
   createHeroBillboardPlaneGeometry,

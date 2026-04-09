@@ -8,9 +8,7 @@ import type { ResolvedScenePlace } from '../scene-generation-pipeline.types';
 
 @Injectable()
 export class ScenePlaceResolutionStep {
-  constructor(
-    private readonly googlePlacesClient: GooglePlacesClient,
-  ) {}
+  constructor(private readonly googlePlacesClient: GooglePlacesClient) {}
 
   async execute(query: string, scale: SceneScale): Promise<ResolvedScenePlace> {
     const candidates = await this.googlePlacesClient.searchText(query, 1);
@@ -24,7 +22,9 @@ export class ScenePlaceResolutionStep {
       });
     }
 
-    const place = await this.googlePlacesClient.getPlaceDetail(selected.placeId);
+    const place = await this.googlePlacesClient.getPlaceDetail(
+      selected.placeId,
+    );
     const radiusM = this.resolveRadius(scale);
     const bounds = resolveSceneBounds(place.location, radiusM);
 

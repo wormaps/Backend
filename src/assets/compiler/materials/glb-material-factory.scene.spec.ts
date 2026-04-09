@@ -6,6 +6,10 @@ class FakeMaterial {
   public emissiveFactor: number[] | null = null;
   public roughnessFactor: number | null = null;
   public metallicFactor: number | null = null;
+  public alphaMode: 'OPAQUE' | 'MASK' | 'BLEND' | null = null;
+  public alphaCutoff: number | null = null;
+  public doubleSided: boolean | null = null;
+  public extras: Record<string, unknown> = {};
 
   constructor(name: string) {
     this.name = name;
@@ -32,6 +36,22 @@ class FakeMaterial {
   }
 
   setDoubleSided() {
+    this.doubleSided = true;
+    return this;
+  }
+
+  setAlphaMode(value: 'OPAQUE' | 'MASK' | 'BLEND') {
+    this.alphaMode = value;
+    return this;
+  }
+
+  setAlphaCutoff(value: number) {
+    this.alphaCutoff = value;
+    return this;
+  }
+
+  setExtra(key: string, value: Record<string, unknown>) {
+    this.extras[key] = value;
     return this;
   }
 }

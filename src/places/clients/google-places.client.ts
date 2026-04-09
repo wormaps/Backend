@@ -113,20 +113,12 @@ export class GooglePlacesClient {
       viewport: response.viewport
         ? {
             northEast: {
-              lat:
-                response.viewport.high?.latitude ??
-                location.lat + 0.002,
-              lng:
-                response.viewport.high?.longitude ??
-                location.lng + 0.002,
+              lat: response.viewport.high?.latitude ?? location.lat + 0.002,
+              lng: response.viewport.high?.longitude ?? location.lng + 0.002,
             },
             southWest: {
-              lat:
-                response.viewport.low?.latitude ??
-                location.lat - 0.002,
-              lng:
-                response.viewport.low?.longitude ??
-                location.lng - 0.002,
+              lat: response.viewport.low?.latitude ?? location.lat - 0.002,
+              lng: response.viewport.low?.longitude ?? location.lng - 0.002,
             },
           }
         : null,
@@ -135,7 +127,9 @@ export class GooglePlacesClient {
   }
 
   private mapSearchItem(place: GooglePlace): ExternalPlaceSearchItem {
-    const location = place.location ? normalizeCoordinate(place.location) : null;
+    const location = place.location
+      ? normalizeCoordinate(place.location)
+      : null;
     if (!location) {
       throw new AppException({
         code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,

@@ -20,11 +20,11 @@ export function normalizeCoordinate(input: LatLngLike): Coordinate | null {
   };
 }
 
-export function isFiniteCoordinate(point: Coordinate | null | undefined): boolean {
+export function isFiniteCoordinate(
+  point: Coordinate | null | undefined,
+): boolean {
   return Boolean(
-    point &&
-      Number.isFinite(point.lat) &&
-      Number.isFinite(point.lng),
+    point && Number.isFinite(point.lat) && Number.isFinite(point.lng),
   );
 }
 

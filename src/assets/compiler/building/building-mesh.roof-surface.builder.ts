@@ -10,6 +10,30 @@ import { normalizeLocalRing, toLocalRing } from './building-mesh-utils';
 import { resolveAccentTone } from './building-mesh.tone.utils';
 import { insetRing, pushExtrudedPolygon } from './building-mesh.shell.builder';
 
+export interface BuildingRoofSurfaceMetrics {
+  roofWallGapRiskCount: number;
+}
+
+export function collectBuildingRoofSurfaceMetrics(
+  buildings: SceneMeta['buildings'],
+): BuildingRoofSurfaceMetrics {
+  let roofWallGapRiskCount = 0;
+
+  for (const building of buildings) {
+    const ringCount = building.outerRing.length;
+    const hasInvalidGableRing = building.roofType === 'gable' && ringCount < 4;
+    const hasSetbackJoinRisk =
+      building.roofType === 'stepped' &&
+      (building.setbackLevels ?? 0) > 0 &&
+      ringCount - (building.setbackLevels ?? 0) < 3;
+    if (hasInvalidGableRing || hasSetbackJoinRisk) {
+      roofWallGapRiskCount += 1;
+    }
+  }
+
+  return { roofWallGapRiskCount };
+}
+
 export function createBuildingRoofSurfaceGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],

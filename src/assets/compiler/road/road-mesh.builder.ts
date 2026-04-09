@@ -42,6 +42,10 @@ const CROSSWALK_STRIPE_Y = 0.154;
 const JUNCTION_OVERLAY_Y = 0.182;
 const ARROW_MARK_Y = 0.19;
 
+const GROUND_RELIEF_RADIAL_AMPLITUDE = 0.028;
+const GROUND_RELIEF_LONG_WAVE_AMPLITUDE = 0.018;
+const GROUND_RELIEF_CROSS_WAVE_AMPLITUDE = 0.014;
+
 export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const ne = toLocalPoint(sceneMeta.origin, sceneMeta.bounds.northEast);
@@ -60,10 +64,10 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   );
   pushQuad(
     geometry,
-    [sw[0], yHeights[0]!, ne[2]],
-    [ne[0], yHeights[1]!, ne[2]],
-    [ne[0], yHeights[2]!, sw[2]],
-    [sw[0], yHeights[3]!, sw[2]],
+    [sw[0], yHeights[0], ne[2]],
+    [ne[0], yHeights[1], ne[2]],
+    [ne[0], yHeights[2], sw[2]],
+    [sw[0], yHeights[3], sw[2]],
   );
   return geometry;
 }
@@ -473,7 +477,10 @@ function resolveGroundReliefY(
   const dx = (x - centerX) / radius;
   const dz = (z - centerZ) / radius;
   const radial = Math.max(0, 1 - Math.min(1, Math.hypot(dx, dz)));
-  const longWave = Math.sin((x + z) * 0.00042) * 0.012;
-  const crossWave = Math.cos((x - z) * 0.00035) * 0.009;
-  return Number((radial * 0.016 + longWave + crossWave).toFixed(4));
+  const longWave =
+    Math.sin((x + z) * 0.00042) * GROUND_RELIEF_LONG_WAVE_AMPLITUDE;
+  const crossWave =
+    Math.cos((x - z) * 0.00035) * GROUND_RELIEF_CROSS_WAVE_AMPLITUDE;
+  const relief = radial * GROUND_RELIEF_RADIAL_AMPLITUDE + longWave + crossWave;
+  return Number(relief.toFixed(4));
 }

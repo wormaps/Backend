@@ -117,18 +117,18 @@ describe('SceneFacadeVisionService', () => {
     expect(hints).toHaveLength(2);
     expect(coreHint).toBeDefined();
     expect(edgeHint).toBeDefined();
-    expect(coreHint!.shellPalette).not.toContain('#9ea4aa');
-    expect(edgeHint!.shellPalette).not.toContain('#9ea4aa');
-    expect(coreHint!.panelPalette).toBeDefined();
-    expect(edgeHint!.panelPalette).toBeDefined();
-    expect(coreHint!.panelPalette!.length).toBeGreaterThan(0);
-    expect(edgeHint!.panelPalette!.length).toBeGreaterThan(0);
-    expect(['glass', 'metal']).toContain(coreHint!.materialClass);
+    expect(coreHint.shellPalette).not.toContain('#9ea4aa');
+    expect(edgeHint.shellPalette).not.toContain('#9ea4aa');
+    expect(coreHint.panelPalette).toBeDefined();
+    expect(edgeHint.panelPalette).toBeDefined();
+    expect(coreHint.panelPalette!.length).toBeGreaterThan(0);
+    expect(edgeHint.panelPalette!.length).toBeGreaterThan(0);
+    expect(['glass', 'metal']).toContain(coreHint.materialClass);
     expect(['NEON_CORE', 'COMMERCIAL_STRIP', 'TRANSIT_HUB']).toContain(
-      coreHint!.contextProfile!,
+      coreHint.contextProfile!,
     );
-    expect(coreHint!.districtCluster).toBeDefined();
-    expect(coreHint!.evidenceStrength).toBeDefined();
+    expect(coreHint.districtCluster).toBeDefined();
+    expect(coreHint.evidenceStrength).toBeDefined();
   });
 
   it('preserves explicit OSM colors when they exist', () => {
@@ -150,8 +150,8 @@ describe('SceneFacadeVisionService', () => {
     const firstHint = hints[0];
 
     expect(firstHint).toBeDefined();
-    expect(firstHint!.palette).toContain('#445566');
-    expect(firstHint!.shellPalette).toContain('#445566');
+    expect(firstHint.palette).toContain('#445566');
+    expect(firstHint.shellPalette).toContain('#445566');
   });
 
   it('applies weak-evidence palette drift for non-explicit colors', () => {
@@ -161,7 +161,8 @@ describe('SceneFacadeVisionService', () => {
     for (const hint of hints) {
       expect(hint.weakEvidence).toBe(true);
       expect(hint.palette.length).toBeGreaterThanOrEqual(3);
-      expect(hint.panelPalette?.length ?? 0).toBeGreaterThanOrEqual(3);
+      expect(hint.panelPalette?.length ?? 0).toBeGreaterThanOrEqual(4);
+      expect(hint.shellPalette?.length ?? 0).toBeGreaterThanOrEqual(3);
       expect(hint.contextualMaterialUpgrade).toBe(true);
       expect(hint.palette).not.toContain('#9ea4aa');
     }
@@ -191,6 +192,6 @@ describe('SceneFacadeVisionService', () => {
       hints.every((hint) => typeof hint.districtConfidence === 'number'),
     ).toBe(true);
     expect(districts.length).toBeGreaterThan(0);
-    expect(districts[0]!.confidence).toBeGreaterThan(0);
+    expect(districts[0].confidence).toBeGreaterThan(0);
   });
 });

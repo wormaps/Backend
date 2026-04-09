@@ -238,6 +238,11 @@ export interface SceneGeometryDiagnostic {
   fallbackReason: GeometryFallbackReason;
   hasHoles: boolean;
   polygonComplexity: 'simple' | 'concave' | 'complex';
+  collisionRiskCount?: number;
+  groundedGapCount?: number;
+  openShellCount?: number;
+  roofWallGapCount?: number;
+  invalidSetbackJoinCount?: number;
 }
 
 export interface SceneAssetCounts {

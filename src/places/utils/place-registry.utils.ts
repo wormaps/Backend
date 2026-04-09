@@ -14,7 +14,9 @@ export function toRegistryLikePlace(place: ExternalPlaceDetail): RegistryInfo {
   };
 }
 
-function resolvePlaceType(place: ExternalPlaceDetail): RegistryInfo['placeType'] {
+function resolvePlaceType(
+  place: ExternalPlaceDetail,
+): RegistryInfo['placeType'] {
   const types = new Set(place.types);
 
   if (

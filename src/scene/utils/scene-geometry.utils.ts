@@ -6,7 +6,10 @@ import {
 } from '../../places/utils/geo.utils';
 import { SceneMeta } from '../types/scene.types';
 
-export function resolveSceneBounds(center: Coordinate, radiusM: number): GeoBounds {
+export function resolveSceneBounds(
+  center: Coordinate,
+  radiusM: number,
+): GeoBounds {
   return createBoundsFromCenterRadius(center, radiusM);
 }
 
@@ -45,10 +48,18 @@ export function computeSceneCamera(
   const centerZ = (minZ + maxZ) / 2;
   const span = Math.max(maxX - minX, maxZ - minZ, 60);
   const walkAnchor =
-    pickWalkAnchor(geometry.walkways.map((walkway) => walkway.path), origin) ??
-    pickWalkAnchor(geometry.roads.map((road) => road.path), origin);
+    pickWalkAnchor(
+      geometry.walkways.map((walkway) => walkway.path),
+      origin,
+    ) ??
+    pickWalkAnchor(
+      geometry.roads.map((road) => road.path),
+      origin,
+    );
 
-  const walkPoint = walkAnchor ? toLocalPoint(origin, walkAnchor) : { x: centerX, z: centerZ + span * 0.15 };
+  const walkPoint = walkAnchor
+    ? toLocalPoint(origin, walkAnchor)
+    : { x: centerX, z: centerZ + span * 0.15 };
 
   return {
     topView: {
@@ -64,7 +75,10 @@ export function computeSceneCamera(
   };
 }
 
-function pickWalkAnchor(paths: Coordinate[][], origin: Coordinate): Coordinate | null {
+function pickWalkAnchor(
+  paths: Coordinate[][],
+  origin: Coordinate,
+): Coordinate | null {
   let best: { point: Coordinate; distance: number } | null = null;
 
   for (const path of paths) {
@@ -84,7 +98,10 @@ function pickWalkAnchor(paths: Coordinate[][], origin: Coordinate): Coordinate |
   return best?.point ?? null;
 }
 
-function toLocalPoint(origin: Coordinate, point: Coordinate): { x: number; z: number } {
+function toLocalPoint(
+  origin: Coordinate,
+  point: Coordinate,
+): { x: number; z: number } {
   const metersPerLat = 111_320;
   const metersPerLng = 111_320 * Math.cos((origin.lat * Math.PI) / 180);
   return {

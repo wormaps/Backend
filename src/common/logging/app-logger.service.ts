@@ -30,7 +30,9 @@ export class AppLoggerService {
     this.write('error', message, context);
   }
 
-  fromRequest(context: RequestContext | null | undefined): Pick<LogContext, 'requestId'> {
+  fromRequest(
+    context: RequestContext | null | undefined,
+  ): Pick<LogContext, 'requestId'> {
     return {
       requestId: context?.requestId ?? null,
     };
