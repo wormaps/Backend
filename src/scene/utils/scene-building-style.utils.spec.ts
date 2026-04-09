@@ -48,11 +48,35 @@ describe('scene-building-style utils', () => {
 
     expect(style.roofType).toBe('gable');
     expect(style.preset).toBe('small_lowrise');
-    expect(estimateFacadeEdgeIndex([
-      { lat: 37.1, lng: 127.1 },
-      { lat: 37.1, lng: 127.1006 },
-      { lat: 37.1002, lng: 127.1006 },
-      { lat: 37.1002, lng: 127.1 },
-    ])).toBe(0);
+    expect(
+      estimateFacadeEdgeIndex([
+        { lat: 37.1, lng: 127.1 },
+        { lat: 37.1, lng: 127.1006 },
+        { lat: 37.1002, lng: 127.1006 },
+        { lat: 37.1002, lng: 127.1 },
+      ]),
+    ).toBe(0);
+  });
+
+  it('avoids over-classifying non-commercial low-midrise as commercial_midrise', () => {
+    const style = resolveBuildingStyle({
+      usage: 'MIXED',
+      heightMeters: 16,
+      facadeMaterial: null,
+      roofMaterial: null,
+      roofShape: null,
+      facadeColor: null,
+      roofColor: null,
+      buildingPart: null,
+      outerRing: [
+        { lat: 35.6597, lng: 139.7002 },
+        { lat: 35.6597, lng: 139.70034 },
+        { lat: 35.65956, lng: 139.70034 },
+        { lat: 35.65956, lng: 139.7002 },
+      ],
+    });
+
+    expect(style.visualArchetype).toBe('apartment_block');
+    expect(style.facadePreset).toBe('concrete_repetitive');
   });
 });

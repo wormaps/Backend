@@ -86,6 +86,10 @@ export class SceneFacadeVisionService {
         style,
         context,
       );
+      const explicitSignalBoost = resolveExplicitSignalBoost(
+        building,
+        mapillarySignalSummary,
+      );
       const weakEvidence = nearbyImageCount === 0 && nearbyFeatureCount === 0;
       const palette = uniquePalette(
         explicitBuildingColor ? style.palette : inferredPalette.palette,
@@ -111,6 +115,7 @@ export class SceneFacadeVisionService {
         palette,
         shellPalette,
         panelPalette,
+        explicitSignalBoost,
       });
       const channels = resolveFacadeColorChannels({
         palette: antiUniformPalette.palette,
@@ -463,6 +468,11 @@ function applyWeakEvidencePaletteDrift(input: {
   palette: string[];
   shellPalette: string[];
   panelPalette: string[];
+  explicitSignalBoost: {
+    signageDensityBoost: number;
+    emissiveBoost: number;
+    evidenceBoost: number;
+  };
 }): {
   palette: string[];
   shellPalette: string[];
@@ -488,12 +498,32 @@ function applyWeakEvidencePaletteDrift(input: {
     input.shellPalette[1] ?? input.palette[1] ?? variant[1];
   const shellPrimaryDrift = mixHex(shellBase, variant[0], 0.24);
   const shellSecondaryDrift = mixHex(shellSecondary, variant[1], 0.22);
+  const saturationMix = clamp(
+    0.18 + input.explicitSignalBoost.signageDensityBoost * 0.18,
+    0.12,
+    0.44,
+  );
+  const vividVariant = mixHex(variant[0], '#ffd166', saturationMix);
   const panelPalette = uniquePalette(
-    [variant[0], variant[1], variant[2], ...input.panelPalette],
+    [
+      vividVariant,
+      mixHex(variant[1], '#6bc2ff', saturationMix * 0.8),
+      variant[2],
+      ...input.panelPalette,
+    ],
     3,
   );
   const palette = uniquePalette(
-    [shellPrimaryDrift, shellSecondaryDrift, variant[2], ...input.palette],
+    [
+      shellPrimaryDrift,
+      shellSecondaryDrift,
+      mixHex(
+        variant[2],
+        '#f8f5ee',
+        input.explicitSignalBoost.evidenceBoost * 0.2,
+      ),
+      ...input.palette,
+    ],
     4,
   );
   const shellPalette = uniquePalette(
@@ -506,6 +536,57 @@ function applyWeakEvidencePaletteDrift(input: {
     shellPalette,
     panelPalette,
     contextualUpgradeBoost: true,
+  };
+}
+
+function resolveExplicitSignalBoost(
+  building: import('../../../places/types/place.types').BuildingData,
+  mapillarySignalSummary: {
+    signageDensityScore: number;
+    roadMarkingComplexityScore: number;
+    trafficLightDensityScore: number;
+    treeDensityScore: number;
+    nightlifeIntensityScore: number;
+    commercialIntensityScore: number;
+    glassLikelihoodScore: number;
+  },
+): {
+  signageDensityBoost: number;
+  emissiveBoost: number;
+  evidenceBoost: number;
+} {
+  const commercial =
+    building.usage === 'COMMERCIAL'
+      ? 1
+      : building.usage === 'MIXED'
+        ? 0.7
+        : 0.4;
+  const signageDensityBoost = clamp(
+    mapillarySignalSummary.signageDensityScore * 0.55 +
+      mapillarySignalSummary.commercialIntensityScore * 0.35 +
+      mapillarySignalSummary.nightlifeIntensityScore * 0.25,
+    0,
+    1,
+  );
+  const emissiveBoost = clamp(
+    mapillarySignalSummary.nightlifeIntensityScore * 0.6 +
+      mapillarySignalSummary.signageDensityScore * 0.3 +
+      commercial * 0.2,
+    0,
+    1,
+  );
+  const evidenceBoost = clamp(
+    mapillarySignalSummary.trafficLightDensityScore * 0.25 +
+      mapillarySignalSummary.roadMarkingComplexityScore * 0.25 +
+      mapillarySignalSummary.glassLikelihoodScore * 0.3 +
+      commercial * 0.2,
+    0,
+    1,
+  );
+  return {
+    signageDensityBoost,
+    emissiveBoost,
+    evidenceBoost,
   };
 }
 

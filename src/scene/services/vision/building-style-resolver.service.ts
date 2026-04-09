@@ -352,8 +352,14 @@ export class BuildingStyleResolverService {
     if (input.usage === 'MIXED') {
       return 'apartment_block';
     }
+    if (input.usage === 'PUBLIC') {
+      return 'station_like';
+    }
+    if (input.heightMeters <= 18 && area < 2200) {
+      return 'lowrise_shop';
+    }
 
-    return 'commercial_midrise';
+    return 'apartment_block';
   }
 
   private resolveGeometryStrategy(

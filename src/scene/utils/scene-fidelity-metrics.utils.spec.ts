@@ -231,4 +231,57 @@ describe('scene-fidelity-metrics.utils', () => {
       low.score.breakdown.placeReadability,
     );
   });
+
+  it('raises heroOverrideRate when auto hero promotion annotation exists', () => {
+    const detail = createSceneDetail(10);
+    detail.roadDecals = [
+      {
+        objectId: 'hero-crosswalk-1',
+        intersectionId: 'intersection-1',
+        type: 'CROSSWALK_OVERLAY',
+        color: '#f8f8f6',
+        emphasis: 'hero',
+        priority: 'hero',
+        layer: 'crosswalk_overlay',
+        shapeKind: 'path_strip',
+        path: [
+          coordinate(35.65931, 139.70031),
+          coordinate(35.65936, 139.70039),
+        ],
+      },
+    ];
+    const withoutAuto = buildSceneFidelityMetricsReport(
+      createSceneMeta(10),
+      detail,
+    );
+    detail.annotationsApplied.push('shibuya:auto-hero-promotion:6');
+    const withAuto = buildSceneFidelityMetricsReport(
+      createSceneMeta(10),
+      detail,
+    );
+
+    expect(withAuto.quality.heroOverrideRate).toBeGreaterThan(
+      withoutAuto.quality.heroOverrideRate,
+    );
+    expect(withAuto.score.breakdown.placeReadability).toBeGreaterThan(
+      withoutAuto.score.breakdown.placeReadability,
+    );
+  });
+
+  it('does not apply auto hero boost without hero road context', () => {
+    const detail = createSceneDetail(10);
+    const withoutAuto = buildSceneFidelityMetricsReport(
+      createSceneMeta(10),
+      detail,
+    );
+    detail.annotationsApplied.push('shibuya:auto-hero-promotion:6');
+    const withAuto = buildSceneFidelityMetricsReport(
+      createSceneMeta(10),
+      detail,
+    );
+
+    expect(withAuto.quality.heroOverrideRate).toBe(
+      withoutAuto.quality.heroOverrideRate,
+    );
+  });
 });

@@ -86,6 +86,7 @@ export class SceneAssetProfileService {
       sceneMeta,
       landmarkLocations,
       crossingCoreRadiusMeters,
+      sceneDetail,
     );
     const priorityRoadAnchors = uniqueCoordinates([
       sceneMeta.origin,
@@ -371,12 +372,24 @@ export class SceneAssetProfileService {
     sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
     landmarkLocations: Coordinate[],
     coreRadiusMeters: number,
+    sceneDetail: SceneDetail,
   ): SceneCrossingDetail[] {
     if (items.length <= maxCount) {
       return items;
     }
 
     const principal = items.filter((crossing) => crossing.principal);
+    const decalIntersectionIds = new Set(
+      (sceneDetail.roadDecals ?? [])
+        .filter((decal) => decal.type === 'CROSSWALK_OVERLAY')
+        .map((decal) => decal.intersectionId)
+        .filter((value): value is string => Boolean(value)),
+    );
+    const decalAnchored = items.filter((crossing) =>
+      decalIntersectionIds.has(`${crossing.objectId}-intersection`),
+    );
+    const signalized = items.filter((crossing) => crossing.signalized);
+    const zebra = items.filter((crossing) => crossing.style === 'zebra');
     const anchorNear = selectItemsNearPoints(
       items,
       landmarkLocations,
@@ -388,6 +401,9 @@ export class SceneAssetProfileService {
       maxCount,
       [
         principal,
+        decalAnchored,
+        signalized,
+        zebra,
         anchorNear,
         selectItemsWithinRadius(
           items,

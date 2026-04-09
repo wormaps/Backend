@@ -154,6 +154,8 @@ export class SceneHeroOverrideApplierService {
       },
     };
 
+    this.promoteContextualHeroBuildings(mergedMeta, mergedDetail, manifest.id);
+
     const payload = {
       manifestId: manifest.id,
       assignedLandmarks: [...landmarkAssignments.keys()],
@@ -178,6 +180,119 @@ export class SceneHeroOverrideApplierService {
       meta: mergedMeta,
       detail: mergedDetail,
     };
+  }
+
+  private promoteContextualHeroBuildings(
+    meta: SceneMeta,
+    detail: SceneDetail,
+    manifestId: string,
+  ): void {
+    const targetHeroCount = Math.max(
+      4,
+      Math.ceil(meta.assetProfile.selected.buildingCount * 0.008),
+    );
+    const existingHero = meta.buildings.filter(
+      (building) => building.visualRole && building.visualRole !== 'generic',
+    );
+    const promoteCount = Math.max(0, targetHeroCount - existingHero.length);
+    if (promoteCount === 0) {
+      return;
+    }
+
+    const hintByObjectId = new Map(
+      detail.facadeHints.map((hint) => [hint.objectId, hint]),
+    );
+    const heroAnchorPoints = existingHero
+      .map((building) => averageCoordinate(building.outerRing) ?? null)
+      .filter((point): point is { lat: number; lng: number } => Boolean(point));
+    const candidates = meta.buildings
+      .filter(
+        (building) =>
+          !existingHero.some((hero) => hero.objectId === building.objectId),
+      )
+      .map((building) => {
+        const center =
+          averageCoordinate(building.outerRing) ?? building.outerRing[0];
+        const hint = hintByObjectId.get(building.objectId);
+        const nearestHeroDistance = heroAnchorPoints.length
+          ? Math.min(
+              ...heroAnchorPoints.map((anchor) =>
+                distanceMeters(anchor, center),
+              ),
+            )
+          : 0;
+        const score =
+          (hint?.billboardEligible ? 2.8 : 0) +
+          (hint?.signageDensity === 'high'
+            ? 2.1
+            : hint?.signageDensity === 'medium'
+              ? 1.1
+              : 0.3) +
+          (hint?.emissiveStrength ?? 0) * 1.8 +
+          (building.heightMeters >= 36
+            ? 1.9
+            : building.heightMeters >= 24
+              ? 1.2
+              : 0.5) +
+          (building.usage === 'COMMERCIAL' ? 1.6 : 0.6) -
+          Math.min(2.2, nearestHeroDistance / 180);
+        return { building, hint, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, promoteCount);
+
+    if (candidates.length === 0) {
+      return;
+    }
+
+    const promotedIds = new Set(
+      candidates.map((item) => item.building.objectId),
+    );
+    const promotedHints = new Map(
+      candidates
+        .filter((item) => item.hint)
+        .map((item) => [item.building.objectId, item.hint!]),
+    );
+
+    meta.buildings = meta.buildings.map((building) => {
+      if (!promotedIds.has(building.objectId)) {
+        return building;
+      }
+      return {
+        ...building,
+        visualRole: 'edge_landmark',
+        emissiveBandStrength: Math.max(
+          0.62,
+          building.emissiveBandStrength ?? 0.38,
+        ),
+        signBandLevels: Math.max(2, building.signBandLevels ?? 0),
+      };
+    });
+    detail.facadeHints = detail.facadeHints.map((hint) => {
+      if (!promotedIds.has(hint.objectId)) {
+        return hint;
+      }
+      const source = promotedHints.get(hint.objectId);
+      return {
+        ...hint,
+        visualRole: 'edge_landmark',
+        signageDensity:
+          source?.signageDensity === 'low'
+            ? 'medium'
+            : (source?.signageDensity ?? hint.signageDensity),
+        emissiveStrength: Math.max(
+          0.72,
+          source?.emissiveStrength ?? hint.emissiveStrength,
+        ),
+        evidenceStrength:
+          hint.evidenceStrength === 'weak' ? 'medium' : hint.evidenceStrength,
+        contextualMaterialUpgrade: true,
+      };
+    });
+    detail.annotationsApplied = [
+      ...detail.annotationsApplied,
+      `${manifestId}:auto-hero-promotion:${candidates.length}`,
+    ];
   }
 
   private applyLandmarkAnnotations(
@@ -453,6 +568,38 @@ function resolveLongestEdgeIndex(ring: { lat: number; lng: number }[]): number {
     }
   }
   return longestIndex;
+}
+
+function averageCoordinate(
+  points: { lat: number; lng: number }[],
+): { lat: number; lng: number } | null {
+  if (points.length === 0) {
+    return null;
+  }
+
+  const total = points.reduce(
+    (acc, point) => ({
+      lat: acc.lat + point.lat,
+      lng: acc.lng + point.lng,
+    }),
+    { lat: 0, lng: 0 },
+  );
+
+  return {
+    lat: total.lat / points.length,
+    lng: total.lng / points.length,
+  };
+}
+
+function distanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const avgLatRad = ((a.lat + b.lat) / 2) * (Math.PI / 180);
+  const metersPerLng = 111_320 * Math.cos(avgLatRad);
+  const dx = (a.lng - b.lng) * metersPerLng;
+  const dy = (a.lat - b.lat) * 111_320;
+  return Math.hypot(dx, dy);
 }
 
 function clampCoverage(value: number): number {

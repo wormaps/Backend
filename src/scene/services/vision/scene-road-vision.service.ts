@@ -62,6 +62,14 @@ export class SceneRoadVisionService {
       color: '#f5f5f5',
       path: crossing.path,
     }));
+    const principalCrosswalkEcho = crossings
+      .filter((crossing) => crossing.principal)
+      .map<SceneRoadMarkingDetail>((crossing) => ({
+        objectId: `${crossing.objectId}-marking-echo`,
+        type: 'CROSSWALK',
+        color: '#f8f8f6',
+        path: crossing.path,
+      }));
 
     const stopLines = crossings.map<SceneRoadMarkingDetail>((crossing) => ({
       objectId: `${crossing.objectId}-stop-line`,
@@ -70,7 +78,12 @@ export class SceneRoadVisionService {
       path: crossing.path.slice(0, 2),
     }));
 
-    return [...laneLines, ...crosswalks, ...stopLines];
+    return [
+      ...laneLines,
+      ...crosswalks,
+      ...principalCrosswalkEcho,
+      ...stopLines,
+    ];
   }
 
   buildIntersectionProfiles(
@@ -154,6 +167,12 @@ export class SceneRoadVisionService {
       if (!crossing.principal) {
         continue;
       }
+      decals.push(
+        ...buildScramblePathOverlays(crossing, 2).map((overlay, index) => ({
+          ...overlay,
+          objectId: `${crossing.objectId}-scramble-path-${index + 1}`,
+        })),
+      );
       decals.push({
         objectId: `${crossing.objectId}-scramble-polygon`,
         intersectionId: `${crossing.objectId}-intersection`,
@@ -213,6 +232,18 @@ export class SceneRoadVisionService {
         styleToken: 'junction_amber',
         polygon: buildArrowPolygon(profile.anchor, 5.4),
       });
+      decals.push({
+        objectId: `${profile.objectId}-arrow-approach`,
+        intersectionId: profile.objectId,
+        type: 'ARROW_MARK',
+        color: '#f8e8a2',
+        emphasis: 'hero',
+        priority: 'hero',
+        layer: 'junction_overlay',
+        shapeKind: 'polygon_fill',
+        styleToken: 'junction_amber',
+        polygon: buildArrowPolygon(profile.anchor, 6.8),
+      });
     }
 
     if (decals.length === 0 && placePackage.roads.length > 0) {
@@ -240,6 +271,50 @@ export class SceneRoadVisionService {
   ): boolean {
     return squaredDistance(origin, point) <= radiusMeters ** 2;
   }
+}
+
+function buildScramblePathOverlays(
+  crossing: SceneCrossingDetail,
+  depth: number,
+): Omit<SceneRoadDecal, 'objectId'>[] {
+  if (crossing.path.length < 2 || depth <= 0) {
+    return [];
+  }
+  const points = crossing.path;
+  const start = points[0]!;
+  const end = points[points.length - 1]!;
+  const center = midpoint(points) ?? points[Math.floor(points.length / 2)]!;
+  const overlays: Omit<SceneRoadDecal, 'objectId'>[] = [];
+  for (let level = 1; level <= depth; level += 1) {
+    const ratio = level / (depth + 1);
+    overlays.push({
+      intersectionId: `${crossing.objectId}-intersection`,
+      type: 'CROSSWALK_OVERLAY',
+      color: '#f8f8f6',
+      emphasis: 'hero',
+      priority: 'hero',
+      layer: 'crosswalk_overlay',
+      shapeKind: 'path_strip',
+      styleToken: 'scramble_white',
+      path: [
+        interpolateCoordinate(start, center, ratio),
+        interpolateCoordinate(center, end, ratio),
+      ],
+    });
+  }
+  return overlays;
+}
+
+function interpolateCoordinate(
+  start: Coordinate,
+  end: Coordinate,
+  ratio: number,
+): Coordinate {
+  const clamped = Math.max(0, Math.min(1, ratio));
+  return {
+    lat: start.lat + (end.lat - start.lat) * clamped,
+    lng: start.lng + (end.lng - start.lng) * clamped,
+  };
 }
 
 function squaredDistance(a: Coordinate, b: Coordinate): number {

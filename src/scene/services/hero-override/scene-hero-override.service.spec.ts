@@ -255,4 +255,71 @@ describe('SceneHeroOverrideService', () => {
       SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE.streetFurnitureRows.length,
     ).toBeGreaterThanOrEqual(6);
   });
+
+  it('auto-promotes additional hero context buildings to lift hero coverage', () => {
+    const service = new SceneHeroOverrideService();
+    const expandedMeta: SceneMeta = {
+      ...meta,
+      assetProfile: {
+        ...meta.assetProfile,
+        selected: {
+          ...meta.assetProfile.selected,
+          buildingCount: 400,
+        },
+      },
+      buildings: Array.from({ length: 28 }, (_, index) => ({
+        ...meta.buildings[0],
+        objectId: index === 0 ? 'building-116806281' : `context-${index}`,
+        osmWayId: `way_context_${index}`,
+        usage: index % 3 === 0 ? 'COMMERCIAL' : 'MIXED',
+        heightMeters: index % 5 === 0 ? 42 : 26,
+        outerRing: [
+          { lat: 35.6592 + index * 0.00003, lng: 139.7001 },
+          { lat: 35.65926 + index * 0.00003, lng: 139.70018 },
+          { lat: 35.65917 + index * 0.00003, lng: 139.70026 },
+        ],
+      })),
+    };
+    const expandedDetail: SceneDetail = {
+      ...detail,
+      facadeHints: expandedMeta.buildings.map((building, index) => ({
+        objectId: building.objectId,
+        anchor: building.outerRing[0],
+        facadeEdgeIndex: 0,
+        windowBands: 8,
+        billboardEligible: index % 2 === 0,
+        palette: ['#778899', '#d4dde8'],
+        materialClass: 'glass',
+        signageDensity: index % 4 === 0 ? 'high' : 'medium',
+        emissiveStrength: index % 4 === 0 ? 0.85 : 0.58,
+        glazingRatio: 0.45,
+        weakEvidence: index % 6 === 0,
+        evidenceStrength: index % 6 === 0 ? 'weak' : 'medium',
+      })),
+    };
+
+    const result = service.applyOverrides(place, expandedMeta, expandedDetail);
+
+    const promotedHeroes = result.meta.buildings.filter(
+      (building) => building.visualRole && building.visualRole !== 'generic',
+    );
+    expect(promotedHeroes.length).toBeGreaterThanOrEqual(4);
+    expect(
+      result.detail.annotationsApplied.some((entry) =>
+        entry.includes(':auto-hero-promotion:'),
+      ),
+    ).toBe(true);
+    expect(
+      result.detail.facadeHints.filter(
+        (hint) =>
+          hint.visualRole === 'edge_landmark' ||
+          hint.visualRole === 'hero_landmark',
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(
+      result.meta.buildings
+        .filter((building) => building.visualRole === 'edge_landmark')
+        .every((building) => (building.signBandLevels ?? 0) >= 2),
+    ).toBe(true);
+  });
 });

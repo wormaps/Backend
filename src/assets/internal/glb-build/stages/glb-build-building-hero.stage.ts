@@ -78,6 +78,13 @@ export function addBuildingAndHeroMeshes(
   ) => number[],
   groupedBuildings: GroupedBuildings,
 ): void {
+  const selectedBuildingIds = new Set(
+    assetSelection.buildings.map((building) => building.objectId),
+  );
+  const selectedFacadeHints = sceneDetail.facadeHints.filter((hint) =>
+    selectedBuildingIds.has(hint.objectId),
+  );
+
   for (const [groupKey, group] of groupedBuildings.entries()) {
     hooks.addMeshNode(
       ctx.doc,
@@ -219,7 +226,7 @@ export function addBuildingAndHeroMeshes(
   );
 
   for (const panelGroup of hooks.groupFacadeHintsByPanelColor(
-    sceneDetail.facadeHints,
+    selectedFacadeHints,
   )) {
     hooks.addMeshNode(
       ctx.doc,

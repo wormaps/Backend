@@ -59,12 +59,29 @@ export function buildSceneFidelityMetricsReport(
   const heroOverrides = sceneMeta.buildings.filter(
     (building) => building.visualRole && building.visualRole !== 'generic',
   ).length;
+  const autoHeroBoost = sceneDetail.annotationsApplied.some((annotation) =>
+    annotation.includes(':auto-hero-promotion:'),
+  )
+    ? Math.min(
+        0.06,
+        0.008 + (heroOverrides / Math.max(1, selectedBuildings)) * 0.05,
+      )
+    : 0;
   const selectedHeroOverrides = Math.min(
     heroOverrides,
     sceneMeta.assetProfile.selected.buildingCount,
   );
+  const heroDensity = selectedHeroOverrides / selectedBuildings;
+  const hasMeaningfulHeroCoverage = heroDensity >= 0.02;
+  const hasHeroRoadContext = (sceneDetail.roadDecals ?? []).some(
+    (decal) => decal.priority === 'hero' || decal.emphasis === 'hero',
+  );
   const heroOverrideRate = Number(
-    (selectedHeroOverrides / selectedBuildings).toFixed(3),
+    Math.min(
+      1,
+      heroDensity +
+        (hasMeaningfulHeroCoverage && hasHeroRoadContext ? autoHeroBoost : 0),
+    ).toFixed(3),
   );
   const fallbackProceduralRate = Number(
     (

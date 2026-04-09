@@ -46,12 +46,24 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const ne = toLocalPoint(sceneMeta.origin, sceneMeta.bounds.northEast);
   const sw = toLocalPoint(sceneMeta.origin, sceneMeta.bounds.southWest);
+  const centerX = (sw[0] + ne[0]) / 2;
+  const centerZ = (sw[2] + ne[2]) / 2;
+  const radius = Math.max(1, Math.hypot(ne[0] - sw[0], ne[2] - sw[2]) / 2);
+  const sample = [
+    [sw[0], ne[2]],
+    [ne[0], ne[2]],
+    [ne[0], sw[2]],
+    [sw[0], sw[2]],
+  ] as const;
+  const yHeights = sample.map(
+    ([x, z]) => -0.03 + resolveGroundReliefY(x, z, centerX, centerZ, radius),
+  );
   pushQuad(
     geometry,
-    [sw[0], -0.03, ne[2]],
-    [ne[0], -0.03, ne[2]],
-    [ne[0], -0.03, sw[2]],
-    [sw[0], -0.03, sw[2]],
+    [sw[0], yHeights[0]!, ne[2]],
+    [ne[0], yHeights[1]!, ne[2]],
+    [ne[0], yHeights[2]!, sw[2]],
+    [sw[0], yHeights[3]!, sw[2]],
   );
   return geometry;
 }
@@ -449,4 +461,19 @@ function resolveWalkwayYOffset(walkway: SceneMeta['walkways'][number]): number {
     return 0.006;
   }
   return 0;
+}
+
+function resolveGroundReliefY(
+  x: number,
+  z: number,
+  centerX: number,
+  centerZ: number,
+  radius: number,
+): number {
+  const dx = (x - centerX) / radius;
+  const dz = (z - centerZ) / radius;
+  const radial = Math.max(0, 1 - Math.min(1, Math.hypot(dx, dz)));
+  const longWave = Math.sin((x + z) * 0.00042) * 0.012;
+  const crossWave = Math.cos((x - z) * 0.00035) * 0.009;
+  return Number((radial * 0.016 + longWave + crossWave).toFixed(4));
 }
