@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import {
   SceneDetail,
   SceneMeta,
@@ -68,6 +69,10 @@ interface OracleApprovalFilePayload {
 
 @Injectable()
 export class SceneQualityGateService {
+  constructor(
+    private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
+  ) {}
+
   async evaluate(
     sceneMeta: SceneMeta,
     sceneDetail: SceneDetail,
@@ -153,6 +158,15 @@ export class SceneQualityGateService {
         `${sceneMeta.sceneId}.mode-comparison.json`,
       ),
     };
+
+    this.appLoggerService.info('scene.quality_gate.geometry_marker', {
+      sceneId: sceneMeta.sceneId,
+      step: 'quality_gate',
+      geometryMarker: this.findGeometryCorrectionDiagnostics(
+        sceneDetail.geometryDiagnostics,
+      ),
+      reasonCodes,
+    });
 
     return {
       version: 'qg.v1',

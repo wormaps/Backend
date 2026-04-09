@@ -3,7 +3,10 @@ import { GlbBuilderService } from '../../../assets/glb-builder.service';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { readFile } from 'node:fs/promises';
-import { getSceneDiagnosticsLogPath } from '../../storage/scene-storage.utils';
+import {
+  appendSceneDiagnosticsLog,
+  getSceneDiagnosticsLogPath,
+} from '../../storage/scene-storage.utils';
 
 interface BuildingClosureDiagnosticsShape {
   openShellCount?: number;
@@ -50,7 +53,7 @@ export class SceneGlbBuildStep {
       );
       if (markerIndex >= 0) {
         const existingMarker = geometryDiagnostics[markerIndex];
-        geometryDiagnostics[markerIndex] = {
+        const mergedMarker = {
           ...existingMarker,
           openShellCount:
             closureDiagnostics.openShellCount ?? existingMarker.openShellCount,
@@ -61,7 +64,28 @@ export class SceneGlbBuildStep {
             closureDiagnostics.invalidSetbackJoinCount ??
             existingMarker.invalidSetbackJoinCount,
         };
+        geometryDiagnostics[markerIndex] = {
+          ...mergedMarker,
+        };
         detail.geometryDiagnostics = geometryDiagnostics;
+
+        await appendSceneDiagnosticsLog(
+          meta.sceneId,
+          'geometry_correction_merge',
+          {
+            markerBeforeMerge: {
+              openShellCount: existingMarker.openShellCount,
+              roofWallGapCount: existingMarker.roofWallGapCount,
+              invalidSetbackJoinCount: existingMarker.invalidSetbackJoinCount,
+            },
+            markerFromGlbBuild: closureDiagnostics,
+            markerAfterMerge: {
+              openShellCount: mergedMarker.openShellCount,
+              roofWallGapCount: mergedMarker.roofWallGapCount,
+              invalidSetbackJoinCount: mergedMarker.invalidSetbackJoinCount,
+            },
+          },
+        );
       }
     }
 

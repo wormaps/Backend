@@ -5,6 +5,15 @@ import { AppModule } from '../src/app.module';
 import { SceneService } from '../src/scene/scene.service';
 import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   const smokeDataDir = join(process.cwd(), 'data', 'scene');
   await mkdir(smokeDataDir, { recursive: true });
@@ -28,6 +37,11 @@ async function main() {
 
   await sceneService.waitForIdle();
   const scene = await sceneService.getScene(created.sceneId);
+  const sceneDir = getSceneDataDir();
+  const glbPath = join(sceneDir, `${scene.sceneId}.glb`);
+  const jsonPath = join(sceneDir, `${scene.sceneId}.json`);
+  const metaPath = join(sceneDir, `${scene.sceneId}.meta.json`);
+  const detailPath = join(sceneDir, `${scene.sceneId}.detail.json`);
 
   const result: Record<string, unknown> = {
     created,
@@ -43,11 +57,6 @@ async function main() {
     const bootstrap = await sceneService.getBootstrap(scene.sceneId);
     const meta = await sceneService.getSceneMeta(scene.sceneId);
     const detail = await sceneService.getSceneDetail(scene.sceneId);
-    const sceneDir = getSceneDataDir();
-    const glbPath = join(sceneDir, `${scene.sceneId}.glb`);
-    const jsonPath = join(sceneDir, `${scene.sceneId}.json`);
-    const metaPath = join(sceneDir, `${scene.sceneId}.meta.json`);
-    const detailPath = join(sceneDir, `${scene.sceneId}.detail.json`);
     await access(glbPath);
     await access(metaPath);
     await access(detailPath);
@@ -99,8 +108,48 @@ async function main() {
       detailPath,
     };
   } else {
+    const [glbExists, sceneJsonExists, metaExists, detailExists] =
+      await Promise.all([
+        fileExists(glbPath),
+        fileExists(jsonPath),
+        fileExists(metaPath),
+        fileExists(detailPath),
+      ]);
+
+    const failureSummary = {
+      sceneId: scene.sceneId,
+      status: scene.status,
+      failureReason: scene.failureReason ?? null,
+      failureCategory: scene.failureCategory ?? null,
+      qualityGate: scene.qualityGate
+        ? {
+            state: scene.qualityGate.state,
+            reasonCodes: scene.qualityGate.reasonCodes,
+            scores: scene.qualityGate.scores,
+            thresholds: scene.qualityGate.thresholds,
+            meshSummary: scene.qualityGate.meshSummary,
+            artifactRefs: scene.qualityGate.artifactRefs,
+          }
+        : null,
+      generatedArtifacts: {
+        glbPath,
+        jsonPath,
+        metaPath,
+        detailPath,
+        exists: {
+          glb: glbExists,
+          sceneJson: sceneJsonExists,
+          meta: metaExists,
+          detail: detailExists,
+        },
+      },
+      note: 'GLB는 build 단계에서 먼저 생성되고, 이후 quality gate에서 FAIL 나면 scene status는 FAILED가 됩니다.',
+    };
+
+    console.error(JSON.stringify({ failureSummary }, null, 2));
+
     throw new Error(
-      `Shibuya scene generation failed with status=${scene.status}`,
+      `Shibuya scene generation failed with status=${scene.status} reasonCodes=${scene.qualityGate?.reasonCodes?.join(',') ?? 'NONE'}`,
     );
   }
 
