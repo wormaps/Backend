@@ -11,6 +11,7 @@ import {
   createHeroRoofUnitGeometry,
   createLandmarkExtrasGeometry,
 } from '../../../compiler/building';
+import type { BuildingWindowGeometryOptions } from '../../../compiler/building/building-mesh.window.builder';
 import {
   createBillboardMaterial,
   createBuildingPanelMaterial,
@@ -24,6 +25,18 @@ import {
   SceneMaterials,
 } from '../glb-build-stage.types';
 import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
+
+export function resolveWindowTriangleBudgetForSelection(
+  selectedBuildingCount: number,
+): BuildingWindowGeometryOptions {
+  const maxWindowTriangles =
+    selectedBuildingCount > 1000
+      ? 780_000
+      : selectedBuildingCount > 700
+        ? 840_000
+        : 900_000;
+  return { maxWindowTriangles };
+}
 
 export function buildGroupedBuildingShells(
   hooks: Pick<RunnerStageHooks, 'buildGroupedBuildingShells'>,
@@ -244,6 +257,7 @@ export function addBuildingAndHeroMeshes(
       sceneMeta.origin,
       assetSelection.buildings,
       sceneDetail.facadeHints,
+      resolveWindowTriangleBudgetForSelection(assetSelection.buildings.length),
     ),
     materials.windowPrimary ??
       materials.windowGlassCurtainWall ??

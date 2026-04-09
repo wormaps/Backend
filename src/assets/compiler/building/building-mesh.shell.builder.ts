@@ -19,6 +19,9 @@ import {
   pushTriangle,
 } from './building-mesh.geometry-primitives';
 
+const MIN_FOUNDATION_DEPTH = 0.35;
+const MAX_FOUNDATION_DEPTH = 0.9;
+
 export function createBuildingShellGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
@@ -106,8 +109,17 @@ function pushBuildingByStrategy(
     dimensions?: number,
   ) => number[],
 ): void {
+  const foundationDepth = resolveFoundationDepth(building);
+
   if (building.visualRole && building.visualRole !== 'generic') {
-    pushHeroBuilding(geometry, building, outerRing, holes, triangulate);
+    pushHeroBuilding(
+      geometry,
+      building,
+      outerRing,
+      holes,
+      triangulate,
+      foundationDepth,
+    );
     return;
   }
 
@@ -133,7 +145,7 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        0,
+        -foundationDepth,
         podiumHeight,
         triangulate,
       );
@@ -160,7 +172,7 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        0,
+        -foundationDepth,
         baseTop,
         triangulate,
       );
@@ -198,7 +210,7 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        0,
+        -foundationDepth,
         roofBaseHeight,
         triangulate,
       );
@@ -212,7 +224,7 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        0,
+        -foundationDepth,
         height,
         triangulate,
       );
@@ -222,7 +234,7 @@ function pushBuildingByStrategy(
       const bounds = computeBounds(simplifiedRing);
       pushBox(
         geometry,
-        [bounds.minX, 0, bounds.minZ],
+        [bounds.minX, -foundationDepth, bounds.minZ],
         [bounds.maxX, height, bounds.maxZ],
       );
       break;
@@ -233,7 +245,7 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        0,
+        -foundationDepth,
         height,
         triangulate,
       );
@@ -252,6 +264,7 @@ function pushHeroBuilding(
     holes?: number[],
     dimensions?: number,
   ) => number[],
+  foundationDepth: number,
 ): void {
   const height = Math.max(6, building.heightMeters);
   const baseMass = building.baseMass ?? 'podium_tower';
@@ -264,16 +277,37 @@ function pushHeroBuilding(
   );
 
   if (baseMass === 'lowrise_strip') {
-    pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
+    pushExtrudedPolygon(
+      geometry,
+      outerRing,
+      holes,
+      -foundationDepth,
+      height,
+      triangulate,
+    );
     return;
   }
 
   if (baseMass === 'simple') {
-    pushExtrudedPolygon(geometry, outerRing, holes, 0, height, triangulate);
+    pushExtrudedPolygon(
+      geometry,
+      outerRing,
+      holes,
+      -foundationDepth,
+      height,
+      triangulate,
+    );
     return;
   }
 
-  pushExtrudedPolygon(geometry, outerRing, holes, 0, podiumHeight, triangulate);
+  pushExtrudedPolygon(
+    geometry,
+    outerRing,
+    holes,
+    -foundationDepth,
+    podiumHeight,
+    triangulate,
+  );
 
   let currentRing = outerRing;
   const stageCount =
@@ -308,6 +342,14 @@ function pushHeroBuilding(
       triangulate,
     );
   }
+}
+
+function resolveFoundationDepth(
+  building: SceneMeta['buildings'][number],
+): number {
+  const groundOffset = Math.max(0, building.groundOffsetM ?? 0);
+  const base = Math.max(groundOffset + 0.25, MIN_FOUNDATION_DEPTH);
+  return Math.min(MAX_FOUNDATION_DEPTH, Number(base.toFixed(3)));
 }
 
 function triangulateRings(

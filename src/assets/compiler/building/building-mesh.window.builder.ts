@@ -10,16 +10,23 @@ import type { FacadeFrame } from './building-mesh.facade-frame.utils';
 import { buildFacadeFrame } from './building-mesh.facade-frame.utils';
 import { pushQuad } from './building-mesh.geometry-primitives';
 
+export interface BuildingWindowGeometryOptions {
+  maxWindowTriangles?: number;
+}
+
 export function createBuildingWindowGeometry(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
   facadeHints: SceneFacadeHint[],
+  options?: BuildingWindowGeometryOptions,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const hintMap = new Map(facadeHints.map((hint) => [hint.objectId, hint]));
   const fallbackHint = buildFallbackFacadeHint(facadeHints[0]);
+  const maxWindowTriangles =
+    options?.maxWindowTriangles ?? MAX_WINDOW_TRIANGLES;
   const budget = {
-    remainingTriangles: MAX_WINDOW_TRIANGLES,
+    remainingTriangles: maxWindowTriangles,
   };
 
   for (const building of buildings) {

@@ -1,4 +1,5 @@
 import {
+  createBuildingShellGeometry,
   createBuildingPanelsGeometry,
   createBuildingWindowGeometry,
   createBuildingRoofSurfaceGeometry,
@@ -179,5 +180,80 @@ describe('building-mesh.builder', () => {
 
     expect(triangleCount).toBeGreaterThan(0);
     expect(triangleCount).toBeLessThanOrEqual(920000);
+  });
+
+  it('honors maxWindowTriangles option for explicit window budget', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const denseBatch = Array.from(
+      { length: 1200 },
+      (_, index): SceneMeta['buildings'][number] => ({
+        ...building,
+        objectId: `window-budget-${index}`,
+        osmWayId: `window_budget_${index}`,
+        outerRing: [
+          coordinate(35.658 + index * 0.000001, 139.6998),
+          coordinate(35.658 + index * 0.000001, 139.7),
+          coordinate(35.6582 + index * 0.000001, 139.7),
+          coordinate(35.6582 + index * 0.000001, 139.6998),
+        ],
+        visualArchetype: 'highrise_office',
+        windowPatternDensity: 'dense',
+      }),
+    );
+
+    const defaultBudgetWindows = createBuildingWindowGeometry(
+      origin,
+      denseBatch,
+      [],
+    );
+    const tighterBudgetWindows = createBuildingWindowGeometry(
+      origin,
+      denseBatch,
+      [],
+      { maxWindowTriangles: 320_000 },
+    );
+
+    const defaultTriangles = defaultBudgetWindows.indices.length / 3;
+    const tighterTriangles = tighterBudgetWindows.indices.length / 3;
+
+    expect(defaultTriangles).toBeGreaterThan(0);
+    expect(tighterTriangles).toBeGreaterThan(0);
+    expect(tighterTriangles).toBeLessThan(defaultTriangles);
+    expect(tighterTriangles).toBeLessThanOrEqual(340_000);
+  });
+
+  it('applies foundation depth from groundOffsetM to shell minimum height', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const triangulateQuad = () => [0, 1, 2, 0, 2, 3];
+    const buildWithGroundOffset = (
+      groundOffsetM: number,
+    ): ReturnType<typeof createBuildingShellGeometry> =>
+      createBuildingShellGeometry(
+        origin,
+        [
+          {
+            ...building,
+            objectId: `shell-ground-${groundOffsetM}`,
+            osmWayId: `shell_ground_${groundOffsetM}`,
+            visualRole: 'generic',
+            geometryStrategy: 'simple_extrude',
+            groundOffsetM,
+          },
+        ],
+        triangulateQuad,
+      );
+
+    const shellNoOffset = buildWithGroundOffset(0);
+    const shellNearRoad = buildWithGroundOffset(0.06);
+    const shellDeepOffset = buildWithGroundOffset(0.8);
+
+    const minY = (positions: number[]): number => {
+      const ys = positions.filter((_, index) => index % 3 === 1);
+      return Math.min(...ys);
+    };
+
+    expect(minY(shellNoOffset.positions)).toBeCloseTo(-0.35, 6);
+    expect(minY(shellNearRoad.positions)).toBeCloseTo(-0.35, 6);
+    expect(minY(shellDeepOffset.positions)).toBeCloseTo(-0.9, 6);
   });
 });
