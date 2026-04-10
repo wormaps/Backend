@@ -240,6 +240,8 @@ export interface SceneGeometryDiagnostic {
   polygonComplexity: 'simple' | 'concave' | 'complex';
   collisionRiskCount?: number;
   groundedGapCount?: number;
+  averageGroundOffsetM?: number;
+  maxGroundOffsetM?: number;
   openShellCount?: number;
   roofWallGapCount?: number;
   invalidSetbackJoinCount?: number;

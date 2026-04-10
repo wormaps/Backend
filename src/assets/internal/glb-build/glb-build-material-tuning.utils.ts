@@ -36,11 +36,15 @@ export function resolveMaterialTuningFromScene(
       ? facadeHints.filter((hint) => hint.weakEvidence).length /
         facadeHints.length
       : 0;
-  const overlayDepthBias = clamp(1.15 + weakEvidenceRatio * 0.95, 1, 2.2);
+  const overlayDepthBias = clamp(1.08 + weakEvidenceRatio * 0.7, 0.96, 1.92);
 
   return {
-    shellLuminanceCap: 0.92,
-    panelLuminanceCap: adaptivePanelCap,
+    shellLuminanceCap: clamp(0.92 + weakEvidenceRatio * 0.05, 0.9, 0.97),
+    panelLuminanceCap: clamp(
+      adaptivePanelCap + weakEvidenceRatio * 0.06,
+      0.78,
+      0.9,
+    ),
     billboardLuminanceCap: 0.9,
     emissiveBoost: clamp(
       atmosphericEmissiveBoost * districtBoost * modeSignal.emissiveMultiplier,

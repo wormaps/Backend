@@ -509,15 +509,17 @@ function applyWeakEvidencePaletteDrift(input: {
     input.districtProfile,
     variant,
   );
+  const shadowVariant = mixHex(variant[1], '#2f3846', 0.18);
   const panelPalette = uniquePalette(
     [
       vividVariant,
       mixHex(variant[1], '#6bc2ff', saturationMix * 0.8),
       variant[2],
       extraVariant,
+      shadowVariant,
       ...input.panelPalette,
     ],
-    4,
+    5,
   );
   const palette = uniquePalette(
     [
@@ -528,18 +530,20 @@ function applyWeakEvidencePaletteDrift(input: {
         '#f8f5ee',
         input.explicitSignalBoost.evidenceBoost * 0.2,
       ),
+      mixHex(variant[0], '#c9d5e7', 0.22),
       ...input.palette,
     ],
-    4,
+    5,
   );
   const shellPalette = uniquePalette(
     [
       shellPrimaryDrift,
       shellSecondaryDrift,
       mixHex(variant[2], '#f1efe9', 0.18),
+      mixHex(variant[1], '#8aa4bf', 0.2),
       ...input.shellPalette,
     ],
-    4,
+    5,
   );
 
   return {

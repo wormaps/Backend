@@ -177,6 +177,7 @@ export function pushPathCurb(
   }
 
   const halfRoad = roadWidth / 2;
+  const curbTopY = Math.max(curbHeight, 0.18);
   const leftOuter: Vec3[] = [];
   const leftInner: Vec3[] = [];
   const rightOuter: Vec3[] = [];
@@ -192,22 +193,22 @@ export function pushPathCurb(
     }
     leftOuter.push([
       current[0] + normal[0] * halfRoad,
-      curbHeight,
+      curbTopY,
       current[2] + normal[1] * halfRoad,
     ]);
     leftInner.push([
       current[0] + normal[0] * (halfRoad + curbWidth),
-      curbHeight,
+      curbTopY,
       current[2] + normal[1] * (halfRoad + curbWidth),
     ]);
     rightOuter.push([
       current[0] - normal[0] * halfRoad,
-      curbHeight,
+      curbTopY,
       current[2] - normal[1] * halfRoad,
     ]);
     rightInner.push([
       current[0] - normal[0] * (halfRoad + curbWidth),
-      curbHeight,
+      curbTopY,
       current[2] - normal[1] * (halfRoad + curbWidth),
     ]);
   }
@@ -375,6 +376,7 @@ export function pushPathSidewalkEdge(
   }
 
   const halfWalkway = walkwayWidth / 2;
+  const edgeTopY = Math.max(edgeHeight, 0.1);
   const leftOuter: Vec3[] = [];
   const leftInner: Vec3[] = [];
   const rightOuter: Vec3[] = [];
@@ -390,22 +392,22 @@ export function pushPathSidewalkEdge(
     }
     leftOuter.push([
       current[0] + normal[0] * halfWalkway,
-      edgeHeight,
+      edgeTopY,
       current[2] + normal[1] * halfWalkway,
     ]);
     leftInner.push([
       current[0] + normal[0] * (halfWalkway + edgeWidth),
-      edgeHeight,
+      edgeTopY,
       current[2] + normal[1] * (halfWalkway + edgeWidth),
     ]);
     rightOuter.push([
       current[0] - normal[0] * halfWalkway,
-      edgeHeight,
+      edgeTopY,
       current[2] - normal[1] * halfWalkway,
     ]);
     rightInner.push([
       current[0] - normal[0] * (halfWalkway + edgeWidth),
-      edgeHeight,
+      edgeTopY,
       current[2] - normal[1] * (halfWalkway + edgeWidth),
     ]);
   }
@@ -443,7 +445,7 @@ export function pushPathSidewalkEdge(
       leftInner[i],
       leftOuter[i + 1],
       leftInner[i + 1],
-      0.015,
+      0.026,
     );
     pushSidewalkEdgeVerticalFace(
       geometry,
@@ -451,7 +453,7 @@ export function pushPathSidewalkEdge(
       rightOuter[i],
       rightInner[i + 1],
       rightOuter[i + 1],
-      0.015,
+      0.026,
     );
   }
 }

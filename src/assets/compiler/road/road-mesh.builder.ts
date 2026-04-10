@@ -42,9 +42,9 @@ const CROSSWALK_STRIPE_Y = 0.154;
 const JUNCTION_OVERLAY_Y = 0.182;
 const ARROW_MARK_Y = 0.19;
 
-const GROUND_RELIEF_RADIAL_AMPLITUDE = 0.028;
-const GROUND_RELIEF_LONG_WAVE_AMPLITUDE = 0.018;
-const GROUND_RELIEF_CROSS_WAVE_AMPLITUDE = 0.014;
+const GROUND_RELIEF_RADIAL_AMPLITUDE = 0.072;
+const GROUND_RELIEF_LONG_WAVE_AMPLITUDE = 0.041;
+const GROUND_RELIEF_CROSS_WAVE_AMPLITUDE = 0.036;
 
 export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const geometry = createEmptyGeometry();
@@ -53,22 +53,32 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const centerX = (sw[0] + ne[0]) / 2;
   const centerZ = (sw[2] + ne[2]) / 2;
   const radius = Math.max(1, Math.hypot(ne[0] - sw[0], ne[2] - sw[2]) / 2);
-  const sample = [
-    [sw[0], ne[2]],
-    [ne[0], ne[2]],
-    [ne[0], sw[2]],
-    [sw[0], sw[2]],
-  ] as const;
-  const yHeights = sample.map(
-    ([x, z]) => -0.03 + resolveGroundReliefY(x, z, centerX, centerZ, radius),
-  );
-  pushQuad(
-    geometry,
-    [sw[0], yHeights[0], ne[2]],
-    [ne[0], yHeights[1], ne[2]],
-    [ne[0], yHeights[2], sw[2]],
-    [sw[0], yHeights[3], sw[2]],
-  );
+
+  const GRID = 8;
+  const grid: Vec3[][] = [];
+  for (let iz = 0; iz <= GRID; iz += 1) {
+    const row: Vec3[] = [];
+    const tz = iz / GRID;
+    const z = sw[2] + (ne[2] - sw[2]) * tz;
+    for (let ix = 0; ix <= GRID; ix += 1) {
+      const tx = ix / GRID;
+      const x = sw[0] + (ne[0] - sw[0]) * tx;
+      const y = -0.06 + resolveGroundReliefY(x, z, centerX, centerZ, radius);
+      row.push([x, y, z]);
+    }
+    grid.push(row);
+  }
+
+  for (let iz = 0; iz < GRID; iz += 1) {
+    for (let ix = 0; ix < GRID; ix += 1) {
+      const a = grid[iz][ix];
+      const b = grid[iz][ix + 1];
+      const c = grid[iz + 1][ix + 1];
+      const d = grid[iz + 1][ix];
+      pushQuad(geometry, a, b, c, d);
+    }
+  }
+
   return geometry;
 }
 
@@ -347,7 +357,7 @@ export function createWalkwayGeometry(
       geometry,
       walkway.path,
       Math.max(1.8, walkway.widthMeters * widthScale),
-      0.015 + yOffset,
+      0.026 + yOffset,
     );
   }
   return geometry;
@@ -398,7 +408,7 @@ export function createSidewalkEdgeGeometry(
   const geometry = createEmptyGeometry();
   for (const walkway of walkways) {
     const walkwayWidth = Math.max(2, walkway.widthMeters);
-    const edgeHeight = 0.08;
+    const edgeHeight = 0.1;
     const edgeWidth = 0.12;
     pushPathSidewalkEdge(
       origin,

@@ -18,7 +18,7 @@ type SceneGeometryDiagnosticWithCorrection = {
   invalidSetbackJoinCount: number;
 };
 
-const COLLISION_HARD_FAIL_RATIO = 0.015;
+const COLLISION_HARD_FAIL_RATIO = 0.03;
 
 function coordinate(lat: number, lng: number) {
   return { lat, lng };

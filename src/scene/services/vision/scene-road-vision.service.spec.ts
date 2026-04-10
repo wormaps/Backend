@@ -121,7 +121,7 @@ describe('SceneRoadVisionService', () => {
         decal.objectId === 'crossing-principal-intersection-arrow-approach',
     );
 
-    expect(principalPathOverlays.length).toBeGreaterThanOrEqual(2);
+    expect(principalPathOverlays.length).toBeGreaterThanOrEqual(3);
     expect(principalPolygonOverlays.length).toBeGreaterThanOrEqual(2);
     expect(junctionArrowApproach).toBeDefined();
   });

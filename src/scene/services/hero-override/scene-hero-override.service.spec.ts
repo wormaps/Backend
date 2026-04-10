@@ -303,7 +303,7 @@ describe('SceneHeroOverrideService', () => {
     const promotedHeroes = result.meta.buildings.filter(
       (building) => building.visualRole && building.visualRole !== 'generic',
     );
-    expect(promotedHeroes.length).toBeGreaterThanOrEqual(4);
+    expect(promotedHeroes.length).toBeGreaterThanOrEqual(5);
     expect(
       result.detail.annotationsApplied.some((entry) =>
         entry.includes(':auto-hero-promotion:'),

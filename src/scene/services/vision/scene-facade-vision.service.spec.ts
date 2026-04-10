@@ -161,8 +161,8 @@ describe('SceneFacadeVisionService', () => {
     for (const hint of hints) {
       expect(hint.weakEvidence).toBe(true);
       expect(hint.palette.length).toBeGreaterThanOrEqual(3);
-      expect(hint.panelPalette?.length ?? 0).toBeGreaterThanOrEqual(4);
-      expect(hint.shellPalette?.length ?? 0).toBeGreaterThanOrEqual(3);
+      expect(hint.panelPalette?.length ?? 0).toBeGreaterThanOrEqual(5);
+      expect(hint.shellPalette?.length ?? 0).toBeGreaterThanOrEqual(4);
       expect(hint.contextualMaterialUpgrade).toBe(true);
       expect(hint.palette).not.toContain('#9ea4aa');
     }
@@ -182,6 +182,13 @@ describe('SceneFacadeVisionService', () => {
     expect(diagnostics.contextualUpgradeCount).toBeGreaterThanOrEqual(0);
     expect(diagnostics.districtClusterCounts).toBeDefined();
     expect(diagnostics.evidenceStrengthCounts).toBeDefined();
+  });
+
+  it('expands signage clusters through vision pipeline when medium/high hints increase', () => {
+    const hints = service.buildFacadeHints(place, placePackage, [], []);
+    const eligible = hints.filter((hint) => hint.signageDensity !== 'low');
+
+    expect(eligible.length).toBeGreaterThan(0);
   });
 
   it('preserves district confidence and uses it for district aggregation', () => {

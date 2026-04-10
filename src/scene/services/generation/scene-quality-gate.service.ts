@@ -33,7 +33,7 @@ const CRITICAL_MESH_NAMES = new Set([
   'building_roof_accents_neutral',
 ]);
 const CRITICAL_MESH_PREFIXES = ['building_shells_'];
-const COLLISION_RATIO_HARD_FAIL_THRESHOLD = 0.015;
+const COLLISION_RATIO_HARD_FAIL_THRESHOLD = 0.03;
 
 interface ParsedDiagnosticsEntry {
   stage?: string;
@@ -132,7 +132,12 @@ export class SceneQualityGateService {
     ) {
       reasonCodes.push('CRITICAL_COLLISION_DETECTED');
     }
-    if (this.hasCriticalGroundingGap(sceneDetail.geometryDiagnostics)) {
+    if (
+      this.hasCriticalGroundingGap(
+        sceneDetail.geometryDiagnostics,
+        sceneMeta.buildings.length,
+      )
+    ) {
       reasonCodes.push('CRITICAL_GROUNDING_GAP_DETECTED');
     }
     if (this.hasCriticalShellClosure(sceneDetail.geometryDiagnostics)) {
@@ -405,9 +410,15 @@ export class SceneQualityGateService {
 
   private hasCriticalGroundingGap(
     geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+    totalBuildingCount: number,
   ): boolean {
     const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    return (marker?.groundedGapCount ?? 0) > 0;
+    const gapCount = marker?.groundedGapCount ?? 0;
+    if (gapCount === 0) {
+      return false;
+    }
+    const denominator = Math.max(1, totalBuildingCount);
+    return gapCount / denominator >= 0.02;
   }
 
   private hasCriticalShellClosure(

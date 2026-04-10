@@ -373,7 +373,7 @@ describe('buildSceneAssetSelection', () => {
 
     expect(selection.budget.roadCount).toBe(312);
     expect(selection.budget.walkwayCount).toBe(384);
-    expect(selection.budget.crossingCount).toBe(115);
+    expect(selection.budget.crossingCount).toBe(187);
     expect(selection.budget.billboardPanelCount).toBe(86);
   });
 

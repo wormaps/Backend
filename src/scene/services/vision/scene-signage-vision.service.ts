@@ -25,22 +25,22 @@ export class SceneSignageVisionService {
         const rightDist = squaredDistance(right.anchor, place.location);
         return leftDist - rightDist;
       })
-      .slice(0, 18);
+      .slice(0, 36);
 
     return clusterSource.map((hint, index) => ({
       objectId: `signage-cluster-${index + 1}`,
       anchor: hint.anchor,
       panelCount: Math.max(
-        3,
+        5,
         Math.min(
-          14,
-          signFeatures.length > 0 ? Math.ceil(signFeatures.length / 5) : 5,
+          18,
+          signFeatures.length > 0 ? Math.ceil(signFeatures.length / 3.6) : 7,
         ),
       ),
       palette: hint.palette,
       emissiveStrength: Math.max(0.52, hint.emissiveStrength * 1.14),
-      widthMeters: 5.8 + (index % 3) * 1.2,
-      heightMeters: 2.8 + (index % 2) * 1,
+      widthMeters: 6.2 + (index % 4) * 1.05,
+      heightMeters: 3 + (index % 3) * 0.95,
     }));
   }
 

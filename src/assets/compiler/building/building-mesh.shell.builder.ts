@@ -21,6 +21,7 @@ import {
 
 const MIN_FOUNDATION_DEPTH = 0.35;
 const MAX_FOUNDATION_DEPTH = 0.9;
+const SETBACK_OVERLAP = 0.01;
 
 export interface BuildingShellClosureMetrics {
   openShellCount: number;
@@ -134,6 +135,13 @@ export function pushExtrudedPolygon(
 ): void {
   const triangulated = triangulateRings(outerRing, holes, triangulate);
   if (triangulated.length === 0) {
+    // Fallback: generate bounding box to ensure building has some geometry
+    const bounds = computeBounds(outerRing);
+    pushBox(
+      geometry,
+      [bounds.minX, minHeight, bounds.minZ],
+      [bounds.maxX, maxHeight, bounds.maxZ],
+    );
     return;
   }
 
@@ -218,7 +226,7 @@ function pushBuildingByStrategy(
             geometry,
             towerRing,
             [],
-            podiumHeight,
+            podiumHeight - SETBACK_OVERLAP,
             towerTop,
             triangulate,
           );
@@ -247,7 +255,12 @@ function pushBuildingByStrategy(
           if (currentRing.length < 3) {
             break;
           }
-          const stageMin = baseTop + stage * ((height - baseTop) / stageCount);
+          const stageMin =
+            stage === 0
+              ? baseTop - SETBACK_OVERLAP
+              : baseTop +
+                stage * ((height - baseTop) / stageCount) -
+                SETBACK_OVERLAP;
           const stageMax =
             stage === stageCount - 1
               ? height
@@ -387,8 +400,10 @@ function pushHeroBuilding(
     }
     const stageMin =
       stage === 0
-        ? podiumHeight
-        : podiumHeight + stage * ((height - podiumHeight) / stageCount);
+        ? podiumHeight - SETBACK_OVERLAP
+        : podiumHeight +
+          stage * ((height - podiumHeight) / stageCount) -
+          SETBACK_OVERLAP;
     const stageMax =
       stage === stageCount - 1
         ? height
@@ -408,7 +423,7 @@ function resolveFoundationDepth(
   building: SceneMeta['buildings'][number],
 ): number {
   const groundOffset = Math.max(0, building.groundOffsetM ?? 0);
-  const base = Math.max(groundOffset + 0.25, MIN_FOUNDATION_DEPTH);
+  const base = MIN_FOUNDATION_DEPTH + groundOffset;
   return Math.min(MAX_FOUNDATION_DEPTH, Number(base.toFixed(3)));
 }
 
@@ -565,5 +580,19 @@ function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {
     }
   }
   result.push(ring[ring.length - 1]);
-  return result.length >= 3 ? result : ring;
+
+  if (result.length < 3) {
+    return ring;
+  }
+
+  const hasArea = result.some((p, i) => {
+    const next = result[(i + 1) % result.length];
+    const nextNext = result[(i + 2) % result.length];
+    const cross =
+      (next[0] - p[0]) * (nextNext[2] - p[2]) -
+      (next[2] - p[2]) * (nextNext[0] - p[0]);
+    return Math.abs(cross) > 0.001;
+  });
+
+  return hasArea ? result : ring;
 }

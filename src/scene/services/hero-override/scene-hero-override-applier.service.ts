@@ -189,7 +189,7 @@ export class SceneHeroOverrideApplierService {
   ): void {
     const targetHeroCount = Math.max(
       4,
-      Math.ceil(meta.assetProfile.selected.buildingCount * 0.008),
+      Math.ceil(meta.assetProfile.selected.buildingCount * 0.02),
     );
     const existingHero = meta.buildings.filter(
       (building) => building.visualRole && building.visualRole !== 'generic',
@@ -234,7 +234,16 @@ export class SceneHeroOverrideApplierService {
             : building.heightMeters >= 24
               ? 1.2
               : 0.5) +
-          (building.usage === 'COMMERCIAL' ? 1.6 : 0.6) -
+          (building.usage === 'COMMERCIAL' ? 1.6 : 0.6) +
+          (hint?.districtCluster === 'landmark_plaza' ? 1.6 : 0) +
+          (hint?.districtCluster === 'station_district' ? 1.1 : 0) +
+          (hint?.contextProfile === 'NEON_CORE' ? 0.9 : 0) +
+          (hint?.districtCluster === 'secondary_retail' ? 0.6 : 0) +
+          (hint?.evidenceStrength === 'strong'
+            ? 0.8
+            : hint?.evidenceStrength === 'medium'
+              ? 0.45
+              : 0) -
           Math.min(2.2, nearestHeroDistance / 180);
         return { building, hint, score };
       })
@@ -281,7 +290,7 @@ export class SceneHeroOverrideApplierService {
             ? 'medium'
             : (source?.signageDensity ?? hint.signageDensity),
         emissiveStrength: Math.max(
-          0.72,
+          0.78,
           source?.emissiveStrength ?? hint.emissiveStrength,
         ),
         evidenceStrength:

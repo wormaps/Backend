@@ -273,7 +273,7 @@ function quantizeColorBand(hex: string): string {
   const [r, g, b] = hexToRgb(normalizeColor(hex));
   const q = (value: number): string => {
     const channel = Math.round(value * 255);
-    const bucketed = Math.round(channel / 24) * 24;
+    const bucketed = Math.round(channel / 16) * 16;
     return Math.max(0, Math.min(255, bucketed)).toString(16).padStart(2, '0');
   };
   return `#${q(r)}${q(g)}${q(b)}`;

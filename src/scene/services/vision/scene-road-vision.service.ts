@@ -168,7 +168,7 @@ export class SceneRoadVisionService {
         continue;
       }
       decals.push(
-        ...buildScramblePathOverlays(crossing, 2).map((overlay, index) => ({
+        ...buildScramblePathOverlays(crossing, 3).map((overlay, index) => ({
           ...overlay,
           objectId: `${crossing.objectId}-scramble-path-${index + 1}`,
         })),
@@ -197,7 +197,7 @@ export class SceneRoadVisionService {
         styleToken: 'scramble_white',
         stripeSet: {
           centerPath: crossing.path,
-          stripeCount: 11,
+          stripeCount: 13,
           stripeDepth: 1.05,
           halfWidth: 9,
         },

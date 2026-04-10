@@ -21,13 +21,17 @@ interface GeometryCorrectionDiagnostic {
   polygonComplexity: 'simple';
   collisionRiskCount: number;
   groundedGapCount: number;
+  averageGroundOffsetM: number;
+  maxGroundOffsetM: number;
   openShellCount: number;
   roofWallGapCount: number;
   invalidSetbackJoinCount: number;
 }
 
 const COLLISION_NEAR_ROAD_METERS = 1.6;
-const GROUND_OFFSET_ON_COLLISION_METERS = 0.06;
+const BASE_GROUND_OFFSET_ON_COLLISION_METERS = 0.06;
+const MAX_GROUND_OFFSET_ON_COLLISION_METERS = 0.24;
+const SEVERE_GROUNDED_GAP_OFFSET_THRESHOLD = 0.16;
 const MIN_RING_VERTICES_FOR_CLOSURE = 3;
 const MIN_SETBACK_USABLE_VERTICES = 3;
 const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
@@ -44,8 +48,25 @@ export class SceneGeometryCorrectionStep {
       (building) => building.collisionRisk === 'road_overlap',
     ).length;
     const groundedGapCount = correctedBuildings.filter(
-      (building) => (building.groundOffsetM ?? 0) > 0.06,
+      (building) =>
+        (building.groundOffsetM ?? 0) > SEVERE_GROUNDED_GAP_OFFSET_THRESHOLD,
     ).length;
+    const appliedGroundOffsets = correctedBuildings
+      .map((building) => building.groundOffsetM ?? 0)
+      .filter((offset) => offset > 0);
+    const averageGroundOffsetM =
+      appliedGroundOffsets.length > 0
+        ? Number(
+            (
+              appliedGroundOffsets.reduce((sum, value) => sum + value, 0) /
+              appliedGroundOffsets.length
+            ).toFixed(3),
+          )
+        : 0;
+    const maxGroundOffsetM =
+      appliedGroundOffsets.length > 0
+        ? Number(Math.max(...appliedGroundOffsets).toFixed(3))
+        : 0;
     const closureDiagnostics =
       this.resolveClosureDiagnostics(correctedBuildings);
     const { openShellCount, roofWallGapCount, invalidSetbackJoinCount } =
@@ -74,6 +95,8 @@ export class SceneGeometryCorrectionStep {
           polygonComplexity: 'simple',
           collisionRiskCount,
           groundedGapCount,
+          averageGroundOffsetM,
+          maxGroundOffsetM,
           openShellCount,
           roofWallGapCount,
           invalidSetbackJoinCount,
@@ -84,6 +107,8 @@ export class SceneGeometryCorrectionStep {
     void appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction', {
       collisionRiskCount,
       groundedGapCount,
+      averageGroundOffsetM,
+      maxGroundOffsetM,
       openShellCount,
       roofWallGapCount,
       invalidSetbackJoinCount,
@@ -141,8 +166,8 @@ export class SceneGeometryCorrectionStep {
     building: SceneBuildingMeta,
     roads: SceneRoadMeta[],
   ): SceneBuildingMeta {
-    const center = averageCoordinate(building.outerRing);
-    if (!center) {
+    const anchors = resolveBuildingAnchors(building.outerRing);
+    if (anchors.length === 0) {
       return {
         ...building,
         collisionRisk: 'none',
@@ -150,17 +175,33 @@ export class SceneGeometryCorrectionStep {
       };
     }
 
-    const nearestRoadDistance = roads.reduce<number>((minimum, road) => {
-      const distance = distanceToPathMeters(center, road.path);
-      return Math.min(minimum, distance);
+    const nearestRoadDistance = anchors.reduce<number>((minimum, anchor) => {
+      const anchorDistance = roads.reduce<number>((anchorMinimum, road) => {
+        const distance = distanceToPathMeters(anchor, road.path);
+        return Math.min(anchorMinimum, distance);
+      }, Number.POSITIVE_INFINITY);
+      return Math.min(minimum, anchorDistance);
     }, Number.POSITIVE_INFINITY);
 
-    const minClearance = this.resolveRoadClearanceThreshold(roads, center);
+    const minClearance = this.resolveRoadClearanceThreshold(roads, anchors);
     const nearRoad = Number.isFinite(nearestRoadDistance)
       ? nearestRoadDistance < minClearance
       : false;
     const collisionRisk = nearRoad ? 'road_overlap' : 'none';
-    const groundOffsetM = nearRoad ? GROUND_OFFSET_ON_COLLISION_METERS : 0;
+    const gapRatio = nearRoad
+      ? clamp01(
+          (minClearance - nearestRoadDistance) / Math.max(0.25, minClearance),
+        )
+      : 0;
+    const dynamicGroundOffset = Number(
+      (
+        BASE_GROUND_OFFSET_ON_COLLISION_METERS +
+        gapRatio *
+          (MAX_GROUND_OFFSET_ON_COLLISION_METERS -
+            BASE_GROUND_OFFSET_ON_COLLISION_METERS)
+      ).toFixed(3),
+    );
+    const groundOffsetM = nearRoad ? dynamicGroundOffset : 0;
 
     return {
       ...building,
@@ -171,13 +212,16 @@ export class SceneGeometryCorrectionStep {
 
   private resolveRoadClearanceThreshold(
     roads: SceneRoadMeta[],
-    center: { lat: number; lng: number },
+    anchors: Array<{ lat: number; lng: number }>,
   ): number {
     let nearestRoad: SceneRoadMeta | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
     for (const road of roads) {
-      const distance = distanceToPathMeters(center, road.path);
+      const distance = anchors.reduce<number>((minimum, anchor) => {
+        const candidate = distanceToPathMeters(anchor, road.path);
+        return Math.min(minimum, candidate);
+      }, Number.POSITIVE_INFINITY);
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearestRoad = road;
@@ -200,6 +244,30 @@ export class SceneGeometryCorrectionStep {
       Math.min(COLLISION_NEAR_ROAD_METERS, laneWidthEstimate * 0.48),
     );
   }
+}
+
+function resolveBuildingAnchors(
+  points: Array<{ lat: number; lng: number }>,
+): Array<{ lat: number; lng: number }> {
+  const anchors: Array<{ lat: number; lng: number }> = [];
+  const center = averageCoordinate(points);
+  if (center) {
+    anchors.push(center);
+  }
+  anchors.push(...points);
+
+  const uniqueAnchors = new Map<string, { lat: number; lng: number }>();
+  for (const anchor of anchors) {
+    const key = `${anchor.lat.toFixed(7)}:${anchor.lng.toFixed(7)}`;
+    if (!uniqueAnchors.has(key)) {
+      uniqueAnchors.set(key, anchor);
+    }
+  }
+  return [...uniqueAnchors.values()];
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
 function averageCoordinate(

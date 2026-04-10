@@ -47,6 +47,59 @@ export interface BuildingStyleProfile {
   signBandLevels: number;
 }
 
+const MATERIAL_CLASS_PALETTE_POOL: Record<MaterialClass, string[][]> = {
+  glass: [
+    ['#7da7cf', '#cfe3f1', '#eaf3fb'],
+    ['#6f9dc8', '#bfd8ee', '#e6f1fb'],
+    ['#5c8fba', '#b4d0ea', '#e3eef8'],
+    ['#86b0d4', '#d7e8f4', '#eff6fb'],
+    ['#4a6a8a', '#8aaaca', '#c0d8e8'],
+    ['#7a8a6a', '#aabaa0', '#d4e2cc'],
+    ['#6a5a7a', '#9a8aaa', '#c8bed8'],
+    ['#8a7a5a', '#baa888', '#e2d4c0'],
+  ],
+  concrete: [
+    ['#9fa6ad', '#c9cdd1', '#ebecee'],
+    ['#8f979f', '#bec4cb', '#e3e6ea'],
+    ['#a7afb6', '#d3d8dc', '#f0f1f2'],
+    ['#8a9299', '#b8bec4', '#dde1e6'],
+    ['#b5b0a8', '#d4d0ca', '#efedea'],
+    ['#8a8f94', '#b3b8bd', '#dce0e3'],
+    ['#a09590', '#c8c0bb', '#e8e4e0'],
+    ['#929a8e', '#bcc3b6', '#e0e4dc'],
+  ],
+  brick: [
+    ['#8d4d38', '#b97856', '#dcc0aa'],
+    ['#7c4332', '#a7684b', '#d2b099'],
+    ['#9c5c43', '#c48663', '#e2c7b1'],
+    ['#884c3d', '#b87963', '#d9beaa'],
+    ['#a86b4f', '#d4a08a', '#f0d4c0'],
+    ['#6d3d2e', '#996650', '#c4a088'],
+    ['#c4785a', '#e0a88c', '#f5ddd0'],
+    ['#7a4035', '#a86858', '#d4a898'],
+  ],
+  metal: [
+    ['#7e8891', '#b7c0c7', '#d8dee3'],
+    ['#6e7983', '#aab4bd', '#cfd6dc'],
+    ['#87929d', '#c0c8cf', '#e1e6ea'],
+    ['#697680', '#9eaab5', '#c9d1d8'],
+    ['#8a8078', '#b0a8a0', '#d4cec8'],
+    ['#606870', '#8890a0', '#b8c0c8'],
+    ['#909898', '#b8c0c0', '#dce2e2'],
+    ['#787068', '#a09890', '#c8c2bc'],
+  ],
+  mixed: [
+    ['#9ea4aa', '#d3d6da', '#eceff1'],
+    ['#8f979e', '#c7ccd1', '#e6e9ec'],
+    ['#a7adb3', '#d9dde0', '#f0f2f4'],
+    ['#9299a1', '#cdd2d7', '#e9ecef'],
+    ['#b0a8a0', '#d0cac4', '#eae6e2'],
+    ['#888e92', '#b0b6ba', '#d8dce0'],
+    ['#a49890', '#ccc2ba', '#e8e2dc'],
+    ['#969e94', '#bec6ba', '#e0e6dc'],
+  ],
+};
+
 @Injectable()
 export class BuildingStyleResolverService {
   resolveBuildingStyle(input: BuildingStyleInput): BuildingStyleProfile {
@@ -188,8 +241,14 @@ export class BuildingStyleResolverService {
       case 'mall_block':
       case 'station_block':
         return 'concrete';
-      case 'small_lowrise':
-        return 'brick';
+      case 'small_lowrise': {
+        const seed = `${input.outerRing[0]?.lat ?? 0}:${input.outerRing[0]?.lng ?? 0}`;
+        const hash = seed
+          .split('')
+          .reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        const variants: MaterialClass[] = ['brick', 'concrete', 'mixed'];
+        return variants[hash % variants.length];
+      }
       default:
         return input.usage === 'COMMERCIAL' ? 'glass' : 'mixed';
     }
@@ -292,20 +351,19 @@ export class BuildingStyleResolverService {
       return [...new Set(explicit)].slice(0, 3);
     }
 
-    switch (materialClass) {
-      case 'glass':
-        return preset === 'glass_tower'
-          ? ['#7da7cf', '#cfe3f1', '#eaf3fb']
-          : ['#8eb7d9', '#d9ebf5', '#edf5fb'];
-      case 'brick':
-        return ['#8d4d38', '#b97856', '#dcc0aa'];
-      case 'metal':
-        return ['#7e8891', '#b7c0c7', '#d8dee3'];
-      case 'concrete':
-        return ['#9fa6ad', '#c9cdd1', '#ebecee'];
-      default:
-        return ['#9ea4aa', '#d3d6da', '#eceff1'];
+    const seed = `${input.outerRing[0]?.lat ?? 0}:${input.outerRing[0]?.lng ?? 0}:${input.heightMeters}:${input.usage}:${preset}`;
+    const pool =
+      MATERIAL_CLASS_PALETTE_POOL[materialClass] ??
+      MATERIAL_CLASS_PALETTE_POOL.mixed;
+    const variant = pool[stableVariant(seed, pool.length)] ?? pool[0];
+    if (materialClass === 'glass' && preset === 'glass_tower') {
+      return uniquePalette([
+        mixHex(variant[0], '#6f9dc8', 0.22),
+        mixHex(variant[1], '#d7e8f4', 0.2),
+        mixHex(variant[2], '#f2f8fd', 0.18),
+      ]);
     }
+    return uniquePalette(variant);
   }
 
   private resolveSignageDensity(
@@ -512,4 +570,53 @@ export class BuildingStyleResolverService {
     }
     return [palette[0] ?? '#9ea4aa', palette[1] ?? '#d3d6da', '#eef1f3'];
   }
+}
+
+function stableVariant(seed: string, modulo: number): number {
+  if (modulo <= 0) {
+    return 0;
+  }
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return hash % modulo;
+}
+
+function uniquePalette(colors: string[]): string[] {
+  return [...new Set(colors)].slice(0, 3);
+}
+
+function mixHex(source: string, target: string, ratio: number): string {
+  const t = clamp(ratio, 0, 1);
+  const [sr, sg, sb] = hexToRgb(source);
+  const [tr, tg, tb] = hexToRgb(target);
+  return toHex([
+    Math.round(sr + (tr - sr) * t),
+    Math.round(sg + (tg - sg) * t),
+    Math.round(sb + (tb - sb) * t),
+  ]);
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '');
+  const full =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : normalized;
+  const value = Number.parseInt(full, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function toHex(rgb: [number, number, number]): string {
+  return `#${rgb
+    .map((channel) => clamp(channel, 0, 255).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

@@ -275,7 +275,7 @@ export class SceneAssetProfileService {
       roadCount: 260,
       walkwayCount: 320,
       poiCount: 120,
-      crossingCount: 96,
+      crossingCount: 156,
       trafficLightCount: 48,
       streetLightCount: 64,
       signPoleCount: 80,
@@ -324,6 +324,17 @@ export class SceneAssetProfileService {
             targetMultiplier * (isLandmarkTarget ? 1.16 : 1),
           ),
         };
+
+        if (isLandmarkTarget) {
+          const boostedCrossingFloor = Math.max(
+            scaledBudget.crossingCount,
+            Math.round(baseBudget.crossingCount * 1.38),
+          );
+          scaledBudget = {
+            ...scaledBudget,
+            crossingCount: boostedCrossingFloor,
+          };
+        }
       }
     }
 

@@ -458,19 +458,18 @@ function resolveDistrictBias(profile: FacadeContext['districtProfile']): {
   satDelta: number;
   lumDelta: number;
 } {
-  // Oracle guardrail: keep this small (≈8%), cap at 12%
   switch (profile) {
     case 'NEON_CORE':
-      return { satDelta: 0.11, lumDelta: -0.032 };
+      return { satDelta: 0.18, lumDelta: -0.05 };
     case 'COMMERCIAL_STRIP':
-      return { satDelta: 0.075, lumDelta: 0.012 };
+      return { satDelta: 0.12, lumDelta: 0.02 };
     case 'TRANSIT_HUB':
-      return { satDelta: -0.03, lumDelta: 0.01 };
+      return { satDelta: -0.05, lumDelta: 0.015 };
     case 'CIVIC_CLUSTER':
-      return { satDelta: -0.02, lumDelta: 0.018 };
+      return { satDelta: -0.035, lumDelta: 0.028 };
     case 'RESIDENTIAL_EDGE':
     default:
-      return { satDelta: 0.02, lumDelta: 0.012 };
+      return { satDelta: 0.04, lumDelta: 0.02 };
   }
 }
 

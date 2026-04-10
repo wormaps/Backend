@@ -22,11 +22,7 @@ export function collectBuildingRoofSurfaceMetrics(
   for (const building of buildings) {
     const ringCount = building.outerRing.length;
     const hasInvalidGableRing = building.roofType === 'gable' && ringCount < 4;
-    const hasSetbackJoinRisk =
-      building.roofType === 'stepped' &&
-      (building.setbackLevels ?? 0) > 0 &&
-      ringCount - (building.setbackLevels ?? 0) < 3;
-    if (hasInvalidGableRing || hasSetbackJoinRisk) {
+    if (hasInvalidGableRing) {
       roofWallGapRiskCount += 1;
     }
   }

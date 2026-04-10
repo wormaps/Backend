@@ -4,6 +4,7 @@ import {
   createBuildingWindowGeometry,
   createBuildingRoofSurfaceGeometry,
   createBuildingRoofEquipmentGeometry,
+  collectBuildingRoofSurfaceMetrics,
   createHeroBillboardPlaneGeometry,
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
@@ -137,6 +138,35 @@ describe('building-mesh.builder', () => {
     expect(roofSurfaces.indices.length).toBeGreaterThan(0);
   });
 
+  it('counts roof-wall gap risk only for invalid gable rings', () => {
+    const metrics = collectBuildingRoofSurfaceMetrics([
+      {
+        ...building,
+        objectId: 'gable-risk',
+        roofType: 'gable',
+        outerRing: [
+          coordinate(35.6597, 139.7008),
+          coordinate(35.6597, 139.701),
+          coordinate(35.6595, 139.701),
+        ],
+      },
+      {
+        ...building,
+        objectId: 'stepped-setback',
+        roofType: 'stepped',
+        setbackLevels: 3,
+        outerRing: [
+          coordinate(35.6597, 139.7008),
+          coordinate(35.6597, 139.701),
+          coordinate(35.6595, 139.701),
+          coordinate(35.6595, 139.7008),
+        ],
+      },
+    ]);
+
+    expect(metrics.roofWallGapRiskCount).toBe(1);
+  });
+
   it('adds stronger roof equipment density for hero-driven rooftops', () => {
     const origin = coordinate(35.659482, 139.7005596);
     const roofEquipments = createBuildingRoofEquipmentGeometry(origin, [
@@ -245,6 +275,7 @@ describe('building-mesh.builder', () => {
 
     const shellNoOffset = buildWithGroundOffset(0);
     const shellNearRoad = buildWithGroundOffset(0.06);
+    const shellAdaptiveOffset = buildWithGroundOffset(0.18);
     const shellDeepOffset = buildWithGroundOffset(0.8);
 
     const minY = (positions: number[]): number => {
@@ -253,7 +284,8 @@ describe('building-mesh.builder', () => {
     };
 
     expect(minY(shellNoOffset.positions)).toBeCloseTo(-0.35, 6);
-    expect(minY(shellNearRoad.positions)).toBeCloseTo(-0.35, 6);
+    expect(minY(shellNearRoad.positions)).toBeCloseTo(-0.41, 6);
+    expect(minY(shellAdaptiveOffset.positions)).toBeCloseTo(-0.53, 6);
     expect(minY(shellDeepOffset.positions)).toBeCloseTo(-0.9, 6);
   });
 });
