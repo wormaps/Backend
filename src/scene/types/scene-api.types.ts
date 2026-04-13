@@ -20,6 +20,7 @@ import {
   SceneStructuralCoverage,
 } from './scene-domain.types';
 import { SceneTwinGraph, ValidationReport } from './scene-twin.types';
+import { MidQaReport } from './scene-twin.types';
 
 export interface BootstrapResponse {
   sceneId: string;
@@ -28,6 +29,7 @@ export interface BootstrapResponse {
   detailUrl: string;
   twinUrl?: string;
   validationUrl?: string;
+  qaUrl?: string;
   detailStatus: SceneDetail['detailStatus'];
   glbSources: GlbSources;
   assetProfile: SceneMeta['assetProfile'];
@@ -143,6 +145,7 @@ export interface StoredScene {
   detail?: SceneDetail;
   twin?: SceneTwinGraph;
   validation?: ValidationReport;
+  qa?: MidQaReport;
   place?: ExternalPlaceDetail;
 }
 

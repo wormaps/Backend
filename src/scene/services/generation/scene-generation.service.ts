@@ -9,6 +9,7 @@ import { SceneGenerationPipelineService } from '../../pipeline/scene-generation-
 import { SceneRepository } from '../../storage/scene.repository';
 import { getSceneDataDir } from '../../storage/scene-storage.utils';
 import { SceneQualityGateService } from './scene-quality-gate.service';
+import { SceneMidQaService } from '../qa';
 import { SceneTwinBuilderService } from '../twin';
 import type {
   SceneCreateOptions,
@@ -29,6 +30,7 @@ export class SceneGenerationService {
     private readonly sceneRepository: SceneRepository,
     private readonly sceneGenerationPipelineService: SceneGenerationPipelineService,
     private readonly sceneQualityGateService: SceneQualityGateService,
+    private readonly sceneMidQaService: SceneMidQaService,
     private readonly sceneTwinBuilderService: SceneTwinBuilderService,
     private readonly appLoggerService: AppLoggerService,
   ) {}
@@ -170,6 +172,19 @@ export class SceneGenerationService {
         qualityGate,
         providerTraces: result.providerTraces,
       });
+      const qa = await this.sceneMidQaService.buildReport({
+        sceneId,
+        meta: {
+          ...result.meta,
+          qualityGate,
+        },
+        detail: {
+          ...result.detail,
+          qualityGate,
+        },
+        twin: twinBuild.twin,
+        validation: twinBuild.validation,
+      });
       const qualityPass = qualityGate.state === 'PASS';
       const failureCategory = qualityPass ? null : 'QUALITY_GATE_REJECTED';
 
@@ -187,6 +202,7 @@ export class SceneGenerationService {
         },
         twin: twinBuild.twin,
         validation: twinBuild.validation,
+        qa,
         scene: {
           ...current.scene,
           placeId: result.place.placeId,

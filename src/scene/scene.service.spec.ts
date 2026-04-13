@@ -56,6 +56,7 @@ describe('Scene Services', () => {
     const twin = await readService.getSceneTwin(scene.sceneId);
     const validation = await readService.getValidationReport(scene.sceneId);
     const evidence = await readService.getSceneEvidence(scene.sceneId);
+    const qa = await readService.getMidQaReport(scene.sceneId);
 
     expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
     expect(refreshed.radiusM).toBe(600);
@@ -77,6 +78,7 @@ describe('Scene Services', () => {
     expect(bootstrap.validationUrl).toBe(
       '/api/scenes/scene-seoul-city-hall/validation',
     );
+    expect(bootstrap.qaUrl).toBe('/api/scenes/scene-seoul-city-hall/qa');
     expect(bootstrap.detailStatus).toBe('OSM_ONLY');
     expect(bootstrap.assetUrl).toBe(
       '/api/scenes/scene-seoul-city-hall/assets/base.glb',
@@ -140,6 +142,13 @@ describe('Scene Services', () => {
       true,
     );
     expect(evidence.some((item) => item.kind === 'GEOMETRY')).toBe(true);
+    expect(qa.summary).toBe('FAIL');
+    expect(qa.checks.some((check) => check.id === 'observed_coverage')).toBe(
+      true,
+    );
+    expect(
+      qa.findings.some((finding) => finding.severity === 'warn'),
+    ).toBe(true);
     expect(validation.summary).toBe('WARN');
     expect(validation.gates.map((gate) => gate.gate)).toEqual([
       'geometry',

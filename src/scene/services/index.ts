@@ -3,6 +3,7 @@ export * from './generation';
 export * from './hero-override';
 export * from './live';
 export * from './planning';
+export * from './qa';
 export * from './twin';
 export * from './read';
 export * from './vision';

@@ -31,6 +31,7 @@ import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/decorators';
 import {
   BootstrapResponseDto,
   CreateSceneRequestDto,
+  MidQaReportDto,
   SceneDetailDto,
   SceneEvidenceDto,
   SceneEntityDto,
@@ -50,6 +51,7 @@ import { SceneService } from './scene.service';
 import { getSceneDataDir } from './storage/scene-storage.utils';
 import {
   BootstrapResponse,
+  MidQaReport,
   SceneDetail,
   SceneEntity,
   SceneMeta,
@@ -234,6 +236,21 @@ export class SceneController {
 
     return this.sceneService.getSceneEvidence(validatedSceneId).then((data) => ({
       message: 'Scene evidence 조회에 성공했습니다.',
+      data,
+    }));
+  }
+
+  @Get(':sceneId/qa')
+  @ApiOperation({ summary: 'Scene 중간 QA report 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiSuccessEnvelope({ model: MidQaReportDto })
+  getQa(
+    @Param('sceneId') sceneId: string,
+  ): Promise<ResponsePayload<MidQaReport>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+
+    return this.sceneService.getMidQaReport(validatedSceneId).then((data) => ({
+      message: 'Scene 중간 QA report 조회에 성공했습니다.',
       data,
     }));
   }

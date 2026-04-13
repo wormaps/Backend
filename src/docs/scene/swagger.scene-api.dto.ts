@@ -353,6 +353,32 @@ export class SceneEvidenceDto {
   payload!: object;
 }
 
+export class MidQaReportDto {
+  @ApiProperty({ example: 'midqa-build-1234567890ab' })
+  reportId!: string;
+
+  @ApiProperty({ example: 'scene-seoul-city-hall' })
+  sceneId!: string;
+
+  @ApiProperty({ example: '2026-04-13T12:00:00.000Z' })
+  generatedAt!: string;
+
+  @ApiProperty({ enum: ['PASS', 'WARN', 'FAIL'] })
+  summary!: string;
+
+  @ApiProperty({ type: Object })
+  score!: object;
+
+  @ApiProperty({ type: [Object] })
+  checks!: object[];
+
+  @ApiProperty({ type: [Object] })
+  findings!: object[];
+
+  @ApiProperty({ type: Object })
+  references!: object;
+}
+
 export class SceneDetailDto {
   @ApiProperty({ example: 'scene-shibuya-scramble-crossing' })
   sceneId!: string;

@@ -4,6 +4,7 @@ import { SceneLiveDataService } from './services/live';
 import { SceneReadService } from './services/read';
 import type {
   BootstrapResponse,
+  MidQaReport,
   SceneCreateOptions,
   SceneDetail,
   SceneEntity,
@@ -66,6 +67,10 @@ export class SceneService {
 
   getSceneEvidence(sceneId: string): Promise<TwinEvidence[]> {
     return this.sceneReadService.getSceneEvidence(sceneId);
+  }
+
+  getMidQaReport(sceneId: string): Promise<MidQaReport> {
+    return this.sceneReadService.getMidQaReport(sceneId);
   }
 
   getState(

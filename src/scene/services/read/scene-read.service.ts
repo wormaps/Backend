@@ -7,6 +7,7 @@ import type {
   SceneDetail,
   SceneEntity,
   SceneMeta,
+  MidQaReport,
   ScenePlacesResponse,
   TwinEvidence,
   SceneTwinGraph,
@@ -52,6 +53,7 @@ export class SceneReadService {
       validationUrl: stored.validation
         ? `/api/scenes/${scene.sceneId}/validation`
         : undefined,
+      qaUrl: stored.qa ? `/api/scenes/${scene.sceneId}/qa` : undefined,
       detailStatus: stored.detail.detailStatus,
       glbSources: {
         googlePlaces: true,
@@ -164,6 +166,22 @@ export class SceneReadService {
   async getSceneEvidence(sceneId: string): Promise<TwinEvidence[]> {
     const twin = await this.getSceneTwin(sceneId);
     return twin.evidence;
+  }
+
+  async getMidQaReport(sceneId: string): Promise<MidQaReport> {
+    const stored = await this.getReadyScene(sceneId);
+    if (!stored.qa) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_NOT_READY,
+        message: 'Scene QA report가 아직 준비되지 않았습니다.',
+        detail: {
+          sceneId,
+          status: stored.scene.status,
+        },
+        status: HttpStatus.CONFLICT,
+      });
+    }
+    return stored.qa;
   }
 
   async getStoredScene(sceneId: string): Promise<StoredScene> {

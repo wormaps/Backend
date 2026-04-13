@@ -113,6 +113,10 @@ export class SceneRepository {
     return join(this.baseDir, `${sceneId}.validation.json`);
   }
 
+  private buildQaPath(sceneId: string): string {
+    return join(this.baseDir, `${sceneId}.qa.json`);
+  }
+
   private async persistIndex(): Promise<void> {
     await writeFile(
       this.indexPath,
@@ -160,6 +164,16 @@ export class SceneRepository {
       );
     } else {
       await this.safeUnlink(this.buildValidationPath(scene.scene.sceneId));
+    }
+
+    if (scene.qa) {
+      await writeFile(
+        this.buildQaPath(scene.scene.sceneId),
+        JSON.stringify(scene.qa, null, 2),
+        'utf8',
+      );
+    } else {
+      await this.safeUnlink(this.buildQaPath(scene.scene.sceneId));
     }
   }
 

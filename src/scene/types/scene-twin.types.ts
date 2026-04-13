@@ -272,6 +272,41 @@ export interface ValidationReport {
   qualityGate?: SceneQualityGateResult;
 }
 
+export interface MidQaCheck {
+  id:
+    | 'provider_trace'
+    | 'snapshot_replayability'
+    | 'observed_coverage'
+    | 'spatial_roundtrip'
+    | 'delivery_binding'
+    | 'state_binding'
+    | 'mesh_health';
+  state: ValidationGateState;
+  summary: string;
+  metrics: Record<string, number | string | boolean | null>;
+}
+
+export interface MidQaReport {
+  reportId: string;
+  sceneId: string;
+  generatedAt: string;
+  summary: ValidationGateState;
+  score: {
+    overall: number;
+    confidence: 'low' | 'medium' | 'high';
+  };
+  checks: MidQaCheck[];
+  findings: Array<{
+    severity: 'info' | 'warn' | 'error';
+    message: string;
+  }>;
+  references: {
+    twinBuildId: string;
+    validationReportId: string;
+    diagnosticsLogPath?: string;
+  };
+}
+
 export interface SceneTwinGraph {
   twinId: string;
   sceneId: string;
