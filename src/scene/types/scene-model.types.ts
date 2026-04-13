@@ -260,6 +260,23 @@ export interface SceneAssetCounts {
   billboardPanelCount: number;
 }
 
+export interface SceneTerrainProfile {
+  mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES';
+  source: 'NONE' | 'LOCAL_FILE';
+  hasElevationModel: boolean;
+  heightReference: 'ELLIPSOID_APPROX' | 'LOCAL_DEM';
+  baseHeightMeters: number;
+  sampleCount: number;
+  minHeightMeters: number;
+  maxHeightMeters: number;
+  sourcePath: string | null;
+  notes: string;
+  samples: Array<{
+    location: Coordinate;
+    heightMeters: number;
+  }>;
+}
+
 export interface SceneMeta {
   sceneId: string;
   placeId: string;
@@ -301,6 +318,7 @@ export interface SceneMeta {
   structuralCoverage: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;
   qualityGate?: SceneQualityGateResult;
+  terrainProfile?: SceneTerrainProfile;
   roads: SceneRoadMeta[];
   buildings: SceneBuildingMeta[];
   walkways: SceneWalkwayMeta[];

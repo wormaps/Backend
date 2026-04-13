@@ -178,6 +178,7 @@ describe('Scene Services', () => {
     expect(meta.buildings[0]?.footprint).toHaveLength(3);
     expect(meta.camera.topView.y).toBeGreaterThan(0);
     expect(meta.stats.poiCount).toBe(1);
+    expect(meta.terrainProfile?.mode).toBe('FLAT_PLACEHOLDER');
     expect(meta.diagnostics).toEqual({
       droppedBuildings: 0,
       droppedRoads: 0,

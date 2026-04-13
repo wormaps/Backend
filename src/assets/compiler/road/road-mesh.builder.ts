@@ -63,7 +63,9 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
     for (let ix = 0; ix <= GRID; ix += 1) {
       const tx = ix / GRID;
       const x = sw[0] + (ne[0] - sw[0]) * tx;
-      const y = -0.06 + resolveGroundReliefY(x, z, centerX, centerZ, radius);
+      const y =
+        -0.06 +
+        resolveGroundElevationY(sceneMeta, x, z, centerX, centerZ, radius);
       row.push([x, y, z]);
     }
     grid.push(row);
@@ -80,6 +82,24 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   }
 
   return geometry;
+}
+
+function resolveGroundElevationY(
+  sceneMeta: SceneMeta,
+  x: number,
+  z: number,
+  centerX: number,
+  centerZ: number,
+  radius: number,
+): number {
+  const terrainProfile = sceneMeta.terrainProfile;
+  if (
+    terrainProfile?.mode === 'LOCAL_DEM_SAMPLES' &&
+    terrainProfile.samples.length > 0
+  ) {
+    return resolveDemSampleRelief(sceneMeta, x, z);
+  }
+  return resolveGroundReliefY(x, z, centerX, centerZ, radius);
 }
 
 export function createRoadBaseGeometry(
@@ -493,4 +513,40 @@ function resolveGroundReliefY(
     Math.cos((x - z) * 0.00035) * GROUND_RELIEF_CROSS_WAVE_AMPLITUDE;
   const relief = radial * GROUND_RELIEF_RADIAL_AMPLITUDE + longWave + crossWave;
   return Number(relief.toFixed(4));
+}
+
+function resolveDemSampleRelief(
+  sceneMeta: SceneMeta,
+  x: number,
+  z: number,
+): number {
+  const terrainProfile = sceneMeta.terrainProfile;
+  if (!terrainProfile || terrainProfile.samples.length === 0) {
+    return 0;
+  }
+
+  const weighted = terrainProfile.samples
+    .map((sample) => {
+      const local = toLocalPoint(sceneMeta.origin, sample.location);
+      const dx = local[0] - x;
+      const dz = local[2] - z;
+      const distance = Math.max(0.5, Math.hypot(dx, dz));
+      const weight = 1 / distance;
+      return {
+        deltaHeight: sample.heightMeters - terrainProfile.baseHeightMeters,
+        weight,
+      };
+    })
+    .sort((left, right) => right.weight - left.weight)
+    .slice(0, 4);
+
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight <= 0) {
+    return 0;
+  }
+
+  const relief =
+    weighted.reduce((sum, item) => sum + item.deltaHeight * item.weight, 0) /
+    totalWeight;
+  return Number(Math.max(-0.45, Math.min(0.45, relief * 0.18)).toFixed(4));
 }

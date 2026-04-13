@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
-import type { SceneMeta, TerrainSnapshotPayload } from '../../types/scene.types';
+import type { SceneMeta, SceneTerrainProfile } from '../../types/scene.types';
 
 interface TerrainProfileFile {
   heightReference?: 'ELLIPSOID_APPROX' | 'LOCAL_DEM';
@@ -15,7 +15,7 @@ interface TerrainProfileFile {
 
 @Injectable()
 export class SceneTerrainProfileService {
-  resolve(sceneId: string, meta: SceneMeta): TerrainSnapshotPayload {
+  resolve(sceneId: string, meta: SceneMeta): SceneTerrainProfile {
     const terrainPath = this.resolveTerrainPath(sceneId);
     if (!terrainPath || !existsSync(terrainPath)) {
       return this.buildFlatProfile();
@@ -74,7 +74,8 @@ export class SceneTerrainProfileService {
 
   private resolveTerrainPath(sceneId: string): string | null {
     const terrainDir =
-      process.env.SCENE_TERRAIN_DIR?.trim() ?? join(process.cwd(), 'data', 'terrain');
+      process.env.SCENE_TERRAIN_DIR?.trim() ??
+      join(process.cwd(), 'data', 'terrain');
     if (!terrainDir) {
       return null;
     }
@@ -89,7 +90,7 @@ export class SceneTerrainProfileService {
     }
   }
 
-  private buildFlatProfile(): TerrainSnapshotPayload {
+  private buildFlatProfile(): SceneTerrainProfile {
     return {
       mode: 'FLAT_PLACEHOLDER',
       source: 'NONE',

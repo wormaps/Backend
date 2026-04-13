@@ -51,6 +51,7 @@ interface BuildSceneTwinArgs {
 interface SnapshotIds {
   place: string;
   placePackage: string;
+  terrain: string;
   meta: string;
   detail: string;
   qualityGate: string;
@@ -78,7 +79,9 @@ export class SceneTwinBuilderService {
     validation: ValidationReport;
   } {
     const generatedAt = meta.generatedAt;
-    const terrainProfile = this.sceneTerrainProfileService.resolve(sceneId, meta);
+    const terrainProfile =
+      meta.terrainProfile ??
+      this.sceneTerrainProfileService.resolve(sceneId, meta);
     const snapshots = this.buildSourceSnapshots(
       sceneId,
       query,
@@ -228,6 +231,24 @@ export class SceneTwinBuilderService {
               'observed',
               1,
               [snapshotIds.meta],
+            ),
+            this.createProperty(
+              sceneEntityId,
+              'terrainMode',
+              terrainProfile.mode,
+              'string',
+              terrainProfile.hasElevationModel ? 'observed' : 'defaulted',
+              terrainProfile.hasElevationModel ? 0.9 : 0.3,
+              [snapshotIds.terrain],
+            ),
+            this.createProperty(
+              sceneEntityId,
+              'terrainBaseHeightMeters',
+              terrainProfile.baseHeightMeters,
+              'number',
+              terrainProfile.hasElevationModel ? 'observed' : 'defaulted',
+              terrainProfile.hasElevationModel ? 0.9 : 0.3,
+              [snapshotIds.terrain],
             ),
           ],
         },
@@ -1222,6 +1243,8 @@ export class SceneTwinBuilderService {
       place: snapshots.find((snapshot) => snapshot.kind === 'PLACE_DETAIL')!
         .snapshotId,
       placePackage: snapshots.find((snapshot) => snapshot.kind === 'PLACE_PACKAGE')!
+        .snapshotId,
+      terrain: snapshots.find((snapshot) => snapshot.kind === 'TERRAIN_PROFILE')!
         .snapshotId,
       meta: snapshots.find((snapshot) => snapshot.kind === 'SCENE_META')!
         .snapshotId,

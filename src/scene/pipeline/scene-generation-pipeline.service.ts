@@ -9,6 +9,7 @@ import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './steps/scene-place-package.step';
 import { ScenePlaceResolutionStep } from './steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from './steps/scene-visual-rules.step';
+import { SceneTerrainProfileService } from '../services/spatial';
 import { SceneAtmosphereRecomputeService } from '../services/vision';
 import { resolveSceneStaticAtmosphereProfile } from '../utils/scene-static-atmosphere.utils';
 import type {
@@ -26,6 +27,7 @@ export class SceneGenerationPipelineService {
     private readonly sceneMetaBuilderStep: SceneMetaBuilderStep,
     private readonly sceneHeroOverrideStep: SceneHeroOverrideStep,
     private readonly sceneAtmosphereRecomputeService: SceneAtmosphereRecomputeService,
+    private readonly sceneTerrainProfileService: SceneTerrainProfileService,
     private readonly sceneAssetProfileStep: SceneAssetProfileStep,
     private readonly sceneGeometryCorrectionStep: SceneGeometryCorrectionStep,
     private readonly sceneGlbBuildStep: SceneGlbBuildStep,
@@ -165,22 +167,32 @@ export class SceneGenerationPipelineService {
       mergedWithAtmosphere.meta,
       mergedWithAtmosphere.detail,
     );
+    const correctedWithTerrain = {
+      ...corrected,
+      meta: {
+        ...corrected.meta,
+        terrainProfile: this.sceneTerrainProfileService.resolve(
+          sceneId,
+          corrected.meta,
+        ),
+      },
+    };
 
     const finalizedMeta = await this.sceneAssetProfileStep.execute(
-      corrected.meta,
-      corrected.detail,
+      correctedWithTerrain.meta,
+      correctedWithTerrain.detail,
       storedScene.scale,
     );
     this.appLoggerService.info('scene.glb_build.started', {
       ...logContext,
       step: 'glb_build',
       detailStatus: mergedWithAtmosphere.detail.detailStatus,
-      geometryDiagnostics: corrected.detail.geometryDiagnostics,
+      geometryDiagnostics: correctedWithTerrain.detail.geometryDiagnostics,
       selected: finalizedMeta.assetProfile.selected,
     });
     const assetPath = await this.sceneGlbBuildStep.execute(
       finalizedMeta,
-      corrected.detail,
+      correctedWithTerrain.detail,
       {
         pipelineMs: Date.now() - pipelineStartedAt,
       },
@@ -195,7 +207,7 @@ export class SceneGenerationPipelineService {
       place: resolvedPlace.place,
       placePackage: placePackage.placePackage,
       meta: finalizedMeta,
-      detail: corrected.detail,
+      detail: correctedWithTerrain.detail,
       assetPath,
       providerTraces: {
         googlePlaces: resolvedPlace.providerTrace,

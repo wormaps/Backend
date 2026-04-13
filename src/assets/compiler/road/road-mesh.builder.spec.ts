@@ -1,4 +1,5 @@
 import {
+  createGroundGeometry,
   createRoadMarkingsGeometry,
   createCrosswalkGeometry,
   createRoadDecalPathGeometry,
@@ -67,6 +68,115 @@ describe('road-mesh.builder', () => {
 
     expect(geometry.positions.length).toBeGreaterThan(0);
     expect(geometry.indices.length).toBeGreaterThan(0);
+  });
+
+  it('uses local terrain profile samples for ground relief when available', () => {
+    const geometry = createGroundGeometry({
+      sceneId: 'scene-terrain',
+      placeId: 'place-terrain',
+      name: 'Terrain Scene',
+      generatedAt: '2026-04-13T00:00:00Z',
+      origin: coordinate(35.659482, 139.7005596),
+      camera: {
+        topView: { x: 0, y: 180, z: 140 },
+        walkViewStart: { x: 0, y: 1.7, z: 12 },
+      },
+      bounds: {
+        radiusM: 120,
+        northEast: coordinate(35.6602, 139.7012),
+        southWest: coordinate(35.6588, 139.6998),
+      },
+      stats: {
+        buildingCount: 0,
+        roadCount: 0,
+        walkwayCount: 0,
+        poiCount: 0,
+      },
+      diagnostics: {
+        droppedBuildings: 0,
+        droppedRoads: 0,
+        droppedWalkways: 0,
+        droppedPois: 0,
+        droppedCrossings: 0,
+        droppedStreetFurniture: 0,
+        droppedVegetation: 0,
+        droppedLandCovers: 0,
+        droppedLinearFeatures: 0,
+      },
+      detailStatus: 'OSM_ONLY',
+      visualCoverage: {
+        structure: 0,
+        streetDetail: 0,
+        landmark: 0,
+        signage: 0,
+      },
+      materialClasses: [],
+      landmarkAnchors: [],
+      assetProfile: {
+        preset: 'MEDIUM',
+        budget: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+        selected: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+      },
+      structuralCoverage: {
+        selectedBuildingCoverage: 0,
+        coreAreaBuildingCoverage: 0,
+        fallbackMassingRate: 0,
+        footprintPreservationRate: 0,
+        heroLandmarkCoverage: 0,
+      },
+      roads: [],
+      buildings: [],
+      walkways: [],
+      pois: [],
+      terrainProfile: {
+        mode: 'LOCAL_DEM_SAMPLES',
+        source: 'LOCAL_FILE',
+        hasElevationModel: true,
+        heightReference: 'LOCAL_DEM',
+        baseHeightMeters: 32,
+        sampleCount: 2,
+        minHeightMeters: 32,
+        maxHeightMeters: 36,
+        sourcePath: '/tmp/spec.terrain.json',
+        notes: 'spec terrain',
+        samples: [
+          {
+            location: coordinate(35.6592, 139.7001),
+            heightMeters: 32,
+          },
+          {
+            location: coordinate(35.6601, 139.7010),
+            heightMeters: 36,
+          },
+        ],
+      },
+    });
+
+    const yValues = geometry.positions.filter((_, index) => index % 3 === 1);
+    expect(Math.max(...yValues)).toBeGreaterThan(-0.01);
+    expect(Math.max(...yValues) - Math.min(...yValues)).toBeGreaterThan(0.01);
   });
 
   it('renders principal crossings with stronger visibility than non-principal crossings', () => {
