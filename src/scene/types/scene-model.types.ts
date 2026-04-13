@@ -73,6 +73,8 @@ export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
   osmWayId: string;
   center: Coordinate;
   roadVisualClass?: RoadVisualClass;
+  terrainOffsetM?: number;
+  terrainSampleHeightMeters?: number;
 }
 
 export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
@@ -98,6 +100,8 @@ export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
   roofSpec?: BuildingRoofSpec;
   collisionRisk?: 'none' | 'road_overlap';
   groundOffsetM?: number;
+  terrainOffsetM?: number;
+  terrainSampleHeightMeters?: number;
 }
 
 export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {
@@ -245,6 +249,10 @@ export interface SceneGeometryDiagnostic {
   openShellCount?: number;
   roofWallGapCount?: number;
   invalidSetbackJoinCount?: number;
+  terrainAnchoredBuildingCount?: number;
+  terrainAnchoredRoadCount?: number;
+  averageTerrainOffsetM?: number;
+  maxTerrainOffsetM?: number;
 }
 
 export interface SceneAssetCounts {

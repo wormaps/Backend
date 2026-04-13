@@ -506,6 +506,17 @@ export class SceneTwinBuilderService {
                 facadeHint ? appearanceConfidence : 0.2,
                 [facadeHint ? snapshotIds.detail : snapshotIds.meta],
               ),
+              this.createProperty(
+                entityId,
+                'terrainOffsetM',
+                building.terrainOffsetM ?? 0,
+                'number',
+                building.terrainSampleHeightMeters !== undefined
+                  ? 'observed'
+                  : 'defaulted',
+                building.terrainSampleHeightMeters !== undefined ? 0.8 : 0.2,
+                [snapshotIds.terrain],
+              ),
             ],
           },
           {
@@ -597,6 +608,17 @@ export class SceneTwinBuilderService {
             properties: [
               this.createProperty(entityId, 'widthMeters', road.widthMeters, 'number', 'observed', 0.92, [snapshotIds.placePackage]),
               this.createProperty(entityId, 'laneCount', road.laneCount, 'number', 'observed', 0.92, [snapshotIds.placePackage]),
+              this.createProperty(
+                entityId,
+                'terrainOffsetM',
+                road.terrainOffsetM ?? 0,
+                'number',
+                road.terrainSampleHeightMeters !== undefined
+                  ? 'observed'
+                  : 'defaulted',
+                road.terrainSampleHeightMeters !== undefined ? 0.82 : 0.2,
+                [snapshotIds.terrain],
+              ),
             ],
           },
         ],

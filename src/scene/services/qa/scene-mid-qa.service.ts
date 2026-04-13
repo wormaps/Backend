@@ -142,6 +142,28 @@ export class SceneMidQaService {
         },
       },
       {
+        id: 'terrain_asset_alignment',
+        state:
+          !twin.spatialFrame.terrain.hasElevationModel
+            ? 'FAIL'
+            : (meta.roads.some((road) => Math.abs(road.terrainOffsetM ?? 0) > 0) ||
+                  meta.buildings.some(
+                    (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,
+                  ))
+              ? 'PASS'
+              : 'WARN',
+        summary: 'terrain-grounded road/building asset alignment',
+        metrics: {
+          terrainAnchoredRoadCount: meta.roads.filter(
+            (road) => Math.abs(road.terrainOffsetM ?? 0) > 0,
+          ).length,
+          terrainAnchoredBuildingCount: meta.buildings.filter(
+            (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,
+          ).length,
+          hasElevationModel: twin.spatialFrame.terrain.hasElevationModel,
+        },
+      },
+      {
         id: 'delivery_binding',
         state:
           twin.delivery.artifacts.some(
@@ -298,6 +320,17 @@ function buildFindings(
           'terrain/elevation grounding이 없습니다. 현재 scene은 FLAT_PLACEHOLDER 지면 기준입니다.',
       });
     }
+  }
+
+  const terrainAlignmentCheck = checks.find(
+    (check) => check.id === 'terrain_asset_alignment',
+  );
+  if (terrainAlignmentCheck?.state === 'WARN') {
+    findings.push({
+      severity: 'warn',
+      message:
+        'terrain source는 있지만 road/building asset grounding 반영이 충분하지 않습니다.',
+    });
   }
 
   if (context.diagnosticsLineCount === 0) {

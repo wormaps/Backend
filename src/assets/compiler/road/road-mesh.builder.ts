@@ -463,14 +463,15 @@ function resolveRoadWidthScale(road: SceneMeta['roads'][number]): number {
 }
 
 function resolveRoadYOffset(road: SceneMeta['roads'][number]): number {
+  const terrainOffset = road.terrainOffsetM ?? 0;
   const surface = road.surface?.toLowerCase() ?? '';
   if (surface.includes('cobblestone') || surface.includes('sett')) {
-    return 0.008;
+    return terrainOffset + 0.008;
   }
   if (surface.includes('gravel') || surface.includes('unpaved')) {
-    return 0.004;
+    return terrainOffset + 0.004;
   }
-  return 0;
+  return terrainOffset;
 }
 
 function resolveWalkwayWidthScale(

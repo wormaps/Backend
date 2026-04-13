@@ -325,6 +325,7 @@ export interface MidQaCheck {
     | 'observed_coverage'
     | 'spatial_roundtrip'
     | 'terrain_grounding'
+    | 'terrain_asset_alignment'
     | 'delivery_binding'
     | 'state_binding'
     | 'mesh_health';

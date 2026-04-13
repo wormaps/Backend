@@ -28,6 +28,8 @@ describe('SceneGeometryCorrectionStep', () => {
       openShellCount?: number;
       roofWallGapCount?: number;
       invalidSetbackJoinCount?: number;
+      terrainAnchoredBuildingCount?: number;
+      terrainAnchoredRoadCount?: number;
     };
 
     expect(correction).toBeDefined();
@@ -38,11 +40,15 @@ describe('SceneGeometryCorrectionStep', () => {
     expect(correction.openShellCount).toBe(0);
     expect(correction.roofWallGapCount).toBe(0);
     expect(correction.invalidSetbackJoinCount).toBe(0);
+    expect(correction.terrainAnchoredBuildingCount).toBe(2);
+    expect(correction.terrainAnchoredRoadCount).toBe(1);
 
     expect(closeBuilding?.collisionRisk).toBe('road_overlap');
     expect((closeBuilding?.groundOffsetM ?? 0) > 0.06).toBe(true);
+    expect(Math.abs(closeBuilding?.terrainOffsetM ?? 0)).toBeGreaterThan(0);
     expect(farBuilding?.collisionRisk).toBe('none');
     expect(farBuilding?.groundOffsetM).toBe(0);
+    expect(Math.abs(farBuilding?.terrainOffsetM ?? 0)).toBeGreaterThan(0);
   });
 
   it('marks edge-near building using anchor-based road proximity', () => {
@@ -153,6 +159,28 @@ function createFixture(): { meta: SceneMeta; detail: SceneDetail } {
       fallbackMassingRate: 0,
       footprintPreservationRate: 1,
       heroLandmarkCoverage: 1,
+    },
+    terrainProfile: {
+      mode: 'LOCAL_DEM_SAMPLES',
+      source: 'LOCAL_FILE',
+      hasElevationModel: true,
+      heightReference: 'LOCAL_DEM',
+      baseHeightMeters: 30,
+      sampleCount: 2,
+      minHeightMeters: 30,
+      maxHeightMeters: 34,
+      sourcePath: '/tmp/scene-geometry-correction.terrain.json',
+      notes: 'spec terrain',
+      samples: [
+        {
+          location: coordinate(35.6595, 139.7005),
+          heightMeters: 30,
+        },
+        {
+          location: coordinate(35.66095, 139.70205),
+          heightMeters: 34,
+        },
+      ],
     },
     roads: [
       {

@@ -26,12 +26,17 @@ interface GeometryCorrectionDiagnostic {
   openShellCount: number;
   roofWallGapCount: number;
   invalidSetbackJoinCount: number;
+  terrainAnchoredBuildingCount: number;
+  terrainAnchoredRoadCount: number;
+  averageTerrainOffsetM: number;
+  maxTerrainOffsetM: number;
 }
 
 const COLLISION_NEAR_ROAD_METERS = 1.6;
 const BASE_GROUND_OFFSET_ON_COLLISION_METERS = 0.06;
 const MAX_GROUND_OFFSET_ON_COLLISION_METERS = 0.24;
 const SEVERE_GROUNDED_GAP_OFFSET_THRESHOLD = 0.16;
+const TERRAIN_RELIEF_SCALE = 0.18;
 const MIN_RING_VERTICES_FOR_CLOSURE = 3;
 const MIN_SETBACK_USABLE_VERTICES = 3;
 const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
@@ -39,9 +44,9 @@ const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
 @Injectable()
 export class SceneGeometryCorrectionStep {
   execute(meta: SceneMeta, detail: SceneDetail): GeometryCorrectionResult {
-    const roads = meta.roads;
+    const roads = meta.roads.map((road) => this.correctRoad(road, meta));
     const correctedBuildings = meta.buildings.map((building) =>
-      this.correctBuilding(building, roads),
+      this.correctBuilding(building, roads, meta),
     );
 
     const collisionRiskCount = correctedBuildings.filter(
@@ -67,6 +72,29 @@ export class SceneGeometryCorrectionStep {
       appliedGroundOffsets.length > 0
         ? Number(Math.max(...appliedGroundOffsets).toFixed(3))
         : 0;
+    const terrainOffsets = [
+      ...roads.map((road) => road.terrainOffsetM ?? 0),
+      ...correctedBuildings.map((building) => building.terrainOffsetM ?? 0),
+    ].filter((offset) => Math.abs(offset) > 0);
+    const averageTerrainOffsetM =
+      terrainOffsets.length > 0
+        ? Number(
+            (
+              terrainOffsets.reduce((sum, value) => sum + value, 0) /
+              terrainOffsets.length
+            ).toFixed(3),
+          )
+        : 0;
+    const maxTerrainOffsetM =
+      terrainOffsets.length > 0
+        ? Number(Math.max(...terrainOffsets).toFixed(3))
+        : 0;
+    const terrainAnchoredBuildingCount = correctedBuildings.filter(
+      (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,
+    ).length;
+    const terrainAnchoredRoadCount = roads.filter(
+      (road) => Math.abs(road.terrainOffsetM ?? 0) > 0,
+    ).length;
     const closureDiagnostics =
       this.resolveClosureDiagnostics(correctedBuildings);
     const { openShellCount, roofWallGapCount, invalidSetbackJoinCount } =
@@ -74,6 +102,7 @@ export class SceneGeometryCorrectionStep {
 
     const correctedMeta: SceneMeta = {
       ...meta,
+      roads,
       buildings: correctedBuildings,
     };
     const existingDiagnostics = detail.geometryDiagnostics ?? [];
@@ -100,6 +129,10 @@ export class SceneGeometryCorrectionStep {
           openShellCount,
           roofWallGapCount,
           invalidSetbackJoinCount,
+          terrainAnchoredBuildingCount,
+          terrainAnchoredRoadCount,
+          averageTerrainOffsetM,
+          maxTerrainOffsetM,
         } as GeometryCorrectionDiagnostic,
       ],
     };
@@ -112,7 +145,12 @@ export class SceneGeometryCorrectionStep {
       openShellCount,
       roofWallGapCount,
       invalidSetbackJoinCount,
+      terrainAnchoredBuildingCount,
+      terrainAnchoredRoadCount,
+      averageTerrainOffsetM,
+      maxTerrainOffsetM,
       buildingCount: correctedBuildings.length,
+      roadCount: roads.length,
       correctedCount: correctedBuildings.filter(
         (building) => building.collisionRisk === 'road_overlap',
       ).length,
@@ -165,6 +203,7 @@ export class SceneGeometryCorrectionStep {
   private correctBuilding(
     building: SceneBuildingMeta,
     roads: SceneRoadMeta[],
+    meta: SceneMeta,
   ): SceneBuildingMeta {
     const anchors = resolveBuildingAnchors(building.outerRing);
     if (anchors.length === 0) {
@@ -202,11 +241,23 @@ export class SceneGeometryCorrectionStep {
       ).toFixed(3),
     );
     const groundOffsetM = nearRoad ? dynamicGroundOffset : 0;
+    const terrainOffset = resolveTerrainOffsetForPoints(meta, anchors);
+    const terrainSampleHeightMeters = resolveTerrainHeightForPoints(meta, anchors);
 
     return {
       ...building,
       collisionRisk,
       groundOffsetM,
+      terrainOffsetM: terrainOffset,
+      terrainSampleHeightMeters,
+    };
+  }
+
+  private correctRoad(road: SceneRoadMeta, meta: SceneMeta): SceneRoadMeta {
+    return {
+      ...road,
+      terrainOffsetM: resolveTerrainOffsetForPoints(meta, road.path),
+      terrainSampleHeightMeters: resolveTerrainHeightForPoints(meta, road.path),
     };
   }
 
@@ -244,6 +295,73 @@ export class SceneGeometryCorrectionStep {
       Math.min(COLLISION_NEAR_ROAD_METERS, laneWidthEstimate * 0.48),
     );
   }
+}
+
+function resolveTerrainHeightForPoints(
+  meta: SceneMeta,
+  points: Array<{ lat: number; lng: number }>,
+): number | undefined {
+  const terrainProfile = meta.terrainProfile;
+  if (!terrainProfile || terrainProfile.samples.length === 0) {
+    return undefined;
+  }
+
+  const anchors = points.length > 0 ? points : [meta.origin];
+  const heights = anchors
+    .map((point) => sampleTerrainHeight(meta, point))
+    .filter((value): value is number => Number.isFinite(value));
+
+  if (heights.length === 0) {
+    return undefined;
+  }
+  return Number((heights.reduce((sum, value) => sum + value, 0) / heights.length).toFixed(3));
+}
+
+function resolveTerrainOffsetForPoints(
+  meta: SceneMeta,
+  points: Array<{ lat: number; lng: number }>,
+): number {
+  const terrainProfile = meta.terrainProfile;
+  if (!terrainProfile || terrainProfile.samples.length === 0) {
+    return 0;
+  }
+
+  const sampledHeight = resolveTerrainHeightForPoints(meta, points);
+  if (!Number.isFinite(sampledHeight)) {
+    return 0;
+  }
+
+  const delta = (sampledHeight ?? 0) - terrainProfile.baseHeightMeters;
+  return Number((delta * TERRAIN_RELIEF_SCALE).toFixed(3));
+}
+
+function sampleTerrainHeight(
+  meta: SceneMeta,
+  point: { lat: number; lng: number },
+): number | null {
+  const terrainProfile = meta.terrainProfile;
+  if (!terrainProfile || terrainProfile.samples.length === 0) {
+    return null;
+  }
+
+  const weighted = terrainProfile.samples
+    .map((sample) => {
+      const distance = distanceMeters(point, sample.location);
+      const weight = 1 / Math.max(0.5, distance);
+      return {
+        heightMeters: sample.heightMeters,
+        weight,
+      };
+    })
+    .sort((left, right) => right.weight - left.weight)
+    .slice(0, 4);
+
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight <= 0) {
+    return null;
+  }
+
+  return weighted.reduce((sum, item) => sum + item.heightMeters * item.weight, 0) / totalWeight;
 }
 
 function resolveBuildingAnchors(

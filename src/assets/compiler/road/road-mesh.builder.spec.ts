@@ -6,6 +6,7 @@ import {
   createRoadDecalPolygonGeometry,
   createRoadDecalStripeGeometry,
   createRoadEdgeGeometry,
+  createRoadBaseGeometry,
 } from './road-mesh.builder';
 
 function coordinate(lat: number, lng: number) {
@@ -68,6 +69,31 @@ describe('road-mesh.builder', () => {
 
     expect(geometry.positions.length).toBeGreaterThan(0);
     expect(geometry.indices.length).toBeGreaterThan(0);
+  });
+
+  it('applies terrain offset to road base geometry when provided', () => {
+    const geometry = createRoadBaseGeometry(
+      coordinate(35.659482, 139.7005596),
+      [
+        {
+          objectId: 'road-1',
+          osmWayId: 'way_1',
+          name: 'Road',
+          laneCount: 4,
+          roadClass: 'primary',
+          widthMeters: 14,
+          direction: 'TWO_WAY',
+          path: [coordinate(35.6593, 139.7002), coordinate(35.6597, 139.7008)],
+          center: coordinate(35.6595, 139.7005),
+          surface: 'asphalt',
+          bridge: false,
+          terrainOffsetM: 0.12,
+        },
+      ],
+    );
+
+    const yValues = geometry.positions.filter((_, index) => index % 3 === 1);
+    expect(Math.min(...yValues)).toBeGreaterThanOrEqual(0.16 - 1e-6);
   });
 
   it('uses local terrain profile samples for ground relief when available', () => {
