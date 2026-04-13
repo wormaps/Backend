@@ -168,6 +168,7 @@ export class SceneGenerationService {
         },
         assetPath: result.assetPath,
         qualityGate,
+        providerTraces: result.providerTraces,
       });
       const qualityPass = qualityGate.state === 'PASS';
       const failureCategory = qualityPass ? null : 'QUALITY_GATE_REJECTED';

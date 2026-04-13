@@ -396,6 +396,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       materialClasses: [],
       landmarkAnchors: [],
     },
+    providerTrace: null,
   });
   sceneHeroOverrideService.applyOverrides.mockImplementation(
     (_place, meta, detail) => ({

@@ -55,6 +55,7 @@ describe('Scene Services', () => {
     const detail = await readService.getSceneDetail(scene.sceneId);
     const twin = await readService.getSceneTwin(scene.sceneId);
     const validation = await readService.getValidationReport(scene.sceneId);
+    const evidence = await readService.getSceneEvidence(scene.sceneId);
 
     expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
     expect(refreshed.radiusM).toBe(600);
@@ -129,12 +130,16 @@ describe('Scene Services', () => {
     expect(twin.sourceSnapshots.snapshots).toHaveLength(6);
     expect(twin.sourceSnapshots.snapshots[0]?.kind).toBe('PLACE_SEARCH_QUERY');
     expect(twin.sourceSnapshots.snapshots[0]?.request.method).toBe('POST');
+    expect(
+      twin.sourceSnapshots.snapshots[1]?.responseSummary.objectId,
+    ).toBe(placeDetail.placeId);
     expect(twin.spatialFrame.localFrame).toBe('ENU');
     expect(twin.spatialFrame.verification.sampleCount).toBe(3);
     expect(twin.spatialFrame.terrain.mode).toBe('FLAT_PLACEHOLDER');
     expect(twin.entities.some((entity) => entity.kind === 'BUILDING')).toBe(
       true,
     );
+    expect(evidence.some((item) => item.kind === 'GEOMETRY')).toBe(true);
     expect(validation.summary).toBe('WARN');
     expect(validation.gates.map((gate) => gate.gate)).toEqual([
       'geometry',
@@ -142,6 +147,9 @@ describe('Scene Services', () => {
       'spatial',
       'delivery',
       'state',
+    ]);
+    expect(validation.gates[1]?.reasonCodes).toEqual([
+      'LOW_OBSERVED_APPEARANCE_COVERAGE',
     ]);
     expect(meta.pois[0]?.category).toBe('shop');
     expect(meta.pois[0]?.location.lat).toBe(37.5664);

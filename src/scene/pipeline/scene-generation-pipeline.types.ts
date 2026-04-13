@@ -1,6 +1,11 @@
 import type { GeoBounds, PlacePackage } from '../../places/types/place.types';
 import type { ExternalPlaceDetail } from '../../places/types/external-place.types';
-import type { SceneDetail, SceneMeta, StoredScene } from '../types/scene.types';
+import type {
+  ProviderTrace,
+  SceneDetail,
+  SceneMeta,
+  StoredScene,
+} from '../types/scene.types';
 
 export interface SceneGenerationLogContext {
   requestId: string | null;
@@ -13,6 +18,7 @@ export interface ResolvedScenePlace {
   bounds: GeoBounds;
   radiusM: number;
   candidateCount: number;
+  providerTrace: ProviderTrace;
 }
 
 export interface SceneGenerationPipelineResult {
@@ -21,6 +27,11 @@ export interface SceneGenerationPipelineResult {
   meta: SceneMeta;
   detail: SceneDetail;
   assetPath: string;
+  providerTraces: {
+    googlePlaces: ProviderTrace;
+    overpass: ProviderTrace;
+    mapillary?: ProviderTrace | null;
+  };
 }
 
 export interface SceneGenerationPipelineInput {

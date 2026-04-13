@@ -32,6 +32,7 @@ import {
   BootstrapResponseDto,
   CreateSceneRequestDto,
   SceneDetailDto,
+  SceneEvidenceDto,
   SceneEntityDto,
   SceneMetaDto,
   ScenePlacesResponseDto,
@@ -56,6 +57,7 @@ import {
   SCENE_SCALE_VALUES,
   SceneStateResponse,
   SceneTrafficResponse,
+  TwinEvidence,
   SceneTwinGraph,
   ValidationReport,
   SceneWeatherResponse,
@@ -219,6 +221,21 @@ export class SceneController {
         message: 'Scene validation report 조회에 성공했습니다.',
         data,
       }));
+  }
+
+  @Get(':sceneId/evidence')
+  @ApiOperation({ summary: 'Scene evidence 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiSuccessEnvelope({ model: SceneEvidenceDto, isArray: true })
+  getEvidence(
+    @Param('sceneId') sceneId: string,
+  ): Promise<ResponsePayload<TwinEvidence[]>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+
+    return this.sceneService.getSceneEvidence(validatedSceneId).then((data) => ({
+      message: 'Scene evidence 조회에 성공했습니다.',
+      data,
+    }));
   }
 
   @Get(':sceneId/places')

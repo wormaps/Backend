@@ -324,6 +324,35 @@ export class ValidationReportDto {
   qualityGate?: object;
 }
 
+export class SceneEvidenceDto {
+  @ApiProperty({ example: 'evidence-1234567890ab' })
+  evidenceId!: string;
+
+  @ApiProperty({ example: 'entity-1234567890ab' })
+  entityId!: string;
+
+  @ApiProperty({ enum: ['GEOMETRY', 'APPEARANCE', 'STATE', 'SEMANTIC'] })
+  kind!: string;
+
+  @ApiProperty({ example: 'snapshot-1234567890ab' })
+  sourceSnapshotId!: string;
+
+  @ApiProperty({ example: '2026-04-13T12:00:00.000Z' })
+  observedAt!: string;
+
+  @ApiProperty({ example: 0.9 })
+  confidence!: number;
+
+  @ApiProperty({ enum: ['observed', 'inferred', 'defaulted'] })
+  provenance!: string;
+
+  @ApiProperty({ example: 'Building footprint and height derived from normalized Overpass package.' })
+  summary!: string;
+
+  @ApiProperty({ type: Object })
+  payload!: object;
+}
+
 export class SceneDetailDto {
   @ApiProperty({ example: 'scene-shibuya-scramble-crossing' })
   sceneId!: string;

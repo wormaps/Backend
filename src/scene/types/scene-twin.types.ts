@@ -22,6 +22,7 @@ export type TwinSnapshotKind =
   | 'PLACE_SEARCH_QUERY'
   | 'PLACE_DETAIL'
   | 'PLACE_PACKAGE'
+  | 'PROVIDER_TRACE'
   | 'SCENE_META'
   | 'SCENE_DETAIL'
   | 'QUALITY_GATE';
@@ -48,6 +49,13 @@ export interface SnapshotResponseSummary {
   status?: 'SUCCESS' | 'DERIVED';
   fields?: string[];
   diagnostics?: Record<string, number | string | boolean | null>;
+}
+
+export interface ProviderTrace {
+  provider: TwinSnapshotProvider;
+  requests: SnapshotReplayRequest[];
+  responseSummary: SnapshotResponseSummary;
+  observedAt: string;
 }
 
 export interface SourceSnapshotRecord {

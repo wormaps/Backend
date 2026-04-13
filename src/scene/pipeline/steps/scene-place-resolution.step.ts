@@ -3,7 +3,7 @@ import { GooglePlacesClient } from '../../../places/clients/google-places.client
 import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/errors/app.exception';
 import { resolveSceneBounds } from '../../utils/scene-geometry.utils';
-import type { SceneScale } from '../../types/scene.types';
+import type { ProviderTrace, SceneScale } from '../../types/scene.types';
 import type { ResolvedScenePlace } from '../scene-generation-pipeline.types';
 
 @Injectable()
@@ -27,12 +27,60 @@ export class ScenePlaceResolutionStep {
     );
     const radiusM = this.resolveRadius(scale);
     const bounds = resolveSceneBounds(place.location, radiusM);
+    const providerTrace: ProviderTrace = {
+      provider: 'GOOGLE_PLACES',
+      observedAt: new Date().toISOString(),
+      requests: [
+        {
+          method: 'POST',
+          url: 'https://places.googleapis.com/v1/places:searchText',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types,places.googleMapsUri',
+          },
+          body: {
+            textQuery: query,
+            pageSize: 1,
+            languageCode: 'en',
+          },
+          notes: '검색 질의 descriptor입니다. 인증값은 저장하지 않습니다.',
+        },
+        {
+          method: 'GET',
+          url: `https://places.googleapis.com/v1/places/${selected.placeId}`,
+          headers: {
+            'X-Goog-FieldMask':
+              'id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,viewport,utcOffsetMinutes',
+          },
+          notes: 'place detail descriptor입니다. 인증값은 저장하지 않습니다.',
+        },
+      ],
+      responseSummary: {
+        status: 'SUCCESS',
+        itemCount: candidates.length,
+        objectId: place.placeId,
+        fields: [
+          'displayName',
+          'formattedAddress',
+          'location',
+          'primaryType',
+          'viewport',
+          'utcOffsetMinutes',
+        ],
+        diagnostics: {
+          candidateCount: candidates.length,
+          resolvedRadiusM: radiusM,
+        },
+      },
+    };
 
     return {
       place,
       bounds,
       radiusM,
       candidateCount: candidates.length,
+      providerTrace,
     };
   }
 

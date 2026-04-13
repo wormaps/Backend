@@ -78,17 +78,17 @@ export class SceneGenerationPipelineService {
       ...logContext,
       provider: 'overpass',
       step: 'overpass',
-      buildingCount: placePackage.buildings.length,
-      roadCount: placePackage.roads.length,
-      walkwayCount: placePackage.walkways.length,
-      poiCount: placePackage.pois.length,
+      buildingCount: placePackage.placePackage.buildings.length,
+      roadCount: placePackage.placePackage.roads.length,
+      walkwayCount: placePackage.placePackage.walkways.length,
+      poiCount: placePackage.placePackage.pois.length,
     });
 
     const vision = await this.sceneVisualRulesStep.execute(
       sceneId,
       resolvedPlace.place,
       resolvedPlace.bounds,
-      placePackage,
+      placePackage.placePackage,
     );
     this.appLoggerService.info('scene.mapillary.completed', {
       ...logContext,
@@ -103,7 +103,7 @@ export class SceneGenerationPipelineService {
       sceneId,
       resolvedPlace.place,
       storedScene.scale,
-      placePackage,
+      placePackage.placePackage,
       vision.detail,
     );
 
@@ -111,7 +111,7 @@ export class SceneGenerationPipelineService {
       sceneId,
       storedScene.scale,
       resolvedPlace.radiusM,
-      placePackage,
+      placePackage.placePackage,
       resolvedPlace.place,
       resolvedPlace.bounds,
       vision.detail,
@@ -136,7 +136,7 @@ export class SceneGenerationPipelineService {
       sceneId,
       resolvedPlace.place,
       storedScene.scale,
-      placePackage,
+      placePackage.placePackage,
       mergedWithAtmosphere.detail,
       'fidelity_plan_final',
     );
@@ -193,10 +193,15 @@ export class SceneGenerationPipelineService {
 
     return {
       place: resolvedPlace.place,
-      placePackage,
+      placePackage: placePackage.placePackage,
       meta: finalizedMeta,
       detail: corrected.detail,
       assetPath,
+      providerTraces: {
+        googlePlaces: resolvedPlace.providerTrace,
+        overpass: placePackage.providerTrace,
+        mapillary: vision.providerTrace,
+      },
     };
   }
 }

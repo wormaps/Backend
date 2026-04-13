@@ -13,6 +13,7 @@ import type {
   SceneStateQuery,
   SceneStateResponse,
   SceneTrafficResponse,
+  TwinEvidence,
   SceneTwinGraph,
   ValidationReport,
   SceneWeatherQuery,
@@ -61,6 +62,10 @@ export class SceneService {
 
   getValidationReport(sceneId: string): Promise<ValidationReport> {
     return this.sceneReadService.getValidationReport(sceneId);
+  }
+
+  getSceneEvidence(sceneId: string): Promise<TwinEvidence[]> {
+    return this.sceneReadService.getSceneEvidence(sceneId);
   }
 
   getState(

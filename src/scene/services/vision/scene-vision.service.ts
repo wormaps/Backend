@@ -3,6 +3,7 @@ import { MapillaryClient } from '../../../places/clients/mapillary.client';
 import { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import { GeoBounds, PlacePackage } from '../../../places/types/place.types';
 import {
+  ProviderTrace,
   SceneDetail,
   SceneMeta,
   SceneStreetFurnitureDetail,
@@ -19,6 +20,7 @@ interface SceneVisionResult {
     SceneMeta,
     'detailStatus' | 'visualCoverage' | 'materialClasses' | 'landmarkAnchors'
   >;
+  providerTrace: ProviderTrace | null;
 }
 
 @Injectable()
@@ -58,6 +60,7 @@ export class SceneVisionService {
           resultCount: number;
         }>
       | undefined;
+    let providerTrace: ProviderTrace | null = null;
 
     if (this.mapillaryClient.isConfigured()) {
       try {
@@ -77,8 +80,64 @@ export class SceneVisionService {
           mapillaryImages.length > 0 || mapillaryFeatures.length > 0
             ? 'FULL'
             : 'PARTIAL';
+        providerTrace = {
+          provider: 'MAPILLARY',
+          observedAt: new Date().toISOString(),
+          requests: [
+            {
+              method: 'GET',
+              url: 'https://graph.mapillary.com/map_features',
+              query: {
+                southWestLat: bounds.southWest.lat,
+                southWestLng: bounds.southWest.lng,
+                northEastLat: bounds.northEast.lat,
+                northEastLng: bounds.northEast.lng,
+                limit: 100,
+              },
+              notes: 'Mapillary feature bbox descriptor입니다.',
+            },
+            {
+              method: 'GET',
+              url: 'https://graph.mapillary.com/images',
+              query: {
+                strategy: mapillaryImageStrategy ?? 'none',
+                attemptCount: mapillaryImageAttempts?.length ?? 0,
+              },
+              notes:
+                'Mapillary image fetch descriptor입니다. 실제 access token은 저장하지 않습니다.',
+            },
+          ],
+          responseSummary: {
+            status: 'SUCCESS',
+            itemCount: mapillaryImages.length + mapillaryFeatures.length,
+            diagnostics: {
+              imageCount: mapillaryImages.length,
+              featureCount: mapillaryFeatures.length,
+              strategy: mapillaryImageStrategy ?? 'none',
+              attemptCount: mapillaryImageAttempts?.length ?? 0,
+            },
+          },
+        };
       } catch {
         detailStatus = 'PARTIAL';
+        providerTrace = {
+          provider: 'MAPILLARY',
+          observedAt: new Date().toISOString(),
+          requests: [
+            {
+              method: 'GET',
+              url: 'https://graph.mapillary.com/map_features',
+              notes: 'Mapillary configured but request failed.',
+            },
+          ],
+          responseSummary: {
+            status: 'DERIVED',
+            diagnostics: {
+              mapillaryUsed: false,
+              detailStatus: 'PARTIAL',
+            },
+          },
+        };
       }
     }
 
@@ -243,6 +302,7 @@ export class SceneVisionService {
         materialClasses,
         landmarkAnchors,
       },
+      providerTrace,
     };
   }
 }

@@ -8,6 +8,7 @@ import type {
   SceneEntity,
   SceneMeta,
   ScenePlacesResponse,
+  TwinEvidence,
   SceneTwinGraph,
   StoredScene,
   ValidationReport,
@@ -158,6 +159,11 @@ export class SceneReadService {
       });
     }
     return stored.validation;
+  }
+
+  async getSceneEvidence(sceneId: string): Promise<TwinEvidence[]> {
+    const twin = await this.getSceneTwin(sceneId);
+    return twin.evidence;
   }
 
   async getStoredScene(sceneId: string): Promise<StoredScene> {

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { Coordinate, PlacePackage } from '../../../places/types/place.types';
 import type {
+  ProviderTrace,
   SceneDetail,
   SceneMeta,
   SceneQualityGateResult,
@@ -38,6 +39,11 @@ interface BuildSceneTwinArgs {
   detail: SceneDetail;
   assetPath: string;
   qualityGate: SceneQualityGateResult;
+  providerTraces: {
+    googlePlaces: ProviderTrace;
+    overpass: ProviderTrace;
+    mapillary?: ProviderTrace | null;
+  };
 }
 
 interface SnapshotIds {
@@ -60,6 +66,7 @@ export class SceneTwinBuilderService {
     detail,
     assetPath,
     qualityGate,
+    providerTraces,
   }: BuildSceneTwinArgs): {
     twin: SceneTwinGraph;
     validation: ValidationReport;
@@ -69,6 +76,7 @@ export class SceneTwinBuilderService {
       sceneId,
       query,
       scale,
+      providerTraces,
       place,
       placePackage,
       meta,
@@ -984,6 +992,7 @@ export class SceneTwinBuilderService {
     sceneId: string,
     query: string,
     scale: SceneScale,
+    providerTraces: BuildSceneTwinArgs['providerTraces'],
     place: ExternalPlaceDetail,
     placePackage: PlacePackage,
     meta: SceneMeta,
@@ -1003,25 +1012,13 @@ export class SceneTwinBuilderService {
         'GOOGLE_PLACES',
         'PLACE_SEARCH_QUERY',
         searchPayload,
-        meta.generatedAt,
-        {
-          method: 'POST',
-          url: 'https://places.googleapis.com/v1/places:searchText',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-FieldMask':
-              'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types,places.googleMapsUri',
-          },
-          body: {
-            textQuery: query,
-            pageSize: 1,
-            languageCode: 'en',
-          },
-          notes:
-            '검색 질의 snapshot입니다. 실제 API key는 저장하지 않습니다.',
+        providerTraces.googlePlaces.observedAt,
+        providerTraces.googlePlaces.requests[0] ?? {
+          method: 'DERIVED',
+          url: 'google-places-search-missing',
         },
         {
-          itemCount: 1,
+          ...providerTraces.googlePlaces.responseSummary,
           status: 'DERIVED',
           fields: ['query', 'scale', 'resolvedRadiusM'],
         },
@@ -1031,18 +1028,13 @@ export class SceneTwinBuilderService {
         'GOOGLE_PLACES',
         'PLACE_DETAIL',
         place,
-        placePackage.generatedAt,
-        {
-          method: 'GET',
-          url: `https://places.googleapis.com/v1/places/${place.placeId}`,
-          headers: {
-            'X-Goog-FieldMask':
-              'id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,viewport,utcOffsetMinutes',
-          },
-          notes:
-            'Google Place Detail request descriptor입니다. 인증값은 저장하지 않습니다.',
+        providerTraces.googlePlaces.observedAt,
+        providerTraces.googlePlaces.requests[1] ?? {
+          method: 'DERIVED',
+          url: 'google-place-detail-missing',
         },
         {
+          ...providerTraces.googlePlaces.responseSummary,
           objectId: place.placeId,
           status: 'SUCCESS',
           fields: [
@@ -1060,23 +1052,13 @@ export class SceneTwinBuilderService {
         'OVERPASS',
         'PLACE_PACKAGE',
         placePackage,
-        placePackage.generatedAt,
-        {
-          method: 'POST',
-          url: 'OVERPASS_MULTI_SCOPE',
-          query: {
-            northEastLat: placePackage.bounds.northEast.lat,
-            northEastLng: placePackage.bounds.northEast.lng,
-            southWestLat: placePackage.bounds.southWest.lat,
-            southWestLng: placePackage.bounds.southWest.lng,
-          },
-          body: {
-            scopes: ['core', 'street', 'environment'],
-          },
-          notes:
-            'Overpass 실제 쿼리 문자열 대신 bbox와 scope 구성을 replay descriptor로 저장합니다.',
+        providerTraces.overpass.observedAt,
+        providerTraces.overpass.requests[0] ?? {
+          method: 'DERIVED',
+          url: 'overpass-trace-missing',
         },
         {
+          ...providerTraces.overpass.responseSummary,
           status: 'SUCCESS',
           itemCount:
             placePackage.buildings.length +
@@ -1096,6 +1078,40 @@ export class SceneTwinBuilderService {
           },
         },
       ),
+      ...(providerTraces.mapillary
+        ? [
+            this.createSnapshot(
+              sceneId,
+              'MAPILLARY',
+              'PROVIDER_TRACE',
+              {
+                sceneId: detail.sceneId,
+                placeId: detail.placeId,
+                generatedAt: detail.generatedAt,
+                detailStatus: detail.detailStatus,
+                crossings: [],
+                roadMarkings: [],
+                streetFurniture: [],
+                vegetation: [],
+                landCovers: [],
+                linearFeatures: [],
+                facadeHints: [],
+                signageClusters: [],
+                annotationsApplied: [],
+                provenance: detail.provenance,
+              } as SceneDetail,
+              providerTraces.mapillary.observedAt,
+              providerTraces.mapillary.requests[0] ?? {
+                method: 'DERIVED',
+                url: 'mapillary-trace-missing',
+              },
+              {
+                ...providerTraces.mapillary.responseSummary,
+                status: providerTraces.mapillary.responseSummary.status ?? 'SUCCESS',
+              },
+            ),
+          ]
+        : []),
       this.createSnapshot(
         sceneId,
         'SCENE_PIPELINE',
@@ -1389,6 +1405,7 @@ export class SceneTwinBuilderService {
       args.twinEntityCount,
       args.twinComponentCount,
       args.evidenceCount,
+      args.detail,
     );
     const spatialGate = this.buildSpatialGate(args.spatialFrame);
     const deliveryGate = this.buildDeliveryGate(
@@ -1453,17 +1470,37 @@ export class SceneTwinBuilderService {
     twinEntityCount: number,
     twinComponentCount: number,
     evidenceCount: number,
+    detail: SceneDetail,
   ): ValidationGateResult {
+    const buildingCount = Math.max(detail.facadeHints.length, 1);
+    const observedAppearanceCount =
+      detail.provenance.osmTagCoverage.coloredBuildings +
+      detail.provenance.osmTagCoverage.materialBuildings;
+    const observedAppearanceRatio = Math.min(
+      1,
+      observedAppearanceCount / buildingCount,
+    );
     const state =
-      twinEntityCount === 0 || twinComponentCount === 0 ? 'FAIL' : 'PASS';
+      twinEntityCount === 0 || twinComponentCount === 0
+        ? 'FAIL'
+        : observedAppearanceRatio < 0.05
+          ? 'WARN'
+          : 'PASS';
     return {
       gate: 'semantic',
       state,
-      reasonCodes: state === 'PASS' ? [] : ['EMPTY_TWIN_GRAPH'],
+      reasonCodes:
+        state === 'FAIL'
+          ? ['EMPTY_TWIN_GRAPH']
+          : state === 'WARN'
+            ? ['LOW_OBSERVED_APPEARANCE_COVERAGE']
+            : [],
       metrics: {
         twinEntityCount,
         twinComponentCount,
         evidenceCount,
+        observedAppearanceRatio: roundMetric(observedAppearanceRatio),
+        facadeHintCount: detail.facadeHints.length,
       },
     };
   }
