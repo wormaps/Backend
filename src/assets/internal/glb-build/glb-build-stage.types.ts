@@ -50,7 +50,12 @@ export interface MeshAddDelegate {
       indices: number[];
     },
     material: any,
-    trace?: { sourceCount?: number; selectedCount?: number },
+    trace?: {
+      sourceCount?: number;
+      selectedCount?: number;
+      semanticCategory?: string;
+      semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
+    },
   ): void;
 }
 

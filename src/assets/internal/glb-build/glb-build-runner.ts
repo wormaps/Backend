@@ -69,6 +69,13 @@ interface MeshNodeDiagnostic {
   layer?: string;
 }
 
+type MeshSemanticTrace = {
+  sourceCount?: number;
+  selectedCount?: number;
+  semanticCategory?: string;
+  semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
+};
+
 interface FacadeColorDiversityMetrics {
   facadeHintCount: number;
   uniqueMainColorCount: number;
@@ -95,6 +102,8 @@ export class GlbBuildRunner {
   private totalTriangleBudget = 2_500_000;
   private totalTriangleCount = 0;
   private protectedTriangleCount = 0;
+  private materialCacheHits = 0;
+  private materialCacheMisses = 0;
   private readonly protectedTriangleReserve = 180_000;
   private readonly budgetProtectedMeshNames = new Set<string>([
     'road_base',
@@ -135,12 +144,15 @@ export class GlbBuildRunner {
     const buildStartedAt = Date.now();
     this.totalTriangleCount = 0;
     this.protectedTriangleCount = 0;
+    this.materialCacheHits = 0;
+    this.materialCacheMisses = 0;
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
     const triangulate = earcutModule.default;
     const { Accessor, Document, NodeIO } = gltf;
     const doc = new Document();
+    this.installMaterialCache(doc, sceneMeta.sceneId);
     const buffer = doc.createBuffer('scene-buffer');
     const scene = doc.createScene(sceneMeta.sceneId);
     this.currentMeshDiagnostics = [];
@@ -181,6 +193,10 @@ export class GlbBuildRunner {
       variationProfile,
       modePolicy: modePolicy.id,
       staticAtmosphere: sceneDetail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
+      materialCache: {
+        hits: this.materialCacheHits,
+        misses: this.materialCacheMisses,
+      },
     });
 
     addTransportMeshes(
@@ -522,7 +538,7 @@ export class GlbBuildRunner {
     name: string,
     geometry: GeometryBuffers,
     material: any,
-    trace: { sourceCount?: number; selectedCount?: number } = {},
+    trace: MeshSemanticTrace = {},
   ): void {
     if (!this.isGeometryValid(geometry)) {
       this.currentMeshDiagnostics.push({
@@ -612,8 +628,24 @@ export class GlbBuildRunner {
       )
       .setMaterial(material);
 
+    const semanticExtras = {
+      sceneId: scene.name ?? undefined,
+      meshName: name,
+      sourceCount: trace.sourceCount ?? 0,
+      selectedCount: trace.selectedCount ?? 0,
+      semanticCategory:
+        trace.semanticCategory ?? this.resolveSemanticCategory(name),
+      semanticMetadataCoverage:
+        trace.semanticCoverage ??
+        this.resolveSemanticCoverage(trace.sourceCount, trace.selectedCount),
+    };
+    this.applyExtras(primitive, semanticExtras);
+    this.applyExtras(mesh, semanticExtras);
+
     mesh.addPrimitive(primitive);
-    scene.addChild(doc.createNode(name).setMesh(mesh));
+    const node = doc.createNode(name).setMesh(mesh);
+    this.applyExtras(node, semanticExtras);
+    scene.addChild(node);
   }
 
   private resolveSkippedReason(trace: {
@@ -627,6 +659,90 @@ export class GlbBuildRunner {
       return 'selection_cut';
     }
     return 'empty_or_invalid_geometry';
+  }
+
+  private installMaterialCache(doc: any, sceneId: string): void {
+    const originalCreateMaterial = doc.createMaterial.bind(doc);
+    const cache = new Map<string, any>();
+    doc.createMaterial = (name: string) => {
+      const cached = cache.get(name);
+      if (cached) {
+        this.materialCacheHits += 1;
+        return cached;
+      }
+      this.materialCacheMisses += 1;
+      const material = originalCreateMaterial(name);
+      this.applyMaterialExtras(material, {
+        sceneId,
+        materialName: name,
+        materialCacheKey: name,
+      });
+      cache.set(name, material);
+      return material;
+    };
+  }
+
+  private applyMaterialExtras(
+    material: any,
+    extras: Record<string, unknown>,
+  ): void {
+    if (typeof material?.setExtras === 'function') {
+      material.setExtras(extras);
+      return;
+    }
+    if (typeof material?.setExtra === 'function') {
+      material.setExtra('wormap', extras);
+    }
+  }
+
+  private applyExtras(target: any, extras: Record<string, unknown>): void {
+    if (typeof target?.setExtras === 'function') {
+      target.setExtras(extras);
+    }
+  }
+
+  private resolveSemanticCategory(name: string): string {
+    if (name.startsWith('building_') || name.startsWith('landmark_')) {
+      return 'building';
+    }
+    if (
+      name.startsWith('road_') ||
+      name.includes('crosswalk') ||
+      name.includes('lane_overlay') ||
+      name.includes('junction_overlay') ||
+      name.includes('sidewalk') ||
+      name.includes('curb') ||
+      name.includes('median')
+    ) {
+      return 'transport';
+    }
+    if (
+      name.includes('traffic_light') ||
+      name.includes('street_light') ||
+      name.includes('sign_pole') ||
+      name.includes('tree') ||
+      name.includes('bush') ||
+      name.includes('flower') ||
+      name.includes('poi') ||
+      name.includes('landcover') ||
+      name.includes('linear_')
+    ) {
+      return 'street_context';
+    }
+    return 'scene';
+  }
+
+  private resolveSemanticCoverage(
+    sourceCount?: number,
+    selectedCount?: number,
+  ): 'NONE' | 'PARTIAL' | 'FULL' {
+    if ((sourceCount ?? 0) <= 0) {
+      return 'NONE';
+    }
+    if ((selectedCount ?? 0) >= (sourceCount ?? 0)) {
+      return 'FULL';
+    }
+    return 'PARTIAL';
   }
 
   private isBudgetProtectedMesh(name: string): boolean {

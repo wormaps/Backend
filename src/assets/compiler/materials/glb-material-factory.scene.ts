@@ -18,6 +18,8 @@ export interface GlbMaterial {
   setDoubleSided(value: boolean): GlbMaterial;
   setAlphaMode(value: 'OPAQUE' | 'MASK' | 'BLEND'): GlbMaterial;
   setAlphaCutoff(value: number): GlbMaterial;
+  setExtras?(value: Record<string, unknown>): GlbMaterial;
+  setExtra?(key: string, value: Record<string, unknown>): GlbMaterial;
 }
 
 export interface GlbMaterialDocument {

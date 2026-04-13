@@ -54,6 +54,11 @@ class FakeMaterial {
     this.extras[key] = value;
     return this;
   }
+
+  setExtras(value: Record<string, unknown>) {
+    this.extras = { ...this.extras, ...value };
+    return this;
+  }
 }
 
 class FakeDoc {
