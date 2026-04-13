@@ -59,6 +59,7 @@ export interface RunnerStageHooks {
   createCrosswalkGeometry: (
     origin: SceneMeta['origin'],
     crossings: SceneDetail['crossings'],
+    roads?: SceneMeta['roads'],
   ) => { positions: number[]; normals: number[]; indices: number[] };
   triangulateRings: (
     outerRing: [number, number, number][],

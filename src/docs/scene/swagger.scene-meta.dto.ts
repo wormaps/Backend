@@ -107,6 +107,12 @@ export class SceneWalkwayMetaDto {
 
   @ApiProperty({ nullable: true, example: 'paving_stones' })
   surface!: string | null;
+
+  @ApiProperty({ required: false, example: 0.08 })
+  terrainOffsetM?: number;
+
+  @ApiProperty({ required: false, example: 32.4 })
+  terrainSampleHeightMeters?: number;
 }
 
 export class ScenePoiMetaDto {

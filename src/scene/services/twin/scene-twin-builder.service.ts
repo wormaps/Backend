@@ -659,6 +659,15 @@ export class SceneTwinBuilderService {
             label: 'Walkway Spatial',
             properties: [
               this.createProperty(entityId, 'path', walkway.path, 'coordinate_array', 'observed', 0.9, [snapshotIds.placePackage]),
+              this.createProperty(
+                entityId,
+                'terrainOffsetM',
+                walkway.terrainOffsetM ?? 0,
+                'number',
+                walkway.terrainOffsetM != null ? 'observed' : 'defaulted',
+                walkway.terrainOffsetM != null ? 0.82 : 0.4,
+                [snapshotIds.meta, snapshotIds.terrain],
+              ),
             ],
           },
         ],

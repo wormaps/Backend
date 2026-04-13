@@ -147,6 +147,9 @@ export class SceneMidQaService {
           !twin.spatialFrame.terrain.hasElevationModel
             ? 'FAIL'
             : (meta.roads.some((road) => Math.abs(road.terrainOffsetM ?? 0) > 0) ||
+                  meta.walkways.some(
+                    (walkway) => Math.abs(walkway.terrainOffsetM ?? 0) > 0,
+                  ) ||
                   meta.buildings.some(
                     (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,
                   ))
@@ -156,6 +159,9 @@ export class SceneMidQaService {
         metrics: {
           terrainAnchoredRoadCount: meta.roads.filter(
             (road) => Math.abs(road.terrainOffsetM ?? 0) > 0,
+          ).length,
+          terrainAnchoredWalkwayCount: meta.walkways.filter(
+            (walkway) => Math.abs(walkway.terrainOffsetM ?? 0) > 0,
           ).length,
           terrainAnchoredBuildingCount: meta.buildings.filter(
             (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,

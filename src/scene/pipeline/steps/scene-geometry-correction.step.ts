@@ -5,6 +5,7 @@ import type {
   SceneMeta,
   SceneRoadMeta,
   SceneBuildingMeta,
+  SceneWalkwayMeta,
 } from '../../types/scene.types';
 
 interface GeometryCorrectionResult {
@@ -28,8 +29,10 @@ interface GeometryCorrectionDiagnostic {
   invalidSetbackJoinCount: number;
   terrainAnchoredBuildingCount: number;
   terrainAnchoredRoadCount: number;
+  terrainAnchoredWalkwayCount: number;
   averageTerrainOffsetM: number;
   maxTerrainOffsetM: number;
+  transportTerrainCoverageRatio: number;
 }
 
 const COLLISION_NEAR_ROAD_METERS = 1.6;
@@ -45,6 +48,9 @@ const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
 export class SceneGeometryCorrectionStep {
   execute(meta: SceneMeta, detail: SceneDetail): GeometryCorrectionResult {
     const roads = meta.roads.map((road) => this.correctRoad(road, meta));
+    const walkways = meta.walkways.map((walkway) =>
+      this.correctWalkway(walkway, meta),
+    );
     const correctedBuildings = meta.buildings.map((building) =>
       this.correctBuilding(building, roads, meta),
     );
@@ -74,6 +80,7 @@ export class SceneGeometryCorrectionStep {
         : 0;
     const terrainOffsets = [
       ...roads.map((road) => road.terrainOffsetM ?? 0),
+      ...walkways.map((walkway) => walkway.terrainOffsetM ?? 0),
       ...correctedBuildings.map((building) => building.terrainOffsetM ?? 0),
     ].filter((offset) => Math.abs(offset) > 0);
     const averageTerrainOffsetM =
@@ -95,6 +102,19 @@ export class SceneGeometryCorrectionStep {
     const terrainAnchoredRoadCount = roads.filter(
       (road) => Math.abs(road.terrainOffsetM ?? 0) > 0,
     ).length;
+    const terrainAnchoredWalkwayCount = walkways.filter(
+      (walkway) => Math.abs(walkway.terrainOffsetM ?? 0) > 0,
+    ).length;
+    const transportCount = roads.length + walkways.length;
+    const transportTerrainCoverageRatio =
+      transportCount > 0
+        ? Number(
+            (
+              (terrainAnchoredRoadCount + terrainAnchoredWalkwayCount) /
+              transportCount
+            ).toFixed(3),
+          )
+        : 1;
     const closureDiagnostics =
       this.resolveClosureDiagnostics(correctedBuildings);
     const { openShellCount, roofWallGapCount, invalidSetbackJoinCount } =
@@ -104,6 +124,7 @@ export class SceneGeometryCorrectionStep {
       ...meta,
       roads,
       buildings: correctedBuildings,
+      walkways,
     };
     const existingDiagnostics = detail.geometryDiagnostics ?? [];
     const correctedDetail: SceneDetail = {
@@ -131,8 +152,10 @@ export class SceneGeometryCorrectionStep {
           invalidSetbackJoinCount,
           terrainAnchoredBuildingCount,
           terrainAnchoredRoadCount,
+          terrainAnchoredWalkwayCount,
           averageTerrainOffsetM,
           maxTerrainOffsetM,
+          transportTerrainCoverageRatio,
         } as GeometryCorrectionDiagnostic,
       ],
     };
@@ -147,10 +170,13 @@ export class SceneGeometryCorrectionStep {
       invalidSetbackJoinCount,
       terrainAnchoredBuildingCount,
       terrainAnchoredRoadCount,
+      terrainAnchoredWalkwayCount,
       averageTerrainOffsetM,
       maxTerrainOffsetM,
+      transportTerrainCoverageRatio,
       buildingCount: correctedBuildings.length,
       roadCount: roads.length,
+      walkwayCount: walkways.length,
       correctedCount: correctedBuildings.filter(
         (building) => building.collisionRisk === 'road_overlap',
       ).length,
@@ -258,6 +284,20 @@ export class SceneGeometryCorrectionStep {
       ...road,
       terrainOffsetM: resolveTerrainOffsetForPoints(meta, road.path),
       terrainSampleHeightMeters: resolveTerrainHeightForPoints(meta, road.path),
+    };
+  }
+
+  private correctWalkway(
+    walkway: SceneWalkwayMeta,
+    meta: SceneMeta,
+  ): SceneWalkwayMeta {
+    return {
+      ...walkway,
+      terrainOffsetM: resolveTerrainOffsetForPoints(meta, walkway.path),
+      terrainSampleHeightMeters: resolveTerrainHeightForPoints(
+        meta,
+        walkway.path,
+      ),
     };
   }
 

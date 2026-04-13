@@ -314,6 +314,7 @@ export function createRoadDecalPolygonGeometry(
 export function createCrosswalkGeometry(
   origin: Coordinate,
   crossings: SceneCrossingDetail[],
+  roads: SceneMeta['roads'] = [],
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   for (const crossing of crossings) {
@@ -334,6 +335,7 @@ export function createCrosswalkGeometry(
     const length = Math.hypot(end[0] - start[0], end[2] - start[2]);
     const signalizedBoost = crossing.style === 'signalized' ? 1 : 0;
     const halfWidth = crossing.principal ? 9.6 : 6.3;
+    const y = CROSSWALK_Y + resolveCrosswalkYOffset(crossing, roads);
     const corridorCapacity = Math.max(
       6,
       Math.floor(length / Math.max(0.75, halfWidth * 0.2)),
@@ -354,10 +356,10 @@ export function createCrosswalkGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, CROSSWALK_Y, centerZ - dz - nz],
-        [centerX + dx - nx, CROSSWALK_Y, centerZ + dz - nz],
-        [centerX + dx + nx, CROSSWALK_Y, centerZ + dz + nz],
-        [centerX - dx + nx, CROSSWALK_Y, centerZ - dz + nz],
+        [centerX - dx - nx, y, centerZ - dz - nz],
+        [centerX + dx - nx, y, centerZ + dz - nz],
+        [centerX + dx + nx, y, centerZ + dz + nz],
+        [centerX - dx + nx, y, centerZ - dz + nz],
       );
     }
   }
@@ -392,7 +394,15 @@ export function createCurbGeometry(
     const roadWidth = Math.max(3.2, road.widthMeters);
     const curbHeight = 0.15;
     const curbWidth = 0.18;
-    pushPathCurb(origin, geometry, road.path, roadWidth, curbWidth, curbHeight);
+    pushPathCurb(
+      origin,
+      geometry,
+      road.path,
+      roadWidth,
+      curbWidth,
+      curbHeight,
+      ROAD_BASE_Y + resolveRoadYOffset(road),
+    );
   }
   return geometry;
 }
@@ -416,6 +426,7 @@ export function createMedianGeometry(
       roadWidth,
       medianWidth,
       medianHeight,
+      ROAD_BASE_Y + resolveRoadYOffset(road) + 0.01,
     );
   }
   return geometry;
@@ -437,6 +448,7 @@ export function createSidewalkEdgeGeometry(
       walkwayWidth,
       edgeWidth,
       edgeHeight,
+      0.026 + resolveWalkwayYOffset(walkway),
     );
   }
   return geometry;
@@ -488,14 +500,78 @@ function resolveWalkwayWidthScale(
 }
 
 function resolveWalkwayYOffset(walkway: SceneMeta['walkways'][number]): number {
+  const terrainOffset = walkway.terrainOffsetM ?? 0;
   const surface = walkway.surface?.toLowerCase() ?? '';
   if (surface.includes('paving_stones') || surface.includes('tiles')) {
-    return 0.004;
+    return terrainOffset + 0.004;
   }
   if (surface.includes('wood')) {
-    return 0.006;
+    return terrainOffset + 0.006;
   }
-  return 0;
+  return terrainOffset;
+}
+
+function resolveCrosswalkYOffset(
+  crossing: SceneCrossingDetail,
+  roads: SceneMeta['roads'],
+): number {
+  if (!crossing.center || roads.length === 0) {
+    return 0;
+  }
+
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  let nearestTerrainOffset = 0;
+  for (const road of roads) {
+    const distance = distanceToPathMeters(crossing.center, road.path);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestTerrainOffset = road.terrainOffsetM ?? 0;
+    }
+  }
+  return nearestTerrainOffset;
+}
+
+function distanceToPathMeters(point: Coordinate, path: Coordinate[]): number {
+  if (path.length < 2) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const start = toLocalPoint(point, path[index]);
+    const end = toLocalPoint(point, path[index + 1]);
+    if (!isFiniteVec3(start) || !isFiniteVec3(end)) {
+      continue;
+    }
+    minimum = Math.min(
+      minimum,
+      distancePointToSegment2d(
+        [0, 0],
+        [start[0], start[2]],
+        [end[0], end[2]],
+      ),
+    );
+  }
+  return minimum;
+}
+
+function distancePointToSegment2d(
+  point: [number, number],
+  start: [number, number],
+  end: [number, number],
+): number {
+  const abX = end[0] - start[0];
+  const abY = end[1] - start[1];
+  const apX = point[0] - start[0];
+  const apY = point[1] - start[1];
+  const denom = abX * abX + abY * abY;
+  if (denom <= 1e-9) {
+    return Math.hypot(apX, apY);
+  }
+  const t = Math.max(0, Math.min(1, (apX * abX + apY * abY) / denom));
+  const closestX = start[0] + abX * t;
+  const closestY = start[1] + abY * t;
+  return Math.hypot(point[0] - closestX, point[1] - closestY);
 }
 
 function resolveGroundReliefY(

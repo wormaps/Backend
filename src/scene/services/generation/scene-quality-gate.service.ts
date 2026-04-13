@@ -50,6 +50,9 @@ interface GeometryDiagnosticsShape {
   openShellCount?: number;
   roofWallGapCount?: number;
   invalidSetbackJoinCount?: number;
+  terrainAnchoredRoadCount?: number;
+  terrainAnchoredWalkwayCount?: number;
+  transportTerrainCoverageRatio?: number;
 }
 type SceneGeometryDiagnosticWithCorrection = {
   objectId?: string;
@@ -58,6 +61,9 @@ type SceneGeometryDiagnosticWithCorrection = {
   openShellCount?: number;
   roofWallGapCount?: number;
   invalidSetbackJoinCount?: number;
+  terrainAnchoredRoadCount?: number;
+  terrainAnchoredWalkwayCount?: number;
+  transportTerrainCoverageRatio?: number;
 };
 
 interface OracleApprovalFilePayload {
@@ -145,6 +151,15 @@ export class SceneQualityGateService {
     }
     if (this.hasCriticalRoofWallGap(sceneDetail.geometryDiagnostics)) {
       reasonCodes.push('CRITICAL_ROOF_WALL_GAP_DETECTED');
+    }
+    if (
+      sceneMeta.terrainProfile?.hasElevationModel &&
+      this.hasCriticalTerrainTransportAlignment(
+        sceneDetail.geometryDiagnostics,
+        sceneMeta.roads.length + sceneMeta.walkways.length,
+      )
+    ) {
+      reasonCodes.push('CRITICAL_TERRAIN_TRANSPORT_ALIGNMENT_DETECTED');
     }
     if (oracleApproval.required && oracleApproval.state !== 'APPROVED') {
       reasonCodes.push('ORACLE_APPROVAL_REQUIRED');
@@ -437,6 +452,30 @@ export class SceneQualityGateService {
     return (marker?.roofWallGapCount ?? 0) > 0;
   }
 
+  private hasCriticalTerrainTransportAlignment(
+    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
+    totalTransportCount: number,
+  ): boolean {
+    if (totalTransportCount <= 0) {
+      return false;
+    }
+    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
+    if (!marker) {
+      return true;
+    }
+
+    const explicitCoverage = marker.transportTerrainCoverageRatio;
+    if (typeof explicitCoverage === 'number') {
+      return explicitCoverage < 0.95;
+    }
+
+    const anchoredRoadCount = marker.terrainAnchoredRoadCount ?? 0;
+    const anchoredWalkwayCount = marker.terrainAnchoredWalkwayCount ?? 0;
+    return (
+      (anchoredRoadCount + anchoredWalkwayCount) / totalTransportCount < 0.95
+    );
+  }
+
   private isCriticalMeshNode(name?: string): boolean {
     if (!name) {
       return false;
@@ -465,6 +504,9 @@ export class SceneQualityGateService {
       openShellCount: marker.openShellCount,
       roofWallGapCount: marker.roofWallGapCount,
       invalidSetbackJoinCount: marker.invalidSetbackJoinCount,
+      terrainAnchoredRoadCount: marker.terrainAnchoredRoadCount,
+      terrainAnchoredWalkwayCount: marker.terrainAnchoredWalkwayCount,
+      transportTerrainCoverageRatio: marker.transportTerrainCoverageRatio,
     };
   }
 }

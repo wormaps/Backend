@@ -649,8 +649,9 @@ export class GlbBuildRunner {
   private createCrosswalkGeometry(
     origin: Coordinate,
     crossings: SceneCrossingDetail[],
+    roads?: SceneMeta['roads'],
   ): GeometryBuffers {
-    return createCrosswalkGeometryUtil(origin, crossings);
+    return createCrosswalkGeometryUtil(origin, crossings, roads);
   }
 
   private isGeometryValid(geometry: GeometryBuffers): boolean {

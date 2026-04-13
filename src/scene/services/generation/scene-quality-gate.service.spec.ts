@@ -16,6 +16,9 @@ type SceneGeometryDiagnosticWithCorrection = {
   openShellCount: number;
   roofWallGapCount: number;
   invalidSetbackJoinCount: number;
+  terrainAnchoredRoadCount?: number;
+  terrainAnchoredWalkwayCount?: number;
+  transportTerrainCoverageRatio?: number;
 };
 
 const COLLISION_HARD_FAIL_RATIO = 0.03;
@@ -228,6 +231,76 @@ describe('SceneQualityGateService', () => {
     expect(result.state).toBe('FAIL');
     expect(result.reasonCodes).toContain('CRITICAL_SHELL_CLOSURE_DETECTED');
     expect(result.reasonCodes).toContain('CRITICAL_ROOF_WALL_GAP_DETECTED');
+  });
+
+  it('fails when terrain transport alignment coverage is missing under elevation model', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-terrain-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-terrain-alignment';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    meta.terrainProfile = {
+      mode: 'LOCAL_DEM_SAMPLES',
+      source: 'LOCAL_FILE',
+      hasElevationModel: true,
+      heightReference: 'LOCAL_DEM',
+      baseHeightMeters: 30,
+      sampleCount: 2,
+      minHeightMeters: 30,
+      maxHeightMeters: 31,
+      sourcePath: '/tmp/scene-qg-terrain.json',
+      notes: 'terrain test',
+      samples: [
+        { location: coordinate(35.6595, 139.7005), heightMeters: 30 },
+        { location: coordinate(35.6596, 139.7006), heightMeters: 31 },
+      ],
+    };
+    meta.walkways = [
+      {
+        objectId: 'walkway-1',
+        osmWayId: 'walkway_1',
+        name: 'walkway',
+        widthMeters: 3,
+        walkwayType: 'footway',
+        surface: 'paving_stones',
+        path: [coordinate(35.6595, 139.7005), coordinate(35.6596, 139.7006)],
+      },
+    ];
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+    detail.geometryDiagnostics = [
+      {
+        objectId: '__geometry_correction__',
+        strategy: 'fallback_massing',
+        fallbackApplied: false,
+        fallbackReason: 'NONE',
+        hasHoles: false,
+        polygonComplexity: 'simple',
+        collisionRiskCount: 0,
+        groundedGapCount: 0,
+        openShellCount: 0,
+        roofWallGapCount: 0,
+        invalidSetbackJoinCount: 0,
+        terrainAnchoredRoadCount: 0,
+        terrainAnchoredWalkwayCount: 0,
+        transportTerrainCoverageRatio: 0,
+      } as unknown as NonNullable<SceneDetail['geometryDiagnostics']>[number],
+    ];
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: [{ name: 'road_base', skipped: false }],
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.state).toBe('FAIL');
+    expect(result.reasonCodes).toContain(
+      'CRITICAL_TERRAIN_TRANSPORT_ALIGNMENT_DETECTED',
+    );
   });
 
   it('fails when skipped mesh and missing-source warn thresholds are exceeded', async () => {

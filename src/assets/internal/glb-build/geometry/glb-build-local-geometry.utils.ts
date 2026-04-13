@@ -208,6 +208,7 @@ export function createBuildingRoofAccentGeometry(
 export function createCrosswalkGeometry(
   origin: Coordinate,
   crossings: SceneCrossingDetail[],
+  roads: SceneMeta['roads'] = [],
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const crosswalkY = 0.142;
@@ -230,6 +231,7 @@ export function createCrosswalkGeometry(
     const stripeCount = Math.max(4, Math.min(9, Math.floor(length / 1.4)));
     const stripeDepth = 0.8;
     const halfWidth = crossing.principal ? 8 : 5;
+    const y = crosswalkY + resolveCrosswalkYOffset(crossing, roads);
 
     for (let i = 0; i < stripeCount; i += 1) {
       const t = (i + 0.5) / stripeCount;
@@ -241,14 +243,77 @@ export function createCrosswalkGeometry(
       const nz = normal.z * halfWidth;
       pushQuad(
         geometry,
-        [centerX - dx - nx, crosswalkY, centerZ - dz - nz],
-        [centerX + dx - nx, crosswalkY, centerZ + dz - nz],
-        [centerX + dx + nx, crosswalkY, centerZ + dz + nz],
-        [centerX - dx + nx, crosswalkY, centerZ - dz + nz],
+        [centerX - dx - nx, y, centerZ - dz - nz],
+        [centerX + dx - nx, y, centerZ + dz - nz],
+        [centerX + dx + nx, y, centerZ + dz + nz],
+        [centerX - dx + nx, y, centerZ - dz + nz],
       );
     }
   }
   return geometry;
+}
+
+function resolveCrosswalkYOffset(
+  crossing: SceneCrossingDetail,
+  roads: SceneMeta['roads'],
+): number {
+  if (!crossing.center || roads.length === 0) {
+    return 0;
+  }
+
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  let nearestTerrainOffset = 0;
+  for (const road of roads) {
+    const distance = distanceToPathMeters(crossing.center, road.path);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestTerrainOffset = road.terrainOffsetM ?? 0;
+    }
+  }
+  return nearestTerrainOffset;
+}
+
+function distanceToPathMeters(point: Coordinate, path: Coordinate[]): number {
+  if (path.length < 2) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const start = toLocalPoint(point, path[index]);
+    const end = toLocalPoint(point, path[index + 1]);
+    if (!isFiniteVec3(start) || !isFiniteVec3(end)) {
+      continue;
+    }
+    minimum = Math.min(
+      minimum,
+      distancePointToSegment2d(
+        [0, 0],
+        [start[0], start[2]],
+        [end[0], end[2]],
+      ),
+    );
+  }
+  return minimum;
+}
+
+function distancePointToSegment2d(
+  point: [number, number],
+  start: [number, number],
+  end: [number, number],
+): number {
+  const abX = end[0] - start[0];
+  const abY = end[1] - start[1];
+  const apX = point[0] - start[0];
+  const apY = point[1] - start[1];
+  const denom = abX * abX + abY * abY;
+  if (denom <= 1e-9) {
+    return Math.hypot(apX, apY);
+  }
+  const t = Math.max(0, Math.min(1, (apX * abX + apY * abY) / denom));
+  const closestX = start[0] + abX * t;
+  const closestY = start[1] + abY * t;
+  return Math.hypot(point[0] - closestX, point[1] - closestY);
 }
 
 export function createStreetFurnitureGeometry(

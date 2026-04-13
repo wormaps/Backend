@@ -107,6 +107,8 @@ export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
 export interface SceneWalkwayMeta extends Omit<WalkwayData, 'id'> {
   objectId: string;
   osmWayId: string;
+  terrainOffsetM?: number;
+  terrainSampleHeightMeters?: number;
 }
 
 export interface ScenePoiMeta extends Omit<PoiData, 'id' | 'location'> {
@@ -251,8 +253,10 @@ export interface SceneGeometryDiagnostic {
   invalidSetbackJoinCount?: number;
   terrainAnchoredBuildingCount?: number;
   terrainAnchoredRoadCount?: number;
+  terrainAnchoredWalkwayCount?: number;
   averageTerrainOffsetM?: number;
   maxTerrainOffsetM?: number;
+  transportTerrainCoverageRatio?: number;
 }
 
 export interface SceneAssetCounts {

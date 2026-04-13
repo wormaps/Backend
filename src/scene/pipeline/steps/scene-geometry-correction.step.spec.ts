@@ -30,6 +30,8 @@ describe('SceneGeometryCorrectionStep', () => {
       invalidSetbackJoinCount?: number;
       terrainAnchoredBuildingCount?: number;
       terrainAnchoredRoadCount?: number;
+      terrainAnchoredWalkwayCount?: number;
+      transportTerrainCoverageRatio?: number;
     };
 
     expect(correction).toBeDefined();
@@ -42,6 +44,8 @@ describe('SceneGeometryCorrectionStep', () => {
     expect(correction.invalidSetbackJoinCount).toBe(0);
     expect(correction.terrainAnchoredBuildingCount).toBe(2);
     expect(correction.terrainAnchoredRoadCount).toBe(1);
+    expect(correction.terrainAnchoredWalkwayCount).toBe(1);
+    expect(correction.transportTerrainCoverageRatio).toBe(1);
 
     expect(closeBuilding?.collisionRisk).toBe('road_overlap');
     expect((closeBuilding?.groundOffsetM ?? 0) > 0.06).toBe(true);
@@ -49,6 +53,9 @@ describe('SceneGeometryCorrectionStep', () => {
     expect(farBuilding?.collisionRisk).toBe('none');
     expect(farBuilding?.groundOffsetM).toBe(0);
     expect(Math.abs(farBuilding?.terrainOffsetM ?? 0)).toBeGreaterThan(0);
+    expect(Math.abs(corrected.meta.walkways[0]?.terrainOffsetM ?? 0)).toBeGreaterThan(
+      0,
+    );
   });
 
   it('marks edge-near building using anchor-based road proximity', () => {
@@ -103,7 +110,7 @@ function createFixture(): { meta: SceneMeta; detail: SceneDetail } {
     stats: {
       buildingCount: 2,
       roadCount: 1,
-      walkwayCount: 0,
+      walkwayCount: 1,
       poiCount: 0,
     },
     diagnostics: {
@@ -131,7 +138,7 @@ function createFixture(): { meta: SceneMeta; detail: SceneDetail } {
       budget: {
         buildingCount: 2,
         roadCount: 1,
-        walkwayCount: 0,
+        walkwayCount: 1,
         poiCount: 0,
         crossingCount: 0,
         trafficLightCount: 0,
@@ -143,7 +150,7 @@ function createFixture(): { meta: SceneMeta; detail: SceneDetail } {
       selected: {
         buildingCount: 2,
         roadCount: 1,
-        walkwayCount: 0,
+        walkwayCount: 1,
         poiCount: 0,
         crossingCount: 0,
         trafficLightCount: 0,
@@ -244,7 +251,17 @@ function createFixture(): { meta: SceneMeta; detail: SceneDetail } {
         roofType: 'flat',
       },
     ],
-    walkways: [],
+    walkways: [
+      {
+        objectId: 'walkway-1',
+        osmWayId: 'walkway_1',
+        name: 'walkway',
+        widthMeters: 3,
+        walkwayType: 'footway',
+        surface: 'paving_stones',
+        path: [coordinate(35.65955, 139.70055), coordinate(35.65975, 139.70072)],
+      },
+    ],
     pois: [],
   };
 

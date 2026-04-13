@@ -163,6 +163,7 @@ export function pushPathCurb(
   roadWidth: number,
   curbWidth: number,
   curbHeight: number,
+  baseY = 0,
 ): void {
   const localPath = path
     .map((point) => toLocalPoint(origin, point))
@@ -177,7 +178,7 @@ export function pushPathCurb(
   }
 
   const halfRoad = roadWidth / 2;
-  const curbTopY = Math.max(curbHeight, 0.18);
+  const curbTopY = baseY + Math.max(curbHeight, 0.18);
   const leftOuter: Vec3[] = [];
   const leftInner: Vec3[] = [];
   const rightOuter: Vec3[] = [];
@@ -246,7 +247,7 @@ export function pushPathCurb(
       leftInner[i],
       leftOuter[i + 1],
       leftInner[i + 1],
-      0,
+      baseY,
     );
     pushCurbVerticalFace(
       geometry,
@@ -254,7 +255,7 @@ export function pushPathCurb(
       rightOuter[i],
       rightInner[i + 1],
       rightOuter[i + 1],
-      0,
+      baseY,
     );
   }
 }
@@ -287,6 +288,7 @@ export function pushPathMedian(
   _roadWidth: number,
   medianWidth: number,
   medianHeight: number,
+  baseY = 0.01,
 ): void {
   const localPath = path
     .map((point) => toLocalPoint(origin, point))
@@ -314,12 +316,12 @@ export function pushPathMedian(
     }
     left.push([
       current[0] - normal[0] * halfMedian,
-      medianHeight,
+      baseY + medianHeight,
       current[2] - normal[1] * halfMedian,
     ]);
     right.push([
       current[0] + normal[0] * halfMedian,
-      medianHeight,
+      baseY + medianHeight,
       current[2] + normal[1] * halfMedian,
     ]);
   }
@@ -335,7 +337,7 @@ export function pushPathMedian(
       right[i],
       left[i + 1],
       right[i + 1],
-      0.01,
+      baseY,
     );
   }
 }
@@ -362,6 +364,7 @@ export function pushPathSidewalkEdge(
   walkwayWidth: number,
   edgeWidth: number,
   edgeHeight: number,
+  baseY = 0.026,
 ): void {
   const localPath = path
     .map((point) => toLocalPoint(origin, point))
@@ -376,7 +379,7 @@ export function pushPathSidewalkEdge(
   }
 
   const halfWalkway = walkwayWidth / 2;
-  const edgeTopY = Math.max(edgeHeight, 0.1);
+  const edgeTopY = baseY + Math.max(edgeHeight, 0.1);
   const leftOuter: Vec3[] = [];
   const leftInner: Vec3[] = [];
   const rightOuter: Vec3[] = [];
@@ -445,7 +448,7 @@ export function pushPathSidewalkEdge(
       leftInner[i],
       leftOuter[i + 1],
       leftInner[i + 1],
-      0.026,
+      baseY,
     );
     pushSidewalkEdgeVerticalFace(
       geometry,
@@ -453,7 +456,7 @@ export function pushPathSidewalkEdge(
       rightOuter[i],
       rightInner[i + 1],
       rightOuter[i + 1],
-      0.026,
+      baseY,
     );
   }
 }

@@ -115,9 +115,13 @@ export function addTransportMeshes(
     ctx.Accessor,
     ctx.scene,
     ctx.buffer,
-    'crosswalk_overlay',
-    mergeGeometryBuffers([
-      hooks.createCrosswalkGeometry(sceneMeta.origin, assetSelection.crossings),
+      'crosswalk_overlay',
+      mergeGeometryBuffers([
+        hooks.createCrosswalkGeometry(
+          sceneMeta.origin,
+          assetSelection.crossings,
+          sceneMeta.roads,
+        ),
       ...(hooks.modePolicy.stage.includeRoadDecal
         ? [
             createRoadDecalStripeGeometry(

@@ -7,6 +7,10 @@ import {
   createRoadDecalStripeGeometry,
   createRoadEdgeGeometry,
   createRoadBaseGeometry,
+  createWalkwayGeometry,
+  createCurbGeometry,
+  createMedianGeometry,
+  createSidewalkEdgeGeometry,
 } from './road-mesh.builder';
 
 function coordinate(lat: number, lng: number) {
@@ -243,6 +247,104 @@ describe('road-mesh.builder', () => {
 
     expect(principal.indices.length).toBeGreaterThan(standard.indices.length);
     expect(principalWidth).toBeGreaterThan(standardWidth);
+  });
+
+  it('lifts crossings with the nearest road terrain offset', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const geometry = createCrosswalkGeometry(
+      origin,
+      [
+        {
+          objectId: 'crossing-terrain',
+          name: 'Terrain Crossing',
+          type: 'CROSSING',
+          crossing: 'zebra',
+          crossingRef: null,
+          signalized: true,
+          principal: true,
+          style: 'signalized',
+          path: [coordinate(35.6593, 139.7002), coordinate(35.6598, 139.7008)],
+          center: coordinate(35.65955, 139.7005),
+        },
+      ],
+      [
+        {
+          objectId: 'road-1',
+          osmWayId: 'way_1',
+          name: 'Road',
+          laneCount: 4,
+          roadClass: 'primary',
+          widthMeters: 14,
+          direction: 'TWO_WAY',
+          path: [coordinate(35.6593, 139.7002), coordinate(35.6598, 139.7008)],
+          center: coordinate(35.6595, 139.7005),
+          surface: 'asphalt',
+          bridge: false,
+          terrainOffsetM: 0.11,
+        },
+      ],
+    );
+
+    const yValues = geometry.positions.filter((_, index) => index % 3 === 1);
+    expect(Math.min(...yValues)).toBeGreaterThanOrEqual(0.252 - 1e-6);
+  });
+
+  it('applies terrain offset to walkway and sidewalk edge geometry', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const walkways = [
+      {
+        objectId: 'walkway-1',
+        osmWayId: 'walkway_1',
+        name: 'Walkway',
+        path: [coordinate(35.6593, 139.7002), coordinate(35.6597, 139.7008)],
+        widthMeters: 3,
+        walkwayType: 'footway',
+        surface: 'paving_stones',
+        terrainOffsetM: 0.09,
+      },
+    ];
+
+    const walkwayGeometry = createWalkwayGeometry(origin, walkways);
+    const edgeGeometry = createSidewalkEdgeGeometry(origin, walkways);
+    const walkwayY = walkwayGeometry.positions.filter(
+      (_, index) => index % 3 === 1,
+    );
+    const edgeY = edgeGeometry.positions.filter((_, index) => index % 3 === 1);
+
+    expect(Math.min(...walkwayY)).toBeGreaterThanOrEqual(0.12 - 1e-6);
+    expect(Math.max(...edgeY)).toBeGreaterThanOrEqual(0.216 - 1e-6);
+  });
+
+  it('applies terrain offset to curb and median geometry', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const roads = [
+      {
+        objectId: 'road-1',
+        osmWayId: 'way_1',
+        name: 'Road',
+        laneCount: 4,
+        roadClass: 'primary',
+        widthMeters: 14,
+        direction: 'TWO_WAY' as const,
+        path: [coordinate(35.6593, 139.7002), coordinate(35.6597, 139.7008)],
+        center: coordinate(35.6595, 139.7005),
+        surface: 'asphalt',
+        bridge: false,
+        terrainOffsetM: 0.1,
+      },
+    ];
+
+    const curbGeometry = createCurbGeometry(origin, roads);
+    const medianGeometry = createMedianGeometry(origin, roads);
+    const curbY = curbGeometry.positions.filter((_, index) => index % 3 === 1);
+    const medianY = medianGeometry.positions.filter(
+      (_, index) => index % 3 === 1,
+    );
+
+    expect(Math.min(...curbY)).toBeGreaterThanOrEqual(0.14 - 1e-6);
+    expect(Math.max(...curbY)).toBeGreaterThanOrEqual(0.32 - 1e-6);
+    expect(Math.min(...medianY)).toBeGreaterThanOrEqual(0.15 - 1e-6);
+    expect(Math.max(...medianY)).toBeGreaterThanOrEqual(0.27 - 1e-6);
   });
 
   it('caps stripe density on short crossings to avoid overdraw', () => {
