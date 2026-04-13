@@ -27,6 +27,10 @@ import {
   SceneMaterials,
 } from '../glb-build-stage.types';
 import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
+import {
+  resolveAccentToneFromPalette,
+  resolveBuildingShellStyleFromHint,
+} from '../glb-build-style.utils';
 
 export interface BuildingClosureDiagnostics {
   openShellCount: number;
@@ -102,259 +106,174 @@ export function addBuildingAndHeroMeshes(
   ) => number[],
   groupedBuildings: GroupedBuildings,
 ): void {
-  const selectedBuildingIds = new Set(
-    assetSelection.buildings.map((building) => building.objectId),
-  );
-  const selectedFacadeHints = sceneDetail.facadeHints.filter((hint) =>
-    selectedBuildingIds.has(hint.objectId),
-  );
+  for (const building of assetSelection.buildings) {
+    const buildingHints = sceneDetail.facadeHints.filter(
+      (hint) => hint.objectId === building.objectId,
+    );
+    const primaryHint = buildingHints[0];
+    const shellStyle = resolveBuildingShellStyleFromHint(building, primaryHint);
+    const roofTone = resolveBuildingRoofTone(building);
 
-  for (const [groupKey, group] of groupedBuildings.entries()) {
     hooks.addMeshNode(
       ctx.doc,
       ctx.Accessor,
       ctx.scene,
       ctx.buffer,
-      `building_shells_${groupKey}`,
-      createBuildingShellGeometry(
-        sceneMeta.origin,
-        group.buildings,
-        triangulate,
-      ),
+      `building_shell_${building.objectId}`,
+      createBuildingShellGeometry(sceneMeta.origin, [building], triangulate),
       createBuildingShellMaterial(
         ctx.doc,
-        group.materialClass,
-        group.bucket,
-        group.colorHex,
+        shellStyle.materialClass,
+        shellStyle.bucket,
+        shellStyle.colorHex,
         hooks.materialTuning,
         hooks.facadeMaterialProfile,
       ),
       {
-        sourceCount: sceneMeta.buildings.length,
-        selectedCount: group.buildings.length,
+        sourceCount: 1,
+        selectedCount: 1,
         semanticCategory: 'building',
-        sourceObjectIds: group.buildings.map((building) => building.objectId),
+        sourceObjectIds: [building.objectId],
       },
     );
-  }
 
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_surfaces_cool',
-    createBuildingRoofSurfaceGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      triangulate,
-      'cool',
-    ),
-    materials.roofSurfaces.cool,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_surfaces_warm',
-    createBuildingRoofSurfaceGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      triangulate,
-      'warm',
-    ),
-    materials.roofSurfaces.warm,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_surfaces_neutral',
-    createBuildingRoofSurfaceGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      triangulate,
-      'neutral',
-    ),
-    materials.roofSurfaces.neutral,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_accents_cool',
-    hooks.createBuildingRoofAccentGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      triangulate,
-      'cool',
-      hooks.staticAtmosphere,
-    ),
-    materials.roofAccents.cool,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_accents_warm',
-    hooks.createBuildingRoofAccentGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      triangulate,
-      'warm',
-      hooks.staticAtmosphere,
-    ),
-    materials.roofAccents.warm,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_accents_neutral',
-    hooks.createBuildingRoofAccentGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      triangulate,
-      'neutral',
-      hooks.staticAtmosphere,
-    ),
-    materials.roofAccents.neutral,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-
-  for (const panelGroup of hooks.groupFacadeHintsByPanelColor(
-    selectedFacadeHints,
-  )) {
     hooks.addMeshNode(
       ctx.doc,
       ctx.Accessor,
       ctx.scene,
       ctx.buffer,
-      `building_panels_${panelGroup.tone}_${panelGroup.colorHex.slice(1)}_${Math.abs(hashKey((panelGroup as { groupKey?: string }).groupKey ?? `${panelGroup.tone}:${panelGroup.colorHex}`)).toString(36)}`,
-      createBuildingPanelsGeometry(
+      `building_roof_surface_${building.objectId}`,
+      createBuildingRoofSurfaceGeometry(
         sceneMeta.origin,
-        assetSelection.buildings,
-        panelGroup.hints,
-        panelGroup.tone,
+        [building],
+        triangulate,
+        roofTone,
       ),
-      createBuildingPanelMaterial(
-        ctx.doc,
-        panelGroup.tone,
-        panelGroup.colorHex,
-        hooks.materialTuning,
-        hooks.facadeMaterialProfile,
-      ),
+      materials.roofSurfaces[roofTone],
       {
-        sourceCount: panelGroup.hints.length,
-        selectedCount: assetSelection.buildings.length,
+        sourceCount: 1,
+        selectedCount: 1,
         semanticCategory: 'building',
-        sourceObjectIds: panelGroup.hints.map((hint) => hint.objectId),
+        sourceObjectIds: [building.objectId],
+      },
+    );
+
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      `building_roof_accent_${building.objectId}`,
+      hooks.createBuildingRoofAccentGeometry(
+        sceneMeta.origin,
+        [building],
+        triangulate,
+        roofTone,
+        hooks.staticAtmosphere,
+      ),
+      materials.roofAccents[roofTone],
+      {
+        sourceCount: 1,
+        selectedCount: 1,
+        semanticCategory: 'building',
+        sourceObjectIds: [building.objectId],
+      },
+    );
+
+    if (primaryHint) {
+      const panelTone = resolveAccentToneFromPalette(
+        primaryHint.panelPalette ?? primaryHint.palette,
+      );
+      const panelColor = primaryHint.panelPalette?.[0] ?? primaryHint.palette[0];
+      if (panelColor) {
+        hooks.addMeshNode(
+          ctx.doc,
+          ctx.Accessor,
+          ctx.scene,
+          ctx.buffer,
+          `building_panel_${building.objectId}`,
+          createBuildingPanelsGeometry(
+            sceneMeta.origin,
+            [building],
+            [primaryHint],
+            panelTone,
+          ),
+          createBuildingPanelMaterial(
+            ctx.doc,
+            panelTone,
+            panelColor,
+            hooks.materialTuning,
+            hooks.facadeMaterialProfile,
+          ),
+          {
+            sourceCount: 1,
+            selectedCount: 1,
+            semanticCategory: 'building',
+            sourceObjectIds: [building.objectId],
+          },
+        );
+      }
+    }
+
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      `building_window_${building.objectId}`,
+      createBuildingWindowGeometry(
+        sceneMeta.origin,
+        [building],
+        buildingHints,
+        resolveWindowTriangleBudgetForSelection(1),
+      ),
+      materials.windowPrimary ??
+        materials.windowGlassCurtainWall ??
+        materials.windowGlassReflective ??
+        materials.buildingPanels[
+          hooks.resolveWindowMaterialTone(buildingHints)
+        ],
+      {
+        sourceCount: buildingHints.length,
+        selectedCount: 1,
+        semanticCategory: 'building',
+        sourceObjectIds: [building.objectId],
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      `building_entrance_${building.objectId}`,
+      createBuildingEntranceGeometry(sceneMeta.origin, [building]),
+      materials.entrancePrimary ??
+        materials.facadePrimary ??
+        materials.facadeConcreteMid ??
+        materials.buildingPanels.neutral,
+      {
+        sourceCount: 1,
+        selectedCount: 1,
+        semanticCategory: 'building',
+        sourceObjectIds: [building.objectId],
+      },
+    );
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      `building_roof_equipment_${building.objectId}`,
+      createBuildingRoofEquipmentGeometry(sceneMeta.origin, [building]),
+      materials.roofEquipmentPrimary ?? materials.roofAccents.neutral,
+      {
+        sourceCount: building.roofSpec?.roofUnits ? 1 : 0,
+        selectedCount: building.roofSpec?.roofUnits ? 1 : 0,
+        semanticCategory: 'building',
+        sourceObjectIds: [building.objectId],
       },
     );
   }
-
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_windows',
-    createBuildingWindowGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-      sceneDetail.facadeHints,
-      resolveWindowTriangleBudgetForSelection(assetSelection.buildings.length),
-    ),
-    materials.windowPrimary ??
-      materials.windowGlassCurtainWall ??
-      materials.windowGlassReflective ??
-      materials.buildingPanels[
-        hooks.resolveWindowMaterialTone(sceneDetail.facadeHints)
-      ],
-    {
-      sourceCount: sceneDetail.facadeHints.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: sceneDetail.facadeHints.map((hint) => hint.objectId),
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_entrances',
-    createBuildingEntranceGeometry(sceneMeta.origin, assetSelection.buildings),
-    materials.entrancePrimary ??
-      materials.facadePrimary ??
-      materials.facadeConcreteMid ??
-      materials.buildingPanels.neutral,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
-  hooks.addMeshNode(
-    ctx.doc,
-    ctx.Accessor,
-    ctx.scene,
-    ctx.buffer,
-    'building_roof_equipment',
-    createBuildingRoofEquipmentGeometry(
-      sceneMeta.origin,
-      assetSelection.buildings,
-    ),
-    materials.roofEquipmentPrimary ?? materials.roofAccents.neutral,
-    {
-      sourceCount: assetSelection.buildings.length,
-      selectedCount: assetSelection.buildings.length,
-      semanticCategory: 'building',
-      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
-    },
-  );
 
   if (hooks.modePolicy.stage.includeEmissiveBillboard) {
     for (const billboardGroup of hooks.groupBillboardClustersByColor(
@@ -483,10 +402,15 @@ export function addBuildingAndHeroMeshes(
   }
 }
 
-function hashKey(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 33 + value.charCodeAt(index)) | 0;
+function resolveBuildingRoofTone(
+  building: SceneMeta['buildings'][number],
+): 'cool' | 'warm' | 'neutral' {
+  const explicit = building.roofColor ?? building.facadeColor;
+  if (explicit) {
+    return resolveAccentToneFromPalette([explicit]);
   }
-  return hash;
+  if (building.roofType === 'gable') {
+    return 'warm';
+  }
+  return building.preset === 'glass_tower' ? 'cool' : 'neutral';
 }
