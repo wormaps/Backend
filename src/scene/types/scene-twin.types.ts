@@ -51,11 +51,28 @@ export interface SnapshotResponseSummary {
   diagnostics?: Record<string, number | string | boolean | null>;
 }
 
+export interface UpstreamFetchEnvelope {
+  provider: string;
+  requestedAt: string;
+  receivedAt: string;
+  url: string;
+  method: string;
+  request: {
+    headers?: Record<string, string>;
+    body?: unknown;
+  };
+  response: {
+    status: number;
+    body: unknown;
+  };
+}
+
 export interface ProviderTrace {
   provider: TwinSnapshotProvider;
   requests: SnapshotReplayRequest[];
   responseSummary: SnapshotResponseSummary;
   observedAt: string;
+  upstreamEnvelopes?: UpstreamFetchEnvelope[];
 }
 
 export interface SourceSnapshotRecord {
@@ -69,6 +86,7 @@ export interface SourceSnapshotRecord {
   storage: 'INLINE_JSON';
   request: SnapshotReplayRequest;
   responseSummary: SnapshotResponseSummary;
+  upstreamEnvelopes?: UpstreamFetchEnvelope[];
   payload:
     | SearchQuerySnapshotPayload
     | ExternalPlaceDetail

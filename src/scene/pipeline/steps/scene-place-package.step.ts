@@ -17,11 +17,12 @@ export class ScenePlacePackageStep {
     place: ExternalPlaceDetail,
     bounds: GeoBounds,
   ): Promise<{ placePackage: PlacePackage; providerTrace: ProviderTrace }> {
-    const placePackage = await this.overpassClient.buildPlacePackage(place, {
+    const traced = await this.overpassClient.buildPlacePackageWithTrace(place, {
       bounds,
       sceneId,
       requestId,
     });
+    const placePackage = traced.placePackage;
     const providerTrace: ProviderTrace = {
       provider: 'OVERPASS',
       observedAt: placePackage.generatedAt,
@@ -63,6 +64,7 @@ export class ScenePlacePackageStep {
           crossingCount: placePackage.crossings.length,
         },
       },
+      upstreamEnvelopes: traced.upstreamEnvelopes,
     };
 
     return {

@@ -27,18 +27,44 @@ describe('Scene Live Data Service', () => {
     delete process.env.SCENE_DATA_DIR;
   });
 
-  it('maps historical weather to scene weather response', async () => {
-    const {
-      generationService,
-      liveDataService,
-      googlePlacesClient,
-      overpassClient,
-      openMeteoClient,
-    } = context!;
+  function seedReadySceneMocks(target: SceneSpecContext): void {
+    target.googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    target.googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    target.googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    target.googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    target.overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    target.overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
+  }
 
-    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
-    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
-    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+  it('maps historical weather to scene weather response', async () => {
+    const { generationService, liveDataService, openMeteoClient } = context!;
+
+    seedReadySceneMocks(context!);
     openMeteoClient.getHistoricalObservation.mockResolvedValue({
       date: '2026-04-04',
       localTime: '2026-04-04T12:00',
@@ -78,17 +104,9 @@ describe('Scene Live Data Service', () => {
   });
 
   it('builds scene live state from snapshot rules and weather observation', async () => {
-    const {
-      generationService,
-      liveDataService,
-      googlePlacesClient,
-      overpassClient,
-      openMeteoClient,
-    } = context!;
+    const { generationService, liveDataService, openMeteoClient } = context!;
 
-    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
-    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
-    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    seedReadySceneMocks(context!);
     openMeteoClient.getHistoricalObservation.mockResolvedValue({
       date: '2026-04-04',
       localTime: '2026-04-04T18:00',
@@ -136,17 +154,9 @@ describe('Scene Live Data Service', () => {
   });
 
   it('caches weather responses by scene/date/timeOfDay', async () => {
-    const {
-      generationService,
-      liveDataService,
-      googlePlacesClient,
-      overpassClient,
-      openMeteoClient,
-    } = context!;
+    const { generationService, liveDataService, openMeteoClient } = context!;
 
-    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
-    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
-    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    seedReadySceneMocks(context!);
     openMeteoClient.getHistoricalObservation.mockResolvedValue({
       date: '2026-04-04',
       localTime: '2026-04-04T12:00',
@@ -189,17 +199,10 @@ describe('Scene Live Data Service', () => {
   });
 
   it('maps traffic flow to congestion response', async () => {
-    const {
-      generationService,
-      liveDataService,
-      googlePlacesClient,
-      overpassClient,
-      tomTomTrafficClient,
-    } = context!;
+    const { generationService, liveDataService, tomTomTrafficClient } =
+      context!;
 
-    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
-    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
-    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    seedReadySceneMocks(context!);
     tomTomTrafficClient.getFlowSegment.mockResolvedValue({
       flowSegmentData: {
         currentSpeed: 10,
@@ -224,17 +227,10 @@ describe('Scene Live Data Service', () => {
   });
 
   it('caches traffic responses by scene id', async () => {
-    const {
-      generationService,
-      liveDataService,
-      googlePlacesClient,
-      overpassClient,
-      tomTomTrafficClient,
-    } = context!;
+    const { generationService, liveDataService, tomTomTrafficClient } =
+      context!;
 
-    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
-    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
-    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    seedReadySceneMocks(context!);
     tomTomTrafficClient.getFlowSegment.mockResolvedValue({
       flowSegmentData: {
         currentSpeed: 10,
@@ -257,17 +253,10 @@ describe('Scene Live Data Service', () => {
   });
 
   it('degrades traffic response instead of failing the entire scene', async () => {
-    const {
-      generationService,
-      liveDataService,
-      googlePlacesClient,
-      overpassClient,
-      tomTomTrafficClient,
-    } = context!;
+    const { generationService, liveDataService, tomTomTrafficClient } =
+      context!;
 
-    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
-    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
-    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    seedReadySceneMocks(context!);
     tomTomTrafficClient.getFlowSegment.mockRejectedValue(
       new Error('upstream failed'),
     );

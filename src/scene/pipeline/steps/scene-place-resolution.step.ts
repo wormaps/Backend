@@ -11,8 +11,8 @@ export class ScenePlaceResolutionStep {
   constructor(private readonly googlePlacesClient: GooglePlacesClient) {}
 
   async execute(query: string, scale: SceneScale): Promise<ResolvedScenePlace> {
-    const candidates = await this.googlePlacesClient.searchText(query, 1);
-    const selected = candidates[0];
+    const search = await this.googlePlacesClient.searchTextWithEnvelope(query, 1);
+    const selected = search.items[0];
     if (!selected) {
       throw new AppException({
         code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
@@ -22,9 +22,10 @@ export class ScenePlaceResolutionStep {
       });
     }
 
-    const place = await this.googlePlacesClient.getPlaceDetail(
+    const detail = await this.googlePlacesClient.getPlaceDetailWithEnvelope(
       selected.placeId,
     );
+    const place = detail.place;
     const radiusM = this.resolveRadius(scale);
     const bounds = resolveSceneBounds(place.location, radiusM);
     const providerTrace: ProviderTrace = {
@@ -58,7 +59,7 @@ export class ScenePlaceResolutionStep {
       ],
       responseSummary: {
         status: 'SUCCESS',
-        itemCount: candidates.length,
+        itemCount: search.items.length,
         objectId: place.placeId,
         fields: [
           'displayName',
@@ -69,17 +70,18 @@ export class ScenePlaceResolutionStep {
           'utcOffsetMinutes',
         ],
         diagnostics: {
-          candidateCount: candidates.length,
+          candidateCount: search.items.length,
           resolvedRadiusM: radiusM,
         },
       },
+      upstreamEnvelopes: [search.envelope, detail.envelope],
     };
 
     return {
       place,
       bounds,
       radiusM,
-      candidateCount: candidates.length,
+      candidateCount: search.items.length,
       providerTrace,
     };
   }

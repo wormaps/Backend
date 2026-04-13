@@ -40,7 +40,73 @@ describe('Scene Services', () => {
 
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {
+          headers: {
+            'X-Goog-Api-Key': '[redacted]',
+          },
+        },
+        response: {
+          status: 200,
+          body: {
+            places: [{ id: placeDetail.placeId }],
+          },
+        },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {
+          headers: {
+            'X-Goog-Api-Key': '[redacted]',
+          },
+        },
+        response: {
+          status: 200,
+          body: {
+            id: placeDetail.placeId,
+          },
+        },
+      },
+    });
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [
+        {
+          provider: 'Overpass API',
+          requestedAt: '2026-04-04T00:00:02Z',
+          receivedAt: '2026-04-04T00:00:03Z',
+          url: 'https://overpass-api.de/api/interpreter',
+          method: 'POST',
+          request: {
+            headers: {
+              'Content-Type':
+                'application/x-www-form-urlencoded;charset=UTF-8',
+            },
+          },
+          response: {
+            status: 200,
+            body: {
+              elements: [],
+            },
+          },
+        },
+      ],
+    });
 
     const scene = await generationService.createScene(
       'Seoul City Hall',
@@ -132,9 +198,11 @@ describe('Scene Services', () => {
     expect(twin.sourceSnapshots.snapshots).toHaveLength(6);
     expect(twin.sourceSnapshots.snapshots[0]?.kind).toBe('PLACE_SEARCH_QUERY');
     expect(twin.sourceSnapshots.snapshots[0]?.request.method).toBe('POST');
+    expect(twin.sourceSnapshots.snapshots[0]?.upstreamEnvelopes).toHaveLength(1);
     expect(
       twin.sourceSnapshots.snapshots[1]?.responseSummary.objectId,
     ).toBe(placeDetail.placeId);
+    expect(twin.sourceSnapshots.snapshots[2]?.upstreamEnvelopes).toHaveLength(1);
     expect(twin.spatialFrame.localFrame).toBe('ENU');
     expect(twin.spatialFrame.verification.sampleCount).toBe(3);
     expect(twin.spatialFrame.terrain.mode).toBe('FLAT_PLACEHOLDER');
@@ -175,7 +243,7 @@ describe('Scene Services', () => {
 
     expect(glbBuilderService.build).toHaveBeenCalledTimes(1);
     expect(qualityGateService.evaluate).toHaveBeenCalledTimes(1);
-    expect(overpassClient.buildPlacePackage).toHaveBeenCalledWith(
+    expect(overpassClient.buildPlacePackageWithTrace).toHaveBeenCalledWith(
       placeDetail,
       expect.objectContaining({
         bounds: expect.objectContaining({
@@ -191,7 +259,8 @@ describe('Scene Services', () => {
       }),
     );
 
-    const overpassArgs = overpassClient.buildPlacePackage.mock.calls[0]?.[1];
+    const overpassArgs =
+      overpassClient.buildPlacePackageWithTrace.mock.calls[0]?.[1];
     expect(overpassArgs?.bounds).toBeDefined();
     expect(overpassArgs!.bounds!.northEast.lat).toBeGreaterThan(
       placeDetail.location.lat,
@@ -214,7 +283,35 @@ describe('Scene Services', () => {
     const { generationService, googlePlacesClient, overpassClient } = context!;
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
 
     const first = await generationService.createScene(
       'Seoul City Hall',
@@ -226,14 +323,42 @@ describe('Scene Services', () => {
     );
 
     expect(second.sceneId).toBe(first.sceneId);
-    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(1);
+    expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(1);
   });
 
   it('creates a fresh scene when forceRegenerate is enabled', async () => {
     const { generationService, googlePlacesClient, overpassClient } = context!;
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
 
     const first = await generationService.createScene(
       'Seoul City Hall',
@@ -253,11 +378,23 @@ describe('Scene Services', () => {
     expect(second.sceneId).not.toBe(first.sceneId);
     expect(second.status).toBe('PENDING');
     await generationService.waitForIdle();
-    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(2);
+    expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(2);
   });
 
   it('marks scene as failed after retry exhaustion', async () => {
     const { generationService, readService, googlePlacesClient } = context!;
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: { places: [] } },
+      },
+    });
     googlePlacesClient.searchText.mockResolvedValue([]);
 
     const scene = await generationService.createScene(
@@ -271,7 +408,7 @@ describe('Scene Services', () => {
     expect(failed.failureReason).toBe(
       '검색 결과에 해당하는 장소를 찾을 수 없습니다.',
     );
-    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(2);
+    expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(2);
   });
 
   it('fails scene without retry when quality gate rejects output', async () => {
@@ -284,7 +421,35 @@ describe('Scene Services', () => {
     } = context!;
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
     qualityGateService.evaluate.mockResolvedValueOnce({
       version: 'qg.v1',
       state: 'FAIL',
@@ -345,7 +510,7 @@ describe('Scene Services', () => {
       state: 'FAIL',
       reasonCodes: ['CRITICAL_BUDGET_SKIP', 'OVERALL_SCORE_BELOW_MIN'],
     });
-    expect(googlePlacesClient.searchText).toHaveBeenCalledTimes(1);
+    expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(1);
 
     await expect(readService.getBootstrap(scene.sceneId)).rejects.toMatchObject(
       {
@@ -367,7 +532,35 @@ describe('Scene Services', () => {
     const { generationService, googlePlacesClient, overpassClient } = context!;
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
     googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
     overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
 
     const small = await generationService.createScene(
       'Seoul City Hall Small',
@@ -375,9 +568,9 @@ describe('Scene Services', () => {
     );
     await generationService.waitForIdle();
     const smallBounds =
-      overpassClient.buildPlacePackage.mock.calls[0]?.[1]?.bounds;
+      overpassClient.buildPlacePackageWithTrace.mock.calls[0]?.[1]?.bounds;
 
-    overpassClient.buildPlacePackage.mockClear();
+    overpassClient.buildPlacePackageWithTrace.mockClear();
 
     const large = await generationService.createScene(
       'Seoul City Hall Large',
@@ -385,7 +578,7 @@ describe('Scene Services', () => {
     );
     await generationService.waitForIdle();
     const largeBounds =
-      overpassClient.buildPlacePackage.mock.calls[0]?.[1]?.bounds;
+      overpassClient.buildPlacePackageWithTrace.mock.calls[0]?.[1]?.bounds;
 
     expect(small.sceneId).toBe('scene-seoul-city-hall-small');
     expect(large.sceneId).toBe('scene-seoul-city-hall-large');

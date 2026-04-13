@@ -1,6 +1,9 @@
 import { AppException } from '../../../common/errors/app.exception';
-import type { FetchLike } from '../../../common/http/fetch-json';
-import { fetchJson } from '../../../common/http/fetch-json';
+import type {
+  FetchJsonEnvelope,
+  FetchLike,
+} from '../../../common/http/fetch-json';
+import { fetchJsonWithEnvelope } from '../../../common/http/fetch-json';
 import type { AppLoggerService } from '../../../common/logging/app-logger.service';
 import type { GeoBounds } from '../../types/place.types';
 import { buildQuery } from './overpass.query';
@@ -23,6 +26,22 @@ export async function fetchScopeResponse(
     defaultEndpoints: string[];
   },
 ): Promise<OverpassResponse> {
+  const traced = await fetchScopeResponseWithTrace(bounds, scope, context, deps);
+  return traced.response;
+}
+
+export async function fetchScopeResponseWithTrace(
+  bounds: GeoBounds,
+  scope: OverpassScope,
+  context: OverpassBatchContext,
+  deps: {
+    appLoggerService: AppLoggerService;
+    fetcher: FetchLike;
+    maxEndpointAttempts: number;
+    fallbackBoundScales: number[];
+    defaultEndpoints: string[];
+  },
+): Promise<{ response: OverpassResponse; upstreamEnvelopes: FetchJsonEnvelope[] }> {
   let lastError: unknown;
 
   for (const scale of deps.fallbackBoundScales) {
@@ -55,9 +74,12 @@ export async function fetchScopeResponse(
         batch: context.batch,
         scope,
         boundScale: scale,
-        elementCount: response.elements?.length ?? 0,
+        elementCount: response.data.elements?.length ?? 0,
       });
-      return response;
+      return {
+        response: response.data,
+        upstreamEnvelopes: [response.envelope],
+      };
     } catch (error) {
       lastError = error;
       deps.appLoggerService.warn('overpass.batch.retry_with_smaller_bounds', {
@@ -115,7 +137,7 @@ async function fetchOverpassResponse(
     maxEndpointAttempts: number;
     defaultEndpoints: string[];
   },
-): Promise<OverpassResponse> {
+): Promise<{ data: OverpassResponse; envelope: FetchJsonEnvelope }> {
   const endpoints = resolveEndpoints(deps.defaultEndpoints);
   let lastError: unknown;
 
@@ -133,7 +155,7 @@ async function fetchOverpassResponse(
           url,
           attempt,
         });
-        return await fetchJson<OverpassResponse>(
+        return await fetchJsonWithEnvelope<OverpassResponse>(
           {
             provider: 'Overpass API',
             url,

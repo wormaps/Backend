@@ -1022,6 +1022,7 @@ export class SceneTwinBuilderService {
           status: 'DERIVED',
           fields: ['query', 'scale', 'resolvedRadiusM'],
         },
+        providerTraces.googlePlaces.upstreamEnvelopes?.slice(0, 1),
       ),
       this.createSnapshot(
         sceneId,
@@ -1043,9 +1044,10 @@ export class SceneTwinBuilderService {
             'location',
             'primaryType',
             'viewport',
-            'utcOffsetMinutes',
+          'utcOffsetMinutes',
           ],
         },
+        providerTraces.googlePlaces.upstreamEnvelopes?.slice(1, 2),
       ),
       this.createSnapshot(
         sceneId,
@@ -1077,6 +1079,7 @@ export class SceneTwinBuilderService {
             poiCount: placePackage.pois.length,
           },
         },
+        providerTraces.overpass.upstreamEnvelopes,
       ),
       ...(providerTraces.mapillary
         ? [
@@ -1109,6 +1112,7 @@ export class SceneTwinBuilderService {
                 ...providerTraces.mapillary.responseSummary,
                 status: providerTraces.mapillary.responseSummary.status ?? 'SUCCESS',
               },
+              providerTraces.mapillary.upstreamEnvelopes,
             ),
           ]
         : []),
@@ -1131,6 +1135,7 @@ export class SceneTwinBuilderService {
             poiCount: meta.stats.poiCount,
           },
         },
+        undefined,
       ),
       this.createSnapshot(
         sceneId,
@@ -1151,6 +1156,7 @@ export class SceneTwinBuilderService {
             signageClusterCount: detail.signageClusters.length,
           },
         },
+        undefined,
       ),
       this.createSnapshot(
         sceneId,
@@ -1171,6 +1177,7 @@ export class SceneTwinBuilderService {
             invalidGeometry: qualityGate.meshSummary.emptyOrInvalidGeometryCount,
           },
         },
+        undefined,
       ),
     ];
   }
@@ -1198,6 +1205,7 @@ export class SceneTwinBuilderService {
     fallbackCapturedAt: string,
     request: SourceSnapshotRecord['request'],
     responseSummary: SourceSnapshotRecord['responseSummary'],
+    upstreamEnvelopes?: SourceSnapshotRecord['upstreamEnvelopes'],
   ): SourceSnapshotRecord {
     const contentHash = hashValue(payload);
     return {
@@ -1214,6 +1222,7 @@ export class SceneTwinBuilderService {
       storage: 'INLINE_JSON',
       request,
       responseSummary,
+      upstreamEnvelopes,
       payload,
     };
   }

@@ -1,9 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/errors/app.exception';
-import { fetchJson } from '../../common/http/fetch-json';
-import type { FetchLike } from '../../common/http/fetch-json';
-import { Coordinate } from '../types/place.types';
+import { fetchJsonWithEnvelope } from '../../common/http/fetch-json';
+import type {
+  FetchJsonEnvelope,
+  FetchLike,
+} from '../../common/http/fetch-json';
 import { normalizeCoordinate } from '../utils/geo.utils';
 import {
   ExternalPlaceDetail,
@@ -45,8 +47,19 @@ export class GooglePlacesClient {
     query: string,
     limit: number,
   ): Promise<ExternalPlaceSearchItem[]> {
+    const result = await this.searchTextWithEnvelope(query, limit);
+    return result.items;
+  }
+
+  async searchTextWithEnvelope(
+    query: string,
+    limit: number,
+  ): Promise<{
+    items: ExternalPlaceSearchItem[];
+    envelope: FetchJsonEnvelope;
+  }> {
     const apiKey = this.getApiKey();
-    const response = await fetchJson<GoogleTextSearchResponse>(
+    const response = await fetchJsonWithEnvelope<GoogleTextSearchResponse>(
       {
         provider: 'Google Places Text Search',
         url: 'https://places.googleapis.com/v1/places:searchText',
@@ -68,15 +81,28 @@ export class GooglePlacesClient {
       this.fetcher,
     );
 
-    return (response.places ?? [])
-      .filter((place) => place.id && place.displayName?.text && place.location)
-      .slice(0, limit)
-      .map((place) => this.mapSearchItem(place));
+    return {
+      items: (response.data.places ?? [])
+        .filter(
+          (place) => place.id && place.displayName?.text && place.location,
+        )
+        .slice(0, limit)
+        .map((place) => this.mapSearchItem(place)),
+      envelope: response.envelope,
+    };
   }
 
   async getPlaceDetail(googlePlaceId: string): Promise<ExternalPlaceDetail> {
+    const result = await this.getPlaceDetailWithEnvelope(googlePlaceId);
+    return result.place;
+  }
+
+  async getPlaceDetailWithEnvelope(googlePlaceId: string): Promise<{
+    place: ExternalPlaceDetail;
+    envelope: FetchJsonEnvelope;
+  }> {
     const apiKey = this.getApiKey();
-    const response = await fetchJson<GooglePlace>(
+    const response = await fetchJsonWithEnvelope<GooglePlace>(
       {
         provider: 'Google Places Place Details',
         url: `https://places.googleapis.com/v1/places/${googlePlaceId}`,
@@ -93,11 +119,11 @@ export class GooglePlacesClient {
       this.fetcher,
     );
 
-    const location = response.location
-      ? normalizeCoordinate(response.location)
+    const location = response.data.location
+      ? normalizeCoordinate(response.data.location)
       : null;
 
-    if (!response.id || !response.displayName?.text || !location) {
+    if (!response.data.id || !response.data.displayName?.text || !location) {
       throw new AppException({
         code: ERROR_CODES.GOOGLE_PLACE_NOT_FOUND,
         message: 'Google Places 상세 정보를 찾을 수 없습니다.',
@@ -109,20 +135,31 @@ export class GooglePlacesClient {
     }
 
     return {
-      ...this.mapSearchItem(response),
-      viewport: response.viewport
-        ? {
-            northEast: {
-              lat: response.viewport.high?.latitude ?? location.lat + 0.002,
-              lng: response.viewport.high?.longitude ?? location.lng + 0.002,
-            },
-            southWest: {
-              lat: response.viewport.low?.latitude ?? location.lat - 0.002,
-              lng: response.viewport.low?.longitude ?? location.lng - 0.002,
-            },
-          }
-        : null,
-      utcOffsetMinutes: response.utcOffsetMinutes ?? null,
+      place: {
+        ...this.mapSearchItem(response.data),
+        viewport: response.data.viewport
+          ? {
+              northEast: {
+                lat:
+                  response.data.viewport.high?.latitude ??
+                  location.lat + 0.002,
+                lng:
+                  response.data.viewport.high?.longitude ??
+                  location.lng + 0.002,
+              },
+              southWest: {
+                lat:
+                  response.data.viewport.low?.latitude ??
+                  location.lat - 0.002,
+                lng:
+                  response.data.viewport.low?.longitude ??
+                  location.lng - 0.002,
+              },
+            }
+          : null,
+        utcOffsetMinutes: response.data.utcOffsetMinutes ?? null,
+      },
+      envelope: response.envelope,
     };
   }
 

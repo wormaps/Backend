@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { FetchLike } from '../../common/http/fetch-json';
+import type { FetchJsonEnvelope, FetchLike } from '../../common/http/fetch-json';
 import { AppLoggerService } from '../../common/logging/app-logger.service';
-import { ExternalPlaceDetail } from '../types/external-place.types';
+import type { ExternalPlaceDetail } from '../types/external-place.types';
 import type { PlacePackage } from '../types/place.types';
 import { createBoundsFromCenterRadius } from '../utils/geo.utils';
 import {
@@ -19,7 +19,7 @@ import {
   collectDedupedElements,
   partitionOverpassElements,
 } from './overpass/overpass.partitions';
-import { fetchScopeResponse } from './overpass/overpass.transport';
+import { fetchScopeResponseWithTrace } from './overpass/overpass.transport';
 import type {
   BuildPlacePackageOptions,
   OverpassResponse,
@@ -49,6 +49,17 @@ export class OverpassClient {
     place: ExternalPlaceDetail,
     options: BuildPlacePackageOptions = {},
   ): Promise<PlacePackage> {
+    const result = await this.buildPlacePackageWithTrace(place, options);
+    return result.placePackage;
+  }
+
+  async buildPlacePackageWithTrace(
+    place: ExternalPlaceDetail,
+    options: BuildPlacePackageOptions = {},
+  ): Promise<{
+    placePackage: PlacePackage;
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
     const bounds =
       options.bounds ??
       (options.radiusM
@@ -66,26 +77,27 @@ export class OverpassClient {
     ];
 
     const responses: OverpassResponse[] = [];
+    const upstreamEnvelopes: FetchJsonEnvelope[] = [];
     for (const [index, scope] of scopes.entries()) {
       try {
-        responses.push(
-          await fetchScopeResponse(
-            bounds,
-            scope.name,
-            {
-              requestId: options.requestId ?? null,
-              sceneId: options.sceneId,
-              batch: index,
-            },
-            {
-              appLoggerService: this.appLoggerService,
-              fetcher: this.fetcher,
-              maxEndpointAttempts: this.maxEndpointAttempts,
-              fallbackBoundScales: this.fallbackBoundScales,
-              defaultEndpoints: this.defaultEndpoints,
-            },
-          ),
+        const traced = await fetchScopeResponseWithTrace(
+          bounds,
+          scope.name,
+          {
+            requestId: options.requestId ?? null,
+            sceneId: options.sceneId,
+            batch: index,
+          },
+          {
+            appLoggerService: this.appLoggerService,
+            fetcher: this.fetcher,
+            maxEndpointAttempts: this.maxEndpointAttempts,
+            fallbackBoundScales: this.fallbackBoundScales,
+            defaultEndpoints: this.defaultEndpoints,
+          },
         );
+        responses.push(traced.response);
+        upstreamEnvelopes.push(...traced.upstreamEnvelopes);
       } catch (error) {
         if (scope.required) {
           throw error;
@@ -166,41 +178,45 @@ export class OverpassClient {
     const landmarks = pois.filter((poi) => poi.type === 'LANDMARK');
 
     return {
-      placeId: place.placeId,
-      version: '2026.04-external',
-      generatedAt: new Date().toISOString(),
-      camera: {
-        topView: { x: 0, y: 180, z: 140 },
-        walkViewStart: { x: 0, y: 1.7, z: 12 },
+      placePackage: {
+        placeId: place.placeId,
+        version: '2026.04-external',
+        generatedAt: new Date().toISOString(),
+        camera: {
+          topView: { x: 0, y: 180, z: 140 },
+          walkViewStart: { x: 0, y: 1.7, z: 12 },
+        },
+        bounds,
+        buildings,
+        roads,
+        walkways,
+        pois,
+        landmarks,
+        crossings,
+        streetFurniture,
+        vegetation,
+        landCovers,
+        linearFeatures,
+        diagnostics: {
+          droppedBuildings:
+            partitioned.buildingWays.length +
+            partitioned.buildingRelations.length -
+            buildings.length,
+          droppedRoads: partitioned.roadWays.length - roads.length,
+          droppedWalkways: partitioned.walkwayWays.length - walkways.length,
+          droppedPois: partitioned.poiNodes.length - pois.length,
+          droppedCrossings: partitioned.crossingWays.length - crossings.length,
+          droppedStreetFurniture:
+            partitioned.furnitureNodes.length - streetFurniture.length,
+          droppedVegetation:
+            partitioned.vegetationNodes.length - vegetation.length,
+          droppedLandCovers:
+            partitioned.landCoverWays.length - landCovers.length,
+          droppedLinearFeatures:
+            partitioned.linearFeatureWays.length - linearFeatures.length,
+        },
       },
-      bounds,
-      buildings,
-      roads,
-      walkways,
-      pois,
-      landmarks,
-      crossings,
-      streetFurniture,
-      vegetation,
-      landCovers,
-      linearFeatures,
-      diagnostics: {
-        droppedBuildings:
-          partitioned.buildingWays.length +
-          partitioned.buildingRelations.length -
-          buildings.length,
-        droppedRoads: partitioned.roadWays.length - roads.length,
-        droppedWalkways: partitioned.walkwayWays.length - walkways.length,
-        droppedPois: partitioned.poiNodes.length - pois.length,
-        droppedCrossings: partitioned.crossingWays.length - crossings.length,
-        droppedStreetFurniture:
-          partitioned.furnitureNodes.length - streetFurniture.length,
-        droppedVegetation:
-          partitioned.vegetationNodes.length - vegetation.length,
-        droppedLandCovers: partitioned.landCoverWays.length - landCovers.length,
-        droppedLinearFeatures:
-          partitioned.linearFeatureWays.length - linearFeatures.length,
-      },
+      upstreamEnvelopes,
     };
   }
 }

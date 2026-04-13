@@ -145,9 +145,18 @@ export interface SceneSpecContext {
   googlePlacesClient: {
     searchText: jest.MockedFunction<GooglePlacesClient['searchText']>;
     getPlaceDetail: jest.MockedFunction<GooglePlacesClient['getPlaceDetail']>;
+    searchTextWithEnvelope: jest.MockedFunction<
+      GooglePlacesClient['searchTextWithEnvelope']
+    >;
+    getPlaceDetailWithEnvelope: jest.MockedFunction<
+      GooglePlacesClient['getPlaceDetailWithEnvelope']
+    >;
   };
   overpassClient: {
     buildPlacePackage: jest.MockedFunction<OverpassClient['buildPlacePackage']>;
+    buildPlacePackageWithTrace: jest.MockedFunction<
+      OverpassClient['buildPlacePackageWithTrace']
+    >;
   };
   openMeteoClient: {
     getObservation: jest.MockedFunction<OpenMeteoClient['getObservation']>;
@@ -223,12 +232,15 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
         useValue: {
           searchText: jest.fn(),
           getPlaceDetail: jest.fn(),
+          searchTextWithEnvelope: jest.fn(),
+          getPlaceDetailWithEnvelope: jest.fn(),
         },
       },
       {
         provide: OverpassClient,
         useValue: {
           buildPlacePackage: jest.fn(),
+          buildPlacePackageWithTrace: jest.fn(),
         },
       },
       {

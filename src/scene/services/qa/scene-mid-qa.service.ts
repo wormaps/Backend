@@ -31,6 +31,18 @@ export class SceneMidQaService {
         snapshot.provider === 'OVERPASS' ||
         snapshot.provider === 'MAPILLARY',
     ).length;
+    const upstreamEnvelopeCount = twin.sourceSnapshots.snapshots.reduce(
+      (sum, snapshot) => sum + (snapshot.upstreamEnvelopes?.length ?? 0),
+      0,
+    );
+    const providerSnapshotWithEnvelopeCount =
+      twin.sourceSnapshots.snapshots.filter(
+        (snapshot) =>
+          (snapshot.provider === 'GOOGLE_PLACES' ||
+            snapshot.provider === 'OVERPASS' ||
+            snapshot.provider === 'MAPILLARY') &&
+          (snapshot.upstreamEnvelopes?.length ?? 0) > 0,
+      ).length;
     const replayableRatio =
       twin.sourceSnapshots.snapshots.length > 0
         ? twin.sourceSnapshots.snapshots.filter((snapshot) => snapshot.replayable)
@@ -55,7 +67,7 @@ export class SceneMidQaService {
       {
         id: 'provider_trace',
         state:
-          providerSnapshotCount >= 2
+          providerSnapshotCount >= 2 && providerSnapshotWithEnvelopeCount >= 2
             ? detail.provenance.mapillaryUsed || providerSnapshotCount >= 3
               ? 'PASS'
               : 'WARN'
@@ -63,17 +75,24 @@ export class SceneMidQaService {
         summary: '외부 provider trace 존재 여부',
         metrics: {
           providerSnapshotCount,
+          providerSnapshotWithEnvelopeCount,
+          upstreamEnvelopeCount,
           mapillaryUsed: detail.provenance.mapillaryUsed,
         },
       },
       {
         id: 'snapshot_replayability',
         state:
-          replayableRatio >= 1 ? 'PASS' : replayableRatio >= 0.8 ? 'WARN' : 'FAIL',
+          replayableRatio >= 1 && upstreamEnvelopeCount >= 2
+            ? 'PASS'
+            : replayableRatio >= 0.8
+              ? 'WARN'
+              : 'FAIL',
         summary: 'snapshot replayability 비율',
         metrics: {
           replayableRatio: round(replayableRatio),
           snapshotCount: twin.sourceSnapshots.snapshots.length,
+          upstreamEnvelopeCount,
         },
       },
       {
