@@ -1,7 +1,9 @@
 import { SceneVisionService } from './scene-vision.service';
 import { MapillaryClient } from '../../../places/clients/mapillary.client';
+import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import { PlacePackage } from '../../../places/types/place.types';
+import { AppException } from '../../../common/errors/app.exception';
 
 describe('SceneVisionService', () => {
   const place: ExternalPlaceDetail = {
@@ -114,7 +116,26 @@ describe('SceneVisionService', () => {
       getNearbyImagesWithDiagnostics: jest
         .fn()
         .mockRejectedValue(new Error('boom')),
-      getMapFeaturesWithEnvelope: jest.fn().mockRejectedValue(new Error('boom')),
+      getMapFeaturesWithEnvelope: jest.fn().mockRejectedValue(
+        new AppException({
+          code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+          message: 'Mapillary failed',
+          detail: {
+            upstreamEnvelope: {
+              provider: 'Mapillary Features API',
+              requestedAt: '2026-04-04T00:00:00Z',
+              receivedAt: '2026-04-04T00:00:01Z',
+              url: 'https://graph.mapillary.com/map_features?access_token=%5Bredacted%5D',
+              method: 'GET',
+              request: {},
+              response: {
+                status: 500,
+                body: { error: 'boom' },
+              },
+            },
+          },
+        }),
+      ),
     } as unknown as MapillaryClient;
 
     const service = new SceneVisionService(mapillaryClient);
@@ -139,5 +160,6 @@ describe('SceneVisionService', () => {
     expect(result.metaPatch.materialClasses[0]?.className).toBe('glass');
     expect(result.detail.sceneWideAtmosphereProfile).toBeDefined();
     expect(result.detail.districtAtmosphereProfiles?.length).toBeGreaterThan(0);
+    expect(result.providerTrace?.upstreamEnvelopes).toHaveLength(1);
   });
 });

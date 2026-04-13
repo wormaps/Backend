@@ -5,5 +5,6 @@ export * from './live';
 export * from './planning';
 export * from './qa';
 export * from './twin';
+export * from './spatial';
 export * from './read';
 export * from './vision';

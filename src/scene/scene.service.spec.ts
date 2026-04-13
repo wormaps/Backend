@@ -195,7 +195,7 @@ describe('Scene Services', () => {
     expect(detail.detailStatus).toBe('OSM_ONLY');
     expect(detail.crossings).toEqual([]);
     expect(twin.sceneId).toBe(scene.sceneId);
-    expect(twin.sourceSnapshots.snapshots).toHaveLength(6);
+    expect(twin.sourceSnapshots.snapshots).toHaveLength(7);
     expect(twin.sourceSnapshots.snapshots[0]?.kind).toBe('PLACE_SEARCH_QUERY');
     expect(twin.sourceSnapshots.snapshots[0]?.request.method).toBe('POST');
     expect(twin.sourceSnapshots.snapshots[0]?.upstreamEnvelopes).toHaveLength(1);
@@ -203,9 +203,11 @@ describe('Scene Services', () => {
       twin.sourceSnapshots.snapshots[1]?.responseSummary.objectId,
     ).toBe(placeDetail.placeId);
     expect(twin.sourceSnapshots.snapshots[2]?.upstreamEnvelopes).toHaveLength(1);
+    expect(twin.sourceSnapshots.snapshots[3]?.kind).toBe('TERRAIN_PROFILE');
     expect(twin.spatialFrame.localFrame).toBe('ENU');
     expect(twin.spatialFrame.verification.sampleCount).toBe(3);
     expect(twin.spatialFrame.terrain.mode).toBe('FLAT_PLACEHOLDER');
+    expect(twin.spatialFrame.terrain.sampleCount).toBe(0);
     expect(twin.entities.some((entity) => entity.kind === 'BUILDING')).toBe(
       true,
     );
@@ -228,6 +230,7 @@ describe('Scene Services', () => {
     expect(validation.gates[1]?.reasonCodes).toEqual([
       'LOW_OBSERVED_APPEARANCE_COVERAGE',
     ]);
+    expect(validation.gates[2]?.reasonCodes).toEqual(['TERRAIN_MODEL_MISSING']);
     expect(meta.pois[0]?.category).toBe('shop');
     expect(meta.pois[0]?.location.lat).toBe(37.5664);
 

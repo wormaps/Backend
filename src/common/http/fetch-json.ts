@@ -23,6 +23,9 @@ export interface FetchJsonEnvelope {
     status: number;
     body: unknown;
   };
+  error?: {
+    reason: string;
+  };
 }
 
 export type FetchLike = typeof fetch;
@@ -48,12 +51,21 @@ export async function fetchJsonWithEnvelope<T>(
       signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
     });
   } catch (error) {
+    const envelope = buildEnvelope(
+      options,
+      requestedAt,
+      new Date().toISOString(),
+      0,
+      null,
+      error instanceof Error ? error.message : 'unknown',
+    );
     throw new AppException({
       code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
       message: `${options.provider} 요청에 실패했습니다.`,
       detail: {
         provider: options.provider,
         reason: error instanceof Error ? error.message : 'unknown',
+        upstreamEnvelope: envelope,
       },
       status: HttpStatus.BAD_GATEWAY,
     });
@@ -77,6 +89,7 @@ export async function fetchJsonWithEnvelope<T>(
         provider: options.provider,
         upstreamStatus: response.status,
         upstreamBody: data ?? text,
+        upstreamEnvelope: envelope,
       },
       status: HttpStatus.BAD_GATEWAY,
     });
@@ -89,6 +102,7 @@ export async function fetchJsonWithEnvelope<T>(
       detail: {
         provider: options.provider,
         upstreamStatus: response.status,
+        upstreamEnvelope: envelope,
       },
       status: HttpStatus.BAD_GATEWAY,
     });
@@ -114,6 +128,7 @@ function buildEnvelope(
   receivedAt: string,
   status: number,
   body: unknown,
+  errorReason?: string,
 ): FetchJsonEnvelope {
   return {
     provider: options.provider,
@@ -129,6 +144,11 @@ function buildEnvelope(
       status,
       body,
     },
+    error: errorReason
+      ? {
+          reason: errorReason,
+        }
+      : undefined,
   };
 }
 

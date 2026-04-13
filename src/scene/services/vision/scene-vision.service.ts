@@ -124,7 +124,8 @@ export class SceneVisionService {
             ...imageFetch.upstreamEnvelopes,
           ],
         };
-      } catch {
+      } catch (error) {
+        const upstreamEnvelopes = extractUpstreamEnvelopes(error);
         detailStatus = 'PARTIAL';
         providerTrace = {
           provider: 'MAPILLARY',
@@ -143,6 +144,7 @@ export class SceneVisionService {
               detailStatus: 'PARTIAL',
             },
           },
+          upstreamEnvelopes,
         };
       }
     }
@@ -311,6 +313,32 @@ export class SceneVisionService {
       providerTrace,
     };
   }
+}
+
+function extractUpstreamEnvelopes(error: unknown): ProviderTrace['upstreamEnvelopes'] {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'detail' in error &&
+    typeof (error as { detail?: unknown }).detail === 'object' &&
+    (error as { detail?: unknown }).detail !== null &&
+    'upstreamEnvelope' in
+      ((error as { detail: Record<string, unknown> }).detail as Record<
+        string,
+        unknown
+      >)
+  ) {
+    const envelope = (
+      (error as { detail: Record<string, unknown> }).detail as Record<
+        string,
+        unknown
+      >
+    ).upstreamEnvelope;
+    if (typeof envelope === 'object' && envelope !== null) {
+      return [envelope as NonNullable<ProviderTrace['upstreamEnvelopes']>[number]];
+    }
+  }
+  return [];
 }
 
 function clampCoverage(value: number): number {

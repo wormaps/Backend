@@ -15,6 +15,7 @@ export type TwinSnapshotProvider =
   | 'GOOGLE_PLACES'
   | 'OVERPASS'
   | 'MAPILLARY'
+  | 'LOCAL_TERRAIN'
   | 'SCENE_PIPELINE'
   | 'QUALITY_GATE';
 
@@ -23,6 +24,7 @@ export type TwinSnapshotKind =
   | 'PLACE_DETAIL'
   | 'PLACE_PACKAGE'
   | 'PROVIDER_TRACE'
+  | 'TERRAIN_PROFILE'
   | 'SCENE_META'
   | 'SCENE_DETAIL'
   | 'QUALITY_GATE';
@@ -32,6 +34,25 @@ export interface SearchQuerySnapshotPayload {
   scale: SceneScale;
   searchLimit: number;
   resolvedRadiusM: number;
+}
+
+export interface TerrainProfileSample {
+  location: Coordinate;
+  heightMeters: number;
+}
+
+export interface TerrainSnapshotPayload {
+  mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES';
+  source: 'NONE' | 'LOCAL_FILE';
+  hasElevationModel: boolean;
+  heightReference: 'ELLIPSOID_APPROX' | 'LOCAL_DEM';
+  baseHeightMeters: number;
+  sampleCount: number;
+  minHeightMeters: number;
+  maxHeightMeters: number;
+  sourcePath: string | null;
+  notes: string;
+  samples: TerrainProfileSample[];
 }
 
 export interface SnapshotReplayRequest {
@@ -65,6 +86,9 @@ export interface UpstreamFetchEnvelope {
     status: number;
     body: unknown;
   };
+  error?: {
+    reason: string;
+  };
 }
 
 export interface ProviderTrace {
@@ -89,6 +113,7 @@ export interface SourceSnapshotRecord {
   upstreamEnvelopes?: UpstreamFetchEnvelope[];
   payload:
     | SearchQuerySnapshotPayload
+    | TerrainSnapshotPayload
     | ExternalPlaceDetail
     | PlacePackage
     | SceneMeta
@@ -111,7 +136,7 @@ export interface SpatialFrameManifest {
   localFrame: 'ENU';
   axis: 'Z_UP';
   unit: 'meter';
-  heightReference: 'ELLIPSOID_APPROX';
+  heightReference: 'ELLIPSOID_APPROX' | 'LOCAL_DEM';
   anchor: Coordinate;
   bounds: GeoBounds;
   extentMeters: {
@@ -129,9 +154,12 @@ export interface SpatialFrameManifest {
     };
   };
   terrain: {
-    mode: 'FLAT_PLACEHOLDER';
-    hasElevationModel: false;
-    baseHeightMeters: 0;
+    mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES';
+    source: 'NONE' | 'LOCAL_FILE';
+    hasElevationModel: boolean;
+    baseHeightMeters: number;
+    sampleCount: number;
+    sourcePath: string | null;
     notes: string;
   };
   verification: {

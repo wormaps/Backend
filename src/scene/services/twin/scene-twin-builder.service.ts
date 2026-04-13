@@ -12,6 +12,7 @@ import type {
   SearchQuerySnapshotPayload,
   SourceSnapshotRecord,
   SpatialFrameManifest,
+  TerrainSnapshotPayload,
   TwinComponent,
   TwinComponentKind,
   TwinEntity,
@@ -28,6 +29,7 @@ import {
   distanceMeters,
   resolveMetersPerDegree,
 } from '../../utils/scene-spatial-frame.utils';
+import { SceneTerrainProfileService } from '../spatial';
 
 interface BuildSceneTwinArgs {
   sceneId: string;
@@ -56,6 +58,10 @@ interface SnapshotIds {
 
 @Injectable()
 export class SceneTwinBuilderService {
+  constructor(
+    private readonly sceneTerrainProfileService: SceneTerrainProfileService,
+  ) {}
+
   build({
     sceneId,
     query,
@@ -72,11 +78,13 @@ export class SceneTwinBuilderService {
     validation: ValidationReport;
   } {
     const generatedAt = meta.generatedAt;
+    const terrainProfile = this.sceneTerrainProfileService.resolve(sceneId, meta);
     const snapshots = this.buildSourceSnapshots(
       sceneId,
       query,
       scale,
       providerTraces,
+      terrainProfile,
       place,
       placePackage,
       meta,
@@ -84,7 +92,12 @@ export class SceneTwinBuilderService {
       qualityGate,
     );
     const snapshotIds = this.collectSnapshotIds(snapshots);
-    const spatialFrame = this.buildSpatialFrame(sceneId, meta, generatedAt);
+    const spatialFrame = this.buildSpatialFrame(
+      sceneId,
+      meta,
+      generatedAt,
+      terrainProfile,
+    );
     const buildId = `build-${hashValue(
       snapshots.map((snapshot) => snapshot.contentHash).join(':'),
     ).slice(0, 12)}`;
@@ -993,6 +1006,7 @@ export class SceneTwinBuilderService {
     query: string,
     scale: SceneScale,
     providerTraces: BuildSceneTwinArgs['providerTraces'],
+    terrainProfile: TerrainSnapshotPayload,
     place: ExternalPlaceDetail,
     placePackage: PlacePackage,
     meta: SceneMeta,
@@ -1118,6 +1132,27 @@ export class SceneTwinBuilderService {
         : []),
       this.createSnapshot(
         sceneId,
+        'LOCAL_TERRAIN',
+        'TERRAIN_PROFILE',
+        terrainProfile,
+        meta.generatedAt,
+        {
+          method: 'DERIVED',
+          url: terrainProfile.sourcePath ?? 'scene-terrain-profile',
+          notes: 'terrain/elevation profile descriptor입니다.',
+        },
+        {
+          status: 'DERIVED',
+          diagnostics: {
+            mode: terrainProfile.mode,
+            sampleCount: terrainProfile.sampleCount,
+            hasElevationModel: terrainProfile.hasElevationModel,
+          },
+        },
+        undefined,
+      ),
+      this.createSnapshot(
+        sceneId,
         'SCENE_PIPELINE',
         'SCENE_META',
         meta,
@@ -1231,6 +1266,7 @@ export class SceneTwinBuilderService {
     sceneId: string,
     meta: SceneMeta,
     generatedAt: string,
+    terrainProfile: TerrainSnapshotPayload,
   ): SpatialFrameManifest {
     const { metersPerLat, metersPerLng } = resolveMetersPerDegree(meta.origin);
     const width = distanceMeters(
@@ -1264,7 +1300,7 @@ export class SceneTwinBuilderService {
       localFrame: 'ENU',
       axis: 'Z_UP',
       unit: 'meter',
-      heightReference: 'ELLIPSOID_APPROX',
+      heightReference: terrainProfile.heightReference,
       anchor: meta.origin,
       bounds: {
         northEast: meta.bounds.northEast,
@@ -1285,11 +1321,13 @@ export class SceneTwinBuilderService {
         },
       },
       terrain: {
-        mode: 'FLAT_PLACEHOLDER',
-        hasElevationModel: false,
-        baseHeightMeters: 0,
-        notes:
-          '현재는 DEM이 없어 flat placeholder 기준입니다. 이후 terrain fusion 단계에서 실제 elevation으로 대체해야 합니다.',
+        mode: terrainProfile.mode,
+        source: terrainProfile.source,
+        hasElevationModel: terrainProfile.hasElevationModel,
+        baseHeightMeters: terrainProfile.baseHeightMeters,
+        sampleCount: terrainProfile.sampleCount,
+        sourcePath: terrainProfile.sourcePath,
+        notes: terrainProfile.notes,
       },
       verification,
       delivery: {
@@ -1535,17 +1573,30 @@ export class SceneTwinBuilderService {
   ): ValidationGateResult {
     const maxError = spatialFrame.verification.maxRoundTripErrorM;
     const state: ValidationGateResult['state'] =
-      maxError <= 0.05 ? 'PASS' : maxError <= 0.25 ? 'WARN' : 'FAIL';
+      maxError > 0.25
+        ? 'FAIL'
+        : !spatialFrame.terrain.hasElevationModel
+          ? 'WARN'
+          : 'PASS';
     return {
       gate: 'spatial',
       state,
       reasonCodes:
-        state === 'PASS' ? [] : ['SPATIAL_ROUNDTRIP_ERROR_EXCEEDED'],
+        state === 'PASS'
+          ? []
+          : [
+              maxError > 0.25 ? 'SPATIAL_ROUNDTRIP_ERROR_EXCEEDED' : null,
+              !spatialFrame.terrain.hasElevationModel
+                ? 'TERRAIN_MODEL_MISSING'
+                : null,
+            ].filter((value): value is string => Boolean(value)),
       metrics: {
         sampleCount: spatialFrame.verification.sampleCount,
         maxRoundTripErrorM: maxError,
         avgRoundTripErrorM: spatialFrame.verification.avgRoundTripErrorM,
         terrainMode: spatialFrame.terrain.mode,
+        terrainSampleCount: spatialFrame.terrain.sampleCount,
+        terrainSource: spatialFrame.terrain.source,
       },
     };
   }
