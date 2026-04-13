@@ -95,7 +95,7 @@ export class SceneReadService {
         liveDataModes: {
           traffic: 'LIVE_BEST_EFFORT',
           weather: 'CURRENT_OR_HISTORICAL',
-          state: 'SYNTHETIC_RULES',
+          state: 'SYNTHETIC_RULES_ENTITY_READY',
         },
       },
     };

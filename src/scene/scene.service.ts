@@ -8,6 +8,8 @@ import type {
   SceneCreateOptions,
   SceneDetail,
   SceneEntity,
+  SceneEntityStateQuery,
+  SceneEntityStateResponse,
   SceneMeta,
   ScenePlacesResponse,
   SceneScale,
@@ -78,6 +80,13 @@ export class SceneService {
     query: SceneStateQuery,
   ): Promise<SceneStateResponse> {
     return this.sceneLiveDataService.getState(sceneId, query);
+  }
+
+  getEntityState(
+    sceneId: string,
+    query: SceneEntityStateQuery,
+  ): Promise<SceneEntityStateResponse> {
+    return this.sceneLiveDataService.getEntityState(sceneId, query);
   }
 
   getWeather(

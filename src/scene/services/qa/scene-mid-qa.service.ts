@@ -20,7 +20,8 @@ export class SceneMidQaService {
     validation: ValidationReport;
   }): Promise<MidQaReport> {
     const { sceneId, meta, detail, twin, validation } = args;
-    const diagnosticsLogPath = validation.qualityGate?.artifactRefs.diagnosticsLogPath;
+    const diagnosticsLogPath =
+      validation.qualityGate?.artifactRefs.diagnosticsLogPath;
     const diagnosticsLineCount = diagnosticsLogPath
       ? await this.readDiagnosticsLineCount(diagnosticsLogPath)
       : 0;
@@ -45,8 +46,9 @@ export class SceneMidQaService {
       ).length;
     const replayableRatio =
       twin.sourceSnapshots.snapshots.length > 0
-        ? twin.sourceSnapshots.snapshots.filter((snapshot) => snapshot.replayable)
-            .length / twin.sourceSnapshots.snapshots.length
+        ? twin.sourceSnapshots.snapshots.filter(
+            (snapshot) => snapshot.replayable,
+          ).length / twin.sourceSnapshots.snapshots.length
         : 0;
     const observedEvidenceCount = twin.evidence.filter(
       (item) => item.provenance === 'observed',
@@ -143,18 +145,17 @@ export class SceneMidQaService {
       },
       {
         id: 'terrain_asset_alignment',
-        state:
-          !twin.spatialFrame.terrain.hasElevationModel
-            ? 'FAIL'
-            : (meta.roads.some((road) => Math.abs(road.terrainOffsetM ?? 0) > 0) ||
-                  meta.walkways.some(
-                    (walkway) => Math.abs(walkway.terrainOffsetM ?? 0) > 0,
-                  ) ||
-                  meta.buildings.some(
-                    (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,
-                  ))
-              ? 'PASS'
-              : 'WARN',
+        state: !twin.spatialFrame.terrain.hasElevationModel
+          ? 'FAIL'
+          : meta.roads.some((road) => Math.abs(road.terrainOffsetM ?? 0) > 0) ||
+              meta.walkways.some(
+                (walkway) => Math.abs(walkway.terrainOffsetM ?? 0) > 0,
+              ) ||
+              meta.buildings.some(
+                (building) => Math.abs(building.terrainOffsetM ?? 0) > 0,
+              )
+            ? 'PASS'
+            : 'WARN',
         summary: 'terrain-grounded road/building asset alignment',
         metrics: {
           terrainAnchoredRoadCount: meta.roads.filter(
@@ -171,12 +172,11 @@ export class SceneMidQaService {
       },
       {
         id: 'delivery_binding',
-        state:
-          twin.delivery.artifacts.some(
-            (artifact) => artifact.semanticMetadataCoverage !== 'NONE',
-          )
-            ? 'WARN'
-            : 'FAIL',
+        state: twin.delivery.artifacts.some(
+          (artifact) => artifact.semanticMetadataCoverage !== 'NONE',
+        )
+          ? 'WARN'
+          : 'FAIL',
         summary: 'delivery artifact semantic binding 수준',
         metrics: {
           artifactCount: twin.delivery.artifacts.length,
@@ -187,29 +187,38 @@ export class SceneMidQaService {
       },
       {
         id: 'state_binding',
-        state:
-          twin.stateChannels.some((channel) => channel.bindingScope === 'SCENE')
+        state: twin.stateChannels.some(
+          (channel) => channel.bindingScope === 'ENTITY',
+        )
+          ? 'PASS'
+          : twin.stateChannels.some(
+                (channel) => channel.bindingScope === 'SCENE',
+              )
             ? 'WARN'
             : 'FAIL',
         summary: 'state binding granularity',
         metrics: {
           channelCount: twin.stateChannels.length,
-          bindingScope: twin.stateChannels.map((channel) => channel.bindingScope).join(','),
+          bindingScope: twin.stateChannels
+            .map((channel) => channel.bindingScope)
+            .join(','),
         },
       },
       {
         id: 'mesh_health',
         state:
-          (validation.qualityGate?.meshSummary.emptyOrInvalidGeometryCount ?? 0) === 0 &&
+          (validation.qualityGate?.meshSummary.emptyOrInvalidGeometryCount ??
+            0) === 0 &&
           (validation.qualityGate?.meshSummary.totalSkipped ?? 0) === 0
             ? 'PASS'
-            : (validation.qualityGate?.meshSummary.criticalEmptyOrInvalidGeometryCount ?? 0) >
-                  0
+            : (validation.qualityGate?.meshSummary
+                  .criticalEmptyOrInvalidGeometryCount ?? 0) > 0
               ? 'FAIL'
               : 'WARN',
         summary: 'mesh skipped/invalid 상태',
         metrics: {
-          totalSkipped: validation.qualityGate?.meshSummary.totalSkipped ?? null,
+          totalSkipped:
+            validation.qualityGate?.meshSummary.totalSkipped ?? null,
           invalidGeometry:
             validation.qualityGate?.meshSummary.emptyOrInvalidGeometryCount ??
             null,
@@ -234,8 +243,7 @@ export class SceneMidQaService {
       summary,
       score: {
         overall,
-        confidence:
-          overall >= 0.8 ? 'high' : overall >= 0.6 ? 'medium' : 'low',
+        confidence: overall >= 0.8 ? 'high' : overall >= 0.6 ? 'medium' : 'low',
       },
       checks: qaChecks,
       findings,
@@ -318,7 +326,9 @@ function buildFindings(
   }
 
   if (context.meta.bounds.radiusM > 0) {
-    const terrainCheck = checks.find((check) => check.id === 'terrain_grounding');
+    const terrainCheck = checks.find(
+      (check) => check.id === 'terrain_grounding',
+    );
     if (terrainCheck?.state === 'FAIL') {
       findings.push({
         severity: 'error',
@@ -342,11 +352,15 @@ function buildFindings(
   if (context.diagnosticsLineCount === 0) {
     findings.push({
       severity: 'warn',
-      message: 'diagnostics log line count가 0입니다. build trace가 부족합니다.',
+      message:
+        'diagnostics log line count가 0입니다. build trace가 부족합니다.',
     });
   }
 
-  if (context.meta.buildings.length > 0 && context.detail.facadeHints.length === 0) {
+  if (
+    context.meta.buildings.length > 0 &&
+    context.detail.facadeHints.length === 0
+  ) {
     findings.push({
       severity: 'error',
       message: 'building은 존재하지만 facade hint가 비어 있습니다.',

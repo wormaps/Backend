@@ -31,6 +31,7 @@ describe('Scene Services', () => {
     const {
       generationService,
       readService,
+      liveDataService,
       glbBuilderService,
       googlePlacesClient,
       overpassClient,
@@ -94,8 +95,7 @@ describe('Scene Services', () => {
           method: 'POST',
           request: {
             headers: {
-              'Content-Type':
-                'application/x-www-form-urlencoded;charset=UTF-8',
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
             },
           },
           response: {
@@ -122,6 +122,12 @@ describe('Scene Services', () => {
     const twin = await readService.getSceneTwin(scene.sceneId);
     const validation = await readService.getValidationReport(scene.sceneId);
     const evidence = await readService.getSceneEvidence(scene.sceneId);
+    const entityState = await liveDataService.getEntityState(scene.sceneId, {
+      date: '2026-04-04',
+      timeOfDay: 'DAY',
+      kind: 'ROAD',
+      objectId: 'road-22',
+    });
     const qa = await readService.getMidQaReport(scene.sceneId);
 
     expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
@@ -158,6 +164,9 @@ describe('Scene Services', () => {
     );
     expect(bootstrap.renderContract.liveDataModes.weather).toBe(
       'CURRENT_OR_HISTORICAL',
+    );
+    expect(bootstrap.renderContract.liveDataModes.state).toBe(
+      'SYNTHETIC_RULES_ENTITY_READY',
     );
     expect(bootstrap.glbSources).toEqual({
       googlePlaces: true,
@@ -199,11 +208,15 @@ describe('Scene Services', () => {
     expect(twin.sourceSnapshots.snapshots).toHaveLength(7);
     expect(twin.sourceSnapshots.snapshots[0]?.kind).toBe('PLACE_SEARCH_QUERY');
     expect(twin.sourceSnapshots.snapshots[0]?.request.method).toBe('POST');
-    expect(twin.sourceSnapshots.snapshots[0]?.upstreamEnvelopes).toHaveLength(1);
-    expect(
-      twin.sourceSnapshots.snapshots[1]?.responseSummary.objectId,
-    ).toBe(placeDetail.placeId);
-    expect(twin.sourceSnapshots.snapshots[2]?.upstreamEnvelopes).toHaveLength(1);
+    expect(twin.sourceSnapshots.snapshots[0]?.upstreamEnvelopes).toHaveLength(
+      1,
+    );
+    expect(twin.sourceSnapshots.snapshots[1]?.responseSummary.objectId).toBe(
+      placeDetail.placeId,
+    );
+    expect(twin.sourceSnapshots.snapshots[2]?.upstreamEnvelopes).toHaveLength(
+      1,
+    );
     expect(twin.sourceSnapshots.snapshots[3]?.kind).toBe('TERRAIN_PROFILE');
     expect(twin.spatialFrame.localFrame).toBe('ENU');
     expect(twin.spatialFrame.verification.sampleCount).toBe(3);
@@ -213,13 +226,16 @@ describe('Scene Services', () => {
       true,
     );
     expect(evidence.some((item) => item.kind === 'GEOMETRY')).toBe(true);
+    expect(entityState.total).toBe(1);
+    expect(entityState.entities[0]?.kind).toBe('ROAD');
+    expect(entityState.entities[0]?.objectId).toBe('road-22');
     expect(qa.summary).toBe('FAIL');
     expect(qa.checks.some((check) => check.id === 'observed_coverage')).toBe(
       true,
     );
-    expect(
-      qa.findings.some((finding) => finding.severity === 'warn'),
-    ).toBe(true);
+    expect(qa.findings.some((finding) => finding.severity === 'warn')).toBe(
+      true,
+    );
     expect(validation.summary).toBe('WARN');
     expect(validation.gates.map((gate) => gate.gate)).toEqual([
       'geometry',
@@ -232,6 +248,11 @@ describe('Scene Services', () => {
       'LOW_OBSERVED_APPEARANCE_COVERAGE',
     ]);
     expect(validation.gates[2]?.reasonCodes).toEqual(['TERRAIN_MODEL_MISSING']);
+    expect(validation.gates[4]?.state).toBe('PASS');
+    expect(
+      (validation.gates[4]?.metrics as { entityStateBindingCount?: number })
+        .entityStateBindingCount,
+    ).toBeGreaterThan(0);
     expect(meta.pois[0]?.category).toBe('shop');
     expect(meta.pois[0]?.location.lat).toBe(37.5664);
 

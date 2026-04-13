@@ -21,6 +21,7 @@ import {
 } from './scene-domain.types';
 import { SceneTwinGraph, ValidationReport } from './scene-twin.types';
 import { MidQaReport } from './scene-twin.types';
+import { TwinEntityKind } from './scene-twin.types';
 
 export interface BootstrapResponse {
   sceneId: string;
@@ -65,7 +66,7 @@ export interface BootstrapResponse {
     liveDataModes: {
       traffic: 'LIVE_BEST_EFFORT';
       weather: 'CURRENT_OR_HISTORICAL';
-      state: 'SYNTHETIC_RULES';
+      state: 'SYNTHETIC_RULES' | 'SYNTHETIC_RULES_ENTITY_READY';
     };
   };
 }
@@ -93,6 +94,34 @@ export interface SceneStateResponse {
     date?: string;
     localTime?: string;
   };
+}
+
+export interface SceneEntityStateQuery extends SceneStateQuery {
+  kind?: TwinEntityKind;
+  objectId?: string;
+}
+
+export interface SceneEntityStateItem {
+  entityId: string;
+  objectId: string;
+  kind: TwinEntityKind;
+  stateMode: 'SYNTHETIC_RULES';
+  confidence: number;
+  sourceSnapshotIds: string[];
+}
+
+export interface SceneEntityStateResponse {
+  sceneId: string;
+  updatedAt: string;
+  timeOfDay: TimeOfDay;
+  weather: WeatherType;
+  source: 'MVP_SYNTHETIC_RULES';
+  filters: {
+    kind?: TwinEntityKind;
+    objectId?: string;
+  };
+  total: number;
+  entities: SceneEntityStateItem[];
 }
 
 export interface TrafficSegment {

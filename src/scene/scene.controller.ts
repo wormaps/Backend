@@ -34,6 +34,7 @@ import {
   MidQaReportDto,
   SceneDetailDto,
   SceneEvidenceDto,
+  SceneEntityStateResponseDto,
   SceneEntityDto,
   SceneMetaDto,
   ScenePlacesResponseDto,
@@ -54,11 +55,13 @@ import {
   MidQaReport,
   SceneDetail,
   SceneEntity,
+  SceneEntityStateResponse,
   SceneMeta,
   ScenePlacesResponse,
   SCENE_SCALE_VALUES,
   SceneStateResponse,
   SceneTrafficResponse,
+  TWIN_ENTITY_KIND_VALUES,
   TwinEvidence,
   SceneTwinGraph,
   ValidationReport,
@@ -234,10 +237,12 @@ export class SceneController {
   ): Promise<ResponsePayload<TwinEvidence[]>> {
     const validatedSceneId = validatePlaceId(sceneId);
 
-    return this.sceneService.getSceneEvidence(validatedSceneId).then((data) => ({
-      message: 'Scene evidence 조회에 성공했습니다.',
-      data,
-    }));
+    return this.sceneService
+      .getSceneEvidence(validatedSceneId)
+      .then((data) => ({
+        message: 'Scene evidence 조회에 성공했습니다.',
+        data,
+      }));
   }
 
   @Get(':sceneId/qa')
@@ -343,6 +348,61 @@ export class SceneController {
         date,
         timeOfDay: timeOfDay ?? 'DAY',
         weather: weather ?? undefined,
+      }),
+    };
+  }
+
+  @Get(':sceneId/state/entities')
+  @ApiOperation({ summary: 'Scene entity live state 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    example: '2026-04-04',
+  })
+  @ApiQuery({ name: 'timeOfDay', required: false, enum: TIME_OF_DAY_VALUES })
+  @ApiQuery({ name: 'weather', required: false, enum: WEATHER_VALUES })
+  @ApiQuery({ name: 'kind', required: false, enum: TWIN_ENTITY_KIND_VALUES })
+  @ApiQuery({ name: 'objectId', required: false, type: String })
+  @ApiSuccessEnvelope({ model: SceneEntityStateResponseDto })
+  async getEntityState(
+    @Param('sceneId') sceneId: string,
+    @Query('date') rawDate?: string,
+    @Query('timeOfDay') rawTimeOfDay?: string,
+    @Query('weather') rawWeather?: string,
+    @Query('kind') rawKind?: string,
+    @Query('objectId') rawObjectId?: string,
+  ): Promise<ResponsePayload<SceneEntityStateResponse>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+    const timeOfDay = parseOptionalEnum(
+      rawTimeOfDay,
+      TIME_OF_DAY_VALUES,
+      ERROR_CODES.INVALID_TIME_OF_DAY,
+      'timeOfDay',
+    );
+    const weather = parseOptionalEnum(
+      rawWeather,
+      WEATHER_VALUES,
+      ERROR_CODES.INVALID_WEATHER,
+      'weather',
+    );
+    const kind = parseOptionalEnum(
+      rawKind,
+      TWIN_ENTITY_KIND_VALUES,
+      ERROR_CODES.INVALID_REQUEST,
+      'kind',
+    );
+    const date = parseOptionalIsoDate(rawDate) ?? undefined;
+
+    return {
+      message: 'Scene entity live state 조회에 성공했습니다.',
+      data: await this.sceneService.getEntityState(validatedSceneId, {
+        date,
+        timeOfDay: timeOfDay ?? 'DAY',
+        weather: weather ?? undefined,
+        kind,
+        objectId: rawObjectId?.trim() ? rawObjectId.trim() : undefined,
       }),
     };
   }

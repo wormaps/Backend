@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  SceneEntityStateQuery,
+  SceneEntityStateResponse,
   SceneStateQuery,
   SceneStateResponse,
   SceneTrafficResponse,
@@ -23,6 +25,13 @@ export class SceneLiveDataService {
     query: SceneStateQuery,
   ): Promise<SceneStateResponse> {
     return this.sceneStateLiveService.getState(sceneId, query);
+  }
+
+  async getEntityState(
+    sceneId: string,
+    query: SceneEntityStateQuery,
+  ): Promise<SceneEntityStateResponse> {
+    return this.sceneStateLiveService.getEntityState(sceneId, query);
   }
 
   async getWeather(

@@ -181,19 +181,22 @@ export interface SpatialFrameManifest {
   };
 }
 
-export type TwinEntityKind =
-  | 'SCENE'
-  | 'PLACE'
-  | 'BUILDING'
-  | 'ROAD'
-  | 'WALKWAY'
-  | 'POI'
-  | 'CROSSING'
-  | 'STREET_FURNITURE'
-  | 'VEGETATION'
-  | 'LAND_COVER'
-  | 'LINEAR_FEATURE'
-  | 'LANDMARK';
+export const TWIN_ENTITY_KIND_VALUES = [
+  'SCENE',
+  'PLACE',
+  'BUILDING',
+  'ROAD',
+  'WALKWAY',
+  'POI',
+  'CROSSING',
+  'STREET_FURNITURE',
+  'VEGETATION',
+  'LAND_COVER',
+  'LINEAR_FEATURE',
+  'LANDMARK',
+] as const;
+
+export type TwinEntityKind = (typeof TWIN_ENTITY_KIND_VALUES)[number];
 
 export type TwinComponentKind =
   | 'IDENTITY'
@@ -253,11 +256,7 @@ export interface TwinEntity {
   tags: string[];
 }
 
-export type TwinEvidenceKind =
-  | 'GEOMETRY'
-  | 'APPEARANCE'
-  | 'STATE'
-  | 'SEMANTIC';
+export type TwinEvidenceKind = 'GEOMETRY' | 'APPEARANCE' | 'STATE' | 'SEMANTIC';
 
 export interface TwinEvidence {
   evidenceId: string;
@@ -289,7 +288,7 @@ export interface DeliveryArtifactManifest {
 export interface TwinStateChannel {
   channelId: string;
   mode: 'SYNTHETIC_RULES';
-  bindingScope: 'SCENE';
+  bindingScope: 'SCENE' | 'ENTITY';
   entityId: string;
   bindings: Array<{
     entityId: string;

@@ -153,6 +153,67 @@ describe('Scene Live Data Service', () => {
     });
   });
 
+  it('builds entity live state with kind/object filters', async () => {
+    const { generationService, liveDataService, openMeteoClient } = context!;
+
+    seedReadySceneMocks(context!);
+    openMeteoClient.getHistoricalObservation.mockResolvedValue({
+      date: '2026-04-04',
+      localTime: '2026-04-04T18:00',
+      temperatureCelsius: 11.4,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 20,
+      resolvedWeather: 'CLEAR',
+      source: 'OPEN_METEO_HISTORICAL',
+    });
+    openMeteoClient.getObservation.mockResolvedValue({
+      date: '2026-04-04',
+      localTime: '2026-04-04T18:00',
+      temperatureCelsius: 11.4,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 20,
+      resolvedWeather: 'CLEAR',
+      source: 'OPEN_METEO_HISTORICAL',
+    });
+
+    const scene = await generationService.createScene(
+      'Seoul City Hall',
+      'MEDIUM',
+    );
+    await generationService.waitForIdle();
+
+    const allEntities = await liveDataService.getEntityState(scene.sceneId, {
+      date: '2026-04-04',
+      timeOfDay: 'EVENING',
+    });
+    expect(allEntities.sceneId).toBe(scene.sceneId);
+    expect(allEntities.total).toBeGreaterThan(0);
+    expect(allEntities.entities.some((item) => item.kind === 'ROAD')).toBe(
+      true,
+    );
+    expect(
+      allEntities.entities.every(
+        (item) => item.stateMode === 'SYNTHETIC_RULES',
+      ),
+    ).toBe(true);
+
+    const roadOnly = await liveDataService.getEntityState(scene.sceneId, {
+      date: '2026-04-04',
+      timeOfDay: 'EVENING',
+      kind: 'ROAD',
+      objectId: 'road-22',
+    });
+    expect(roadOnly.filters.kind).toBe('ROAD');
+    expect(roadOnly.filters.objectId).toBe('road-22');
+    expect(roadOnly.entities).toHaveLength(1);
+    expect(roadOnly.entities[0]?.kind).toBe('ROAD');
+    expect(roadOnly.entities[0]?.objectId).toBe('road-22');
+  });
+
   it('caches weather responses by scene/date/timeOfDay', async () => {
     const { generationService, liveDataService, openMeteoClient } = context!;
 

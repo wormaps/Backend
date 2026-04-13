@@ -3,15 +3,12 @@ import { ExternalPlaceDetailDto } from '../places/swagger.places.dto';
 import {
   DensityMetricDto,
   LightingStateDto,
-  PlaybackDto,
   SceneCrossingDetailDto,
   SceneFacadeHintDto,
   SceneRoadMarkingDetailDto,
   SceneSignageClusterDto,
   SceneStreetFurnitureDetailDto,
   SceneVegetationDetailDto,
-  SourceDetailDto,
-  SurfaceStateDto,
   TrafficSegmentDto,
   WeatherObservationDto,
 } from './swagger.scene-core.dto';
@@ -20,41 +17,11 @@ import {
   ScenePoiMetaDto,
   SceneStructuralCoverageDto,
 } from './swagger.scene-meta.dto';
-
-export class SceneSnapshotDto {
-  @ApiProperty({ example: 'gangnam-station' })
-  placeId!: string;
-
-  @ApiProperty({ enum: ['DAY', 'EVENING', 'NIGHT'] })
-  timeOfDay!: string;
-
-  @ApiProperty({ enum: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'] })
-  weather!: string;
-
-  @ApiProperty({ example: '2026-04-04T08:40:21Z' })
-  generatedAt!: string;
-
-  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES'] })
-  source!: string;
-
-  @ApiProperty({ type: DensityMetricDto })
-  crowd!: DensityMetricDto;
-
-  @ApiProperty({ type: DensityMetricDto })
-  vehicles!: DensityMetricDto;
-
-  @ApiProperty({ type: LightingStateDto })
-  lighting!: LightingStateDto;
-
-  @ApiProperty({ type: SurfaceStateDto })
-  surface!: SurfaceStateDto;
-
-  @ApiProperty({ type: PlaybackDto })
-  playback!: PlaybackDto;
-
-  @ApiProperty({ type: SourceDetailDto, required: false })
-  sourceDetail?: SourceDetailDto;
-}
+import {
+  SceneEntityStateResponseDto,
+  SceneSnapshotDto,
+  SceneStateResponseDto,
+} from './swagger.scene-state.dto';
 
 export class CreateSceneRequestDto {
   @ApiProperty({ example: 'Seoul City Hall' })
@@ -187,7 +154,7 @@ export class LiveDataModesDto {
   @ApiProperty({ enum: ['CURRENT_OR_HISTORICAL'] })
   weather!: string;
 
-  @ApiProperty({ enum: ['SYNTHETIC_RULES'] })
+  @ApiProperty({ enum: ['SYNTHETIC_RULES', 'SYNTHETIC_RULES_ENTITY_READY'] })
   state!: string;
 }
 
@@ -346,7 +313,10 @@ export class SceneEvidenceDto {
   @ApiProperty({ enum: ['observed', 'inferred', 'defaulted'] })
   provenance!: string;
 
-  @ApiProperty({ example: 'Building footprint and height derived from normalized Overpass package.' })
+  @ApiProperty({
+    example:
+      'Building footprint and height derived from normalized Overpass package.',
+  })
   summary!: string;
 
   @ApiProperty({ type: Object })
@@ -458,41 +428,6 @@ export class SceneWeatherResponseDto {
 
   @ApiProperty({ nullable: true, example: '2026-04-04T12:00' })
   observedAt!: string | null;
-}
-
-export class SceneStateResponseDto {
-  @ApiProperty({ example: 'google-place-id' })
-  placeId!: string;
-
-  @ApiProperty({ example: '2026-04-04T13:00:00Z' })
-  updatedAt!: string;
-
-  @ApiProperty({ enum: ['DAY', 'EVENING', 'NIGHT'] })
-  timeOfDay!: string;
-
-  @ApiProperty({ enum: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'] })
-  weather!: string;
-
-  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES'] })
-  source!: string;
-
-  @ApiProperty({ type: DensityMetricDto })
-  crowd!: DensityMetricDto;
-
-  @ApiProperty({ type: DensityMetricDto })
-  vehicles!: DensityMetricDto;
-
-  @ApiProperty({ type: LightingStateDto })
-  lighting!: LightingStateDto;
-
-  @ApiProperty({ type: SurfaceStateDto })
-  surface!: SurfaceStateDto;
-
-  @ApiProperty({ type: PlaybackDto })
-  playback!: PlaybackDto;
-
-  @ApiProperty({ type: SourceDetailDto, required: false })
-  sourceDetail?: SourceDetailDto;
 }
 
 export class ScenePlacesResponseDto {

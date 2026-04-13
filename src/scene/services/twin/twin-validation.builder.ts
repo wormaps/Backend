@@ -18,6 +18,8 @@ export function buildValidationReport(args: {
   assetPath: string;
   qualityGate: SceneQualityGateResult;
   detail: SceneDetail;
+  sceneStateBindingCount: number;
+  entityStateBindingCount: number;
 }): ValidationReport {
   const geometryGate = buildGeometryGate(args.qualityGate);
   const semanticGate = buildSemanticGate(
@@ -31,7 +33,11 @@ export function buildValidationReport(args: {
     args.assetPath,
     args.deliveryArtifactCount,
   );
-  const stateGate = buildStateGate(args.detail);
+  const stateGate = buildStateGate({
+    detail: args.detail,
+    sceneStateBindingCount: args.sceneStateBindingCount,
+    entityStateBindingCount: args.entityStateBindingCount,
+  });
   const gates = [
     geometryGate,
     semanticGate,
@@ -173,14 +179,26 @@ function buildSpatialGate(
   };
 }
 
-function buildStateGate(detail: SceneDetail): ValidationGateResult {
+function buildStateGate(args: {
+  detail: SceneDetail;
+  sceneStateBindingCount: number;
+  entityStateBindingCount: number;
+}): ValidationGateResult {
+  const { detail, sceneStateBindingCount, entityStateBindingCount } = args;
+  const hasSceneAndEntityBindings =
+    sceneStateBindingCount > 0 && entityStateBindingCount > 0;
+
   return {
     gate: 'state',
-    state: 'WARN',
-    reasonCodes: ['SCENE_LEVEL_SYNTHETIC_STATE_ONLY'],
+    state: hasSceneAndEntityBindings ? 'PASS' : 'WARN',
+    reasonCodes: hasSceneAndEntityBindings
+      ? []
+      : ['SCENE_LEVEL_SYNTHETIC_STATE_ONLY'],
     metrics: {
       detailStatus: detail.detailStatus,
       mapillaryUsed: detail.provenance.mapillaryUsed,
+      sceneStateBindingCount,
+      entityStateBindingCount,
     },
   };
 }

@@ -13,6 +13,7 @@ import type {
   TwinEvidence,
   TwinRelationship,
   ValidationReport,
+  TwinEntityKind,
 } from '../../types/scene.types';
 import { SceneTerrainProfileService } from '../spatial';
 import { hashValue } from './twin-hash.utils';
@@ -150,6 +151,12 @@ export class SceneTwinBuilderService {
 
     const sceneEntityId = `entity-${hashValue(`${sceneId}:scene`).slice(0, 12)}`;
 
+    const entityStateBindings = buildEntityStateBindings(
+      entities,
+      components,
+      snapshotIds.detail,
+    );
+
     const validation = buildValidationReport({
       sceneId,
       generatedAt,
@@ -161,6 +168,8 @@ export class SceneTwinBuilderService {
       assetPath,
       qualityGate,
       detail,
+      sceneStateBindingCount: 1,
+      entityStateBindingCount: entityStateBindings.length,
     });
 
     const twin: SceneTwinGraph = {
@@ -194,8 +203,17 @@ export class SceneTwinBuilderService {
             },
           ],
           supportedQueries: ['timeOfDay', 'weather', 'date'],
+          notes: 'Scene synthetic rules state channel입니다.',
+        },
+        {
+          channelId: `state-${hashValue(`${sceneId}:entity-synthetic`).slice(0, 12)}`,
+          mode: 'SYNTHETIC_RULES',
+          bindingScope: 'ENTITY',
+          entityId: sceneEntityId,
+          bindings: entityStateBindings,
+          supportedQueries: ['timeOfDay', 'weather', 'date'],
           notes:
-            '현재는 scene-level synthetic rules state만 지원합니다. entity-level state channel은 아직 구현되지 않았습니다.',
+            'Entity synthetic rules state channel입니다. entity kind/objectId 기반 조회를 지원합니다.',
         },
       ],
       landmarkAnchors: meta.landmarkAnchors,
@@ -209,4 +227,62 @@ export class SceneTwinBuilderService {
 
     return { twin, validation };
   }
+}
+
+function buildEntityStateBindings(
+  entities: TwinEntity[],
+  components: TwinComponent[],
+  detailSnapshotId: string,
+): Array<{
+  entityId: string;
+  componentKind: 'STATE_BINDING';
+  propertyNames: ['stateMode'];
+}> {
+  const excludedKinds = new Set<TwinEntityKind>(['SCENE', 'PLACE']);
+  const entityIds = entities
+    .filter((entity) => !excludedKinds.has(entity.kind))
+    .map((entity) => entity.entityId);
+
+  const existingStateBindingEntities = new Set(
+    components
+      .filter((component) => component.kind === 'STATE_BINDING')
+      .map((component) => component.entityId),
+  );
+
+  for (const entityId of entityIds) {
+    if (existingStateBindingEntities.has(entityId)) {
+      continue;
+    }
+    const componentId = `component-${hashValue(`${entityId}:STATE_BINDING:Entity State Binding`).slice(0, 12)}`;
+    components.push({
+      componentId,
+      entityId,
+      kind: 'STATE_BINDING',
+      label: 'Entity State Binding',
+      properties: [
+        {
+          propertyId: `property-${hashValue(`${entityId}:stateMode`).slice(0, 12)}`,
+          name: 'stateMode',
+          value: 'SYNTHETIC_RULES',
+          valueType: 'string',
+          origin: 'defaulted',
+          confidence: 0.4,
+          sourceSnapshotIds: [detailSnapshotId],
+          evidenceIds: [],
+        },
+      ],
+    });
+    const targetEntity = entities.find(
+      (entity) => entity.entityId === entityId,
+    );
+    if (targetEntity) {
+      targetEntity.componentIds.push(componentId);
+    }
+  }
+
+  return entityIds.map((entityId) => ({
+    entityId,
+    componentKind: 'STATE_BINDING',
+    propertyNames: ['stateMode'] as const,
+  }));
 }
