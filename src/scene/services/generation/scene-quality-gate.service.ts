@@ -1,15 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import {
   SceneDetail,
   SceneMeta,
-  SceneOracleApprovalStatus,
-  SceneQualityGateMeshSummary,
   SceneQualityGateReasonCode,
   SceneQualityGateResult,
-  SceneQualityGateThresholds,
 } from '../../types/scene.types';
 import {
   getSceneDataDir,
@@ -17,61 +13,17 @@ import {
 } from '../../storage/scene-storage.utils';
 import { buildSceneFidelityMetricsReport } from '../../utils/scene-fidelity-metrics.utils';
 import { buildSceneModeComparisonReport } from '../../utils/scene-mode-comparison-report.utils';
-
-const CRITICAL_MESH_NAMES = new Set([
-  'road_base',
-  'road_markings',
-  'lane_overlay',
-  'crosswalk_overlay',
-  'junction_overlay',
-  'building_windows',
-  'building_roof_surfaces_cool',
-  'building_roof_surfaces_warm',
-  'building_roof_surfaces_neutral',
-  'building_roof_accents_cool',
-  'building_roof_accents_warm',
-  'building_roof_accents_neutral',
-]);
-const CRITICAL_MESH_PREFIXES = ['building_shells_'];
-const COLLISION_RATIO_HARD_FAIL_THRESHOLD = 0.03;
-
-interface ParsedDiagnosticsEntry {
-  stage?: string;
-  meshNodes?: Array<{
-    name?: string;
-    skipped?: boolean;
-    skippedReason?: string;
-  }>;
-}
-
-interface GeometryDiagnosticsShape {
-  collisionRiskCount?: number;
-  groundedGapCount?: number;
-  openShellCount?: number;
-  roofWallGapCount?: number;
-  invalidSetbackJoinCount?: number;
-  terrainAnchoredRoadCount?: number;
-  terrainAnchoredWalkwayCount?: number;
-  transportTerrainCoverageRatio?: number;
-}
-type SceneGeometryDiagnosticWithCorrection = {
-  objectId?: string;
-  collisionRiskCount?: number;
-  groundedGapCount?: number;
-  openShellCount?: number;
-  roofWallGapCount?: number;
-  invalidSetbackJoinCount?: number;
-  terrainAnchoredRoadCount?: number;
-  terrainAnchoredWalkwayCount?: number;
-  transportTerrainCoverageRatio?: number;
-};
-
-interface OracleApprovalFilePayload {
-  state?: 'APPROVED' | 'REJECTED';
-  approvedBy?: string;
-  approvedAt?: string;
-  note?: string;
-}
+import {
+  findGeometryCorrectionDiagnostics,
+  hasCriticalCollision,
+  hasCriticalGroundingGap,
+  hasCriticalRoofWallGap,
+  hasCriticalShellClosure,
+  hasCriticalTerrainTransportAlignment,
+} from './quality-gate/scene-quality-gate-geometry';
+import { resolveSceneQualityGateMeshSummary } from './quality-gate/scene-quality-gate-mesh-summary';
+import { resolveSceneOracleApproval } from './quality-gate/scene-quality-gate-oracle-approval';
+import { resolveSceneQualityGateThresholds } from './quality-gate/scene-quality-gate-thresholds';
 
 @Injectable()
 export class SceneQualityGateService {
@@ -84,11 +36,11 @@ export class SceneQualityGateService {
     sceneDetail: SceneDetail,
   ): Promise<SceneQualityGateResult> {
     const fidelityPlan = sceneDetail.fidelityPlan ?? sceneMeta.fidelityPlan;
-    const thresholds = this.resolveThresholds(fidelityPlan?.phase);
-    const oracleApproval = await this.resolveOracleApproval(
-      sceneMeta.sceneId,
-      fidelityPlan?.phase,
-    );
+    const thresholds = resolveSceneQualityGateThresholds(fidelityPlan?.phase);
+    const oracleApproval = await resolveSceneOracleApproval({
+      sceneId: sceneMeta.sceneId,
+      phase: fidelityPlan?.phase,
+    });
     const metrics = buildSceneFidelityMetricsReport(sceneMeta, sceneDetail);
     const modeComparison = buildSceneModeComparisonReport(
       sceneMeta,
@@ -98,7 +50,9 @@ export class SceneQualityGateService {
         glbBytes: 0,
       },
     );
-    const meshSummary = await this.resolveMeshSummary(sceneMeta.sceneId);
+    const meshSummary = await resolveSceneQualityGateMeshSummary(
+      sceneMeta.sceneId,
+    );
     const reasonCodes: SceneQualityGateReasonCode[] = [];
 
     if ((fidelityPlan?.coverageGapRatio ?? 0) > thresholds.coverageGapMax) {
@@ -131,33 +85,33 @@ export class SceneQualityGateService {
       reasonCodes.push('CRITICAL_INVALID_GEOMETRY');
     }
     if (
-      this.hasCriticalCollision(
-        sceneDetail.geometryDiagnostics,
-        sceneMeta.buildings.length,
-      )
+      hasCriticalCollision({
+        geometryDiagnostics: sceneDetail.geometryDiagnostics,
+        totalBuildingCount: sceneMeta.buildings.length,
+      })
     ) {
       reasonCodes.push('CRITICAL_COLLISION_DETECTED');
     }
     if (
-      this.hasCriticalGroundingGap(
-        sceneDetail.geometryDiagnostics,
-        sceneMeta.buildings.length,
-      )
+      hasCriticalGroundingGap({
+        geometryDiagnostics: sceneDetail.geometryDiagnostics,
+        totalBuildingCount: sceneMeta.buildings.length,
+      })
     ) {
       reasonCodes.push('CRITICAL_GROUNDING_GAP_DETECTED');
     }
-    if (this.hasCriticalShellClosure(sceneDetail.geometryDiagnostics)) {
+    if (hasCriticalShellClosure(sceneDetail.geometryDiagnostics)) {
       reasonCodes.push('CRITICAL_SHELL_CLOSURE_DETECTED');
     }
-    if (this.hasCriticalRoofWallGap(sceneDetail.geometryDiagnostics)) {
+    if (hasCriticalRoofWallGap(sceneDetail.geometryDiagnostics)) {
       reasonCodes.push('CRITICAL_ROOF_WALL_GAP_DETECTED');
     }
     if (
       sceneMeta.terrainProfile?.hasElevationModel &&
-      this.hasCriticalTerrainTransportAlignment(
-        sceneDetail.geometryDiagnostics,
-        sceneMeta.roads.length + sceneMeta.walkways.length,
-      )
+      hasCriticalTerrainTransportAlignment({
+        geometryDiagnostics: sceneDetail.geometryDiagnostics,
+        totalTransportCount: sceneMeta.roads.length + sceneMeta.walkways.length,
+      })
     ) {
       reasonCodes.push('CRITICAL_TERRAIN_TRANSPORT_ALIGNMENT_DETECTED');
     }
@@ -182,7 +136,7 @@ export class SceneQualityGateService {
     this.appLoggerService.info('scene.quality_gate.geometry_marker', {
       sceneId: sceneMeta.sceneId,
       step: 'quality_gate',
-      geometryMarker: this.findGeometryCorrectionDiagnostics(
+      geometryMarker: findGeometryCorrectionDiagnostics(
         sceneDetail.geometryDiagnostics,
       ),
       reasonCodes,
@@ -208,305 +162,6 @@ export class SceneQualityGateService {
       artifactRefs,
       oracleApproval,
       decidedAt: new Date().toISOString(),
-    };
-  }
-
-  private resolveThresholds(
-    phase?:
-      | 'PHASE_1_BASELINE'
-      | 'PHASE_2_HYBRID_FOUNDATION'
-      | 'PHASE_3_PRODUCTION_LOCK',
-  ): SceneQualityGateThresholds {
-    if (phase === 'PHASE_3_PRODUCTION_LOCK') {
-      return {
-        coverageGapMax: 0,
-        overallMin: 0.78,
-        structureMin: 0.68,
-        placeReadabilityMin: 0.45,
-        modeDeltaOverallMin: 0,
-        criticalPolygonBudgetExceededMax: 0,
-        criticalInvalidGeometryMax: 0,
-        maxSkippedMeshesWarn: 80,
-        maxMissingSourceWarn: 20,
-      };
-    }
-
-    if (phase === 'PHASE_2_HYBRID_FOUNDATION') {
-      return {
-        coverageGapMax: 0,
-        overallMin: 0.7,
-        structureMin: 0.62,
-        placeReadabilityMin: 0.35,
-        modeDeltaOverallMin: 0,
-        criticalPolygonBudgetExceededMax: 0,
-        criticalInvalidGeometryMax: 0,
-        maxSkippedMeshesWarn: 120,
-        maxMissingSourceWarn: 32,
-      };
-    }
-
-    return {
-      coverageGapMax: 1,
-      overallMin: 0.45,
-      structureMin: 0.45,
-      placeReadabilityMin: 0,
-      modeDeltaOverallMin: -0.2,
-      criticalPolygonBudgetExceededMax: 0,
-      criticalInvalidGeometryMax: 0,
-      maxSkippedMeshesWarn: 180,
-      maxMissingSourceWarn: 48,
-    };
-  }
-
-  private async resolveOracleApproval(
-    sceneId: string,
-    phase?:
-      | 'PHASE_1_BASELINE'
-      | 'PHASE_2_HYBRID_FOUNDATION'
-      | 'PHASE_3_PRODUCTION_LOCK',
-  ): Promise<SceneOracleApprovalStatus> {
-    if (phase !== 'PHASE_3_PRODUCTION_LOCK') {
-      return {
-        required: false,
-        state: 'NOT_REQUIRED',
-        source: 'auto',
-      };
-    }
-
-    const approvalFilePath = join(
-      getSceneDataDir(),
-      `${sceneId}.oracle-approval.json`,
-    );
-
-    let raw = '';
-    try {
-      raw = await readFile(approvalFilePath, 'utf8');
-    } catch {
-      return {
-        required: true,
-        state: 'PENDING',
-        source: 'approval_file',
-        approvalFilePath,
-        note: 'Oracle approval file is missing.',
-      };
-    }
-
-    let parsed: OracleApprovalFilePayload | null = null;
-    try {
-      parsed = JSON.parse(raw) as OracleApprovalFilePayload;
-    } catch {
-      return {
-        required: true,
-        state: 'PENDING',
-        source: 'approval_file',
-        approvalFilePath,
-        note: 'Oracle approval file is not valid JSON.',
-      };
-    }
-
-    if (parsed?.state === 'APPROVED') {
-      return {
-        required: true,
-        state: 'APPROVED',
-        source: 'approval_file',
-        approvalFilePath,
-        approvedBy: parsed.approvedBy,
-        approvedAt: parsed.approvedAt,
-        note: parsed.note,
-      };
-    }
-
-    if (parsed?.state === 'REJECTED') {
-      return {
-        required: true,
-        state: 'REJECTED',
-        source: 'approval_file',
-        approvalFilePath,
-        approvedBy: parsed.approvedBy,
-        approvedAt: parsed.approvedAt,
-        note: parsed.note,
-      };
-    }
-
-    return {
-      required: true,
-      state: 'PENDING',
-      source: 'approval_file',
-      approvalFilePath,
-      note: 'Oracle approval state must be APPROVED or REJECTED.',
-    };
-  }
-
-  private async resolveMeshSummary(
-    sceneId: string,
-  ): Promise<SceneQualityGateMeshSummary> {
-    const emptySummary: SceneQualityGateMeshSummary = {
-      totalSkipped: 0,
-      polygonBudgetExceededCount: 0,
-      criticalPolygonBudgetExceededCount: 0,
-      emptyOrInvalidGeometryCount: 0,
-      criticalEmptyOrInvalidGeometryCount: 0,
-      selectionCutCount: 0,
-      missingSourceCount: 0,
-    };
-
-    let raw = '';
-    try {
-      raw = await readFile(getSceneDiagnosticsLogPath(sceneId), 'utf8');
-    } catch {
-      return emptySummary;
-    }
-
-    const glbBuildEntries = raw
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => {
-        try {
-          return JSON.parse(line) as ParsedDiagnosticsEntry;
-        } catch {
-          return null;
-        }
-      })
-      .filter((entry): entry is ParsedDiagnosticsEntry => {
-        if (!entry) {
-          return false;
-        }
-        return entry.stage === 'glb_build';
-      });
-
-    const latest = glbBuildEntries.at(-1);
-    const meshNodes = latest?.meshNodes;
-    if (!meshNodes?.length) {
-      return emptySummary;
-    }
-
-    const skippedNodes = meshNodes.filter((node) => node.skipped === true);
-    const polygonBudgetNodes = skippedNodes.filter(
-      (node) =>
-        node.skippedReason === 'polygon_budget_exceeded' ||
-        node.skippedReason === 'polygon_budget_reserved_for_critical',
-    );
-    const invalidNodes = skippedNodes.filter(
-      (node) => node.skippedReason === 'empty_or_invalid_geometry',
-    );
-
-    return {
-      totalSkipped: skippedNodes.length,
-      polygonBudgetExceededCount: polygonBudgetNodes.length,
-      criticalPolygonBudgetExceededCount: polygonBudgetNodes.filter((node) =>
-        this.isCriticalMeshNode(node.name),
-      ).length,
-      emptyOrInvalidGeometryCount: invalidNodes.length,
-      criticalEmptyOrInvalidGeometryCount: invalidNodes.filter((node) =>
-        this.isCriticalMeshNode(node.name),
-      ).length,
-      selectionCutCount: skippedNodes.filter(
-        (node) => node.skippedReason === 'selection_cut',
-      ).length,
-      missingSourceCount: skippedNodes.filter(
-        (node) => node.skippedReason === 'missing_source',
-      ).length,
-    };
-  }
-
-  private hasCriticalCollision(
-    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
-    totalBuildingCount: number,
-  ): boolean {
-    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    const collisionCount = marker?.collisionRiskCount ?? 0;
-    if (collisionCount === 0) {
-      return false;
-    }
-    const denominator = Math.max(1, totalBuildingCount);
-    return collisionCount / denominator >= COLLISION_RATIO_HARD_FAIL_THRESHOLD;
-  }
-
-  private hasCriticalGroundingGap(
-    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
-    totalBuildingCount: number,
-  ): boolean {
-    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    const gapCount = marker?.groundedGapCount ?? 0;
-    if (gapCount === 0) {
-      return false;
-    }
-    const denominator = Math.max(1, totalBuildingCount);
-    return gapCount / denominator >= 0.02;
-  }
-
-  private hasCriticalShellClosure(
-    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
-  ): boolean {
-    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    const openShellCount = marker?.openShellCount ?? 0;
-    const invalidSetbackJoinCount = marker?.invalidSetbackJoinCount ?? 0;
-    return openShellCount > 0 || invalidSetbackJoinCount > 0;
-  }
-
-  private hasCriticalRoofWallGap(
-    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
-  ): boolean {
-    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    return (marker?.roofWallGapCount ?? 0) > 0;
-  }
-
-  private hasCriticalTerrainTransportAlignment(
-    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
-    totalTransportCount: number,
-  ): boolean {
-    if (totalTransportCount <= 0) {
-      return false;
-    }
-    const marker = this.findGeometryCorrectionDiagnostics(geometryDiagnostics);
-    if (!marker) {
-      return true;
-    }
-
-    const explicitCoverage = marker.transportTerrainCoverageRatio;
-    if (typeof explicitCoverage === 'number') {
-      return explicitCoverage < 0.95;
-    }
-
-    const anchoredRoadCount = marker.terrainAnchoredRoadCount ?? 0;
-    const anchoredWalkwayCount = marker.terrainAnchoredWalkwayCount ?? 0;
-    return (
-      (anchoredRoadCount + anchoredWalkwayCount) / totalTransportCount < 0.95
-    );
-  }
-
-  private isCriticalMeshNode(name?: string): boolean {
-    if (!name) {
-      return false;
-    }
-    if (CRITICAL_MESH_NAMES.has(name)) {
-      return true;
-    }
-    return CRITICAL_MESH_PREFIXES.some((prefix) => name.startsWith(prefix));
-  }
-
-  private findGeometryCorrectionDiagnostics(
-    geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
-  ): GeometryDiagnosticsShape | null {
-    if (!geometryDiagnostics || geometryDiagnostics.length === 0) {
-      return null;
-    }
-    const marker = geometryDiagnostics.find(
-      (item) => item.objectId === '__geometry_correction__',
-    ) as SceneGeometryDiagnosticWithCorrection | null;
-    if (!marker) {
-      return null;
-    }
-    return {
-      collisionRiskCount: marker.collisionRiskCount,
-      groundedGapCount: marker.groundedGapCount,
-      openShellCount: marker.openShellCount,
-      roofWallGapCount: marker.roofWallGapCount,
-      invalidSetbackJoinCount: marker.invalidSetbackJoinCount,
-      terrainAnchoredRoadCount: marker.terrainAnchoredRoadCount,
-      terrainAnchoredWalkwayCount: marker.terrainAnchoredWalkwayCount,
-      transportTerrainCoverageRatio: marker.transportTerrainCoverageRatio,
     };
   }
 }
