@@ -1,27 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import {
   createEnhancedSceneMaterials,
-  AccentTone,
   MaterialTuningOptions,
-  ShellColorBucket,
 } from '../../compiler/materials';
-import { GeometryBuffers, Vec3 } from '../../compiler/road';
 import {
   appendSceneDiagnosticsLog,
   getSceneDataDir,
 } from '../../../scene/storage/scene-storage.utils';
 import { SceneAssetProfileService } from '../../../scene/services/asset-profile';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
-import {
-  groupBillboardClustersByColor,
-  groupFacadeHintsByPanelColor,
-  resolveAccentToneFromPalette,
-  resolveBuildingShellStyleFromHint,
-} from './glb-build-style.utils';
 import { addTransportMeshes } from './stages/glb-build-transport.stage';
 import { addStreetContextMeshes } from './stages/glb-build-street-context.stage';
 import {
@@ -32,65 +22,43 @@ import {
 import { GroupedBuildings } from './glb-build-stage.types';
 import {
   createBuildingRoofAccentGeometry,
-  createCrosswalkGeometry as createCrosswalkGeometryUtil,
   createLandCoverGeometry,
   createLinearFeatureGeometry,
   createPoiGeometry,
   createStreetFurnitureGeometry,
 } from './geometry/glb-build-local-geometry.utils';
-import {
-  normalizeLocalRing as normalizeLocalRingUtil,
-  signedAreaXZ as signedAreaXZUtil,
-  toLocalPoint,
-  triangulateRings as triangulateRingsUtil,
-} from './geometry/glb-build-geometry-primitives.utils';
-import { Coordinate } from '../../../places/types/place.types';
-import {
-  MaterialClass,
-  SceneCrossingDetail,
-  SceneDetail,
-  SceneFacadeHint,
-  SceneMeta,
-} from '../../../scene/types/scene.types';
+import { triangulateRings as triangulateRingsUtil } from './geometry/glb-build-geometry-primitives.utils';
+import { SceneDetail, SceneMeta } from '../../../scene/types/scene.types';
 import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
 import { resolveSceneVariationProfile } from './glb-build-variation.utils';
 import { resolveFacadeLayerMaterialProfile } from './glb-build-facade-material-profile.utils';
 import { resolveSceneModePolicy } from '../../../scene/utils/scene-mode-policy.utils';
 import { buildSceneFidelityMetricsReport } from '../../../scene/utils/scene-fidelity-metrics.utils';
 import { buildSceneModeComparisonReport } from '../../../scene/utils/scene-mode-comparison-report.utils';
-
-interface MeshNodeDiagnostic {
-  name: string;
-  vertices: number;
-  triangles: number;
-  skipped: boolean;
-  sourceCount?: number;
-  selectedCount?: number;
-  skippedReason?: string;
-  lodLevel?: 'HIGH' | 'MEDIUM' | 'LOW';
-  layer?: string;
-}
-
-type MeshSemanticTrace = {
-  sourceCount?: number;
-  selectedCount?: number;
-  semanticCategory?: string;
-  semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
-  sourceObjectIds?: string[];
-};
-
-interface FacadeColorDiversityMetrics {
-  facadeHintCount: number;
-  uniqueMainColorCount: number;
-  uniqueAccentColorCount: number;
-  uniqueTrimColorCount: number;
-  uniqueRoofColorCount: number;
-  uniqueShellPaletteColorCount: number;
-  uniquePanelPaletteColorCount: number;
-  neutralToneRatio: number;
-  shellGroupCount: number;
-  panelGroupCount: number;
-}
+import {
+  MaterialCacheStats,
+  installMaterialCache,
+} from './glb-build-material-cache';
+import {
+  initializeDccHierarchy,
+  registerBuildingGroupNodes,
+} from './glb-build-hierarchy';
+import {
+  MeshNodeDiagnostic,
+  MeshSemanticTrace,
+  TriangleBudgetState,
+  addMeshNode,
+} from './glb-build-mesh-node';
+import {
+  FacadeColorDiversityMetrics,
+  buildFacadeColorDiversityMetrics,
+  buildGroupedBuildingShellsLocal,
+  groupFacadeHintsByPanelColorLocal,
+  groupBillboardClustersByColorLocal,
+  resolveWindowMaterialTone,
+  resolveHeroToneFromBuildings,
+} from './glb-build-style-metrics';
+import { createCrosswalkGeometry } from './glb-build-utils';
 
 interface BuildingClosureDiagnosticsMetrics {
   openShellCount: number;
@@ -102,37 +70,35 @@ interface BuildingClosureDiagnosticsMetrics {
 export class GlbBuildRunner {
   private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
   private readonly sceneAssetProfileService = new SceneAssetProfileService();
-  private totalTriangleBudget = 2_500_000;
-  private totalTriangleCount = 0;
-  private protectedTriangleCount = 0;
-  private materialCacheHits = 0;
-  private materialCacheMisses = 0;
-  private semanticGroupNodes = new Map<string, any>();
-  private readonly protectedTriangleReserve = 180_000;
-  private readonly budgetProtectedMeshNames = new Set<string>([
-    'road_base',
-    'road_edges',
-    'road_markings',
-    'lane_overlay',
-    'crosswalk_overlay',
-    'junction_overlay',
-    'building_windows',
-    'building_roof_surfaces_cool',
-    'building_roof_surfaces_warm',
-    'building_roof_surfaces_neutral',
-    'building_roof_accents_cool',
-    'building_roof_accents_warm',
-    'building_roof_accents_neutral',
-    'building_entrances',
-    'building_roof_equipment',
-    'traffic_lights',
-    'street_lights',
-    'sign_poles',
-  ]);
-  private readonly budgetProtectedMeshPrefixes = [
-    'building_panels_',
-    'building_shells_',
-  ];
+  private materialCacheStats: MaterialCacheStats = { hits: 0, misses: 0 };
+  private semanticGroupNodes = new Map<string, unknown>();
+  private triangleBudget: TriangleBudgetState = {
+    totalTriangleBudget: 2_500_000,
+    totalTriangleCount: 0,
+    protectedTriangleCount: 0,
+    protectedTriangleReserve: 180_000,
+    budgetProtectedMeshNames: new Set<string>([
+      'road_base',
+      'road_edges',
+      'road_markings',
+      'lane_overlay',
+      'crosswalk_overlay',
+      'junction_overlay',
+      'building_windows',
+      'building_roof_surfaces_cool',
+      'building_roof_surfaces_warm',
+      'building_roof_surfaces_neutral',
+      'building_roof_accents_cool',
+      'building_roof_accents_warm',
+      'building_roof_accents_neutral',
+      'building_entrances',
+      'building_roof_equipment',
+      'traffic_lights',
+      'street_lights',
+      'sign_poles',
+    ]),
+    budgetProtectedMeshPrefixes: ['building_panels_', 'building_shells_'],
+  };
 
   constructor(
     private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
@@ -146,10 +112,9 @@ export class GlbBuildRunner {
     },
   ): Promise<string> {
     const buildStartedAt = Date.now();
-    this.totalTriangleCount = 0;
-    this.protectedTriangleCount = 0;
-    this.materialCacheHits = 0;
-    this.materialCacheMisses = 0;
+    this.triangleBudget.totalTriangleCount = 0;
+    this.triangleBudget.protectedTriangleCount = 0;
+    this.materialCacheStats = { hits: 0, misses: 0 };
     this.semanticGroupNodes.clear();
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
@@ -157,11 +122,25 @@ export class GlbBuildRunner {
     const triangulate = earcutModule.default;
     const { Accessor, Document, NodeIO } = gltf;
     const doc = new Document();
-    this.installMaterialCache(doc, sceneMeta.sceneId);
+    installMaterialCache(
+      doc as unknown as Record<string, unknown>,
+      sceneMeta.sceneId,
+      this.materialCacheStats,
+    );
     const buffer = doc.createBuffer('scene-buffer');
     const scene = doc.createScene(sceneMeta.sceneId);
-    this.initializeDccHierarchy(doc, scene, sceneMeta.sceneId);
-    this.registerBuildingGroupNodes(doc, scene, sceneMeta);
+    initializeDccHierarchy(
+      doc as unknown as Record<string, unknown>,
+      scene as unknown as Record<string, unknown>,
+      sceneMeta.sceneId,
+      this.semanticGroupNodes,
+    );
+    registerBuildingGroupNodes(
+      doc as unknown as Record<string, unknown>,
+      scene as unknown as Record<string, unknown>,
+      sceneMeta,
+      this.semanticGroupNodes,
+    );
     this.currentMeshDiagnostics = [];
 
     const assetSelection = buildSceneAssetSelection(
@@ -201,15 +180,39 @@ export class GlbBuildRunner {
       modePolicy: modePolicy.id,
       staticAtmosphere: sceneDetail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
       materialCache: {
-        hits: this.materialCacheHits,
-        misses: this.materialCacheMisses,
+        hits: this.materialCacheStats.hits,
+        misses: this.materialCacheStats.misses,
       },
     });
 
+    const addMeshNodeBound = (
+      docParam: unknown,
+      AccessorRef: unknown,
+      sceneParam: unknown,
+      bufferParam: unknown,
+      name: string,
+      geometry: unknown,
+      material: unknown,
+      trace: MeshSemanticTrace = {},
+    ) =>
+      addMeshNode(
+        docParam as Record<string, unknown>,
+        AccessorRef as Record<string, unknown>,
+        sceneParam as Record<string, unknown>,
+        bufferParam,
+        name,
+        geometry as import('../../compiler/road').GeometryBuffers,
+        material,
+        trace,
+        this.currentMeshDiagnostics,
+        this.triangleBudget,
+        this.semanticGroupNodes,
+      );
+
     addTransportMeshes(
       {
-        addMeshNode: this.addMeshNode.bind(this),
-        createCrosswalkGeometry: this.createCrosswalkGeometry.bind(this),
+        addMeshNode: addMeshNodeBound,
+        createCrosswalkGeometry: createCrosswalkGeometry.bind(this),
         triangulateRings: triangulateRingsUtil,
         modePolicy,
       },
@@ -223,7 +226,7 @@ export class GlbBuildRunner {
 
     addStreetContextMeshes(
       {
-        addMeshNode: this.addMeshNode.bind(this),
+        addMeshNode: addMeshNodeBound,
         createStreetFurnitureGeometry,
         createPoiGeometry,
         createLandCoverGeometry,
@@ -241,7 +244,11 @@ export class GlbBuildRunner {
 
     const groupedBuildings = buildGroupedBuildingShells(
       {
-        buildGroupedBuildingShells: this.buildGroupedBuildingShells.bind(this),
+        buildGroupedBuildingShells: (
+          _sceneMeta: SceneMeta,
+          sceneDetail: SceneDetail,
+          assetSelection: ReturnType<typeof buildSceneAssetSelection>,
+        ) => buildGroupedBuildingShellsLocal(sceneDetail, assetSelection),
       },
       sceneMeta,
       sceneDetail,
@@ -255,14 +262,11 @@ export class GlbBuildRunner {
 
     addBuildingAndHeroMeshes(
       {
-        addMeshNode: this.addMeshNode.bind(this),
-        groupFacadeHintsByPanelColor:
-          this.groupFacadeHintsByPanelColor.bind(this),
-        groupBillboardClustersByColor:
-          this.groupBillboardClustersByColor.bind(this),
-        resolveWindowMaterialTone: this.resolveWindowMaterialTone.bind(this),
-        resolveHeroToneFromBuildings:
-          this.resolveHeroToneFromBuildings.bind(this),
+        addMeshNode: addMeshNodeBound,
+        groupFacadeHintsByPanelColor: groupFacadeHintsByPanelColorLocal,
+        groupBillboardClustersByColor: groupBillboardClustersByColorLocal,
+        resolveWindowMaterialTone: resolveWindowMaterialTone,
+        resolveHeroToneFromBuildings: resolveHeroToneFromBuildings,
         materialTuning,
         facadeMaterialProfile,
         variationProfile,
@@ -300,7 +304,7 @@ export class GlbBuildRunner {
       },
     );
 
-    const facadeColorDiversity = this.buildFacadeColorDiversityMetrics(
+    const facadeColorDiversity = buildFacadeColorDiversityMetrics(
       sceneDetail,
       groupedBuildings,
     );
@@ -379,58 +383,6 @@ export class GlbBuildRunner {
     );
   }
 
-  private resolveBuildingShellStyle(
-    building: SceneMeta['buildings'][number],
-    hint?: SceneFacadeHint,
-  ): {
-    key: string;
-    materialClass: MaterialClass;
-    bucket: ShellColorBucket;
-    colorHex: string;
-  } {
-    return resolveBuildingShellStyleFromHint(building, hint);
-  }
-
-  private groupFacadeHintsByPanelColor(
-    facadeHints: SceneDetail['facadeHints'],
-  ): Array<{
-    tone: AccentTone;
-    colorHex: string;
-    hints: SceneDetail['facadeHints'];
-  }> {
-    return groupFacadeHintsByPanelColor(facadeHints);
-  }
-
-  private groupBillboardClustersByColor(
-    selectedClusters: SceneDetail['signageClusters'],
-    sourceClusters: SceneDetail['signageClusters'],
-  ): Array<{
-    tone: AccentTone;
-    colorHex: string;
-    selectedClusters: SceneDetail['signageClusters'];
-    sourceCount: number;
-  }> {
-    return groupBillboardClustersByColor(selectedClusters, sourceClusters);
-  }
-
-  private resolveWindowMaterialTone(
-    facadeHints: SceneDetail['facadeHints'],
-  ): AccentTone {
-    const palettes = facadeHints.flatMap((hint) =>
-      hint.panelPalette?.length ? hint.panelPalette : hint.palette,
-    );
-    return resolveAccentToneFromPalette(palettes);
-  }
-
-  private resolveHeroToneFromBuildings(
-    buildings: SceneMeta['buildings'],
-  ): AccentTone {
-    const colorPalette = buildings
-      .flatMap((building) => [building.facadeColor, building.roofColor])
-      .filter((color): color is string => Boolean(color));
-    return resolveAccentToneFromPalette(colorPalette);
-  }
-
   private resolveMaterialTuning(
     sceneMeta: SceneMeta,
     sceneDetail: SceneDetail,
@@ -455,772 +407,6 @@ export class GlbBuildRunner {
     sceneDetail: SceneDetail,
   ) {
     return resolveFacadeLayerMaterialProfile(sceneMeta, sceneDetail);
-  }
-
-  private buildGroupedBuildingShells(
-    _sceneMeta: SceneMeta,
-    sceneDetail: SceneDetail,
-    assetSelection: ReturnType<typeof buildSceneAssetSelection>,
-  ): GroupedBuildings {
-    const materialHintMap = new Map(
-      sceneDetail.facadeHints.map((hint) => [hint.objectId, hint]),
-    );
-
-    const groupedBuildings: GroupedBuildings = new Map();
-    for (const building of assetSelection.buildings) {
-      const hint = materialHintMap.get(building.objectId);
-      const style = this.resolveBuildingShellStyle(building, hint);
-      const current = groupedBuildings.get(style.key) ?? {
-        materialClass: style.materialClass,
-        bucket: style.bucket,
-        colorHex: style.colorHex,
-        buildings: [],
-      };
-      current.buildings.push(building);
-      groupedBuildings.set(style.key, current);
-    }
-
-    return groupedBuildings;
-  }
-
-  private buildFacadeColorDiversityMetrics(
-    sceneDetail: SceneDetail,
-    groupedBuildings: GroupedBuildings,
-  ): FacadeColorDiversityMetrics {
-    const hints = sceneDetail.facadeHints;
-    const uniqueMainColorCount = new Set(
-      hints
-        .map((hint) => hint.mainColor)
-        .filter((value): value is string => Boolean(value)),
-    ).size;
-    const uniqueAccentColorCount = new Set(
-      hints
-        .map((hint) => hint.accentColor)
-        .filter((value): value is string => Boolean(value)),
-    ).size;
-    const uniqueTrimColorCount = new Set(
-      hints
-        .map((hint) => hint.trimColor)
-        .filter((value): value is string => Boolean(value)),
-    ).size;
-    const uniqueRoofColorCount = new Set(
-      hints
-        .map((hint) => hint.roofColor)
-        .filter((value): value is string => Boolean(value)),
-    ).size;
-    const uniqueShellPaletteColorCount = new Set(
-      hints.flatMap((hint) => hint.shellPalette ?? []),
-    ).size;
-    const uniquePanelPaletteColorCount = new Set(
-      hints.flatMap((hint) => hint.panelPalette ?? []),
-    ).size;
-    const neutralCount = hints.filter(
-      (hint) =>
-        resolveAccentToneFromPalette(
-          hint.panelPalette?.length ? hint.panelPalette : hint.palette,
-        ) === 'neutral',
-    ).length;
-
-    return {
-      facadeHintCount: hints.length,
-      uniqueMainColorCount,
-      uniqueAccentColorCount,
-      uniqueTrimColorCount,
-      uniqueRoofColorCount,
-      uniqueShellPaletteColorCount,
-      uniquePanelPaletteColorCount,
-      neutralToneRatio:
-        hints.length > 0 ? Number((neutralCount / hints.length).toFixed(3)) : 0,
-      shellGroupCount: groupedBuildings.size,
-      panelGroupCount: groupFacadeHintsByPanelColor(sceneDetail.facadeHints)
-        .length,
-    };
-  }
-
-  private addMeshNode(
-    doc: any,
-    AccessorRef: any,
-    scene: any,
-    buffer: any,
-    name: string,
-    geometry: GeometryBuffers,
-    material: any,
-    trace: MeshSemanticTrace = {},
-  ): void {
-    if (!this.isGeometryValid(geometry)) {
-      this.currentMeshDiagnostics.push({
-        name,
-        vertices: 0,
-        triangles: 0,
-        skipped: true,
-        sourceCount: trace.sourceCount,
-        selectedCount: trace.selectedCount,
-        skippedReason: this.resolveSkippedReason(trace),
-      });
-      return;
-    }
-
-    const triangleCount = geometry.indices.length / 3;
-    const isBudgetProtectedMesh = this.isBudgetProtectedMesh(name);
-    if (!isBudgetProtectedMesh) {
-      const nonProtectedBudget = Math.max(
-        0,
-        this.totalTriangleBudget - this.protectedTriangleReserve,
-      );
-      const nonProtectedTriangleCount =
-        this.totalTriangleCount - this.protectedTriangleCount;
-      if (nonProtectedTriangleCount + triangleCount > nonProtectedBudget) {
-        this.currentMeshDiagnostics.push({
-          name,
-          vertices: geometry.positions.length / 3,
-          triangles: triangleCount,
-          skipped: true,
-          sourceCount: trace.sourceCount,
-          selectedCount: trace.selectedCount,
-          skippedReason: 'polygon_budget_reserved_for_critical',
-        });
-        return;
-      }
-    }
-
-    if (this.totalTriangleCount + triangleCount > this.totalTriangleBudget) {
-      this.currentMeshDiagnostics.push({
-        name,
-        vertices: geometry.positions.length / 3,
-        triangles: triangleCount,
-        skipped: true,
-        sourceCount: trace.sourceCount,
-        selectedCount: trace.selectedCount,
-        skippedReason: 'polygon_budget_exceeded',
-      });
-      return;
-    }
-
-    this.totalTriangleCount += triangleCount;
-    if (isBudgetProtectedMesh) {
-      this.protectedTriangleCount += triangleCount;
-    }
-
-    this.currentMeshDiagnostics.push({
-      name,
-      vertices: geometry.positions.length / 3,
-      triangles: geometry.indices.length / 3,
-      skipped: false,
-      sourceCount: trace.sourceCount,
-      selectedCount: trace.selectedCount,
-    });
-
-    const mesh = doc.createMesh(name);
-    const primitive = doc
-      .createPrimitive()
-      .setAttribute(
-        'POSITION',
-        doc
-          .createAccessor(`${name}-positions`, buffer)
-          .setArray(new Float32Array(geometry.positions))
-          .setType(AccessorRef.Type.VEC3),
-      )
-      .setAttribute(
-        'NORMAL',
-        doc
-          .createAccessor(`${name}-normals`, buffer)
-          .setArray(new Float32Array(geometry.normals))
-          .setType(AccessorRef.Type.VEC3),
-      )
-      .setIndices(
-        doc
-          .createAccessor(`${name}-indices`, buffer)
-          .setArray(new Uint32Array(geometry.indices))
-          .setType(AccessorRef.Type.SCALAR),
-      )
-      .setMaterial(material);
-
-    const semanticExtras = {
-      sceneId: scene.name ?? undefined,
-      meshName: name,
-      sourceCount: trace.sourceCount ?? 0,
-      selectedCount: trace.selectedCount ?? 0,
-      sourceObjectIds: (trace.sourceObjectIds ?? []).slice(0, 256),
-      semanticCategory:
-        trace.semanticCategory ?? this.resolveSemanticCategory(name),
-      semanticMetadataCoverage:
-        trace.semanticCoverage ??
-        this.resolveSemanticCoverage(trace.sourceCount, trace.selectedCount),
-      twinEntityIds: this.resolveTwinEntityIds(
-        scene.name ?? '',
-        name,
-        trace.semanticCategory ?? this.resolveSemanticCategory(name),
-        trace.sourceObjectIds ?? [],
-      ),
-      twinComponentIds: this.resolveTwinComponentIds(
-        scene.name ?? '',
-        name,
-        trace.semanticCategory ?? this.resolveSemanticCategory(name),
-        trace.sourceObjectIds ?? [],
-      ),
-      sourceSnapshotIds: this.resolveSourceSnapshotIds(
-        scene.name ?? '',
-        name,
-        trace.semanticCategory ?? this.resolveSemanticCategory(name),
-      ),
-    };
-    this.applyExtras(primitive, semanticExtras);
-    this.applyExtras(mesh, semanticExtras);
-
-    mesh.addPrimitive(primitive);
-    const node = doc.createNode(name).setMesh(mesh);
-    this.applyExtras(node, semanticExtras);
-    const parent = this.resolveMeshParent(
-      doc,
-      scene,
-      semanticExtras.semanticCategory as string,
-      semanticExtras.sourceObjectIds as string[],
-    );
-    parent.addChild(node);
-  }
-
-  private resolveSkippedReason(trace: {
-    sourceCount?: number;
-    selectedCount?: number;
-  }): string {
-    if ((trace.sourceCount ?? 0) === 0) {
-      return 'missing_source';
-    }
-    if ((trace.selectedCount ?? 0) === 0) {
-      return 'selection_cut';
-    }
-    return 'empty_or_invalid_geometry';
-  }
-
-  private installMaterialCache(doc: any, sceneId: string): void {
-    const originalCreateMaterial = doc.createMaterial.bind(doc);
-    const cache = new Map<string, any>();
-    doc.createMaterial = (name: string) => {
-      const cached = cache.get(name);
-      if (cached) {
-        this.materialCacheHits += 1;
-        return cached;
-      }
-      this.materialCacheMisses += 1;
-      const material = originalCreateMaterial(name);
-      this.applyMaterialExtras(material, {
-        sceneId,
-        materialName: name,
-        materialCacheKey: name,
-      });
-      cache.set(name, material);
-      return material;
-    };
-  }
-
-  private applyMaterialExtras(
-    material: any,
-    extras: Record<string, unknown>,
-  ): void {
-    if (typeof material?.setExtras === 'function') {
-      material.setExtras(extras);
-      return;
-    }
-    if (typeof material?.setExtra === 'function') {
-      material.setExtra('wormap', extras);
-    }
-  }
-
-  private applyExtras(target: any, extras: Record<string, unknown>): void {
-    if (typeof target?.setExtras === 'function') {
-      target.setExtras(extras);
-    }
-  }
-
-  private resolveSemanticCategory(name: string): string {
-    if (name.startsWith('building_') || name.startsWith('landmark_')) {
-      return 'building';
-    }
-    if (
-      name.startsWith('road_') ||
-      name.includes('crosswalk') ||
-      name.includes('lane_overlay') ||
-      name.includes('junction_overlay') ||
-      name.includes('sidewalk') ||
-      name.includes('curb') ||
-      name.includes('median')
-    ) {
-      return 'transport';
-    }
-    if (
-      name.includes('traffic_light') ||
-      name.includes('street_light') ||
-      name.includes('sign_pole') ||
-      name.includes('tree') ||
-      name.includes('bush') ||
-      name.includes('flower') ||
-      name.includes('poi') ||
-      name.includes('landcover') ||
-      name.includes('linear_')
-    ) {
-      return 'street_context';
-    }
-    return 'scene';
-  }
-
-  private resolveSemanticCoverage(
-    sourceCount?: number,
-    selectedCount?: number,
-  ): 'NONE' | 'PARTIAL' | 'FULL' {
-    if ((sourceCount ?? 0) <= 0) {
-      return 'NONE';
-    }
-    if ((selectedCount ?? 0) >= (sourceCount ?? 0)) {
-      return 'FULL';
-    }
-    return 'PARTIAL';
-  }
-
-  private resolveTwinEntityIds(
-    sceneId: string,
-    meshName: string,
-    semanticCategory: string,
-    sourceObjectIds: string[],
-  ): string[] {
-    if (!this.resolveTwinEntityKind(meshName, semanticCategory)) {
-      return [];
-    }
-    return sourceObjectIds.map((objectId) =>
-      this.createTwinEntityId(sceneId, objectId),
-    );
-  }
-
-  private resolveTwinComponentIds(
-    sceneId: string,
-    meshName: string,
-    semanticCategory: string,
-    sourceObjectIds: string[],
-  ): string[] {
-    const componentLabel = this.resolveTwinComponentLabel(
-      meshName,
-      semanticCategory,
-    );
-    const componentKind = this.resolveTwinComponentKind(
-      meshName,
-      semanticCategory,
-    );
-    if (!componentLabel || !componentKind) {
-      return [];
-    }
-    return sourceObjectIds.map((objectId) =>
-      this.createTwinComponentId(
-        sceneId,
-        objectId,
-        componentKind,
-        componentLabel,
-      ),
-    );
-  }
-
-  private resolveSourceSnapshotIds(
-    sceneId: string,
-    meshName: string,
-    semanticCategory: string,
-  ): string[] {
-    if (semanticCategory === 'building') {
-      if (
-        meshName.includes('panels') ||
-        meshName.includes('windows') ||
-        meshName.includes('hero_') ||
-        meshName.includes('billboard') ||
-        meshName.includes('landmark')
-      ) {
-        return [
-          this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
-          this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_DETAIL'),
-          this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
-        ];
-      }
-      return [
-        this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
-        this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
-      ];
-    }
-
-    if (semanticCategory === 'transport') {
-      if (
-        meshName.includes('crosswalk') ||
-        meshName.includes('road_markings') ||
-        meshName.includes('lane_overlay') ||
-        meshName.includes('junction_overlay')
-      ) {
-        return [this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_DETAIL')];
-      }
-      return [
-        this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
-        this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
-      ];
-    }
-
-    if (semanticCategory === 'street_context') {
-      return [
-        this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
-        this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_DETAIL'),
-      ];
-    }
-
-    return [this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META')];
-  }
-
-  private resolveTwinEntityKind(
-    meshName: string,
-    semanticCategory: string,
-  ): string | null {
-    if (semanticCategory === 'building') {
-      return meshName === 'landmark_extras' ? 'LANDMARK' : 'BUILDING';
-    }
-    if (semanticCategory === 'transport') {
-      if (meshName.includes('sidewalk')) {
-        return 'WALKWAY';
-      }
-      if (meshName.includes('crosswalk')) {
-        return 'CROSSING';
-      }
-      if (
-        meshName === 'road_base' ||
-        meshName === 'road_edges' ||
-        meshName === 'curbs' ||
-        meshName === 'medians'
-      ) {
-        return 'ROAD';
-      }
-      return null;
-    }
-    if (semanticCategory === 'street_context') {
-      if (
-        meshName.includes('traffic_light') ||
-        meshName.includes('street_light') ||
-        meshName.includes('sign_pole') ||
-        meshName.includes('bench') ||
-        meshName.includes('bike_rack') ||
-        meshName.includes('trash_can') ||
-        meshName.includes('fire_hydrant')
-      ) {
-        return 'STREET_FURNITURE';
-      }
-      if (
-        meshName.includes('tree') ||
-        meshName.includes('bush') ||
-        meshName.includes('flower')
-      ) {
-        return 'VEGETATION';
-      }
-      if (meshName.includes('poi')) {
-        return 'POI';
-      }
-      if (meshName.includes('landcover')) {
-        return 'LAND_COVER';
-      }
-      if (meshName.includes('linear_')) {
-        return 'LINEAR_FEATURE';
-      }
-    }
-    return null;
-  }
-
-  private resolveTwinComponentKind(
-    meshName: string,
-    semanticCategory: string,
-  ): 'SPATIAL' | 'STRUCTURE' | 'APPEARANCE' | null {
-    if (semanticCategory === 'building') {
-      if (meshName.includes('shells') || meshName.includes('roof_surfaces')) {
-        return 'STRUCTURE';
-      }
-      return 'APPEARANCE';
-    }
-    if (semanticCategory === 'transport') {
-      if (meshName.includes('sidewalk')) {
-        return 'SPATIAL';
-      }
-      if (meshName.includes('crosswalk')) {
-        return 'STRUCTURE';
-      }
-      if (
-        meshName === 'road_base' ||
-        meshName === 'road_edges' ||
-        meshName === 'curbs' ||
-        meshName === 'medians'
-      ) {
-        return 'STRUCTURE';
-      }
-      return null;
-    }
-    if (semanticCategory === 'street_context') {
-      if (
-        meshName.includes('tree') ||
-        meshName.includes('bush') ||
-        meshName.includes('flower')
-      ) {
-        return 'STRUCTURE';
-      }
-      return 'SPATIAL';
-    }
-    return null;
-  }
-
-  private resolveTwinComponentLabel(
-    meshName: string,
-    semanticCategory: string,
-  ): string | null {
-    if (semanticCategory === 'building') {
-      if (meshName.includes('shells') || meshName.includes('roof_surfaces')) {
-        return 'Building Structure';
-      }
-      return 'Building Appearance';
-    }
-    if (semanticCategory === 'transport') {
-      if (meshName.includes('sidewalk')) {
-        return 'Walkway Spatial';
-      }
-      if (meshName.includes('crosswalk')) {
-        return 'Crossing Structure';
-      }
-      if (
-        meshName === 'road_base' ||
-        meshName === 'road_edges' ||
-        meshName === 'curbs' ||
-        meshName === 'medians'
-      ) {
-        return 'Road Structure';
-      }
-      return null;
-    }
-    if (semanticCategory === 'street_context') {
-      if (
-        meshName.includes('tree') ||
-        meshName.includes('bush') ||
-        meshName.includes('flower')
-      ) {
-        return 'Vegetation Structure';
-      }
-      if (meshName.includes('poi')) {
-        return 'POI Spatial';
-      }
-      if (meshName.includes('landcover')) {
-        return 'Land Cover Spatial';
-      }
-      if (meshName.includes('linear_')) {
-        return 'Linear Feature Spatial';
-      }
-      return 'Street Furniture Spatial';
-    }
-    return null;
-  }
-
-  private createTwinEntityId(sceneId: string, objectId: string): string {
-    return `entity-${hashValue(`${sceneId}:${objectId}`).slice(0, 12)}`;
-  }
-
-  private createTwinComponentId(
-    sceneId: string,
-    objectId: string,
-    kind: string,
-    label: string,
-  ): string {
-    const entityId = this.createTwinEntityId(sceneId, objectId);
-    return `component-${hashValue(`${entityId}:${kind}:${label}`).slice(0, 12)}`;
-  }
-
-  private createSnapshotId(
-    sceneId: string,
-    provider: string,
-    kind: string,
-  ): string {
-    return `snapshot-${hashValue(`${sceneId}:${provider}:${kind}`).slice(0, 12)}`;
-  }
-
-  private initializeDccHierarchy(doc: any, scene: any, sceneId: string): void {
-    const root = doc.createNode('dcc_root');
-    this.applyExtras(root, {
-      sceneId,
-      semanticCategory: 'scene',
-      dccCollection: 'Scene',
-      blenderCollection: 'Scene',
-      isGroupNode: true,
-    });
-    scene.addChild(root);
-    this.semanticGroupNodes.set('scene_root', root);
-  }
-
-  private resolveParentNode(doc: any, scene: any, semanticCategory: string): any {
-    const root = this.semanticGroupNodes.get('scene_root');
-    const category = semanticCategory || 'scene';
-    const key = `category:${category}`;
-    const cached = this.semanticGroupNodes.get(key);
-    if (cached) {
-      return cached;
-    }
-
-    const label = this.resolveCategoryLabel(category);
-    const node = doc.createNode(`grp_${category}`);
-    this.applyExtras(node, {
-      sceneId: scene.name ?? undefined,
-      semanticCategory: category,
-      dccCollection: label,
-      blenderCollection: label,
-      isGroupNode: true,
-    });
-    (root ?? scene).addChild(node);
-    this.semanticGroupNodes.set(key, node);
-    return node;
-  }
-
-  private resolveMeshParent(
-    doc: any,
-    scene: any,
-    semanticCategory: string,
-    sourceObjectIds: string[],
-  ): any {
-    if (semanticCategory === 'building' && sourceObjectIds.length === 1) {
-      const buildingNode = this.semanticGroupNodes.get(
-        `building:${sourceObjectIds[0]}`,
-      );
-      if (buildingNode) {
-        return buildingNode;
-      }
-    }
-    return this.resolveParentNode(doc, scene, semanticCategory);
-  }
-
-  private resolveCategoryLabel(category: string): string {
-    switch (category) {
-      case 'transport':
-        return 'Transport';
-      case 'street_context':
-        return 'StreetContext';
-      case 'building':
-        return 'Buildings';
-      default:
-        return 'SceneMisc';
-    }
-  }
-
-  private registerBuildingGroupNodes(
-    doc: any,
-    scene: any,
-    sceneMeta: SceneMeta,
-  ): void {
-    const buildingsParent = this.resolveParentNode(doc, scene, 'building');
-    for (const building of sceneMeta.buildings) {
-      const pivot = this.resolveBuildingPivot(sceneMeta.origin, building);
-      const node = doc.createNode(`bld_${building.objectId}`);
-      this.applyExtras(node, {
-        sceneId: sceneMeta.sceneId,
-        semanticCategory: 'building',
-        dccCollection: 'Buildings',
-        blenderCollection: 'Buildings',
-        isGroupNode: true,
-        objectId: building.objectId,
-        osmWayId: building.osmWayId,
-        buildingUsage: building.usage,
-        pivotLocal: pivot,
-        suggestedPivotPolicy: 'footprint_centroid',
-        twinEntityId: this.createTwinEntityId(sceneMeta.sceneId, building.objectId),
-        twinComponentIds: [
-          this.createTwinComponentId(
-            sceneMeta.sceneId,
-            building.objectId,
-            'IDENTITY',
-            'Building Identity',
-          ),
-          this.createTwinComponentId(
-            sceneMeta.sceneId,
-            building.objectId,
-            'SPATIAL',
-            'Building Spatial',
-          ),
-        ],
-        sourceSnapshotIds: [
-          this.createSnapshotId(sceneMeta.sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
-          this.createSnapshotId(sceneMeta.sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
-        ],
-      });
-      buildingsParent.addChild(node);
-      this.semanticGroupNodes.set(`building:${building.objectId}`, node);
-    }
-  }
-
-  private resolveBuildingPivot(
-    origin: Coordinate,
-    building: SceneMeta['buildings'][number],
-  ): { x: number; y: number; z: number } {
-    const points = building.outerRing
-      .map((point) => toLocalPoint(origin, point))
-      .filter(
-        (point) =>
-          Number.isFinite(point[0]) &&
-          Number.isFinite(point[1]) &&
-          Number.isFinite(point[2]),
-      );
-    if (points.length === 0) {
-      return { x: 0, y: building.terrainOffsetM ?? 0, z: 0 };
-    }
-    const centroid = points.reduce(
-      (acc, point) => ({
-        x: acc.x + point[0],
-        z: acc.z + point[2],
-      }),
-      { x: 0, z: 0 },
-    );
-    return {
-      x: Number((centroid.x / points.length).toFixed(3)),
-      y: Number((building.terrainOffsetM ?? 0).toFixed(3)),
-      z: Number((centroid.z / points.length).toFixed(3)),
-    };
-  }
-
-  private isBudgetProtectedMesh(name: string): boolean {
-    if (this.budgetProtectedMeshNames.has(name)) {
-      return true;
-    }
-    return this.budgetProtectedMeshPrefixes.some((prefix) =>
-      name.startsWith(prefix),
-    );
-  }
-
-  private normalizeLocalRing(ring: Vec3[], direction: 'CW' | 'CCW'): Vec3[] {
-    return normalizeLocalRingUtil(ring, direction);
-  }
-
-  private signedAreaXZ(points: Vec3[]): number {
-    return signedAreaXZUtil(points);
-  }
-
-  private createCrosswalkGeometry(
-    origin: Coordinate,
-    crossings: SceneCrossingDetail[],
-    roads?: SceneMeta['roads'],
-  ): GeometryBuffers {
-    return createCrosswalkGeometryUtil(origin, crossings, roads);
-  }
-
-  private isGeometryValid(geometry: GeometryBuffers): boolean {
-    if (geometry.indices.length === 0 || geometry.positions.length === 0) {
-      return false;
-    }
-
-    if (
-      geometry.positions.length % 3 !== 0 ||
-      geometry.normals.length !== geometry.positions.length ||
-      geometry.indices.length % 3 !== 0 ||
-      geometry.indices.some((index) => !Number.isInteger(index) || index < 0)
-    ) {
-      throw new Error('GLB geometry buffer shape is invalid.');
-    }
-
-    if (
-      geometry.positions.some((value) => !Number.isFinite(value)) ||
-      geometry.normals.some((value) => !Number.isFinite(value))
-    ) {
-      throw new Error('GLB geometry contains non-finite vertex data.');
-    }
-
-    return true;
   }
 
   private async validateGlb(
@@ -1257,27 +443,4 @@ export class GlbBuildRunner {
       );
     }
   }
-}
-
-function hashValue(value: unknown): string {
-  return createHash('sha1').update(stableStringify(value)).digest('hex');
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortValue(value));
-}
-
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((entry) => sortValue(entry));
-  }
-  if (value && typeof value === 'object') {
-    return Object.keys(value as Record<string, unknown>)
-      .sort()
-      .reduce<Record<string, unknown>>((acc, key) => {
-        acc[key] = sortValue((value as Record<string, unknown>)[key]);
-        return acc;
-      }, {});
-  }
-  return value;
 }

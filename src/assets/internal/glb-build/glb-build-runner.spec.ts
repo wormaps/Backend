@@ -1,4 +1,12 @@
-import { GlbBuildRunner } from './glb-build-runner';
+import {
+  initializeDccHierarchy,
+  registerBuildingGroupNodes,
+} from './glb-build-hierarchy';
+import {
+  addMeshNode,
+  MeshNodeDiagnostic,
+  TriangleBudgetState,
+} from './glb-build-mesh-node';
 
 class FakeAccessor {
   static Type = {
@@ -138,16 +146,46 @@ class FakeDoc {
   }
 }
 
-describe('GlbBuildRunner', () => {
+const defaultTriangleBudget: TriangleBudgetState = {
+  totalTriangleBudget: 2_500_000,
+  totalTriangleCount: 0,
+  protectedTriangleCount: 0,
+  protectedTriangleReserve: 180_000,
+  budgetProtectedMeshNames: new Set<string>([
+    'road_base',
+    'road_edges',
+    'road_markings',
+    'lane_overlay',
+    'crosswalk_overlay',
+    'junction_overlay',
+    'building_windows',
+    'building_roof_surfaces_cool',
+    'building_roof_surfaces_warm',
+    'building_roof_surfaces_neutral',
+    'building_roof_accents_cool',
+    'building_roof_accents_warm',
+    'building_roof_accents_neutral',
+    'building_entrances',
+    'building_roof_equipment',
+    'traffic_lights',
+    'street_lights',
+    'sign_poles',
+  ]),
+  budgetProtectedMeshPrefixes: ['building_panels_', 'building_shells_'],
+};
+
+describe('GlbBuildRunner modularized', () => {
   it('writes semantic provenance extras to node, mesh, and primitive', () => {
-    const runner = new GlbBuildRunner() as any;
     const doc = new FakeDoc();
     const scene = new FakeScene('scene-provenance');
     const material = {};
+    const semanticGroupNodes = new Map<string, unknown>();
+    const currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
+    const triangleBudget = { ...defaultTriangleBudget };
 
-    runner.initializeDccHierarchy(doc, scene, 'scene-provenance');
+    initializeDccHierarchy(doc, scene, 'scene-provenance', semanticGroupNodes);
 
-    runner.addMeshNode(
+    addMeshNode(
       doc,
       FakeAccessor,
       scene,
@@ -165,6 +203,9 @@ describe('GlbBuildRunner', () => {
         semanticCategory: 'transport',
         sourceObjectIds: ['road-1', 'road-2'],
       },
+      currentMeshDiagnostics,
+      triangleBudget,
+      semanticGroupNodes,
     );
 
     const root = scene.children[0];
@@ -179,9 +220,9 @@ describe('GlbBuildRunner', () => {
     expect(mesh.extras.semanticMetadataCoverage).toBe('PARTIAL');
     expect(primitive.extras.sourceObjectIds).toEqual(['road-1', 'road-2']);
     expect((node.extras.twinEntityIds as string[]).length).toBe(2);
-    expect((node.extras.twinEntityIds as string[])[0]?.startsWith('entity-')).toBe(
-      true,
-    );
+    expect(
+      (node.extras.twinEntityIds as string[])[0]?.startsWith('entity-'),
+    ).toBe(true);
     expect((mesh.extras.sourceSnapshotIds as string[]).length).toBe(2);
     expect(
       (mesh.extras.sourceSnapshotIds as string[])[0]?.startsWith('snapshot-'),
@@ -190,38 +231,47 @@ describe('GlbBuildRunner', () => {
   });
 
   it('registers per-building group nodes with pivot metadata for DCC editing', () => {
-    const runner = new GlbBuildRunner() as any;
     const doc = new FakeDoc();
     const scene = new FakeScene('scene-buildings');
+    const semanticGroupNodes = new Map<string, unknown>();
 
-    runner.initializeDccHierarchy(doc, scene, 'scene-buildings');
-    runner.registerBuildingGroupNodes(doc, scene, {
-      sceneId: 'scene-buildings',
-      origin: { lat: 37, lng: 127 },
-      buildings: [
-        {
-          objectId: 'building-1',
-          osmWayId: 'way_1',
-          usage: 'COMMERCIAL',
-          outerRing: [
-            { lat: 37.0001, lng: 127.0001 },
-            { lat: 37.0001, lng: 127.0002 },
-            { lat: 37.0002, lng: 127.0002 },
-          ],
-          terrainOffsetM: 0.12,
-        },
-      ],
-    });
+    initializeDccHierarchy(doc, scene, 'scene-buildings', semanticGroupNodes);
+    registerBuildingGroupNodes(
+      doc,
+      scene,
+      {
+        sceneId: 'scene-buildings',
+        origin: { lat: 37, lng: 127 },
+        buildings: [
+          {
+            objectId: 'building-1',
+            osmWayId: 'way_1',
+            usage: 'COMMERCIAL',
+            outerRing: [
+              { lat: 37.0001, lng: 127.0001 },
+              { lat: 37.0001, lng: 127.0002 },
+              { lat: 37.0002, lng: 127.0002 },
+            ],
+            terrainOffsetM: 0.12,
+          },
+        ],
+      } as any,
+      semanticGroupNodes,
+    );
 
     const root = scene.children[0];
-    const buildingsGroup = root.children.find((node) => node.name === 'grp_building');
+    const buildingsGroup = root.children.find(
+      (node) => node.name === 'grp_building',
+    );
     const buildingNode = buildingsGroup?.children.find(
       (node) => node.name === 'bld_building-1',
     );
 
     expect(buildingsGroup?.extras.blenderCollection).toBe('Buildings');
     expect(buildingNode?.extras.objectId).toBe('building-1');
-    expect(buildingNode?.extras.suggestedPivotPolicy).toBe('footprint_centroid');
+    expect(buildingNode?.extras.suggestedPivotPolicy).toBe(
+      'footprint_centroid',
+    );
     expect((buildingNode?.extras.pivotLocal as { y: number }).y).toBe(0.12);
     expect(
       String(buildingNode?.extras.twinEntityId).startsWith('entity-'),
@@ -229,30 +279,42 @@ describe('GlbBuildRunner', () => {
   });
 
   it('parents single-building meshes under the matching building group node', () => {
-    const runner = new GlbBuildRunner() as any;
     const doc = new FakeDoc();
     const scene = new FakeScene('scene-building-mesh');
+    const semanticGroupNodes = new Map<string, unknown>();
+    const currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
+    const triangleBudget = { ...defaultTriangleBudget };
 
-    runner.initializeDccHierarchy(doc, scene, 'scene-building-mesh');
-    runner.registerBuildingGroupNodes(doc, scene, {
-      sceneId: 'scene-building-mesh',
-      origin: { lat: 37, lng: 127 },
-      buildings: [
-        {
-          objectId: 'building-hero',
-          osmWayId: 'way_hero',
-          usage: 'COMMERCIAL',
-          outerRing: [
-            { lat: 37.0001, lng: 127.0001 },
-            { lat: 37.0001, lng: 127.0002 },
-            { lat: 37.0002, lng: 127.0002 },
-          ],
-          terrainOffsetM: 0.08,
-        },
-      ],
-    });
+    initializeDccHierarchy(
+      doc,
+      scene,
+      'scene-building-mesh',
+      semanticGroupNodes,
+    );
+    registerBuildingGroupNodes(
+      doc,
+      scene,
+      {
+        sceneId: 'scene-building-mesh',
+        origin: { lat: 37, lng: 127 },
+        buildings: [
+          {
+            objectId: 'building-hero',
+            osmWayId: 'way_hero',
+            usage: 'COMMERCIAL',
+            outerRing: [
+              { lat: 37.0001, lng: 127.0001 },
+              { lat: 37.0001, lng: 127.0002 },
+              { lat: 37.0002, lng: 127.0002 },
+            ],
+            terrainOffsetM: 0.08,
+          },
+        ],
+      } as any,
+      semanticGroupNodes,
+    );
 
-    runner.addMeshNode(
+    addMeshNode(
       doc,
       FakeAccessor,
       scene,
@@ -270,10 +332,15 @@ describe('GlbBuildRunner', () => {
         semanticCategory: 'building',
         sourceObjectIds: ['building-hero'],
       },
+      currentMeshDiagnostics,
+      triangleBudget,
+      semanticGroupNodes,
     );
 
     const root = scene.children[0];
-    const buildingsGroup = root.children.find((node) => node.name === 'grp_building');
+    const buildingsGroup = root.children.find(
+      (node) => node.name === 'grp_building',
+    );
     const buildingNode = buildingsGroup?.children.find(
       (node) => node.name === 'bld_building-hero',
     );
