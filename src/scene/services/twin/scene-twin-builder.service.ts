@@ -8,6 +8,7 @@ import type {
   SceneQualityGateResult,
   SceneScale,
   SceneTwinGraph,
+  SearchQuerySnapshotPayload,
   SourceSnapshotRecord,
   SpatialFrameManifest,
   TwinComponent,
@@ -21,9 +22,15 @@ import type {
   ValidationGateResult,
   ValidationReport,
 } from '../../types/scene.types';
+import {
+  buildSpatialVerificationSamples,
+  distanceMeters,
+  resolveMetersPerDegree,
+} from '../../utils/scene-spatial-frame.utils';
 
 interface BuildSceneTwinArgs {
   sceneId: string;
+  query: string;
   scale: SceneScale;
   place: ExternalPlaceDetail;
   placePackage: PlacePackage;
@@ -45,6 +52,7 @@ interface SnapshotIds {
 export class SceneTwinBuilderService {
   build({
     sceneId,
+    query,
     scale,
     place,
     placePackage,
@@ -59,6 +67,8 @@ export class SceneTwinBuilderService {
     const generatedAt = meta.generatedAt;
     const snapshots = this.buildSourceSnapshots(
       sceneId,
+      query,
+      scale,
       place,
       placePackage,
       meta,
@@ -917,6 +927,7 @@ export class SceneTwinBuilderService {
       twinComponentCount: components.length,
       evidenceCount: evidence.length,
       deliveryArtifactCount: delivery.artifacts.length,
+      spatialFrame,
       assetPath,
       qualityGate,
       detail,
@@ -945,6 +956,13 @@ export class SceneTwinBuilderService {
           mode: 'SYNTHETIC_RULES',
           bindingScope: 'SCENE',
           entityId: sceneEntityId,
+          bindings: [
+            {
+              entityId: sceneEntityId,
+              componentKind: 'STATE_BINDING',
+              propertyNames: ['stateMode'],
+            },
+          ],
           supportedQueries: ['timeOfDay', 'weather', 'date'],
           notes:
             '현재는 scene-level synthetic rules state만 지원합니다. entity-level state channel은 아직 구현되지 않았습니다.',
@@ -964,19 +982,78 @@ export class SceneTwinBuilderService {
 
   private buildSourceSnapshots(
     sceneId: string,
+    query: string,
+    scale: SceneScale,
     place: ExternalPlaceDetail,
     placePackage: PlacePackage,
     meta: SceneMeta,
     detail: SceneDetail,
     qualityGate: SceneQualityGateResult,
   ): SourceSnapshotRecord[] {
+    const searchPayload: SearchQuerySnapshotPayload = {
+      query,
+      scale,
+      searchLimit: 1,
+      resolvedRadiusM: meta.bounds.radiusM,
+    };
+
     return [
+      this.createSnapshot(
+        sceneId,
+        'GOOGLE_PLACES',
+        'PLACE_SEARCH_QUERY',
+        searchPayload,
+        meta.generatedAt,
+        {
+          method: 'POST',
+          url: 'https://places.googleapis.com/v1/places:searchText',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types,places.googleMapsUri',
+          },
+          body: {
+            textQuery: query,
+            pageSize: 1,
+            languageCode: 'en',
+          },
+          notes:
+            '검색 질의 snapshot입니다. 실제 API key는 저장하지 않습니다.',
+        },
+        {
+          itemCount: 1,
+          status: 'DERIVED',
+          fields: ['query', 'scale', 'resolvedRadiusM'],
+        },
+      ),
       this.createSnapshot(
         sceneId,
         'GOOGLE_PLACES',
         'PLACE_DETAIL',
         place,
         placePackage.generatedAt,
+        {
+          method: 'GET',
+          url: `https://places.googleapis.com/v1/places/${place.placeId}`,
+          headers: {
+            'X-Goog-FieldMask':
+              'id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,viewport,utcOffsetMinutes',
+          },
+          notes:
+            'Google Place Detail request descriptor입니다. 인증값은 저장하지 않습니다.',
+        },
+        {
+          objectId: place.placeId,
+          status: 'SUCCESS',
+          fields: [
+            'displayName',
+            'formattedAddress',
+            'location',
+            'primaryType',
+            'viewport',
+            'utcOffsetMinutes',
+          ],
+        },
       ),
       this.createSnapshot(
         sceneId,
@@ -984,6 +1061,40 @@ export class SceneTwinBuilderService {
         'PLACE_PACKAGE',
         placePackage,
         placePackage.generatedAt,
+        {
+          method: 'POST',
+          url: 'OVERPASS_MULTI_SCOPE',
+          query: {
+            northEastLat: placePackage.bounds.northEast.lat,
+            northEastLng: placePackage.bounds.northEast.lng,
+            southWestLat: placePackage.bounds.southWest.lat,
+            southWestLng: placePackage.bounds.southWest.lng,
+          },
+          body: {
+            scopes: ['core', 'street', 'environment'],
+          },
+          notes:
+            'Overpass 실제 쿼리 문자열 대신 bbox와 scope 구성을 replay descriptor로 저장합니다.',
+        },
+        {
+          status: 'SUCCESS',
+          itemCount:
+            placePackage.buildings.length +
+            placePackage.roads.length +
+            placePackage.walkways.length +
+            placePackage.pois.length +
+            placePackage.crossings.length +
+            placePackage.streetFurniture.length +
+            placePackage.vegetation.length +
+            placePackage.landCovers.length +
+            placePackage.linearFeatures.length,
+          diagnostics: {
+            buildingCount: placePackage.buildings.length,
+            roadCount: placePackage.roads.length,
+            walkwayCount: placePackage.walkways.length,
+            poiCount: placePackage.pois.length,
+          },
+        },
       ),
       this.createSnapshot(
         sceneId,
@@ -991,6 +1102,19 @@ export class SceneTwinBuilderService {
         'SCENE_META',
         meta,
         meta.generatedAt,
+        {
+          method: 'DERIVED',
+          url: 'scene-meta-builder',
+          notes: 'Scene meta derived artifact snapshot입니다.',
+        },
+        {
+          status: 'DERIVED',
+          diagnostics: {
+            buildingCount: meta.stats.buildingCount,
+            roadCount: meta.stats.roadCount,
+            poiCount: meta.stats.poiCount,
+          },
+        },
       ),
       this.createSnapshot(
         sceneId,
@@ -998,6 +1122,19 @@ export class SceneTwinBuilderService {
         'SCENE_DETAIL',
         detail,
         detail.generatedAt,
+        {
+          method: 'DERIVED',
+          url: 'scene-visual-rules',
+          notes: 'Scene detail derived artifact snapshot입니다.',
+        },
+        {
+          status: 'DERIVED',
+          diagnostics: {
+            crossingCount: detail.crossings.length,
+            facadeHintCount: detail.facadeHints.length,
+            signageClusterCount: detail.signageClusters.length,
+          },
+        },
       ),
       this.createSnapshot(
         sceneId,
@@ -1005,6 +1142,19 @@ export class SceneTwinBuilderService {
         'QUALITY_GATE',
         qualityGate,
         qualityGate.decidedAt,
+        {
+          method: 'DERIVED',
+          url: 'scene-quality-gate',
+          notes: 'Quality gate evaluation descriptor입니다.',
+        },
+        {
+          status: 'DERIVED',
+          diagnostics: {
+            state: qualityGate.state,
+            totalSkipped: qualityGate.meshSummary.totalSkipped,
+            invalidGeometry: qualityGate.meshSummary.emptyOrInvalidGeometryCount,
+          },
+        },
       ),
     ];
   }
@@ -1030,6 +1180,8 @@ export class SceneTwinBuilderService {
     kind: SourceSnapshotRecord['kind'],
     payload: SourceSnapshotRecord['payload'],
     fallbackCapturedAt: string,
+    request: SourceSnapshotRecord['request'],
+    responseSummary: SourceSnapshotRecord['responseSummary'],
   ): SourceSnapshotRecord {
     const contentHash = hashValue(payload);
     return {
@@ -1044,6 +1196,8 @@ export class SceneTwinBuilderService {
       contentHash,
       replayable: true,
       storage: 'INLINE_JSON',
+      request,
+      responseSummary,
       payload,
     };
   }
@@ -1053,6 +1207,7 @@ export class SceneTwinBuilderService {
     meta: SceneMeta,
     generatedAt: string,
   ): SpatialFrameManifest {
+    const { metersPerLat, metersPerLng } = resolveMetersPerDegree(meta.origin);
     const width = distanceMeters(
       { lat: meta.origin.lat, lng: meta.bounds.southWest.lng },
       { lat: meta.origin.lat, lng: meta.bounds.northEast.lng },
@@ -1061,6 +1216,20 @@ export class SceneTwinBuilderService {
       { lat: meta.bounds.southWest.lat, lng: meta.origin.lng },
       { lat: meta.bounds.northEast.lat, lng: meta.origin.lng },
     );
+    const verification = buildSpatialVerificationSamples(meta.origin, [
+      {
+        label: 'northEast',
+        point: meta.bounds.northEast,
+      },
+      {
+        label: 'southWest',
+        point: meta.bounds.southWest,
+      },
+      {
+        label: 'origin',
+        point: meta.origin,
+      },
+    ]);
 
     return {
       frameId: `frame-${hashValue(sceneId).slice(0, 12)}`,
@@ -1081,6 +1250,23 @@ export class SceneTwinBuilderService {
         depth: roundMetric(depth),
         radius: meta.bounds.radiusM,
       },
+      transform: {
+        metersPerLat: roundMetric(metersPerLat),
+        metersPerLng: roundMetric(metersPerLng),
+        localAxes: {
+          east: [1, 0, 0],
+          north: [0, 0, -1],
+          up: [0, 1, 0],
+        },
+      },
+      terrain: {
+        mode: 'FLAT_PLACEHOLDER',
+        hasElevationModel: false,
+        baseHeightMeters: 0,
+        notes:
+          '현재는 DEM이 없어 flat placeholder 기준입니다. 이후 terrain fusion 단계에서 실제 elevation으로 대체해야 합니다.',
+      },
+      verification,
       delivery: {
         glbAxisConvention: 'Y_UP_DERIVED',
         transformRequired: true,
@@ -1193,6 +1379,7 @@ export class SceneTwinBuilderService {
     twinComponentCount: number;
     evidenceCount: number;
     deliveryArtifactCount: number;
+    spatialFrame: SpatialFrameManifest;
     assetPath: string;
     qualityGate: SceneQualityGateResult;
     detail: SceneDetail;
@@ -1203,12 +1390,19 @@ export class SceneTwinBuilderService {
       args.twinComponentCount,
       args.evidenceCount,
     );
+    const spatialGate = this.buildSpatialGate(args.spatialFrame);
     const deliveryGate = this.buildDeliveryGate(
       args.assetPath,
       args.deliveryArtifactCount,
     );
     const stateGate = this.buildStateGate(args.detail);
-    const gates = [geometryGate, semanticGate, deliveryGate, stateGate];
+    const gates = [
+      geometryGate,
+      semanticGate,
+      spatialGate,
+      deliveryGate,
+      stateGate,
+    ];
     const summary = resolveGateSummary(gates);
 
     return {
@@ -1290,6 +1484,26 @@ export class SceneTwinBuilderService {
     };
   }
 
+  private buildSpatialGate(
+    spatialFrame: SpatialFrameManifest,
+  ): ValidationGateResult {
+    const maxError = spatialFrame.verification.maxRoundTripErrorM;
+    const state: ValidationGateResult['state'] =
+      maxError <= 0.05 ? 'PASS' : maxError <= 0.25 ? 'WARN' : 'FAIL';
+    return {
+      gate: 'spatial',
+      state,
+      reasonCodes:
+        state === 'PASS' ? [] : ['SPATIAL_ROUNDTRIP_ERROR_EXCEEDED'],
+      metrics: {
+        sampleCount: spatialFrame.verification.sampleCount,
+        maxRoundTripErrorM: maxError,
+        avgRoundTripErrorM: spatialFrame.verification.avgRoundTripErrorM,
+        terrainMode: spatialFrame.terrain.mode,
+      },
+    };
+  }
+
   private buildStateGate(detail: SceneDetail): ValidationGateResult {
     return {
       gate: 'state',
@@ -1351,15 +1565,6 @@ function sortValue(value: unknown): unknown {
       }, {});
   }
   return value;
-}
-
-function distanceMeters(start: Coordinate, end: Coordinate): number {
-  const metersPerLat = 111_320;
-  const metersPerLng =
-    111_320 * Math.cos((((start.lat + end.lat) / 2) * Math.PI) / 180);
-  const deltaLat = (end.lat - start.lat) * metersPerLat;
-  const deltaLng = (end.lng - start.lng) * metersPerLng;
-  return Math.sqrt(deltaLat ** 2 + deltaLng ** 2);
 }
 
 function roundMetric(value: number): number {

@@ -126,8 +126,12 @@ describe('Scene Services', () => {
     expect(detail.detailStatus).toBe('OSM_ONLY');
     expect(detail.crossings).toEqual([]);
     expect(twin.sceneId).toBe(scene.sceneId);
-    expect(twin.sourceSnapshots.snapshots).toHaveLength(5);
+    expect(twin.sourceSnapshots.snapshots).toHaveLength(6);
+    expect(twin.sourceSnapshots.snapshots[0]?.kind).toBe('PLACE_SEARCH_QUERY');
+    expect(twin.sourceSnapshots.snapshots[0]?.request.method).toBe('POST');
     expect(twin.spatialFrame.localFrame).toBe('ENU');
+    expect(twin.spatialFrame.verification.sampleCount).toBe(3);
+    expect(twin.spatialFrame.terrain.mode).toBe('FLAT_PLACEHOLDER');
     expect(twin.entities.some((entity) => entity.kind === 'BUILDING')).toBe(
       true,
     );
@@ -135,6 +139,7 @@ describe('Scene Services', () => {
     expect(validation.gates.map((gate) => gate.gate)).toEqual([
       'geometry',
       'semantic',
+      'spatial',
       'delivery',
       'state',
     ]);

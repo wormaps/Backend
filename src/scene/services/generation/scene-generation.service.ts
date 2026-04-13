@@ -154,6 +154,7 @@ export class SceneGenerationService {
       );
       const twinBuild = this.sceneTwinBuilderService.build({
         sceneId,
+        query: storedScene.query,
         scale: storedScene.scale,
         place: result.place,
         placePackage: result.placePackage,

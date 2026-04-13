@@ -19,11 +19,36 @@ export type TwinSnapshotProvider =
   | 'QUALITY_GATE';
 
 export type TwinSnapshotKind =
+  | 'PLACE_SEARCH_QUERY'
   | 'PLACE_DETAIL'
   | 'PLACE_PACKAGE'
   | 'SCENE_META'
   | 'SCENE_DETAIL'
   | 'QUALITY_GATE';
+
+export interface SearchQuerySnapshotPayload {
+  query: string;
+  scale: SceneScale;
+  searchLimit: number;
+  resolvedRadiusM: number;
+}
+
+export interface SnapshotReplayRequest {
+  method: 'GET' | 'POST' | 'DERIVED';
+  url: string;
+  headers?: Record<string, string>;
+  query?: Record<string, string | number | boolean>;
+  body?: Record<string, unknown> | string | null;
+  notes?: string;
+}
+
+export interface SnapshotResponseSummary {
+  itemCount?: number;
+  objectId?: string;
+  status?: 'SUCCESS' | 'DERIVED';
+  fields?: string[];
+  diagnostics?: Record<string, number | string | boolean | null>;
+}
 
 export interface SourceSnapshotRecord {
   snapshotId: string;
@@ -34,7 +59,10 @@ export interface SourceSnapshotRecord {
   contentHash: string;
   replayable: boolean;
   storage: 'INLINE_JSON';
+  request: SnapshotReplayRequest;
+  responseSummary: SnapshotResponseSummary;
   payload:
+    | SearchQuerySnapshotPayload
     | ExternalPlaceDetail
     | PlacePackage
     | SceneMeta
@@ -64,6 +92,34 @@ export interface SpatialFrameManifest {
     width: number;
     depth: number;
     radius: number;
+  };
+  transform: {
+    metersPerLat: number;
+    metersPerLng: number;
+    localAxes: {
+      east: [1, 0, 0];
+      north: [0, 0, -1];
+      up: [0, 1, 0];
+    };
+  };
+  terrain: {
+    mode: 'FLAT_PLACEHOLDER';
+    hasElevationModel: false;
+    baseHeightMeters: 0;
+    notes: string;
+  };
+  verification: {
+    sampleCount: number;
+    maxRoundTripErrorM: number;
+    avgRoundTripErrorM: number;
+    samples: Array<{
+      label: string;
+      local: {
+        eastM: number;
+        northM: number;
+      };
+      roundTripErrorM: number;
+    }>;
   };
   delivery: {
     glbAxisConvention: 'Y_UP_DERIVED';
@@ -181,6 +237,11 @@ export interface TwinStateChannel {
   mode: 'SYNTHETIC_RULES';
   bindingScope: 'SCENE';
   entityId: string;
+  bindings: Array<{
+    entityId: string;
+    componentKind: TwinComponentKind;
+    propertyNames: string[];
+  }>;
   supportedQueries: Array<'timeOfDay' | 'weather' | 'date'>;
   notes: string;
 }
@@ -188,7 +249,7 @@ export interface TwinStateChannel {
 export type ValidationGateState = 'PASS' | 'WARN' | 'FAIL';
 
 export interface ValidationGateResult {
-  gate: 'geometry' | 'semantic' | 'delivery' | 'state';
+  gate: 'geometry' | 'semantic' | 'spatial' | 'delivery' | 'state';
   state: ValidationGateState;
   reasonCodes: string[];
   metrics: Record<string, boolean | number | string>;
