@@ -8,7 +8,11 @@ import type { GeometryBuffers } from '../road/road-mesh.builder';
 import { createEmptyGeometry } from '../road/road-mesh.builder';
 import { normalizeLocalRing, toLocalRing } from './building-mesh-utils';
 import { resolveAccentTone } from './building-mesh.tone.utils';
-import { insetRing, pushExtrudedPolygon } from './building-mesh.shell.builder';
+import {
+  insetRing,
+  pushExtrudedPolygon,
+  resolveBuildingVerticalBase,
+} from './building-mesh.shell.builder';
 
 export interface BuildingRoofSurfaceMetrics {
   roofWallGapRiskCount: number;
@@ -61,7 +65,8 @@ export function createBuildingRoofSurfaceGeometry(
     if (roofRing.length < 3) {
       continue;
     }
-    const topHeight = Math.max(4, building.heightMeters);
+    const baseY = resolveBuildingVerticalBase(building);
+    const topHeight = baseY + Math.max(4, building.heightMeters);
     const roofBoost = resolveRoofSurfaceBoost(building, staticAtmosphere);
     const slabMin = topHeight + 0.02;
     const slabMax =

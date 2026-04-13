@@ -24,6 +24,7 @@ import {
   pushVerticalMullions,
 } from './building-mesh.facade-band.utils';
 import { resolveAccentTone } from './building-mesh.tone.utils';
+import { resolveBuildingVerticalBase } from './building-mesh.shell.builder';
 
 export function createBuildingPanelsGeometry(
   origin: Coordinate,
@@ -57,6 +58,7 @@ export function createBuildingPanelsGeometry(
       outerRing,
       edgeIndex,
       Math.max(6, building.heightMeters * 0.9),
+      resolveBuildingVerticalBase(building),
     );
     if (!frame) {
       continue;

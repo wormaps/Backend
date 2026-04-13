@@ -8,6 +8,7 @@ import {
   resolveLongestEdgeIndex,
 } from './building-mesh.facade-frame.utils';
 import { pushBox, pushQuad } from './building-mesh.geometry-primitives';
+import { resolveBuildingVerticalBase } from './building-mesh.shell.builder';
 
 export function createBuildingEntranceGeometry(
   origin: Coordinate,
@@ -28,7 +29,12 @@ export function createBuildingEntranceGeometry(
     const height = Math.max(4, building.heightMeters);
 
     const mainEdgeIndex = resolveLongestEdgeIndex(outerRing);
-    const frame = buildFacadeFrame(outerRing, mainEdgeIndex, height);
+    const frame = buildFacadeFrame(
+      outerRing,
+      mainEdgeIndex,
+      height,
+      resolveBuildingVerticalBase(building),
+    );
     if (!frame) {
       continue;
     }
@@ -134,10 +140,10 @@ function pushEntranceAssembly(
   config: EntranceConfig,
   buildingHeight: number,
 ): void {
-  const entranceY = 0;
+  const entranceY = frame.yBase;
   const entranceTopY = Math.min(
     entranceY + config.entranceHeight,
-    buildingHeight * 0.15,
+    frame.yBase + buildingHeight * 0.15,
   );
 
   const edgeDx = frame.b[0] - frame.a[0];
@@ -280,7 +286,7 @@ function pushCanopyStructure(
 
     pushBox(
       geometry,
-      [supportX - 0.08, 0, supportZ - 0.08],
+      [supportX - 0.08, frame.yBase, supportZ - 0.08],
       [supportX + 0.08, canopyY, supportZ + 0.08],
     );
   }

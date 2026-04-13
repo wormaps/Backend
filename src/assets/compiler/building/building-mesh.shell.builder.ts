@@ -121,6 +121,12 @@ export function insetRing(points: Vec3[], ratio: number): Vec3[] {
   ]);
 }
 
+export function resolveBuildingVerticalBase(
+  building: SceneMeta['buildings'][number],
+): number {
+  return Number((building.terrainOffsetM ?? 0).toFixed(3));
+}
+
 export function pushExtrudedPolygon(
   geometry: GeometryBuffers,
   outerRing: Vec3[],
@@ -178,6 +184,7 @@ function pushBuildingByStrategy(
   ) => number[],
 ): void {
   const foundationDepth = resolveFoundationDepth(building);
+  const baseY = resolveBuildingVerticalBase(building);
 
   if (building.visualRole && building.visualRole !== 'generic') {
     pushHeroBuilding(
@@ -213,8 +220,8 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        -foundationDepth,
-        podiumHeight,
+        baseY - foundationDepth,
+        baseY + podiumHeight,
         triangulate,
       );
       if (lodLevel === 'HIGH') {
@@ -226,8 +233,8 @@ function pushBuildingByStrategy(
             geometry,
             towerRing,
             [],
-            podiumHeight - SETBACK_OVERLAP,
-            towerTop,
+            baseY + podiumHeight - SETBACK_OVERLAP,
+            baseY + towerTop,
             triangulate,
           );
         }
@@ -240,8 +247,8 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        -foundationDepth,
-        baseTop,
+        baseY - foundationDepth,
+        baseY + baseTop,
         triangulate,
       );
       if (lodLevel === 'HIGH') {
@@ -269,8 +276,8 @@ function pushBuildingByStrategy(
             geometry,
             currentRing,
             [],
-            stageMin,
-            stageMax,
+            baseY + stageMin,
+            baseY + stageMax,
             triangulate,
           );
         }
@@ -283,12 +290,17 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        -foundationDepth,
-        roofBaseHeight,
+        baseY - foundationDepth,
+        baseY + roofBaseHeight,
         triangulate,
       );
       if (lodLevel === 'HIGH') {
-        pushGableRoof(geometry, simplifiedRing, roofBaseHeight, height);
+        pushGableRoof(
+          geometry,
+          simplifiedRing,
+          baseY + roofBaseHeight,
+          baseY + height,
+        );
       }
       break;
     }
@@ -297,8 +309,8 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        -foundationDepth,
-        height,
+        baseY - foundationDepth,
+        baseY + height,
         triangulate,
       );
       break;
@@ -307,8 +319,8 @@ function pushBuildingByStrategy(
       const bounds = computeBounds(simplifiedRing);
       pushBox(
         geometry,
-        [bounds.minX, -foundationDepth, bounds.minZ],
-        [bounds.maxX, height, bounds.maxZ],
+        [bounds.minX, baseY - foundationDepth, bounds.minZ],
+        [bounds.maxX, baseY + height, bounds.maxZ],
       );
       break;
     }
@@ -318,8 +330,8 @@ function pushBuildingByStrategy(
         geometry,
         simplifiedRing,
         simplifiedHoles,
-        -foundationDepth,
-        height,
+        baseY - foundationDepth,
+        baseY + height,
         triangulate,
       );
       break;
@@ -340,6 +352,7 @@ function pushHeroBuilding(
   foundationDepth: number,
 ): void {
   const height = Math.max(6, building.heightMeters);
+  const baseY = resolveBuildingVerticalBase(building);
   const baseMass = building.baseMass ?? 'podium_tower';
   const podiumLevels =
     building.podiumSpec?.levels ?? building.podiumLevels ?? 2;
@@ -354,8 +367,8 @@ function pushHeroBuilding(
       geometry,
       outerRing,
       holes,
-      -foundationDepth,
-      height,
+      baseY - foundationDepth,
+      baseY + height,
       triangulate,
     );
     return;
@@ -366,8 +379,8 @@ function pushHeroBuilding(
       geometry,
       outerRing,
       holes,
-      -foundationDepth,
-      height,
+      baseY - foundationDepth,
+      baseY + height,
       triangulate,
     );
     return;
@@ -377,8 +390,8 @@ function pushHeroBuilding(
     geometry,
     outerRing,
     holes,
-    -foundationDepth,
-    podiumHeight,
+    baseY - foundationDepth,
+    baseY + podiumHeight,
     triangulate,
   );
 
@@ -412,8 +425,8 @@ function pushHeroBuilding(
       geometry,
       currentRing,
       [],
-      stageMin,
-      stageMax,
+      baseY + stageMin,
+      baseY + stageMax,
       triangulate,
     );
   }

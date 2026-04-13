@@ -8,7 +8,10 @@ import {
   toLocalRing,
 } from './building-mesh-utils';
 import { pushBox } from './building-mesh.geometry-primitives';
-import { insetRing } from './building-mesh.shell.builder';
+import {
+  insetRing,
+  resolveBuildingVerticalBase,
+} from './building-mesh.shell.builder';
 
 export function createBuildingRoofEquipmentGeometry(
   origin: Coordinate,
@@ -32,7 +35,8 @@ export function createBuildingRoofEquipmentGeometry(
 
     const inset = insetRing(outerRing, 0.15);
     const bounds = computeBounds(inset.length >= 3 ? inset : outerRing);
-    const topHeight = Math.max(4, building.heightMeters);
+    const topHeight =
+      resolveBuildingVerticalBase(building) + Math.max(4, building.heightMeters);
 
     pushRoofEquipmentAssembly(geometry, bounds, topHeight, equipmentConfig);
   }

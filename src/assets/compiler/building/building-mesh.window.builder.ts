@@ -9,6 +9,7 @@ import { normalizeLocalRing, toLocalRing } from './building-mesh-utils';
 import type { FacadeFrame } from './building-mesh.facade-frame.utils';
 import { buildFacadeFrame } from './building-mesh.facade-frame.utils';
 import { pushQuad } from './building-mesh.geometry-primitives';
+import { resolveBuildingVerticalBase } from './building-mesh.shell.builder';
 
 export interface BuildingWindowGeometryOptions {
   maxWindowTriangles?: number;
@@ -60,12 +61,17 @@ export function createBuildingWindowGeometry(
       if (budget.remainingTriangles < WINDOW_TRIANGLES_PER_EMIT_ESTIMATE) {
         break;
       }
-      const frame = buildFacadeFrame(outerRing, edgeIndex, height);
-      if (!frame) {
+      const frameWithBase = buildFacadeFrame(
+        outerRing,
+        edgeIndex,
+        height,
+        resolveBuildingVerticalBase(building),
+      );
+      if (!frameWithBase) {
         continue;
       }
 
-      pushWindowGrid(geometry, frame, windowConfig, height, budget);
+      pushWindowGrid(geometry, frameWithBase, windowConfig, height, budget);
     }
   }
 

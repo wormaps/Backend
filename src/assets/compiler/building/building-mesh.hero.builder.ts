@@ -19,7 +19,10 @@ import {
   pushTopBillboardZone,
 } from './building-mesh.facade-band.utils';
 import { resolveAccentTone } from './building-mesh.tone.utils';
-import { insetRing } from './building-mesh.shell.builder';
+import {
+  insetRing,
+  resolveBuildingVerticalBase,
+} from './building-mesh.shell.builder';
 
 export function createHeroCanopyGeometry(
   origin: Coordinate,
@@ -47,6 +50,7 @@ export function createHeroCanopyGeometry(
           4.2,
           building.podiumSpec?.levels ? building.podiumSpec.levels * 3.6 : 4.2,
         ),
+        resolveBuildingVerticalBase(building),
       );
       if (!frame) {
         continue;
@@ -92,8 +96,16 @@ export function createHeroRoofUnitGeometry(
         ((row + 1) / (Math.ceil(roofUnits / columns) + 1)) * bounds.depth;
       pushBox(
         geometry,
-        [centerX - 0.7, building.heightMeters + 0.2, centerZ - 0.5],
-        [centerX + 0.7, building.heightMeters + 1.6, centerZ + 0.5],
+        [
+          centerX - 0.7,
+          resolveBuildingVerticalBase(building) + building.heightMeters + 0.2,
+          centerZ - 0.5,
+        ],
+        [
+          centerX + 0.7,
+          resolveBuildingVerticalBase(building) + building.heightMeters + 1.6,
+          centerZ + 0.5,
+        ],
       );
     }
   }
@@ -128,6 +140,7 @@ export function createHeroBillboardPlaneGeometry(
         ring,
         edgeIndex % ring.length,
         Math.max(8, building.heightMeters * 0.78),
+        resolveBuildingVerticalBase(building),
       );
       if (!frame) {
         continue;

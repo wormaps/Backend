@@ -8,6 +8,7 @@ export interface FacadeFrame {
   b: Vec3;
   height: number;
   normal: Vec3;
+  yBase: number;
 }
 
 export interface SplitFacadeFrame extends FacadeFrame {
@@ -36,6 +37,7 @@ export function buildFacadeFrame(
   ring: Vec3[],
   edgeIndex: number,
   facadeHeight: number,
+  yBase = 0,
 ): FacadeFrame | null {
   const current = ring[edgeIndex];
   const next = ring[(edgeIndex + 1) % ring.length];
@@ -68,6 +70,7 @@ export function buildFacadeFrame(
     b: [next[0] + normal[0] * offset, 0, next[2] + normal[2] * offset],
     height: facadeHeight,
     normal,
+    yBase,
   };
 }
 
@@ -105,28 +108,30 @@ export function pushFacadeSlab(
   if (yMax <= yMin + 0.08) {
     return;
   }
-  const frontA: Vec3 = [frame.a[0], yMin, frame.a[2]];
-  const frontB: Vec3 = [frame.b[0], yMin, frame.b[2]];
-  const frontC: Vec3 = [frame.b[0], yMax, frame.b[2]];
-  const frontD: Vec3 = [frame.a[0], yMax, frame.a[2]];
+  const resolvedYMin = frame.yBase + yMin;
+  const resolvedYMax = frame.yBase + yMax;
+  const frontA: Vec3 = [frame.a[0], resolvedYMin, frame.a[2]];
+  const frontB: Vec3 = [frame.b[0], resolvedYMin, frame.b[2]];
+  const frontC: Vec3 = [frame.b[0], resolvedYMax, frame.b[2]];
+  const frontD: Vec3 = [frame.a[0], resolvedYMax, frame.a[2]];
   const backA: Vec3 = [
     frame.a[0] - frame.normal[0] * depth,
-    yMin,
+    resolvedYMin,
     frame.a[2] - frame.normal[2] * depth,
   ];
   const backB: Vec3 = [
     frame.b[0] - frame.normal[0] * depth,
-    yMin,
+    resolvedYMin,
     frame.b[2] - frame.normal[2] * depth,
   ];
   const backC: Vec3 = [
     frame.b[0] - frame.normal[0] * depth,
-    yMax,
+    resolvedYMax,
     frame.b[2] - frame.normal[2] * depth,
   ];
   const backD: Vec3 = [
     frame.a[0] - frame.normal[0] * depth,
-    yMax,
+    resolvedYMax,
     frame.a[2] - frame.normal[2] * depth,
   ];
 

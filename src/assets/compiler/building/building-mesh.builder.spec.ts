@@ -3,6 +3,7 @@ import {
   createBuildingPanelsGeometry,
   createBuildingWindowGeometry,
   createBuildingRoofSurfaceGeometry,
+  createBuildingEntranceGeometry,
   createBuildingRoofEquipmentGeometry,
   collectBuildingRoofSurfaceMetrics,
   createHeroBillboardPlaneGeometry,
@@ -287,5 +288,76 @@ describe('building-mesh.builder', () => {
     expect(minY(shellNearRoad.positions)).toBeCloseTo(-0.41, 6);
     expect(minY(shellAdaptiveOffset.positions)).toBeCloseTo(-0.53, 6);
     expect(minY(shellDeepOffset.positions)).toBeCloseTo(-0.9, 6);
+  });
+
+  it('applies terrainOffsetM consistently across building stack geometry', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const elevatedBuilding = {
+      ...building,
+      objectId: 'terrain-elevated',
+      osmWayId: 'terrain_elevated',
+      visualRole: 'generic' as const,
+      terrainOffsetM: 0.24,
+    };
+    const triangulateQuad = () => [0, 1, 2, 0, 2, 3];
+    const facadeHints = [
+      {
+        objectId: elevatedBuilding.objectId,
+        anchor: coordinate(35.6596, 139.7009),
+        facadeEdgeIndex: 0,
+        windowBands: 8,
+        billboardEligible: false,
+        palette: ['#2d3a4b', '#5b6b7f', '#dce5f2'],
+        materialClass: 'glass' as const,
+        signageDensity: 'medium' as const,
+        emissiveStrength: 0.4,
+        glazingRatio: 0.62,
+        facadePreset: 'glass_grid' as const,
+      },
+    ];
+
+    const shell = createBuildingShellGeometry(
+      origin,
+      [elevatedBuilding],
+      triangulateQuad,
+    );
+    const roof = createBuildingRoofSurfaceGeometry(
+      origin,
+      [elevatedBuilding],
+      triangulateQuad,
+      'cool',
+    );
+    const panels = createBuildingPanelsGeometry(
+      origin,
+      [elevatedBuilding],
+      facadeHints,
+      'cool',
+    );
+    const windows = createBuildingWindowGeometry(
+      origin,
+      [elevatedBuilding],
+      facadeHints,
+    );
+    const entrances = createBuildingEntranceGeometry(origin, [elevatedBuilding]);
+    const roofEquipment = createBuildingRoofEquipmentGeometry(origin, [
+      elevatedBuilding,
+    ]);
+    const heroRoofUnits = createHeroRoofUnitGeometry(origin, [
+      {
+        ...elevatedBuilding,
+        visualRole: 'hero_landmark',
+      },
+    ]);
+
+    const minY = (positions: number[]): number =>
+      Math.min(...positions.filter((_, index) => index % 3 === 1));
+
+    expect(minY(shell.positions)).toBeCloseTo(-0.11, 6);
+    expect(minY(roof.positions)).toBeGreaterThanOrEqual(48.24);
+    expect(minY(panels.positions)).toBeGreaterThanOrEqual(0.24);
+    expect(minY(windows.positions)).toBeGreaterThanOrEqual(0.24);
+    expect(minY(entrances.positions)).toBeGreaterThanOrEqual(0.24);
+    expect(minY(roofEquipment.positions)).toBeGreaterThanOrEqual(48.34);
+    expect(minY(heroRoofUnits.positions)).toBeGreaterThanOrEqual(48.44);
   });
 });
