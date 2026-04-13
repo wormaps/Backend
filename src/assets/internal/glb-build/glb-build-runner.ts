@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
@@ -40,6 +41,7 @@ import {
 import {
   normalizeLocalRing as normalizeLocalRingUtil,
   signedAreaXZ as signedAreaXZUtil,
+  toLocalPoint,
   triangulateRings as triangulateRingsUtil,
 } from './geometry/glb-build-geometry-primitives.utils';
 import { Coordinate } from '../../../places/types/place.types';
@@ -74,6 +76,7 @@ type MeshSemanticTrace = {
   selectedCount?: number;
   semanticCategory?: string;
   semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
+  sourceObjectIds?: string[];
 };
 
 interface FacadeColorDiversityMetrics {
@@ -104,6 +107,7 @@ export class GlbBuildRunner {
   private protectedTriangleCount = 0;
   private materialCacheHits = 0;
   private materialCacheMisses = 0;
+  private semanticGroupNodes = new Map<string, any>();
   private readonly protectedTriangleReserve = 180_000;
   private readonly budgetProtectedMeshNames = new Set<string>([
     'road_base',
@@ -146,6 +150,7 @@ export class GlbBuildRunner {
     this.protectedTriangleCount = 0;
     this.materialCacheHits = 0;
     this.materialCacheMisses = 0;
+    this.semanticGroupNodes.clear();
     const gltf = await import('@gltf-transform/core');
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
@@ -155,6 +160,8 @@ export class GlbBuildRunner {
     this.installMaterialCache(doc, sceneMeta.sceneId);
     const buffer = doc.createBuffer('scene-buffer');
     const scene = doc.createScene(sceneMeta.sceneId);
+    this.initializeDccHierarchy(doc, scene, sceneMeta.sceneId);
+    this.registerBuildingGroupNodes(doc, scene, sceneMeta);
     this.currentMeshDiagnostics = [];
 
     const assetSelection = buildSceneAssetSelection(
@@ -633,11 +640,29 @@ export class GlbBuildRunner {
       meshName: name,
       sourceCount: trace.sourceCount ?? 0,
       selectedCount: trace.selectedCount ?? 0,
+      sourceObjectIds: (trace.sourceObjectIds ?? []).slice(0, 256),
       semanticCategory:
         trace.semanticCategory ?? this.resolveSemanticCategory(name),
       semanticMetadataCoverage:
         trace.semanticCoverage ??
         this.resolveSemanticCoverage(trace.sourceCount, trace.selectedCount),
+      twinEntityIds: this.resolveTwinEntityIds(
+        scene.name ?? '',
+        name,
+        trace.semanticCategory ?? this.resolveSemanticCategory(name),
+        trace.sourceObjectIds ?? [],
+      ),
+      twinComponentIds: this.resolveTwinComponentIds(
+        scene.name ?? '',
+        name,
+        trace.semanticCategory ?? this.resolveSemanticCategory(name),
+        trace.sourceObjectIds ?? [],
+      ),
+      sourceSnapshotIds: this.resolveSourceSnapshotIds(
+        scene.name ?? '',
+        name,
+        trace.semanticCategory ?? this.resolveSemanticCategory(name),
+      ),
     };
     this.applyExtras(primitive, semanticExtras);
     this.applyExtras(mesh, semanticExtras);
@@ -645,7 +670,13 @@ export class GlbBuildRunner {
     mesh.addPrimitive(primitive);
     const node = doc.createNode(name).setMesh(mesh);
     this.applyExtras(node, semanticExtras);
-    scene.addChild(node);
+    const parent = this.resolveMeshParent(
+      doc,
+      scene,
+      semanticExtras.semanticCategory as string,
+      semanticExtras.sourceObjectIds as string[],
+    );
+    parent.addChild(node);
   }
 
   private resolveSkippedReason(trace: {
@@ -745,6 +776,404 @@ export class GlbBuildRunner {
     return 'PARTIAL';
   }
 
+  private resolveTwinEntityIds(
+    sceneId: string,
+    meshName: string,
+    semanticCategory: string,
+    sourceObjectIds: string[],
+  ): string[] {
+    if (!this.resolveTwinEntityKind(meshName, semanticCategory)) {
+      return [];
+    }
+    return sourceObjectIds.map((objectId) =>
+      this.createTwinEntityId(sceneId, objectId),
+    );
+  }
+
+  private resolveTwinComponentIds(
+    sceneId: string,
+    meshName: string,
+    semanticCategory: string,
+    sourceObjectIds: string[],
+  ): string[] {
+    const componentLabel = this.resolveTwinComponentLabel(
+      meshName,
+      semanticCategory,
+    );
+    const componentKind = this.resolveTwinComponentKind(
+      meshName,
+      semanticCategory,
+    );
+    if (!componentLabel || !componentKind) {
+      return [];
+    }
+    return sourceObjectIds.map((objectId) =>
+      this.createTwinComponentId(
+        sceneId,
+        objectId,
+        componentKind,
+        componentLabel,
+      ),
+    );
+  }
+
+  private resolveSourceSnapshotIds(
+    sceneId: string,
+    meshName: string,
+    semanticCategory: string,
+  ): string[] {
+    if (semanticCategory === 'building') {
+      if (
+        meshName.includes('panels') ||
+        meshName.includes('windows') ||
+        meshName.includes('hero_') ||
+        meshName.includes('billboard') ||
+        meshName.includes('landmark')
+      ) {
+        return [
+          this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
+          this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_DETAIL'),
+          this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
+        ];
+      }
+      return [
+        this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
+        this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
+      ];
+    }
+
+    if (semanticCategory === 'transport') {
+      if (
+        meshName.includes('crosswalk') ||
+        meshName.includes('road_markings') ||
+        meshName.includes('lane_overlay') ||
+        meshName.includes('junction_overlay')
+      ) {
+        return [this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_DETAIL')];
+      }
+      return [
+        this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
+        this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
+      ];
+    }
+
+    if (semanticCategory === 'street_context') {
+      return [
+        this.createSnapshotId(sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
+        this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_DETAIL'),
+      ];
+    }
+
+    return [this.createSnapshotId(sceneId, 'SCENE_PIPELINE', 'SCENE_META')];
+  }
+
+  private resolveTwinEntityKind(
+    meshName: string,
+    semanticCategory: string,
+  ): string | null {
+    if (semanticCategory === 'building') {
+      return meshName === 'landmark_extras' ? 'LANDMARK' : 'BUILDING';
+    }
+    if (semanticCategory === 'transport') {
+      if (meshName.includes('sidewalk')) {
+        return 'WALKWAY';
+      }
+      if (meshName.includes('crosswalk')) {
+        return 'CROSSING';
+      }
+      if (
+        meshName === 'road_base' ||
+        meshName === 'road_edges' ||
+        meshName === 'curbs' ||
+        meshName === 'medians'
+      ) {
+        return 'ROAD';
+      }
+      return null;
+    }
+    if (semanticCategory === 'street_context') {
+      if (
+        meshName.includes('traffic_light') ||
+        meshName.includes('street_light') ||
+        meshName.includes('sign_pole') ||
+        meshName.includes('bench') ||
+        meshName.includes('bike_rack') ||
+        meshName.includes('trash_can') ||
+        meshName.includes('fire_hydrant')
+      ) {
+        return 'STREET_FURNITURE';
+      }
+      if (
+        meshName.includes('tree') ||
+        meshName.includes('bush') ||
+        meshName.includes('flower')
+      ) {
+        return 'VEGETATION';
+      }
+      if (meshName.includes('poi')) {
+        return 'POI';
+      }
+      if (meshName.includes('landcover')) {
+        return 'LAND_COVER';
+      }
+      if (meshName.includes('linear_')) {
+        return 'LINEAR_FEATURE';
+      }
+    }
+    return null;
+  }
+
+  private resolveTwinComponentKind(
+    meshName: string,
+    semanticCategory: string,
+  ): 'SPATIAL' | 'STRUCTURE' | 'APPEARANCE' | null {
+    if (semanticCategory === 'building') {
+      if (meshName.includes('shells') || meshName.includes('roof_surfaces')) {
+        return 'STRUCTURE';
+      }
+      return 'APPEARANCE';
+    }
+    if (semanticCategory === 'transport') {
+      if (meshName.includes('sidewalk')) {
+        return 'SPATIAL';
+      }
+      if (meshName.includes('crosswalk')) {
+        return 'STRUCTURE';
+      }
+      if (
+        meshName === 'road_base' ||
+        meshName === 'road_edges' ||
+        meshName === 'curbs' ||
+        meshName === 'medians'
+      ) {
+        return 'STRUCTURE';
+      }
+      return null;
+    }
+    if (semanticCategory === 'street_context') {
+      if (
+        meshName.includes('tree') ||
+        meshName.includes('bush') ||
+        meshName.includes('flower')
+      ) {
+        return 'STRUCTURE';
+      }
+      return 'SPATIAL';
+    }
+    return null;
+  }
+
+  private resolveTwinComponentLabel(
+    meshName: string,
+    semanticCategory: string,
+  ): string | null {
+    if (semanticCategory === 'building') {
+      if (meshName.includes('shells') || meshName.includes('roof_surfaces')) {
+        return 'Building Structure';
+      }
+      return 'Building Appearance';
+    }
+    if (semanticCategory === 'transport') {
+      if (meshName.includes('sidewalk')) {
+        return 'Walkway Spatial';
+      }
+      if (meshName.includes('crosswalk')) {
+        return 'Crossing Structure';
+      }
+      if (
+        meshName === 'road_base' ||
+        meshName === 'road_edges' ||
+        meshName === 'curbs' ||
+        meshName === 'medians'
+      ) {
+        return 'Road Structure';
+      }
+      return null;
+    }
+    if (semanticCategory === 'street_context') {
+      if (
+        meshName.includes('tree') ||
+        meshName.includes('bush') ||
+        meshName.includes('flower')
+      ) {
+        return 'Vegetation Structure';
+      }
+      if (meshName.includes('poi')) {
+        return 'POI Spatial';
+      }
+      if (meshName.includes('landcover')) {
+        return 'Land Cover Spatial';
+      }
+      if (meshName.includes('linear_')) {
+        return 'Linear Feature Spatial';
+      }
+      return 'Street Furniture Spatial';
+    }
+    return null;
+  }
+
+  private createTwinEntityId(sceneId: string, objectId: string): string {
+    return `entity-${hashValue(`${sceneId}:${objectId}`).slice(0, 12)}`;
+  }
+
+  private createTwinComponentId(
+    sceneId: string,
+    objectId: string,
+    kind: string,
+    label: string,
+  ): string {
+    const entityId = this.createTwinEntityId(sceneId, objectId);
+    return `component-${hashValue(`${entityId}:${kind}:${label}`).slice(0, 12)}`;
+  }
+
+  private createSnapshotId(
+    sceneId: string,
+    provider: string,
+    kind: string,
+  ): string {
+    return `snapshot-${hashValue(`${sceneId}:${provider}:${kind}`).slice(0, 12)}`;
+  }
+
+  private initializeDccHierarchy(doc: any, scene: any, sceneId: string): void {
+    const root = doc.createNode('dcc_root');
+    this.applyExtras(root, {
+      sceneId,
+      semanticCategory: 'scene',
+      dccCollection: 'Scene',
+      blenderCollection: 'Scene',
+      isGroupNode: true,
+    });
+    scene.addChild(root);
+    this.semanticGroupNodes.set('scene_root', root);
+  }
+
+  private resolveParentNode(doc: any, scene: any, semanticCategory: string): any {
+    const root = this.semanticGroupNodes.get('scene_root');
+    const category = semanticCategory || 'scene';
+    const key = `category:${category}`;
+    const cached = this.semanticGroupNodes.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    const label = this.resolveCategoryLabel(category);
+    const node = doc.createNode(`grp_${category}`);
+    this.applyExtras(node, {
+      sceneId: scene.name ?? undefined,
+      semanticCategory: category,
+      dccCollection: label,
+      blenderCollection: label,
+      isGroupNode: true,
+    });
+    (root ?? scene).addChild(node);
+    this.semanticGroupNodes.set(key, node);
+    return node;
+  }
+
+  private resolveMeshParent(
+    doc: any,
+    scene: any,
+    semanticCategory: string,
+    sourceObjectIds: string[],
+  ): any {
+    if (semanticCategory === 'building' && sourceObjectIds.length === 1) {
+      const buildingNode = this.semanticGroupNodes.get(
+        `building:${sourceObjectIds[0]}`,
+      );
+      if (buildingNode) {
+        return buildingNode;
+      }
+    }
+    return this.resolveParentNode(doc, scene, semanticCategory);
+  }
+
+  private resolveCategoryLabel(category: string): string {
+    switch (category) {
+      case 'transport':
+        return 'Transport';
+      case 'street_context':
+        return 'StreetContext';
+      case 'building':
+        return 'Buildings';
+      default:
+        return 'SceneMisc';
+    }
+  }
+
+  private registerBuildingGroupNodes(
+    doc: any,
+    scene: any,
+    sceneMeta: SceneMeta,
+  ): void {
+    const buildingsParent = this.resolveParentNode(doc, scene, 'building');
+    for (const building of sceneMeta.buildings) {
+      const pivot = this.resolveBuildingPivot(sceneMeta.origin, building);
+      const node = doc.createNode(`bld_${building.objectId}`);
+      this.applyExtras(node, {
+        sceneId: sceneMeta.sceneId,
+        semanticCategory: 'building',
+        dccCollection: 'Buildings',
+        blenderCollection: 'Buildings',
+        isGroupNode: true,
+        objectId: building.objectId,
+        osmWayId: building.osmWayId,
+        buildingUsage: building.usage,
+        pivotLocal: pivot,
+        suggestedPivotPolicy: 'footprint_centroid',
+        twinEntityId: this.createTwinEntityId(sceneMeta.sceneId, building.objectId),
+        twinComponentIds: [
+          this.createTwinComponentId(
+            sceneMeta.sceneId,
+            building.objectId,
+            'IDENTITY',
+            'Building Identity',
+          ),
+          this.createTwinComponentId(
+            sceneMeta.sceneId,
+            building.objectId,
+            'SPATIAL',
+            'Building Spatial',
+          ),
+        ],
+        sourceSnapshotIds: [
+          this.createSnapshotId(sceneMeta.sceneId, 'OVERPASS', 'PLACE_PACKAGE'),
+          this.createSnapshotId(sceneMeta.sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
+        ],
+      });
+      buildingsParent.addChild(node);
+      this.semanticGroupNodes.set(`building:${building.objectId}`, node);
+    }
+  }
+
+  private resolveBuildingPivot(
+    origin: Coordinate,
+    building: SceneMeta['buildings'][number],
+  ): { x: number; y: number; z: number } {
+    const points = building.outerRing
+      .map((point) => toLocalPoint(origin, point))
+      .filter(
+        (point) =>
+          Number.isFinite(point[0]) &&
+          Number.isFinite(point[1]) &&
+          Number.isFinite(point[2]),
+      );
+    if (points.length === 0) {
+      return { x: 0, y: building.terrainOffsetM ?? 0, z: 0 };
+    }
+    const centroid = points.reduce(
+      (acc, point) => ({
+        x: acc.x + point[0],
+        z: acc.z + point[2],
+      }),
+      { x: 0, z: 0 },
+    );
+    return {
+      x: Number((centroid.x / points.length).toFixed(3)),
+      y: Number((building.terrainOffsetM ?? 0).toFixed(3)),
+      z: Number((centroid.z / points.length).toFixed(3)),
+    };
+  }
+
   private isBudgetProtectedMesh(name: string): boolean {
     if (this.budgetProtectedMeshNames.has(name)) {
       return true;
@@ -828,4 +1257,27 @@ export class GlbBuildRunner {
       );
     }
   }
+}
+
+function hashValue(value: unknown): string {
+  return createHash('sha1').update(stableStringify(value)).digest('hex');
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortValue(value));
+}
+
+function sortValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortValue(entry));
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = sortValue((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return value;
 }

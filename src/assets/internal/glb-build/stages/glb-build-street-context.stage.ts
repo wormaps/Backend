@@ -72,6 +72,8 @@ export function addStreetContextMeshes(
         (item) => item.type === 'TRAFFIC_LIGHT',
       ).length,
       selectedCount: assetSelection.trafficLights.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.trafficLights.map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -91,6 +93,8 @@ export function addStreetContextMeshes(
         (item) => item.type === 'STREET_LIGHT',
       ).length,
       selectedCount: assetSelection.streetLights.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.streetLights.map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -110,6 +114,8 @@ export function addStreetContextMeshes(
         (item) => item.type === 'SIGN_POLE',
       ).length,
       selectedCount: assetSelection.signPoles.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.signPoles.map((item) => item.objectId),
     },
   );
   if (hooks.modePolicy.stage.includeMinorFurniture) {
@@ -126,6 +132,8 @@ export function addStreetContextMeshes(
           (item) => item.type === 'BENCH',
         ).length,
         selectedCount: benchItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: benchItems.map((item) => item.objectId),
       },
     );
     hooks.addMeshNode(
@@ -145,6 +153,8 @@ export function addStreetContextMeshes(
           (item) => item.type === 'BIKE_RACK',
         ).length,
         selectedCount: bikeRackItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: bikeRackItems.map((item) => item.objectId),
       },
     );
     hooks.addMeshNode(
@@ -164,6 +174,8 @@ export function addStreetContextMeshes(
           (item) => item.type === 'TRASH_CAN',
         ).length,
         selectedCount: trashCanItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: trashCanItems.map((item) => item.objectId),
       },
     );
     hooks.addMeshNode(
@@ -183,6 +195,8 @@ export function addStreetContextMeshes(
           (item) => item.type === 'FIRE_HYDRANT',
         ).length,
         selectedCount: hydrantItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: hydrantItems.map((item) => item.objectId),
       },
     );
   }
@@ -204,6 +218,10 @@ export function addStreetContextMeshes(
       selectedCount: assetSelection.vegetation.filter(
         (item) => item.type === 'TREE',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.vegetation
+        .filter((item) => item.type === 'TREE')
+        .map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -225,6 +243,10 @@ export function addStreetContextMeshes(
       selectedCount: assetSelection.vegetation.filter(
         (item) => item.type === 'GREEN_PATCH',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.vegetation
+        .filter((item) => item.type === 'GREEN_PATCH')
+        .map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -246,6 +268,10 @@ export function addStreetContextMeshes(
       selectedCount: assetSelection.vegetation.filter(
         (item) => item.type === 'PLANTER',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.vegetation
+        .filter((item) => item.type === 'PLANTER')
+        .map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -259,6 +285,8 @@ export function addStreetContextMeshes(
     {
       sourceCount: sceneMeta.pois.length,
       selectedCount: assetSelection.pois.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: assetSelection.pois.map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -280,6 +308,10 @@ export function addStreetContextMeshes(
       selectedCount: sceneDetail.landCovers.filter(
         (item) => item.type === 'PARK',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'PARK')
+        .map((item) => item.id),
     },
   );
   hooks.addMeshNode(
@@ -302,6 +334,10 @@ export function addStreetContextMeshes(
       selectedCount: sceneDetail.landCovers.filter(
         (item) => item.type === 'WATER',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'WATER')
+        .map((item) => item.id),
     },
   );
   hooks.addMeshNode(
@@ -324,6 +360,10 @@ export function addStreetContextMeshes(
       selectedCount: sceneDetail.landCovers.filter(
         (item) => item.type === 'PLAZA',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'PLAZA')
+        .map((item) => item.id),
     },
   );
   hooks.addMeshNode(
@@ -345,6 +385,10 @@ export function addStreetContextMeshes(
       selectedCount: sceneDetail.linearFeatures.filter(
         (item) => item.type === 'RAILWAY',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.linearFeatures
+        .filter((item) => item.type === 'RAILWAY')
+        .map((item) => item.id),
     },
   );
   hooks.addMeshNode(
@@ -366,6 +410,10 @@ export function addStreetContextMeshes(
       selectedCount: sceneDetail.linearFeatures.filter(
         (item) => item.type === 'BRIDGE',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.linearFeatures
+        .filter((item) => item.type === 'BRIDGE')
+        .map((item) => item.id),
     },
   );
   hooks.addMeshNode(
@@ -387,6 +435,10 @@ export function addStreetContextMeshes(
       selectedCount: sceneDetail.linearFeatures.filter(
         (item) => item.type === 'WATERWAY',
       ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.linearFeatures
+        .filter((item) => item.type === 'WATERWAY')
+        .map((item) => item.id),
     },
   );
 }

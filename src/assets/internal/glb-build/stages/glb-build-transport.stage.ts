@@ -59,6 +59,8 @@ export function addTransportMeshes(
     {
       sourceCount: sceneMeta.roads.length,
       selectedCount: assetSelection.roads.length,
+      semanticCategory: 'transport',
+      sourceObjectIds: assetSelection.roads.map((road) => road.objectId),
     },
   );
   hooks.addMeshNode(
@@ -72,6 +74,8 @@ export function addTransportMeshes(
     {
       sourceCount: sceneMeta.roads.length,
       selectedCount: assetSelection.roads.length,
+      semanticCategory: 'transport',
+      sourceObjectIds: assetSelection.roads.map((road) => road.objectId),
     },
   );
   if (hooks.modePolicy.stage.includeRoadDecal) {
@@ -94,6 +98,12 @@ export function addTransportMeshes(
         selectedCount: (sceneDetail.roadDecals ?? []).filter(
           (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
         ).length,
+        semanticCategory: 'transport',
+        sourceObjectIds: (sceneDetail.roadDecals ?? [])
+          .filter(
+            (item) => item.type === 'LANE_OVERLAY' || item.type === 'STOP_LINE',
+          )
+          .map((item) => item.objectId),
       },
     );
   }
@@ -108,6 +118,8 @@ export function addTransportMeshes(
     {
       sourceCount: sceneDetail.roadMarkings.length,
       selectedCount: sceneDetail.roadMarkings.length,
+      semanticCategory: 'transport',
+      sourceObjectIds: sceneDetail.roadMarkings.map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -160,6 +172,13 @@ export function addTransportMeshes(
               (item) => item.type === 'CROSSWALK_OVERLAY',
             ).length
           : 0),
+      semanticCategory: 'transport',
+      sourceObjectIds: [
+        ...assetSelection.crossings.map((item) => item.objectId),
+        ...((sceneDetail.roadDecals ?? [])
+          .filter((item) => item.type === 'CROSSWALK_OVERLAY')
+          .map((item) => item.objectId) ?? []),
+      ],
     },
   );
   if (hooks.modePolicy.stage.includeRoadDecal) {
@@ -188,6 +207,13 @@ export function addTransportMeshes(
           (item) =>
             item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
         ).length,
+        semanticCategory: 'transport',
+        sourceObjectIds: (sceneDetail.roadDecals ?? [])
+          .filter(
+            (item) =>
+              item.type === 'JUNCTION_OVERLAY' || item.type === 'ARROW_MARK',
+          )
+          .map((item) => item.objectId),
       },
     );
   }
@@ -202,6 +228,8 @@ export function addTransportMeshes(
     {
       sourceCount: sceneMeta.walkways.length,
       selectedCount: assetSelection.walkways.length,
+      semanticCategory: 'transport',
+      sourceObjectIds: assetSelection.walkways.map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -215,6 +243,8 @@ export function addTransportMeshes(
     {
       sourceCount: sceneMeta.roads.length,
       selectedCount: assetSelection.roads.length,
+      semanticCategory: 'transport',
+      sourceObjectIds: assetSelection.roads.map((road) => road.objectId),
     },
   );
   hooks.addMeshNode(
@@ -231,6 +261,10 @@ export function addTransportMeshes(
       selectedCount: assetSelection.roads.filter(
         (road) => road.widthMeters >= 8,
       ).length,
+      semanticCategory: 'transport',
+      sourceObjectIds: assetSelection.roads
+        .filter((road) => road.widthMeters >= 8)
+        .map((road) => road.objectId),
     },
   );
   hooks.addMeshNode(
@@ -244,6 +278,8 @@ export function addTransportMeshes(
     {
       sourceCount: sceneMeta.walkways.length,
       selectedCount: assetSelection.walkways.length,
+      semanticCategory: 'transport',
+      sourceObjectIds: assetSelection.walkways.map((item) => item.objectId),
     },
   );
 }

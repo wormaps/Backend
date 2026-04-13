@@ -55,6 +55,7 @@ export interface MeshAddDelegate {
       selectedCount?: number;
       semanticCategory?: string;
       semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
+      sourceObjectIds?: string[];
     },
   ): void;
 }

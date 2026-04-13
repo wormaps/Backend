@@ -132,6 +132,8 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: sceneMeta.buildings.length,
         selectedCount: group.buildings.length,
+        semanticCategory: 'building',
+        sourceObjectIds: group.buildings.map((building) => building.objectId),
       },
     );
   }
@@ -152,6 +154,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
   hooks.addMeshNode(
@@ -170,6 +174,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
   hooks.addMeshNode(
@@ -188,6 +194,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
 
@@ -208,6 +216,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
   hooks.addMeshNode(
@@ -227,6 +237,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
   hooks.addMeshNode(
@@ -246,6 +258,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
 
@@ -274,6 +288,8 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: panelGroup.hints.length,
         selectedCount: assetSelection.buildings.length,
+        semanticCategory: 'building',
+        sourceObjectIds: panelGroup.hints.map((hint) => hint.objectId),
       },
     );
   }
@@ -299,6 +315,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: sceneDetail.facadeHints.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: sceneDetail.facadeHints.map((hint) => hint.objectId),
     },
   );
   hooks.addMeshNode(
@@ -315,6 +333,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
   hooks.addMeshNode(
@@ -331,6 +351,8 @@ export function addBuildingAndHeroMeshes(
     {
       sourceCount: assetSelection.buildings.length,
       selectedCount: assetSelection.buildings.length,
+      semanticCategory: 'building',
+      sourceObjectIds: assetSelection.buildings.map((building) => building.objectId),
     },
   );
 
@@ -359,76 +381,79 @@ export function addBuildingAndHeroMeshes(
         {
           sourceCount: billboardGroup.sourceCount,
           selectedCount: billboardGroup.selectedClusters.length,
+          semanticCategory: 'building',
+          sourceObjectIds: billboardGroup.selectedClusters.map(
+            (cluster) => cluster.objectId,
+          ),
         },
       );
     }
   }
 
   if (hooks.modePolicy.stage.includeHeroBuilding) {
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      'hero_canopies',
-      createHeroCanopyGeometry(sceneMeta.origin, assetSelection.buildings),
-      materials.heroCanopyPrimary ??
-        materials.buildingLightAccentSpot ??
-        materials.buildingPanels[
-          hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
-        ],
-      {
-        sourceCount: assetSelection.buildings.filter(
-          (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
-        ).length,
-        selectedCount: assetSelection.buildings.filter(
-          (building) => (building.podiumSpec?.canopyEdges.length ?? 0) > 0,
-        ).length,
-      },
-    );
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      'hero_roof_units',
-      createHeroRoofUnitGeometry(sceneMeta.origin, assetSelection.buildings),
-      materials.heroRoofUnitPrimary ??
-        materials.facadeMetalMid ??
-        materials.roofAccents[
-          hooks.resolveHeroToneFromBuildings(assetSelection.buildings)
-        ],
-      {
-        sourceCount: assetSelection.buildings.filter((building) =>
-          Boolean(building.roofSpec?.roofUnits),
-        ).length,
-        selectedCount: assetSelection.buildings.filter((building) =>
-          Boolean(building.roofSpec?.roofUnits),
-        ).length,
-      },
-    );
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      'hero_billboard_planes',
-      createHeroBillboardPlaneGeometry(
-        sceneMeta.origin,
-        assetSelection.buildings,
-      ),
-      materials.heroBillboardPrimary ??
-        materials.neonSignOrange ??
-        materials.billboards.warm,
-      {
-        sourceCount: assetSelection.buildings.filter(
-          (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
-        ).length,
-        selectedCount: assetSelection.buildings.filter(
-          (building) => (building.signageSpec?.billboardFaces.length ?? 0) > 0,
-        ).length,
-      },
-    );
+    for (const building of assetSelection.buildings) {
+      const heroTone = hooks.resolveHeroToneFromBuildings([building]);
+
+      if ((building.podiumSpec?.canopyEdges.length ?? 0) > 0) {
+        hooks.addMeshNode(
+          ctx.doc,
+          ctx.Accessor,
+          ctx.scene,
+          ctx.buffer,
+          `hero_canopy_${building.objectId}`,
+          createHeroCanopyGeometry(sceneMeta.origin, [building]),
+          materials.heroCanopyPrimary ??
+            materials.buildingLightAccentSpot ??
+            materials.buildingPanels[heroTone],
+          {
+            sourceCount: 1,
+            selectedCount: 1,
+            semanticCategory: 'building',
+            sourceObjectIds: [building.objectId],
+          },
+        );
+      }
+
+      if (building.roofSpec?.roofUnits) {
+        hooks.addMeshNode(
+          ctx.doc,
+          ctx.Accessor,
+          ctx.scene,
+          ctx.buffer,
+          `hero_roof_unit_${building.objectId}`,
+          createHeroRoofUnitGeometry(sceneMeta.origin, [building]),
+          materials.heroRoofUnitPrimary ??
+            materials.facadeMetalMid ??
+            materials.roofAccents[heroTone],
+          {
+            sourceCount: 1,
+            selectedCount: 1,
+            semanticCategory: 'building',
+            sourceObjectIds: [building.objectId],
+          },
+        );
+      }
+
+      if ((building.signageSpec?.billboardFaces.length ?? 0) > 0) {
+        hooks.addMeshNode(
+          ctx.doc,
+          ctx.Accessor,
+          ctx.scene,
+          ctx.buffer,
+          `hero_billboard_${building.objectId}`,
+          createHeroBillboardPlaneGeometry(sceneMeta.origin, [building]),
+          materials.heroBillboardPrimary ??
+            materials.neonSignOrange ??
+            materials.billboards.warm,
+          {
+            sourceCount: 1,
+            selectedCount: 1,
+            semanticCategory: 'building',
+            sourceObjectIds: [building.objectId],
+          },
+        );
+      }
+    }
   }
   if (hooks.modePolicy.stage.includeLandmarkExtras) {
     hooks.addMeshNode(
@@ -448,6 +473,11 @@ export function addBuildingAndHeroMeshes(
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
         selectedCount:
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+        semanticCategory: 'building',
+        sourceObjectIds: [
+          ...sceneMeta.landmarkAnchors.map((item) => item.objectId),
+          ...sceneDetail.signageClusters.map((item) => item.objectId),
+        ],
       },
     );
   }
