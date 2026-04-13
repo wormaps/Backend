@@ -37,6 +37,8 @@ import {
   ScenePlacesResponseDto,
   SceneStateResponseDto,
   SceneTrafficResponseDto,
+  SceneTwinGraphDto,
+  ValidationReportDto,
   SceneWeatherResponseDto,
 } from '../docs/scene';
 import {
@@ -54,6 +56,8 @@ import {
   SCENE_SCALE_VALUES,
   SceneStateResponse,
   SceneTrafficResponse,
+  SceneTwinGraph,
+  ValidationReport,
   SceneWeatherResponse,
 } from './types/scene.types';
 
@@ -183,6 +187,38 @@ export class SceneController {
       message: 'Scene detail 조회에 성공했습니다.',
       data,
     }));
+  }
+
+  @Get(':sceneId/twin')
+  @ApiOperation({ summary: 'Scene twin graph 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiSuccessEnvelope({ model: SceneTwinGraphDto })
+  getTwin(
+    @Param('sceneId') sceneId: string,
+  ): Promise<ResponsePayload<SceneTwinGraph>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+
+    return this.sceneService.getSceneTwin(validatedSceneId).then((data) => ({
+      message: 'Scene twin graph 조회에 성공했습니다.',
+      data,
+    }));
+  }
+
+  @Get(':sceneId/validation')
+  @ApiOperation({ summary: 'Scene validation report 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiSuccessEnvelope({ model: ValidationReportDto })
+  getValidation(
+    @Param('sceneId') sceneId: string,
+  ): Promise<ResponsePayload<ValidationReport>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+
+    return this.sceneService
+      .getValidationReport(validatedSceneId)
+      .then((data) => ({
+        message: 'Scene validation report 조회에 성공했습니다.',
+        data,
+      }));
   }
 
   @Get(':sceneId/places')

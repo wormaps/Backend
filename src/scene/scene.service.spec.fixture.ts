@@ -35,6 +35,7 @@ import {
   SceneReadService,
   SceneStateLiveService,
   SceneTrafficLiveService,
+  SceneTwinBuilderService,
   SceneWeatherLiveService,
   SceneVisionService,
 } from './services';
@@ -137,15 +138,42 @@ export interface SceneSpecContext {
   liveDataService: SceneLiveDataService;
   repository: SceneRepository;
   ttlCacheService: TtlCacheService;
-  glbBuilderService: jest.Mocked<GlbBuilderService>;
-  googlePlacesClient: jest.Mocked<GooglePlacesClient>;
-  overpassClient: jest.Mocked<OverpassClient>;
-  openMeteoClient: jest.Mocked<OpenMeteoClient>;
-  tomTomTrafficClient: jest.Mocked<TomTomTrafficClient>;
-  sceneVisionService: jest.Mocked<SceneVisionService>;
-  sceneHeroOverrideService: jest.Mocked<SceneHeroOverrideService>;
-  qualityGateService: jest.Mocked<SceneQualityGateService>;
-  appLoggerService: jest.Mocked<AppLoggerService>;
+  glbBuilderService: {
+    build: jest.MockedFunction<GlbBuilderService['build']>;
+  };
+  googlePlacesClient: {
+    searchText: jest.MockedFunction<GooglePlacesClient['searchText']>;
+    getPlaceDetail: jest.MockedFunction<GooglePlacesClient['getPlaceDetail']>;
+  };
+  overpassClient: {
+    buildPlacePackage: jest.MockedFunction<OverpassClient['buildPlacePackage']>;
+  };
+  openMeteoClient: {
+    getObservation: jest.MockedFunction<OpenMeteoClient['getObservation']>;
+    getHistoricalObservation: jest.MockedFunction<
+      OpenMeteoClient['getHistoricalObservation']
+    >;
+  };
+  tomTomTrafficClient: {
+    getFlowSegment: jest.MockedFunction<TomTomTrafficClient['getFlowSegment']>;
+  };
+  sceneVisionService: {
+    buildSceneVision: jest.MockedFunction<SceneVisionService['buildSceneVision']>;
+  };
+  sceneHeroOverrideService: {
+    applyOverrides: jest.MockedFunction<
+      SceneHeroOverrideService['applyOverrides']
+    >;
+  };
+  qualityGateService: {
+    evaluate: jest.MockedFunction<SceneQualityGateService['evaluate']>;
+  };
+  appLoggerService: {
+    info: jest.MockedFunction<AppLoggerService['info']>;
+    warn: jest.MockedFunction<AppLoggerService['warn']>;
+    error: jest.MockedFunction<AppLoggerService['error']>;
+    fromRequest: jest.MockedFunction<AppLoggerService['fromRequest']>;
+  };
 }
 
 export async function createSceneSpecContext(): Promise<SceneSpecContext> {
@@ -178,6 +206,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneWeatherLiveService,
       SceneTrafficLiveService,
       SceneLiveDataService,
+      SceneTwinBuilderService,
       SceneRepository,
       TtlCacheService,
       SnapshotBuilderService,
@@ -296,15 +325,27 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
   const liveDataService = module.get(SceneLiveDataService);
   const repository = module.get(SceneRepository);
   const ttlCacheService = module.get(TtlCacheService);
-  const glbBuilderService = module.get(GlbBuilderService);
-  const googlePlacesClient = module.get(GooglePlacesClient);
-  const overpassClient = module.get(OverpassClient);
-  const openMeteoClient = module.get(OpenMeteoClient);
-  const tomTomTrafficClient = module.get(TomTomTrafficClient);
-  const sceneVisionService = module.get(SceneVisionService);
-  const sceneHeroOverrideService = module.get(SceneHeroOverrideService);
-  const qualityGateService = module.get(SceneQualityGateService);
-  const appLoggerService = module.get(AppLoggerService);
+  const glbBuilderService =
+    module.get(GlbBuilderService) as SceneSpecContext['glbBuilderService'];
+  const googlePlacesClient =
+    module.get(GooglePlacesClient) as SceneSpecContext['googlePlacesClient'];
+  const overpassClient =
+    module.get(OverpassClient) as SceneSpecContext['overpassClient'];
+  const openMeteoClient =
+    module.get(OpenMeteoClient) as SceneSpecContext['openMeteoClient'];
+  const tomTomTrafficClient = module.get(
+    TomTomTrafficClient,
+  ) as SceneSpecContext['tomTomTrafficClient'];
+  const sceneVisionService =
+    module.get(SceneVisionService) as SceneSpecContext['sceneVisionService'];
+  const sceneHeroOverrideService = module.get(
+    SceneHeroOverrideService,
+  ) as SceneSpecContext['sceneHeroOverrideService'];
+  const qualityGateService = module.get(
+    SceneQualityGateService,
+  ) as SceneSpecContext['qualityGateService'];
+  const appLoggerService =
+    module.get(AppLoggerService) as SceneSpecContext['appLoggerService'];
 
   await repository.clear();
   ttlCacheService.clear();

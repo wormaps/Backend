@@ -53,6 +53,8 @@ describe('Scene Services', () => {
     const bootstrap = await readService.getBootstrap(scene.sceneId);
     const meta = await readService.getSceneMeta(scene.sceneId);
     const detail = await readService.getSceneDetail(scene.sceneId);
+    const twin = await readService.getSceneTwin(scene.sceneId);
+    const validation = await readService.getValidationReport(scene.sceneId);
 
     expect(refreshed.sceneId).toBe('scene-seoul-city-hall');
     expect(refreshed.radiusM).toBe(600);
@@ -69,6 +71,10 @@ describe('Scene Services', () => {
     expect(bootstrap.metaUrl).toBe('/api/scenes/scene-seoul-city-hall/meta');
     expect(bootstrap.detailUrl).toBe(
       '/api/scenes/scene-seoul-city-hall/detail',
+    );
+    expect(bootstrap.twinUrl).toBe('/api/scenes/scene-seoul-city-hall/twin');
+    expect(bootstrap.validationUrl).toBe(
+      '/api/scenes/scene-seoul-city-hall/validation',
     );
     expect(bootstrap.detailStatus).toBe('OSM_ONLY');
     expect(bootstrap.assetUrl).toBe(
@@ -119,6 +125,19 @@ describe('Scene Services', () => {
     expect(meta.assetProfile.selected.buildingCount).toBeGreaterThan(0);
     expect(detail.detailStatus).toBe('OSM_ONLY');
     expect(detail.crossings).toEqual([]);
+    expect(twin.sceneId).toBe(scene.sceneId);
+    expect(twin.sourceSnapshots.snapshots).toHaveLength(5);
+    expect(twin.spatialFrame.localFrame).toBe('ENU');
+    expect(twin.entities.some((entity) => entity.kind === 'BUILDING')).toBe(
+      true,
+    );
+    expect(validation.summary).toBe('WARN');
+    expect(validation.gates.map((gate) => gate.gate)).toEqual([
+      'geometry',
+      'semantic',
+      'delivery',
+      'state',
+    ]);
     expect(meta.pois[0]?.category).toBe('shop');
     expect(meta.pois[0]?.location.lat).toBe(37.5664);
 

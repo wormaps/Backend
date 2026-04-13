@@ -13,6 +13,8 @@ import type {
   SceneStateQuery,
   SceneStateResponse,
   SceneTrafficResponse,
+  SceneTwinGraph,
+  ValidationReport,
   SceneWeatherQuery,
   SceneWeatherResponse,
 } from './types/scene.types';
@@ -51,6 +53,14 @@ export class SceneService {
 
   getPlaces(sceneId: string): Promise<ScenePlacesResponse> {
     return this.sceneReadService.getPlaces(sceneId);
+  }
+
+  getSceneTwin(sceneId: string): Promise<SceneTwinGraph> {
+    return this.sceneReadService.getSceneTwin(sceneId);
+  }
+
+  getValidationReport(sceneId: string): Promise<ValidationReport> {
+    return this.sceneReadService.getValidationReport(sceneId);
   }
 
   getState(

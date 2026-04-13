@@ -33,6 +33,7 @@ import {
   SceneSignageVisionService,
   SceneStateLiveService,
   SceneTrafficLiveService,
+  SceneTwinBuilderService,
   SceneVisionService,
   SceneWeatherLiveService,
 } from './services';
@@ -74,6 +75,7 @@ import { SceneRepository } from './storage/scene.repository';
     SceneTrafficLiveService,
     SceneLiveDataService,
     SceneGenerationService,
+    SceneTwinBuilderService,
     SceneService,
   ],
 })

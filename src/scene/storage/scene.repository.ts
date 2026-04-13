@@ -105,6 +105,14 @@ export class SceneRepository {
     return join(this.baseDir, `${sceneId}.detail.json`);
   }
 
+  private buildTwinPath(sceneId: string): string {
+    return join(this.baseDir, `${sceneId}.twin.json`);
+  }
+
+  private buildValidationPath(sceneId: string): string {
+    return join(this.baseDir, `${sceneId}.validation.json`);
+  }
+
   private async persistIndex(): Promise<void> {
     await writeFile(
       this.indexPath,
@@ -132,6 +140,26 @@ export class SceneRepository {
       );
     } else {
       await this.safeUnlink(this.buildDetailPath(scene.scene.sceneId));
+    }
+
+    if (scene.twin) {
+      await writeFile(
+        this.buildTwinPath(scene.scene.sceneId),
+        JSON.stringify(scene.twin, null, 2),
+        'utf8',
+      );
+    } else {
+      await this.safeUnlink(this.buildTwinPath(scene.scene.sceneId));
+    }
+
+    if (scene.validation) {
+      await writeFile(
+        this.buildValidationPath(scene.scene.sceneId),
+        JSON.stringify(scene.validation, null, 2),
+        'utf8',
+      );
+    } else {
+      await this.safeUnlink(this.buildValidationPath(scene.scene.sceneId));
     }
   }
 

@@ -1,0 +1,226 @@
+import { ExternalPlaceDetail } from '../../places/types/external-place.types';
+import {
+  Coordinate,
+  GeoBounds,
+  PlacePackage,
+} from '../../places/types/place.types';
+import {
+  SceneDetail,
+  SceneLandmarkAnchor,
+  SceneMeta,
+} from './scene-model.types';
+import { SceneQualityGateResult, SceneScale } from './scene-domain.types';
+
+export type TwinSnapshotProvider =
+  | 'GOOGLE_PLACES'
+  | 'OVERPASS'
+  | 'MAPILLARY'
+  | 'SCENE_PIPELINE'
+  | 'QUALITY_GATE';
+
+export type TwinSnapshotKind =
+  | 'PLACE_DETAIL'
+  | 'PLACE_PACKAGE'
+  | 'SCENE_META'
+  | 'SCENE_DETAIL'
+  | 'QUALITY_GATE';
+
+export interface SourceSnapshotRecord {
+  snapshotId: string;
+  provider: TwinSnapshotProvider;
+  kind: TwinSnapshotKind;
+  schemaVersion: string;
+  capturedAt: string;
+  contentHash: string;
+  replayable: boolean;
+  storage: 'INLINE_JSON';
+  payload:
+    | ExternalPlaceDetail
+    | PlacePackage
+    | SceneMeta
+    | SceneDetail
+    | SceneQualityGateResult;
+}
+
+export interface SourceSnapshotManifest {
+  manifestId: string;
+  sceneId: string;
+  generatedAt: string;
+  snapshots: SourceSnapshotRecord[];
+}
+
+export interface SpatialFrameManifest {
+  frameId: string;
+  sceneId: string;
+  generatedAt: string;
+  geodeticCrs: 'WGS84';
+  localFrame: 'ENU';
+  axis: 'Z_UP';
+  unit: 'meter';
+  heightReference: 'ELLIPSOID_APPROX';
+  anchor: Coordinate;
+  bounds: GeoBounds;
+  extentMeters: {
+    width: number;
+    depth: number;
+    radius: number;
+  };
+  delivery: {
+    glbAxisConvention: 'Y_UP_DERIVED';
+    transformRequired: true;
+  };
+}
+
+export type TwinEntityKind =
+  | 'SCENE'
+  | 'PLACE'
+  | 'BUILDING'
+  | 'ROAD'
+  | 'WALKWAY'
+  | 'POI'
+  | 'CROSSING'
+  | 'STREET_FURNITURE'
+  | 'VEGETATION'
+  | 'LAND_COVER'
+  | 'LINEAR_FEATURE'
+  | 'LANDMARK';
+
+export type TwinComponentKind =
+  | 'IDENTITY'
+  | 'SPATIAL'
+  | 'STRUCTURE'
+  | 'APPEARANCE'
+  | 'DELIVERY_BINDING'
+  | 'STATE_BINDING'
+  | 'SOURCE_REFERENCE';
+
+export type TwinPropertyOrigin = 'observed' | 'inferred' | 'defaulted';
+
+export interface TwinProperty {
+  propertyId: string;
+  name: string;
+  value: unknown;
+  valueType:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'coordinate'
+    | 'coordinate_array'
+    | 'json';
+  origin: TwinPropertyOrigin;
+  confidence: number;
+  sourceSnapshotIds: string[];
+  evidenceIds: string[];
+}
+
+export interface TwinComponent {
+  componentId: string;
+  entityId: string;
+  kind: TwinComponentKind;
+  label: string;
+  properties: TwinProperty[];
+}
+
+export interface TwinRelationship {
+  relationshipId: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  type:
+    | 'SCENE_CONTAINS'
+    | 'LOCATED_AT'
+    | 'DERIVED_FROM'
+    | 'ANNOTATES'
+    | 'NEAR_LANDMARK';
+}
+
+export interface TwinEntity {
+  entityId: string;
+  objectId: string;
+  kind: TwinEntityKind;
+  label: string;
+  sourceObjectId: string;
+  componentIds: string[];
+  tags: string[];
+}
+
+export type TwinEvidenceKind =
+  | 'GEOMETRY'
+  | 'APPEARANCE'
+  | 'STATE'
+  | 'SEMANTIC';
+
+export interface TwinEvidence {
+  evidenceId: string;
+  entityId: string;
+  kind: TwinEvidenceKind;
+  sourceSnapshotId: string;
+  observedAt: string;
+  confidence: number;
+  provenance: 'observed' | 'inferred' | 'defaulted';
+  summary: string;
+  payload: Record<string, unknown>;
+}
+
+export interface DeliveryArtifactManifest {
+  buildId: string;
+  sceneId: string;
+  generatedAt: string;
+  scale: SceneScale;
+  artifacts: Array<{
+    artifactId: string;
+    type: 'GLB' | 'SCENE_META' | 'SCENE_DETAIL';
+    apiPath: string;
+    localPath: string | null;
+    derivedFromSnapshotIds: string[];
+    semanticMetadataCoverage: 'NONE' | 'PARTIAL';
+  }>;
+}
+
+export interface TwinStateChannel {
+  channelId: string;
+  mode: 'SYNTHETIC_RULES';
+  bindingScope: 'SCENE';
+  entityId: string;
+  supportedQueries: Array<'timeOfDay' | 'weather' | 'date'>;
+  notes: string;
+}
+
+export type ValidationGateState = 'PASS' | 'WARN' | 'FAIL';
+
+export interface ValidationGateResult {
+  gate: 'geometry' | 'semantic' | 'delivery' | 'state';
+  state: ValidationGateState;
+  reasonCodes: string[];
+  metrics: Record<string, boolean | number | string>;
+}
+
+export interface ValidationReport {
+  reportId: string;
+  sceneId: string;
+  generatedAt: string;
+  summary: ValidationGateState;
+  gates: ValidationGateResult[];
+  qualityGate?: SceneQualityGateResult;
+}
+
+export interface SceneTwinGraph {
+  twinId: string;
+  sceneId: string;
+  buildId: string;
+  generatedAt: string;
+  sourceSnapshots: SourceSnapshotManifest;
+  spatialFrame: SpatialFrameManifest;
+  entities: TwinEntity[];
+  relationships: TwinRelationship[];
+  components: TwinComponent[];
+  evidence: TwinEvidence[];
+  delivery: DeliveryArtifactManifest;
+  stateChannels: TwinStateChannel[];
+  landmarkAnchors: SceneLandmarkAnchor[];
+  stats: {
+    entityCount: number;
+    componentCount: number;
+    relationshipCount: number;
+    evidenceCount: number;
+  };
+}

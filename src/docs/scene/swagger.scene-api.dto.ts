@@ -232,6 +232,18 @@ export class BootstrapResponseDto {
   @ApiProperty({ example: '/api/scenes/scene-seoul-city-hall/detail' })
   detailUrl!: string;
 
+  @ApiProperty({
+    required: false,
+    example: '/api/scenes/scene-seoul-city-hall/twin',
+  })
+  twinUrl?: string;
+
+  @ApiProperty({
+    required: false,
+    example: '/api/scenes/scene-seoul-city-hall/validation',
+  })
+  validationUrl?: string;
+
   @ApiProperty({ enum: ['FULL', 'PARTIAL', 'OSM_ONLY'] })
   detailStatus!: string;
 
@@ -249,6 +261,67 @@ export class BootstrapResponseDto {
 
   @ApiProperty({ type: RenderContractDto })
   renderContract!: RenderContractDto;
+}
+
+export class SceneTwinGraphDto {
+  @ApiProperty({ example: 'twin-1234567890ab' })
+  twinId!: string;
+
+  @ApiProperty({ example: 'scene-seoul-city-hall' })
+  sceneId!: string;
+
+  @ApiProperty({ example: 'build-1234567890ab' })
+  buildId!: string;
+
+  @ApiProperty({ example: '2026-04-13T12:00:00.000Z' })
+  generatedAt!: string;
+
+  @ApiProperty({ type: Object })
+  sourceSnapshots!: object;
+
+  @ApiProperty({ type: Object })
+  spatialFrame!: object;
+
+  @ApiProperty({ type: [Object] })
+  entities!: object[];
+
+  @ApiProperty({ type: [Object] })
+  relationships!: object[];
+
+  @ApiProperty({ type: [Object] })
+  components!: object[];
+
+  @ApiProperty({ type: [Object] })
+  evidence!: object[];
+
+  @ApiProperty({ type: Object })
+  delivery!: object;
+
+  @ApiProperty({ type: [Object] })
+  stateChannels!: object[];
+
+  @ApiProperty({ type: Object })
+  stats!: object;
+}
+
+export class ValidationReportDto {
+  @ApiProperty({ example: 'validation-1234567890ab' })
+  reportId!: string;
+
+  @ApiProperty({ example: 'scene-seoul-city-hall' })
+  sceneId!: string;
+
+  @ApiProperty({ example: '2026-04-13T12:00:00.000Z' })
+  generatedAt!: string;
+
+  @ApiProperty({ enum: ['PASS', 'WARN', 'FAIL'] })
+  summary!: string;
+
+  @ApiProperty({ type: [Object] })
+  gates!: object[];
+
+  @ApiProperty({ type: Object, required: false })
+  qualityGate?: object;
 }
 
 export class SceneDetailDto {

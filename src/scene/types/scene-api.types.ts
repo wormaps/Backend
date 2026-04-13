@@ -19,12 +19,15 @@ import {
   SceneScale,
   SceneStructuralCoverage,
 } from './scene-domain.types';
+import { SceneTwinGraph, ValidationReport } from './scene-twin.types';
 
 export interface BootstrapResponse {
   sceneId: string;
   assetUrl: string;
   metaUrl: string;
   detailUrl: string;
+  twinUrl?: string;
+  validationUrl?: string;
   detailStatus: SceneDetail['detailStatus'];
   glbSources: GlbSources;
   assetProfile: SceneMeta['assetProfile'];
@@ -138,6 +141,8 @@ export interface StoredScene {
   scene: SceneEntity;
   meta?: SceneMeta;
   detail?: SceneDetail;
+  twin?: SceneTwinGraph;
+  validation?: ValidationReport;
   place?: ExternalPlaceDetail;
 }
 

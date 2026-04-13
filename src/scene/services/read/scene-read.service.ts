@@ -8,7 +8,9 @@ import type {
   SceneEntity,
   SceneMeta,
   ScenePlacesResponse,
+  SceneTwinGraph,
   StoredScene,
+  ValidationReport,
 } from '../../types/scene.types';
 
 type ReadyStoredScene = StoredScene & {
@@ -45,6 +47,10 @@ export class SceneReadService {
         scene.assetUrl ?? `/api/scenes/${scene.sceneId}/assets/base.glb`,
       metaUrl: scene.metaUrl,
       detailUrl,
+      twinUrl: stored.twin ? `/api/scenes/${scene.sceneId}/twin` : undefined,
+      validationUrl: stored.validation
+        ? `/api/scenes/${scene.sceneId}/validation`
+        : undefined,
       detailStatus: stored.detail.detailStatus,
       glbSources: {
         googlePlaces: true,
@@ -120,6 +126,38 @@ export class SceneReadService {
         return left.category.localeCompare(right.category);
       }),
     };
+  }
+
+  async getSceneTwin(sceneId: string): Promise<SceneTwinGraph> {
+    const stored = await this.getReadyScene(sceneId);
+    if (!stored.twin) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_NOT_READY,
+        message: 'Scene twin graph가 아직 준비되지 않았습니다.',
+        detail: {
+          sceneId,
+          status: stored.scene.status,
+        },
+        status: HttpStatus.CONFLICT,
+      });
+    }
+    return stored.twin;
+  }
+
+  async getValidationReport(sceneId: string): Promise<ValidationReport> {
+    const stored = await this.getReadyScene(sceneId);
+    if (!stored.validation) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_NOT_READY,
+        message: 'Scene validation report가 아직 준비되지 않았습니다.',
+        detail: {
+          sceneId,
+          status: stored.scene.status,
+        },
+        status: HttpStatus.CONFLICT,
+      });
+    }
+    return stored.validation;
   }
 
   async getStoredScene(sceneId: string): Promise<StoredScene> {
