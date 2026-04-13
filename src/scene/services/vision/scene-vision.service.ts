@@ -64,7 +64,9 @@ export class SceneVisionService {
 
     if (this.mapillaryClient.isConfigured()) {
       try {
-        mapillaryFeatures = await this.mapillaryClient.getMapFeatures(bounds);
+        const featureResult =
+          await this.mapillaryClient.getMapFeaturesWithEnvelope(bounds);
+        mapillaryFeatures = featureResult.features;
         const imageFetch =
           await this.mapillaryClient.getNearbyImagesWithDiagnostics(bounds, {
             featureAnchors: mapillaryFeatures.map(
@@ -117,6 +119,10 @@ export class SceneVisionService {
               attemptCount: mapillaryImageAttempts?.length ?? 0,
             },
           },
+          upstreamEnvelopes: [
+            ...featureResult.upstreamEnvelopes,
+            ...imageFetch.upstreamEnvelopes,
+          ],
         };
       } catch {
         detailStatus = 'PARTIAL';

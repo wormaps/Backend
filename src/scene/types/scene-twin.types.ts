@@ -296,6 +296,7 @@ export interface MidQaCheck {
     | 'snapshot_replayability'
     | 'observed_coverage'
     | 'spatial_roundtrip'
+    | 'terrain_grounding'
     | 'delivery_binding'
     | 'state_binding'
     | 'mesh_health';

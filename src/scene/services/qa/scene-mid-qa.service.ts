@@ -128,6 +128,20 @@ export class SceneMidQaService {
         },
       },
       {
+        id: 'terrain_grounding',
+        state:
+          twin.spatialFrame.terrain.hasElevationModel &&
+          twin.spatialFrame.terrain.mode !== 'FLAT_PLACEHOLDER'
+            ? 'PASS'
+            : 'FAIL',
+        summary: 'terrain/elevation grounding readiness',
+        metrics: {
+          hasElevationModel: twin.spatialFrame.terrain.hasElevationModel,
+          terrainMode: twin.spatialFrame.terrain.mode,
+          baseHeightMeters: twin.spatialFrame.terrain.baseHeightMeters,
+        },
+      },
+      {
         id: 'delivery_binding',
         state:
           twin.delivery.artifacts.some(
@@ -273,6 +287,17 @@ function buildFindings(
       message:
         '건물 appearance의 관측 기반 coverage가 매우 낮습니다. facade/material 결과의 대부분이 추론입니다.',
     });
+  }
+
+  if (context.meta.bounds.radiusM > 0) {
+    const terrainCheck = checks.find((check) => check.id === 'terrain_grounding');
+    if (terrainCheck?.state === 'FAIL') {
+      findings.push({
+        severity: 'error',
+        message:
+          'terrain/elevation grounding이 없습니다. 현재 scene은 FLAT_PLACEHOLDER 지면 기준입니다.',
+      });
+    }
   }
 
   if (context.diagnosticsLineCount === 0) {

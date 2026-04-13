@@ -111,7 +111,10 @@ describe('SceneVisionService', () => {
     const mapillaryClient = {
       isConfigured: jest.fn().mockReturnValue(true),
       getNearbyImages: jest.fn().mockRejectedValue(new Error('boom')),
-      getMapFeatures: jest.fn().mockRejectedValue(new Error('boom')),
+      getNearbyImagesWithDiagnostics: jest
+        .fn()
+        .mockRejectedValue(new Error('boom')),
+      getMapFeaturesWithEnvelope: jest.fn().mockRejectedValue(new Error('boom')),
     } as unknown as MapillaryClient;
 
     const service = new SceneVisionService(mapillaryClient);

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { fetchJson } from '../../common/http/fetch-json';
-import type { FetchLike } from '../../common/http/fetch-json';
+import { fetchJsonWithEnvelope } from '../../common/http/fetch-json';
+import type {
+  FetchJsonEnvelope,
+  FetchLike,
+} from '../../common/http/fetch-json';
 import { Coordinate, GeoBounds } from '../types/place.types';
 
 interface MapillaryListResponse<T> {
@@ -101,6 +104,7 @@ export class MapillaryClient {
   ): Promise<{
     images: MapillaryImage[];
     diagnostics: MapillaryImageFetchDiagnostics;
+    upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
     if (!this.isConfigured()) {
       return {
@@ -109,6 +113,7 @@ export class MapillaryClient {
           strategy: 'none',
           attempts: [],
         },
+        upstreamEnvelopes: [],
       };
     }
 
@@ -117,11 +122,14 @@ export class MapillaryClient {
       strategy: 'none',
       attempts: [],
     };
+    const upstreamEnvelopes: FetchJsonEnvelope[] = [];
     const bboxCandidates = this.buildBboxCandidates(bounds);
 
     for (let index = 0; index < bboxCandidates.length; index += 1) {
       const candidate = bboxCandidates[index];
-      const images = await this.fetchImagesByBbox(candidate, limit);
+      const bboxResult = await this.fetchImagesByBbox(candidate, limit);
+      const images = bboxResult.images;
+      upstreamEnvelopes.push(...bboxResult.upstreamEnvelopes);
       diagnostics.attempts.push({
         mode: 'bbox',
         label: `${candidate.southWest.lng.toFixed(6)},${candidate.southWest.lat.toFixed(6)},${candidate.northEast.lng.toFixed(6)},${candidate.northEast.lat.toFixed(6)}`,
@@ -129,17 +137,19 @@ export class MapillaryClient {
       });
       if (images.length > 0) {
         diagnostics.strategy = index === 0 ? 'bbox' : 'bbox_expanded';
-        return { images, diagnostics };
+        return { images, diagnostics, upstreamEnvelopes };
       }
     }
 
     const anchors = dedupeAnchors(input?.featureAnchors ?? []).slice(0, 12);
     const collected: MapillaryImage[] = [];
     for (const anchor of anchors) {
-      const nearby = await this.fetchImagesByPoint(
+      const nearbyResult = await this.fetchImagesByPoint(
         anchor,
         Math.min(limit, 160),
       );
+      const nearby = nearbyResult.images;
+      upstreamEnvelopes.push(...nearbyResult.upstreamEnvelopes);
       diagnostics.attempts.push({
         mode: 'feature_radius',
         label: `${anchor.lat.toFixed(6)},${anchor.lng.toFixed(6)},25m`,
@@ -162,6 +172,7 @@ export class MapillaryClient {
     return {
       images: collected,
       diagnostics,
+      upstreamEnvelopes,
     };
   }
 
@@ -169,13 +180,27 @@ export class MapillaryClient {
     bounds: GeoBounds,
     limit = 100,
   ): Promise<MapillaryFeature[]> {
+    const result = await this.getMapFeaturesWithEnvelope(bounds, limit);
+    return result.features;
+  }
+
+  async getMapFeaturesWithEnvelope(
+    bounds: GeoBounds,
+    limit = 100,
+  ): Promise<{
+    features: MapillaryFeature[];
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
     if (!this.isConfigured()) {
-      return [];
+      return {
+        features: [],
+        upstreamEnvelopes: [],
+      };
     }
 
     const bbox = this.buildBbox(bounds);
     const token = process.env.MAPILLARY_ACCESS_TOKEN?.trim();
-    const response = await fetchJson<
+    const response = await fetchJsonWithEnvelope<
       MapillaryListResponse<MapillaryFeatureRaw>
     >(
       {
@@ -186,9 +211,12 @@ export class MapillaryClient {
       this.fetcher,
     );
 
-    return (response.data ?? [])
-      .map((item) => this.mapFeature(item))
-      .filter((value) => value !== null);
+    return {
+      features: (response.data.data ?? [])
+        .map((item) => this.mapFeature(item))
+        .filter((value): value is MapillaryFeature => value !== null),
+      upstreamEnvelopes: [response.envelope],
+    };
   }
 
   private buildBbox(bounds: GeoBounds): string {
@@ -216,10 +244,15 @@ export class MapillaryClient {
   private async fetchImagesByBbox(
     bounds: GeoBounds,
     limit: number,
-  ): Promise<MapillaryImage[]> {
+  ): Promise<{
+    images: MapillaryImage[];
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
     const bbox = this.buildBbox(bounds);
     const token = process.env.MAPILLARY_ACCESS_TOKEN?.trim();
-    const response = await fetchJson<MapillaryListResponse<MapillaryImageRaw>>(
+    const response = await fetchJsonWithEnvelope<
+      MapillaryListResponse<MapillaryImageRaw>
+    >(
       {
         provider: 'Mapillary Images API',
         url: `${this.baseUrl}/images?access_token=${encodeURIComponent(token ?? '')}&bbox=${bbox}&fields=id,captured_at,compass_angle,computed_geometry,sequence,thumb_1024_url&limit=${Math.max(1, Math.min(2000, limit))}`,
@@ -228,17 +261,25 @@ export class MapillaryClient {
       this.fetcher,
     );
 
-    return (response.data ?? [])
-      .map((item) => this.mapImage(item))
-      .filter((value): value is MapillaryImage => value !== null);
+    return {
+      images: (response.data.data ?? [])
+        .map((item) => this.mapImage(item))
+        .filter((value): value is MapillaryImage => value !== null),
+      upstreamEnvelopes: [response.envelope],
+    };
   }
 
   private async fetchImagesByPoint(
     anchor: Coordinate,
     limit: number,
-  ): Promise<MapillaryImage[]> {
+  ): Promise<{
+    images: MapillaryImage[];
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
     const token = process.env.MAPILLARY_ACCESS_TOKEN?.trim();
-    const response = await fetchJson<MapillaryListResponse<MapillaryImageRaw>>(
+    const response = await fetchJsonWithEnvelope<
+      MapillaryListResponse<MapillaryImageRaw>
+    >(
       {
         provider: 'Mapillary Images API',
         url: `${this.baseUrl}/images?access_token=${encodeURIComponent(token ?? '')}&lat=${anchor.lat}&lng=${anchor.lng}&radius=25&fields=id,captured_at,compass_angle,computed_geometry,sequence,thumb_1024_url&limit=${Math.max(1, Math.min(2000, limit))}`,
@@ -247,9 +288,12 @@ export class MapillaryClient {
       this.fetcher,
     );
 
-    return (response.data ?? [])
-      .map((item) => this.mapImage(item))
-      .filter((value): value is MapillaryImage => value !== null);
+    return {
+      images: (response.data.data ?? [])
+        .map((item) => this.mapImage(item))
+        .filter((value): value is MapillaryImage => value !== null),
+      upstreamEnvelopes: [response.envelope],
+    };
   }
 
   private mapImage(input: MapillaryImageRaw): MapillaryImage | null {
