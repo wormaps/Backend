@@ -205,7 +205,7 @@ describe('Scene Services', () => {
     expect(detail.detailStatus).toBe('OSM_ONLY');
     expect(detail.crossings).toEqual([]);
     expect(twin.sceneId).toBe(scene.sceneId);
-    expect(twin.sourceSnapshots.snapshots).toHaveLength(7);
+    expect(twin.sourceSnapshots.snapshots).toHaveLength(9);
     expect(twin.sourceSnapshots.snapshots[0]?.kind).toBe('PLACE_SEARCH_QUERY');
     expect(twin.sourceSnapshots.snapshots[0]?.request.method).toBe('POST');
     expect(twin.sourceSnapshots.snapshots[0]?.upstreamEnvelopes).toHaveLength(
@@ -218,6 +218,31 @@ describe('Scene Services', () => {
       1,
     );
     expect(twin.sourceSnapshots.snapshots[3]?.kind).toBe('TERRAIN_PROFILE');
+    expect(twin.sourceSnapshots.snapshots[4]?.kind).toBe('WEATHER_OBSERVATION');
+    expect(twin.sourceSnapshots.snapshots[5]?.kind).toBe('TRAFFIC_FLOW');
+    expect(twin.sourceSnapshots.snapshots[6]?.kind).toBe('SCENE_META');
+    expect(twin.sourceSnapshots.snapshots[7]?.kind).toBe('SCENE_DETAIL');
+    expect(twin.sourceSnapshots.snapshots[8]?.kind).toBe('QUALITY_GATE');
+    expect(
+      twin.sourceSnapshots.snapshots.every((snapshot) =>
+        Boolean(snapshot.evidenceMeta?.mapperVersion),
+      ),
+    ).toBe(true);
+    expect(
+      twin.sourceSnapshots.snapshots.every((snapshot) =>
+        Boolean(snapshot.evidenceMeta?.normalizationRulesetId),
+      ),
+    ).toBe(true);
+    expect(
+      twin.sourceSnapshots.snapshots.find(
+        (snapshot) => snapshot.kind === 'WEATHER_OBSERVATION',
+      )?.upstreamEnvelopes,
+    ).toBeDefined();
+    expect(
+      twin.sourceSnapshots.snapshots.find(
+        (snapshot) => snapshot.kind === 'TRAFFIC_FLOW',
+      )?.upstreamEnvelopes,
+    ).toBeDefined();
     expect(twin.spatialFrame.localFrame).toBe('ENU');
     expect(twin.spatialFrame.verification.sampleCount).toBe(3);
     expect(twin.spatialFrame.terrain.mode).toBe('FLAT_PLACEHOLDER');
@@ -246,6 +271,7 @@ describe('Scene Services', () => {
     ]);
     expect(validation.gates[1]?.reasonCodes).toEqual([
       'LOW_OBSERVED_APPEARANCE_COVERAGE',
+      'HIGH_INFERENCE_PROPERTY_RATIO',
     ]);
     expect(validation.gates[2]?.reasonCodes).toEqual(['TERRAIN_MODEL_MISSING']);
     expect(validation.gates[4]?.state).toBe('PASS');

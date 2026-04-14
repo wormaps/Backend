@@ -7,6 +7,36 @@ import type {
 } from '../../types/scene.types';
 import { hashValue, roundMetric, resolveGateSummary } from './twin-hash.utils';
 
+export interface TwinPropertyOriginCounts {
+  observed: number;
+  inferred: number;
+  defaulted: number;
+}
+
+export function countTwinPropertyOrigins(
+  components: import('../../types/scene.types').TwinComponent[],
+): TwinPropertyOriginCounts {
+  const counts: TwinPropertyOriginCounts = {
+    observed: 0,
+    inferred: 0,
+    defaulted: 0,
+  };
+
+  for (const component of components) {
+    for (const property of component.properties) {
+      if (property.origin === 'observed') {
+        counts.observed += 1;
+      } else if (property.origin === 'inferred') {
+        counts.inferred += 1;
+      } else {
+        counts.defaulted += 1;
+      }
+    }
+  }
+
+  return counts;
+}
+
 export function buildValidationReport(args: {
   sceneId: string;
   generatedAt: string;
@@ -20,6 +50,7 @@ export function buildValidationReport(args: {
   detail: SceneDetail;
   sceneStateBindingCount: number;
   entityStateBindingCount: number;
+  twinPropertyOriginCounts: TwinPropertyOriginCounts;
 }): ValidationReport {
   const geometryGate = buildGeometryGate(args.qualityGate);
   const semanticGate = buildSemanticGate(
@@ -27,6 +58,7 @@ export function buildValidationReport(args: {
     args.twinComponentCount,
     args.evidenceCount,
     args.detail,
+    args.twinPropertyOriginCounts,
   );
   const spatialGate = buildSpatialGate(args.spatialFrame);
   const deliveryGate = buildDeliveryGate(
@@ -96,6 +128,7 @@ function buildSemanticGate(
   twinComponentCount: number,
   evidenceCount: number,
   detail: SceneDetail,
+  twinPropertyOriginCounts: TwinPropertyOriginCounts,
 ): ValidationGateResult {
   const buildingCount = Math.max(detail.facadeHints.length, 1);
   const observedAppearanceCount =
@@ -105,27 +138,87 @@ function buildSemanticGate(
     1,
     observedAppearanceCount / buildingCount,
   );
+  const totalPropertyCount =
+    twinPropertyOriginCounts.observed +
+    twinPropertyOriginCounts.inferred +
+    twinPropertyOriginCounts.defaulted;
+  const inferredPropertyRatio =
+    totalPropertyCount > 0
+      ? (twinPropertyOriginCounts.inferred +
+          twinPropertyOriginCounts.defaulted) /
+        totalPropertyCount
+      : 0;
+  const defaultedPropertyRatio =
+    totalPropertyCount > 0
+      ? twinPropertyOriginCounts.defaulted / totalPropertyCount
+      : 0;
+  const hasStrongInferenceRisk =
+    detail.facadeHints.length > 0
+      ? detail.facadeHints.filter((hint) => hint.weakEvidence).length /
+          detail.facadeHints.length >=
+        0.6
+      : false;
+  const inferenceGateExceeded =
+    inferredPropertyRatio > 0.5 || defaultedPropertyRatio > 0.25;
+
   const state =
     twinEntityCount === 0 || twinComponentCount === 0
       ? 'FAIL'
-      : observedAppearanceRatio < 0.05
+      : inferenceGateExceeded
         ? 'WARN'
-        : 'PASS';
+        : hasStrongInferenceRisk
+          ? 'WARN'
+          : observedAppearanceRatio < 0.05
+            ? 'WARN'
+            : 'PASS';
   return {
     gate: 'semantic',
     state,
     reasonCodes:
       state === 'FAIL'
-        ? ['EMPTY_TWIN_GRAPH']
+        ? [
+            twinEntityCount === 0 || twinComponentCount === 0
+              ? 'EMPTY_TWIN_GRAPH'
+              : null,
+            inferenceGateExceeded
+              ? inferredPropertyRatio > 0.5
+                ? 'HIGH_INFERRED_PROPERTY_RATIO'
+                : null
+              : null,
+            inferenceGateExceeded
+              ? defaultedPropertyRatio > 0.25
+                ? 'HIGH_DEFAULTED_PROPERTY_RATIO'
+                : null
+              : null,
+          ].filter((value): value is string => Boolean(value))
         : state === 'WARN'
-          ? ['LOW_OBSERVED_APPEARANCE_COVERAGE']
+          ? [
+              observedAppearanceRatio < 0.05
+                ? 'LOW_OBSERVED_APPEARANCE_COVERAGE'
+                : null,
+              hasStrongInferenceRisk ? 'HIGH_WEAK_EVIDENCE_RATIO' : null,
+              inferenceGateExceeded ? 'HIGH_INFERENCE_PROPERTY_RATIO' : null,
+            ].filter((value): value is string => Boolean(value))
           : [],
     metrics: {
       twinEntityCount,
       twinComponentCount,
       evidenceCount,
       observedAppearanceRatio: roundMetric(observedAppearanceRatio),
+      weakEvidenceRatio:
+        detail.facadeHints.length > 0
+          ? roundMetric(
+              detail.facadeHints.filter((hint) => hint.weakEvidence).length /
+                detail.facadeHints.length,
+            )
+          : 0,
       facadeHintCount: detail.facadeHints.length,
+      propertyOriginObservedCount: twinPropertyOriginCounts.observed,
+      propertyOriginInferredCount: twinPropertyOriginCounts.inferred,
+      propertyOriginDefaultedCount: twinPropertyOriginCounts.defaulted,
+      inferredPropertyRatio: roundMetric(inferredPropertyRatio),
+      defaultedPropertyRatio: roundMetric(defaultedPropertyRatio),
+      inferenceGateExceeded,
     },
   };
 }

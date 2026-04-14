@@ -6,6 +6,9 @@ import type {
   TrafficSegment,
 } from '../../types/scene.types';
 import { SceneReadService } from '../read/scene-read.service';
+import { SceneRepository } from '../../storage/scene.repository';
+import type { Coordinate } from '../../../places/types/place.types';
+import type { FetchJsonEnvelope } from '../../../common/http/fetch-json';
 
 @Injectable()
 export class SceneTrafficLiveService {
@@ -13,6 +16,7 @@ export class SceneTrafficLiveService {
 
   constructor(
     private readonly sceneReadService: SceneReadService,
+    private readonly sceneRepository: SceneRepository,
     private readonly ttlCacheService: TtlCacheService,
     private readonly tomTomTrafficClient: TomTomTrafficClient,
   ) {}
@@ -23,29 +27,89 @@ export class SceneTrafficLiveService {
       this.ttlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
-        let failedSegmentCount = 0;
-        const segments = await Promise.all(
-          storedScene.meta.roads.map(async (road) => {
-            try {
-              const segment = await this.tomTomTrafficClient.getFlowSegment(
-                road.center,
-              );
-              return mapTrafficSegment(road.objectId, segment?.flowSegmentData);
-            } catch {
-              failedSegmentCount += 1;
-              return mapTrafficSegment(road.objectId);
-            }
-          }),
+        const sampled = await this.sampleTrafficByRoads(
+          storedScene.meta.roads.map((road) => ({
+            objectId: road.objectId,
+            center: road.center,
+          })),
         );
+        const normalizedSegments = sampled.segments;
+        const upstreamEnvelopes = sampled.upstreamEnvelopes;
+        const failedSegmentCount = sampled.failedSegmentCount;
+
+        const averageCongestionScore =
+          normalizedSegments.length > 0
+            ? Number(
+                (
+                  normalizedSegments.reduce(
+                    (sum, segment) => sum + segment.congestionScore,
+                    0,
+                  ) / normalizedSegments.length
+                ).toFixed(3),
+              )
+            : 0;
+
+        await this.sceneRepository.update(sceneId, (current) => ({
+          ...current,
+          latestTrafficSnapshot: {
+            provider: 'TOMTOM_TRAFFIC_FLOW',
+            observedAt: new Date().toISOString(),
+            segmentCount: normalizedSegments.length,
+            averageCongestionScore,
+            degraded: failedSegmentCount > 0,
+            failedSegmentCount,
+            capturedAt: new Date().toISOString(),
+            upstreamEnvelopes,
+          },
+        }));
 
         return {
           updatedAt: new Date().toISOString(),
-          segments,
+          segments: normalizedSegments,
           degraded: failedSegmentCount > 0,
           failedSegmentCount,
         };
       },
     );
+  }
+
+  async sampleTrafficByRoads(
+    roads: Array<{ objectId: string; center: Coordinate }>,
+  ): Promise<{
+    segments: TrafficSegment[];
+    failedSegmentCount: number;
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
+    let failedSegmentCount = 0;
+    const sampled = await Promise.all(
+      roads.map(async (road) => {
+        try {
+          const response =
+            await this.tomTomTrafficClient.getFlowSegmentWithEnvelope(
+              road.center,
+            );
+          return {
+            segment: mapTrafficSegment(
+              road.objectId,
+              response.data?.flowSegmentData,
+            ),
+            upstreamEnvelopes: response.upstreamEnvelopes,
+          };
+        } catch {
+          failedSegmentCount += 1;
+          return {
+            segment: mapTrafficSegment(road.objectId),
+            upstreamEnvelopes: [],
+          };
+        }
+      }),
+    );
+
+    return {
+      segments: sampled.map((item) => item.segment),
+      failedSegmentCount,
+      upstreamEnvelopes: sampled.flatMap((item) => item.upstreamEnvelopes),
+    };
   }
 
   private buildCacheKey(sceneId: string): string {

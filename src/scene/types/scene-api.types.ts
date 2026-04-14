@@ -22,6 +22,7 @@ import {
 import { SceneTwinGraph, ValidationReport } from './scene-twin.types';
 import { MidQaReport } from './scene-twin.types';
 import { TwinEntityKind } from './scene-twin.types';
+import { FetchJsonEnvelope } from '../../common/http/fetch-json';
 
 export interface BootstrapResponse {
   sceneId: string;
@@ -176,6 +177,26 @@ export interface StoredScene {
   validation?: ValidationReport;
   qa?: MidQaReport;
   place?: ExternalPlaceDetail;
+  latestWeatherSnapshot?: {
+    provider: 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL';
+    date: string;
+    localTime: string;
+    resolvedWeather: WeatherType;
+    temperatureCelsius: number | null;
+    precipitationMm: number | null;
+    capturedAt: string;
+    upstreamEnvelopes?: FetchJsonEnvelope[];
+  };
+  latestTrafficSnapshot?: {
+    provider: 'TOMTOM_TRAFFIC_FLOW';
+    observedAt: string;
+    segmentCount: number;
+    averageCongestionScore: number;
+    degraded: boolean;
+    failedSegmentCount: number;
+    capturedAt: string;
+    upstreamEnvelopes?: FetchJsonEnvelope[];
+  };
 }
 
 export interface SceneCreateOptions {

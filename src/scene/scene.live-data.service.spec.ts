@@ -87,6 +87,20 @@ describe('Scene Live Data Service', () => {
       resolvedWeather: 'CLOUDY',
       source: 'OPEN_METEO_HISTORICAL',
     });
+    openMeteoClient.getObservationWithEnvelope.mockResolvedValue({
+      observation: {
+        date: '2026-04-04',
+        localTime: '2026-04-04T12:00',
+        temperatureCelsius: 13.2,
+        precipitationMm: 0,
+        rainMm: 0,
+        snowfallCm: 0,
+        cloudCoverPercent: 70,
+        resolvedWeather: 'CLOUDY',
+        source: 'OPEN_METEO_HISTORICAL',
+      },
+      upstreamEnvelopes: [],
+    });
 
     const scene = await generationService.createScene(
       'Seoul City Hall',
@@ -101,6 +115,14 @@ describe('Scene Live Data Service', () => {
     expect(weather.weatherCode).toBe(3);
     expect(weather.preset).toBe('cloudy');
     expect(weather.temperature).toBe(13.2);
+
+    const stored = await context!.readService.getReadyScene(scene.sceneId);
+    expect(stored?.latestWeatherSnapshot).toMatchObject({
+      provider: 'OPEN_METEO_HISTORICAL',
+      resolvedWeather: 'CLOUDY',
+      date: '2026-04-04',
+      localTime: '2026-04-04T12:00',
+    });
   });
 
   it('builds scene live state from snapshot rules and weather observation', async () => {
@@ -256,7 +278,7 @@ describe('Scene Live Data Service', () => {
     });
 
     expect(second).toEqual(first);
-    expect(openMeteoClient.getObservation).toHaveBeenCalledTimes(1);
+    expect(openMeteoClient.getObservationWithEnvelope).toHaveBeenCalledTimes(2);
   });
 
   it('maps traffic flow to congestion response', async () => {
@@ -272,6 +294,17 @@ describe('Scene Live Data Service', () => {
         roadClosure: false,
       },
     });
+    tomTomTrafficClient.getFlowSegmentWithEnvelope.mockResolvedValue({
+      data: {
+        flowSegmentData: {
+          currentSpeed: 10,
+          freeFlowSpeed: 20,
+          confidence: 0.9,
+          roadClosure: false,
+        },
+      },
+      upstreamEnvelopes: [],
+    });
 
     const scene = await generationService.createScene(
       'Seoul City Hall',
@@ -285,6 +318,14 @@ describe('Scene Live Data Service', () => {
     expect(traffic.segments[0]?.status).toBe('slow');
     expect(traffic.degraded).toBe(false);
     expect(traffic.failedSegmentCount).toBe(0);
+
+    const stored = await context!.readService.getReadyScene(scene.sceneId);
+    expect(stored?.latestTrafficSnapshot).toMatchObject({
+      provider: 'TOMTOM_TRAFFIC_FLOW',
+      segmentCount: 1,
+      degraded: false,
+      failedSegmentCount: 0,
+    });
   });
 
   it('caches traffic responses by scene id', async () => {
@@ -310,7 +351,9 @@ describe('Scene Live Data Service', () => {
     const second = await liveDataService.getTraffic(scene.sceneId);
 
     expect(second).toEqual(first);
-    expect(tomTomTrafficClient.getFlowSegment).toHaveBeenCalledTimes(1);
+    expect(
+      tomTomTrafficClient.getFlowSegmentWithEnvelope,
+    ).toHaveBeenCalledTimes(2);
   });
 
   it('degrades traffic response instead of failing the entire scene', async () => {
@@ -318,7 +361,7 @@ describe('Scene Live Data Service', () => {
       context!;
 
     seedReadySceneMocks(context!);
-    tomTomTrafficClient.getFlowSegment.mockRejectedValue(
+    tomTomTrafficClient.getFlowSegmentWithEnvelope.mockRejectedValue(
       new Error('upstream failed'),
     );
 

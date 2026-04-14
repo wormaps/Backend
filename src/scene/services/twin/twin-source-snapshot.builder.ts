@@ -1,10 +1,13 @@
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
+import type { FetchJsonEnvelope } from '../../../common/http/fetch-json';
 import type {
   ProviderTrace,
   SceneDetail,
   SceneMeta,
   SceneQualityGateResult,
+  SceneTrafficResponse,
+  SceneWeatherResponse,
   SceneScale,
   SearchQuerySnapshotPayload,
   SourceSnapshotRecord,
@@ -49,6 +52,7 @@ export function createSnapshot(
   fallbackCapturedAt: string,
   request: SourceSnapshotRecord['request'],
   responseSummary: SourceSnapshotRecord['responseSummary'],
+  evidenceMeta?: SourceSnapshotRecord['evidenceMeta'],
   upstreamEnvelopes?: SourceSnapshotRecord['upstreamEnvelopes'],
 ): SourceSnapshotRecord {
   const contentHash = hashValue(payload);
@@ -66,6 +70,7 @@ export function createSnapshot(
     storage: 'INLINE_JSON',
     request,
     responseSummary,
+    evidenceMeta,
     upstreamEnvelopes,
     payload,
   };
@@ -86,6 +91,12 @@ export function buildSourceSnapshots(
   meta: SceneMeta,
   detail: SceneDetail,
   qualityGate: SceneQualityGateResult,
+  weatherSnapshot?: SceneWeatherResponse,
+  trafficSnapshot?: SceneTrafficResponse,
+  liveStateEnvelopes?: {
+    weather?: FetchJsonEnvelope[];
+    traffic?: FetchJsonEnvelope[];
+  },
 ): SourceSnapshotRecord[] {
   const searchPayload: SearchQuerySnapshotPayload = {
     query,
@@ -109,6 +120,11 @@ export function buildSourceSnapshots(
         ...providerTraces.googlePlaces.responseSummary,
         status: 'DERIVED',
         fields: ['query', 'scale', 'resolvedRadiusM'],
+      },
+      {
+        mapperVersion: 'google-places@v1',
+        normalizationRulesetId: 'google-places.search.query.v1',
+        missingEvidenceKeys: [],
       },
       providerTraces.googlePlaces.upstreamEnvelopes?.slice(0, 1),
     ),
@@ -134,6 +150,14 @@ export function buildSourceSnapshots(
           'viewport',
           'utcOffsetMinutes',
         ],
+      },
+      {
+        mapperVersion: 'google-places@v1',
+        normalizationRulesetId: 'google-places.detail.normalize.v1',
+        missingEvidenceKeys: [
+          place.viewport ? null : 'viewport',
+          place.primaryType ? null : 'primaryType',
+        ].filter((value): value is string => Boolean(value)),
       },
       providerTraces.googlePlaces.upstreamEnvelopes?.slice(1, 2),
     ),
@@ -166,6 +190,15 @@ export function buildSourceSnapshots(
           walkwayCount: placePackage.walkways.length,
           poiCount: placePackage.pois.length,
         },
+      },
+      {
+        mapperVersion: 'overpass@v1',
+        normalizationRulesetId: 'overpass.place-package.normalize.v1',
+        missingEvidenceKeys: [
+          placePackage.buildings.length > 0 ? null : 'buildings',
+          placePackage.roads.length > 0 ? null : 'roads',
+          placePackage.walkways.length > 0 ? null : 'walkways',
+        ].filter((value): value is string => Boolean(value)),
       },
       providerTraces.overpass.upstreamEnvelopes,
     ),
@@ -201,6 +234,18 @@ export function buildSourceSnapshots(
               status:
                 providerTraces.mapillary.responseSummary.status ?? 'SUCCESS',
             },
+            {
+              mapperVersion: 'mapillary@v1',
+              normalizationRulesetId: 'mapillary.provider-trace.v1',
+              missingEvidenceKeys: [
+                detail.provenance.mapillaryImageCount > 0
+                  ? null
+                  : 'mapillaryImages',
+                detail.provenance.mapillaryFeatureCount > 0
+                  ? null
+                  : 'mapillaryFeatures',
+              ].filter((value): value is string => Boolean(value)),
+            },
             providerTraces.mapillary.upstreamEnvelopes,
           ),
         ]
@@ -224,8 +269,101 @@ export function buildSourceSnapshots(
           hasElevationModel: terrainProfile.hasElevationModel,
         },
       },
+      {
+        mapperVersion: 'terrain-profile@v1',
+        normalizationRulesetId: 'terrain.profile.normalize.v1',
+        missingEvidenceKeys: terrainProfile.hasElevationModel
+          ? []
+          : ['localDemSamples'],
+      },
       undefined,
     ),
+    ...(weatherSnapshot
+      ? [
+          createSnapshot(
+            sceneId,
+            'OPEN_METEO',
+            'WEATHER_OBSERVATION',
+            {
+              source: weatherSnapshot.source,
+              date: generatedDate(weatherSnapshot.updatedAt),
+              localTime:
+                weatherSnapshot.observedAt ?? weatherSnapshot.updatedAt,
+              resolvedWeather: weatherSnapshot.preset.toUpperCase(),
+              temperatureCelsius: weatherSnapshot.temperature,
+              precipitationMm: null,
+            },
+            weatherSnapshot.updatedAt,
+            {
+              method: 'DERIVED',
+              url: 'scene-weather-live',
+              notes: 'Weather observation snapshot from live API cache.',
+            },
+            {
+              status: 'SUCCESS',
+              diagnostics: {
+                source: weatherSnapshot.source,
+                weatherCode: weatherSnapshot.weatherCode,
+              },
+            },
+            {
+              mapperVersion: 'open-meteo@v1',
+              normalizationRulesetId: 'weather.live.normalize.v1',
+              missingEvidenceKeys: [],
+            },
+            liveStateEnvelopes?.weather,
+          ),
+        ]
+      : []),
+    ...(trafficSnapshot
+      ? [
+          createSnapshot(
+            sceneId,
+            'TOMTOM',
+            'TRAFFIC_FLOW',
+            {
+              source: 'TOMTOM_TRAFFIC_FLOW',
+              observedAt: trafficSnapshot.updatedAt,
+              segmentCount: trafficSnapshot.segments.length,
+              averageCongestionScore:
+                trafficSnapshot.segments.length > 0
+                  ? Number(
+                      (
+                        trafficSnapshot.segments.reduce(
+                          (sum, segment) => sum + segment.congestionScore,
+                          0,
+                        ) / trafficSnapshot.segments.length
+                      ).toFixed(3),
+                    )
+                  : 0,
+              degraded: trafficSnapshot.degraded,
+              failedSegmentCount: trafficSnapshot.failedSegmentCount,
+            },
+            trafficSnapshot.updatedAt,
+            {
+              method: 'DERIVED',
+              url: 'scene-traffic-live',
+              notes: 'Traffic flow snapshot from live API cache.',
+            },
+            {
+              status: trafficSnapshot.degraded ? 'DERIVED' : 'SUCCESS',
+              diagnostics: {
+                segmentCount: trafficSnapshot.segments.length,
+                degraded: trafficSnapshot.degraded,
+                failedSegmentCount: trafficSnapshot.failedSegmentCount,
+              },
+            },
+            {
+              mapperVersion: 'tomtom@v1',
+              normalizationRulesetId: 'traffic.live.normalize.v1',
+              missingEvidenceKeys: trafficSnapshot.degraded
+                ? ['trafficFlowSegmentErrors']
+                : [],
+            },
+            liveStateEnvelopes?.traffic,
+          ),
+        ]
+      : []),
     createSnapshot(
       sceneId,
       'SCENE_PIPELINE',
@@ -244,6 +382,11 @@ export function buildSourceSnapshots(
           roadCount: meta.stats.roadCount,
           poiCount: meta.stats.poiCount,
         },
+      },
+      {
+        mapperVersion: 'scene-meta-builder@v1',
+        normalizationRulesetId: 'scene.meta.derive.v1',
+        missingEvidenceKeys: [],
       },
       undefined,
     ),
@@ -266,6 +409,14 @@ export function buildSourceSnapshots(
           signageClusterCount: detail.signageClusters.length,
         },
       },
+      {
+        mapperVersion: 'scene-visual-rules@v1',
+        normalizationRulesetId: 'scene.detail.derive.v1',
+        missingEvidenceKeys: [
+          detail.provenance.mapillaryUsed ? null : 'mapillaryEvidence',
+          detail.facadeHints.length > 0 ? null : 'facadeHints',
+        ].filter((value): value is string => Boolean(value)),
+      },
       undefined,
     ),
     createSnapshot(
@@ -287,7 +438,16 @@ export function buildSourceSnapshots(
           invalidGeometry: qualityGate.meshSummary.emptyOrInvalidGeometryCount,
         },
       },
+      {
+        mapperVersion: 'scene-quality-gate@v1',
+        normalizationRulesetId: 'scene.quality-gate.evaluate.v1',
+        missingEvidenceKeys: [],
+      },
       undefined,
     ),
   ];
+}
+
+function generatedDate(iso: string): string {
+  return iso.slice(0, 10);
 }

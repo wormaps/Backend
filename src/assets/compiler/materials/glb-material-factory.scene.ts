@@ -8,6 +8,7 @@ export interface MaterialTuningOptions {
   roadRoughnessScale?: number;
   wetRoadBoost?: number;
   overlayDepthBias?: number;
+  inferenceReasonCodes?: string[];
 }
 
 export interface GlbMaterial {
@@ -61,6 +62,7 @@ const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   roadRoughnessScale: 1,
   wetRoadBoost: 0,
   overlayDepthBias: 1,
+  inferenceReasonCodes: [],
 };
 
 export type AccentTone = 'warm' | 'cool' | 'neutral';
@@ -707,6 +709,9 @@ function resolveMaterialTuningOptions(
     overlayDepthBias:
       tuningOptions.overlayDepthBias ??
       DEFAULT_MATERIAL_TUNING.overlayDepthBias,
+    inferenceReasonCodes:
+      tuningOptions.inferenceReasonCodes ??
+      DEFAULT_MATERIAL_TUNING.inferenceReasonCodes,
   };
 }
 

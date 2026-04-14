@@ -45,6 +45,7 @@ import {
   SceneWideAtmosphereProfile,
   SceneStatus,
   SceneDetailStatus,
+  InferenceReasonCode,
   VisualArchetype,
   VisualRole,
   WindowPatternDensity,
@@ -171,6 +172,7 @@ export interface SceneFacadeHint {
   trimColor?: string;
   roofColor?: string;
   weakEvidence?: boolean;
+  inferenceReasonCodes?: InferenceReasonCode[];
   contextProfile?: import('./scene-domain.types').SceneFacadeContextProfile;
   districtCluster?: DistrictCluster;
   districtConfidence?: number;

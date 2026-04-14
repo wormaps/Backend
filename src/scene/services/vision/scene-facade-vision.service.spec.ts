@@ -165,6 +165,12 @@ describe('SceneFacadeVisionService', () => {
       expect(hint.shellPalette?.length ?? 0).toBeGreaterThanOrEqual(4);
       expect(hint.contextualMaterialUpgrade).toBe(true);
       expect(hint.palette).not.toContain('#9ea4aa');
+      expect(hint.inferenceReasonCodes).toContain('MISSING_MAPILLARY_IMAGES');
+      expect(hint.inferenceReasonCodes).toContain('MISSING_MAPILLARY_FEATURES');
+      expect(hint.inferenceReasonCodes).toContain('MISSING_FACADE_COLOR');
+      expect(hint.inferenceReasonCodes).toContain('MISSING_FACADE_MATERIAL');
+      expect(hint.inferenceReasonCodes).toContain('MISSING_ROOF_SHAPE');
+      expect(hint.inferenceReasonCodes).toContain('DEFAULT_STYLE_RULE');
     }
   });
 

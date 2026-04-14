@@ -5,6 +5,7 @@ import type { PlacePackage } from '../../../places/types/place.types';
 import type {
   DistrictAtmosphereProfile,
   EvidenceStrength,
+  InferenceReasonCode,
   MaterialClass,
   SceneDetail,
   SceneFacadeContextDiagnostics,
@@ -91,6 +92,25 @@ export class SceneFacadeVisionService {
         mapillarySignalSummary,
       );
       const weakEvidence = nearbyImageCount === 0 && nearbyFeatureCount === 0;
+      const inferenceReasonCodes: InferenceReasonCode[] = [];
+      if (nearbyImageCount === 0) {
+        inferenceReasonCodes.push('MISSING_MAPILLARY_IMAGES');
+      }
+      if (nearbyFeatureCount === 0) {
+        inferenceReasonCodes.push('MISSING_MAPILLARY_FEATURES');
+      }
+      if (!building.facadeColor) {
+        inferenceReasonCodes.push('MISSING_FACADE_COLOR');
+      }
+      if (!building.facadeMaterial) {
+        inferenceReasonCodes.push('MISSING_FACADE_MATERIAL');
+      }
+      if (!building.roofShape) {
+        inferenceReasonCodes.push('MISSING_ROOF_SHAPE');
+      }
+      if (weakEvidence) {
+        inferenceReasonCodes.push('DEFAULT_STYLE_RULE');
+      }
       const palette = uniquePalette(
         explicitBuildingColor ? style.palette : inferredPalette.palette,
         4,
@@ -171,6 +191,7 @@ export class SceneFacadeVisionService {
         windowPatternDensity: style.windowPatternDensity,
         signBandLevels: style.signBandLevels,
         weakEvidence,
+        inferenceReasonCodes,
         contextProfile: context.districtProfile,
         districtCluster: districtResolution.cluster,
         districtConfidence: districtResolution.confidence,

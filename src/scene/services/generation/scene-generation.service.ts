@@ -11,6 +11,8 @@ import { getSceneDataDir } from '../../storage/scene-storage.utils';
 import { SceneQualityGateService } from './scene-quality-gate.service';
 import { SceneMidQaService } from '../qa';
 import { SceneTwinBuilderService } from '../twin';
+import { SceneWeatherLiveService } from '../live/scene-weather-live.service';
+import { SceneTrafficLiveService } from '../live/scene-traffic-live.service';
 import type {
   SceneCreateOptions,
   SceneEntity,
@@ -32,6 +34,8 @@ export class SceneGenerationService {
     private readonly sceneQualityGateService: SceneQualityGateService,
     private readonly sceneMidQaService: SceneMidQaService,
     private readonly sceneTwinBuilderService: SceneTwinBuilderService,
+    private readonly sceneWeatherLiveService: SceneWeatherLiveService,
+    private readonly sceneTrafficLiveService: SceneTrafficLiveService,
     private readonly appLoggerService: AppLoggerService,
   ) {}
 
@@ -154,6 +158,34 @@ export class SceneGenerationService {
         result.meta,
         result.detail,
       );
+      const weatherObserved =
+        await this.sceneWeatherLiveService.sampleWeatherByPlace(
+          result.place,
+          result.meta.generatedAt.slice(0, 10),
+          'DAY',
+        );
+      const weatherSnapshot = {
+        updatedAt: new Date().toISOString(),
+        weatherCode: resolveWeatherCode(weatherObserved.observation),
+        temperature: weatherObserved.observation?.temperatureCelsius ?? null,
+        preset:
+          weatherObserved.observation?.resolvedWeather.toLowerCase() ?? 'clear',
+        source: weatherObserved.observation?.source ?? 'OPEN_METEO_HISTORICAL',
+        observedAt: weatherObserved.observation?.localTime ?? null,
+      };
+      const trafficObserved =
+        await this.sceneTrafficLiveService.sampleTrafficByRoads(
+          result.meta.roads.map((road) => ({
+            objectId: road.objectId,
+            center: road.center,
+          })),
+        );
+      const trafficSnapshot = {
+        updatedAt: new Date().toISOString(),
+        segments: trafficObserved.segments,
+        degraded: trafficObserved.failedSegmentCount > 0,
+        failedSegmentCount: trafficObserved.failedSegmentCount,
+      };
       const twinBuild = this.sceneTwinBuilderService.build({
         sceneId,
         query: storedScene.query,
@@ -171,6 +203,12 @@ export class SceneGenerationService {
         assetPath: result.assetPath,
         qualityGate,
         providerTraces: result.providerTraces,
+        weatherSnapshot,
+        trafficSnapshot,
+        liveStateEnvelopes: {
+          weather: weatherObserved.upstreamEnvelopes,
+          traffic: trafficObserved.upstreamEnvelopes,
+        },
       });
       const qa = await this.sceneMidQaService.buildReport({
         sceneId,
@@ -203,6 +241,36 @@ export class SceneGenerationService {
         twin: twinBuild.twin,
         validation: twinBuild.validation,
         qa,
+        latestWeatherSnapshot: {
+          provider: weatherSnapshot.source,
+          date: weatherSnapshot.updatedAt.slice(0, 10),
+          localTime: weatherSnapshot.observedAt ?? weatherSnapshot.updatedAt,
+          resolvedWeather: this.toWeatherType(weatherSnapshot.preset),
+          temperatureCelsius: weatherSnapshot.temperature,
+          precipitationMm: null,
+          capturedAt: weatherSnapshot.updatedAt,
+          upstreamEnvelopes: weatherObserved.upstreamEnvelopes,
+        },
+        latestTrafficSnapshot: {
+          provider: 'TOMTOM_TRAFFIC_FLOW',
+          observedAt: trafficSnapshot.updatedAt,
+          segmentCount: trafficSnapshot.segments.length,
+          averageCongestionScore:
+            trafficSnapshot.segments.length > 0
+              ? Number(
+                  (
+                    trafficSnapshot.segments.reduce(
+                      (sum, segment) => sum + segment.congestionScore,
+                      0,
+                    ) / trafficSnapshot.segments.length
+                  ).toFixed(3),
+                )
+              : 0,
+          degraded: trafficSnapshot.degraded,
+          failedSegmentCount: trafficSnapshot.failedSegmentCount,
+          capturedAt: trafficSnapshot.updatedAt,
+          upstreamEnvelopes: trafficObserved.upstreamEnvelopes,
+        },
         scene: {
           ...current.scene,
           placeId: result.place.placeId,
@@ -414,6 +482,19 @@ export class SceneGenerationService {
     return 600;
   }
 
+  private toWeatherType(preset: string): 'CLEAR' | 'CLOUDY' | 'RAIN' | 'SNOW' {
+    if (preset === 'cloudy') {
+      return 'CLOUDY';
+    }
+    if (preset === 'rain') {
+      return 'RAIN';
+    }
+    if (preset === 'snow') {
+      return 'SNOW';
+    }
+    return 'CLEAR';
+  }
+
   private async isReusableScene(storedScene: StoredScene): Promise<boolean> {
     if (storedScene.scene.status !== 'READY' || !storedScene.scene.assetUrl) {
       return false;
@@ -439,4 +520,24 @@ export class SceneGenerationService {
       return false;
     }
   }
+}
+
+function resolveWeatherCode(
+  observation: {
+    resolvedWeather: string;
+  } | null,
+): number | null {
+  if (!observation) {
+    return null;
+  }
+  if (observation.resolvedWeather === 'CLOUDY') {
+    return 3;
+  }
+  if (observation.resolvedWeather === 'RAIN') {
+    return 61;
+  }
+  if (observation.resolvedWeather === 'SNOW') {
+    return 71;
+  }
+  return 0;
 }

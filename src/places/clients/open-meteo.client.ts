@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { fetchJson } from '../../common/http/fetch-json';
+import { fetchJson, fetchJsonWithEnvelope } from '../../common/http/fetch-json';
 import type { FetchLike } from '../../common/http/fetch-json';
+import type { FetchJsonEnvelope } from '../../common/http/fetch-json';
 import {
   ExternalPlaceDetail,
   WeatherObservation,
@@ -101,6 +102,24 @@ export class OpenMeteoClient {
     return this.getHistoricalObservation(place, date, timeOfDay);
   }
 
+  async getObservationWithEnvelope(
+    place: ExternalPlaceDetail,
+    date: string,
+    timeOfDay: TimeOfDay,
+  ): Promise<{
+    observation: WeatherObservation | null;
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
+    if (this.isTodayForPlace(place, date)) {
+      const current = await this.getCurrentObservationWithEnvelope(place);
+      if (current.observation) {
+        return current;
+      }
+    }
+
+    return this.getHistoricalObservationWithEnvelope(place, date, timeOfDay);
+  }
+
   async getCurrentObservation(
     place: ExternalPlaceDetail,
   ): Promise<WeatherObservation | null> {
@@ -141,6 +160,116 @@ export class OpenMeteoClient {
         cloudCover,
       ),
       source: 'OPEN_METEO_CURRENT',
+    };
+  }
+
+  async getCurrentObservationWithEnvelope(place: ExternalPlaceDetail): Promise<{
+    observation: WeatherObservation | null;
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
+    const response = await fetchJsonWithEnvelope<OpenMeteoResponse>(
+      {
+        provider: 'Open-Meteo Current Weather',
+        url:
+          `https://api.open-meteo.com/v1/forecast?latitude=${place.location.lat}` +
+          `&longitude=${place.location.lng}` +
+          '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+          '&timezone=auto',
+      },
+      this.fetcher,
+    );
+
+    const current = response.data.current;
+    if (!current?.time) {
+      return {
+        observation: null,
+        upstreamEnvelopes: [response.envelope],
+      };
+    }
+
+    const rain = current.rain ?? null;
+    const snowfall = current.snowfall ?? null;
+    const precipitation = current.precipitation ?? null;
+    const cloudCover = current.cloud_cover ?? null;
+
+    return {
+      observation: {
+        date: current.time.slice(0, 10),
+        localTime: current.time,
+        temperatureCelsius: current.temperature_2m ?? null,
+        precipitationMm: precipitation,
+        rainMm: rain,
+        snowfallCm: snowfall,
+        cloudCoverPercent: cloudCover,
+        resolvedWeather: this.resolveWeather(
+          rain,
+          snowfall,
+          precipitation,
+          cloudCover,
+        ),
+        source: 'OPEN_METEO_CURRENT',
+      },
+      upstreamEnvelopes: [response.envelope],
+    };
+  }
+
+  async getHistoricalObservationWithEnvelope(
+    place: ExternalPlaceDetail,
+    date: string,
+    timeOfDay: TimeOfDay,
+  ): Promise<{
+    observation: WeatherObservation | null;
+    upstreamEnvelopes: FetchJsonEnvelope[];
+  }> {
+    const response = await fetchJsonWithEnvelope<OpenMeteoResponse>(
+      {
+        provider: 'Open-Meteo Historical Weather',
+        url:
+          `https://archive-api.open-meteo.com/v1/archive?latitude=${place.location.lat}` +
+          `&longitude=${place.location.lng}` +
+          `&start_date=${date}&end_date=${date}` +
+          '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+          '&timezone=auto',
+      },
+      this.fetcher,
+    );
+
+    const targetHour = this.resolveHour(timeOfDay);
+    const hourly = response.data.hourly;
+    const times = hourly?.time ?? [];
+    const index = times.findIndex((value) =>
+      value.endsWith(`T${targetHour}:00`),
+    );
+    if (index < 0) {
+      return {
+        observation: null,
+        upstreamEnvelopes: [response.envelope],
+      };
+    }
+
+    const rain = hourly?.rain?.[index] ?? null;
+    const snowfall = hourly?.snowfall?.[index] ?? null;
+    const precipitation = hourly?.precipitation?.[index] ?? null;
+    const cloudCover = hourly?.cloud_cover?.[index] ?? null;
+
+    return {
+      observation: {
+        date,
+        localTime: times[index],
+        temperatureCelsius: hourly?.temperature_2m?.[index] ?? null,
+        precipitationMm: precipitation,
+        rainMm: rain,
+        snowfallCm: snowfall,
+        cloudCoverPercent: cloudCover,
+        resolvedWeather: this.resolveWeather(
+          rain,
+          snowfall,
+          precipitation,
+          cloudCover,
+        ),
+        source: 'OPEN_METEO_HISTORICAL',
+      },
+      upstreamEnvelopes: [response.envelope],
     };
   }
 

@@ -15,6 +15,8 @@ export type TwinSnapshotProvider =
   | 'GOOGLE_PLACES'
   | 'OVERPASS'
   | 'MAPILLARY'
+  | 'OPEN_METEO'
+  | 'TOMTOM'
   | 'LOCAL_TERRAIN'
   | 'SCENE_PIPELINE'
   | 'QUALITY_GATE';
@@ -24,10 +26,30 @@ export type TwinSnapshotKind =
   | 'PLACE_DETAIL'
   | 'PLACE_PACKAGE'
   | 'PROVIDER_TRACE'
+  | 'WEATHER_OBSERVATION'
+  | 'TRAFFIC_FLOW'
   | 'TERRAIN_PROFILE'
   | 'SCENE_META'
   | 'SCENE_DETAIL'
   | 'QUALITY_GATE';
+
+export interface WeatherSnapshotPayload {
+  source: 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL';
+  date: string;
+  localTime: string;
+  resolvedWeather: string;
+  temperatureCelsius: number | null;
+  precipitationMm: number | null;
+}
+
+export interface TrafficSnapshotPayload {
+  source: 'TOMTOM_TRAFFIC_FLOW';
+  observedAt: string;
+  segmentCount: number;
+  averageCongestionScore: number;
+  degraded: boolean;
+  failedSegmentCount: number;
+}
 
 export interface SearchQuerySnapshotPayload {
   query: string;
@@ -72,6 +94,12 @@ export interface SnapshotResponseSummary {
   diagnostics?: Record<string, number | string | boolean | null>;
 }
 
+export interface SnapshotEvidenceMeta {
+  mapperVersion?: string;
+  normalizationRulesetId?: string;
+  missingEvidenceKeys?: string[];
+}
+
 export interface UpstreamFetchEnvelope {
   provider: string;
   requestedAt: string;
@@ -110,10 +138,13 @@ export interface SourceSnapshotRecord {
   storage: 'INLINE_JSON';
   request: SnapshotReplayRequest;
   responseSummary: SnapshotResponseSummary;
+  evidenceMeta?: SnapshotEvidenceMeta;
   upstreamEnvelopes?: UpstreamFetchEnvelope[];
   payload:
     | SearchQuerySnapshotPayload
     | TerrainSnapshotPayload
+    | WeatherSnapshotPayload
+    | TrafficSnapshotPayload
     | ExternalPlaceDetail
     | PlacePackage
     | SceneMeta

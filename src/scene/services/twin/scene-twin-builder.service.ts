@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
+import type { FetchJsonEnvelope } from '../../../common/http/fetch-json';
 import type {
+  SceneTrafficResponse,
+  SceneWeatherResponse,
   ProviderTrace,
   SceneDetail,
   SceneMeta,
@@ -23,7 +26,10 @@ import {
 } from './twin-source-snapshot.builder';
 import { buildSpatialFrame } from './twin-spatial-frame.builder';
 import { registerAllEntities } from './twin-entity.builders';
-import { buildValidationReport } from './twin-validation.builder';
+import {
+  buildValidationReport,
+  countTwinPropertyOrigins,
+} from './twin-validation.builder';
 
 interface BuildSceneTwinArgs {
   sceneId: string;
@@ -39,6 +45,12 @@ interface BuildSceneTwinArgs {
     googlePlaces: ProviderTrace;
     overpass: ProviderTrace;
     mapillary?: ProviderTrace | null;
+  };
+  weatherSnapshot?: SceneWeatherResponse;
+  trafficSnapshot?: SceneTrafficResponse;
+  liveStateEnvelopes?: {
+    weather?: FetchJsonEnvelope[];
+    traffic?: FetchJsonEnvelope[];
   };
 }
 
@@ -59,6 +71,9 @@ export class SceneTwinBuilderService {
     assetPath,
     qualityGate,
     providerTraces,
+    weatherSnapshot,
+    trafficSnapshot,
+    liveStateEnvelopes,
   }: BuildSceneTwinArgs): {
     twin: SceneTwinGraph;
     validation: ValidationReport;
@@ -79,6 +94,9 @@ export class SceneTwinBuilderService {
       meta,
       detail,
       qualityGate,
+      weatherSnapshot,
+      trafficSnapshot,
+      liveStateEnvelopes,
     );
     const snapshotIds = collectSnapshotIds(snapshots);
 
@@ -170,6 +188,7 @@ export class SceneTwinBuilderService {
       detail,
       sceneStateBindingCount: 1,
       entityStateBindingCount: entityStateBindings.length,
+      twinPropertyOriginCounts: countTwinPropertyOrigins(components),
     });
 
     const twin: SceneTwinGraph = {

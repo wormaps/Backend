@@ -164,9 +164,15 @@ export interface SceneSpecContext {
     getHistoricalObservation: jest.MockedFunction<
       OpenMeteoClient['getHistoricalObservation']
     >;
+    getObservationWithEnvelope: jest.MockedFunction<
+      OpenMeteoClient['getObservationWithEnvelope']
+    >;
   };
   tomTomTrafficClient: {
     getFlowSegment: jest.MockedFunction<TomTomTrafficClient['getFlowSegment']>;
+    getFlowSegmentWithEnvelope: jest.MockedFunction<
+      TomTomTrafficClient['getFlowSegmentWithEnvelope']
+    >;
   };
   sceneVisionService: {
     buildSceneVision: jest.MockedFunction<
@@ -252,12 +258,14 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
         useValue: {
           getObservation: jest.fn(),
           getHistoricalObservation: jest.fn(),
+          getObservationWithEnvelope: jest.fn(),
         },
       },
       {
         provide: TomTomTrafficClient,
         useValue: {
           getFlowSegment: jest.fn(),
+          getFlowSegmentWithEnvelope: jest.fn(),
         },
       },
       {
@@ -430,6 +438,31 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       detail,
     }),
   );
+  openMeteoClient.getObservationWithEnvelope.mockResolvedValue({
+    observation: {
+      date: '2026-04-04',
+      localTime: '2026-04-04T12:00',
+      temperatureCelsius: 13.2,
+      precipitationMm: 0,
+      rainMm: 0,
+      snowfallCm: 0,
+      cloudCoverPercent: 70,
+      resolvedWeather: 'CLOUDY',
+      source: 'OPEN_METEO_HISTORICAL',
+    },
+    upstreamEnvelopes: [],
+  });
+  tomTomTrafficClient.getFlowSegmentWithEnvelope.mockResolvedValue({
+    data: {
+      flowSegmentData: {
+        currentSpeed: 10,
+        freeFlowSpeed: 20,
+        confidence: 0.9,
+        roadClosure: false,
+      },
+    },
+    upstreamEnvelopes: [],
+  });
 
   return {
     service,

@@ -1,5 +1,6 @@
 import {
   SceneFacadeHint,
+  InferenceReasonCode,
   SceneMeta,
   SceneStaticAtmosphereProfile,
 } from '../../../scene/types/scene.types';
@@ -36,7 +37,15 @@ export function resolveMaterialTuningFromScene(
       ? facadeHints.filter((hint) => hint.weakEvidence).length /
         facadeHints.length
       : 0;
+  const reasonCodes = collectInferenceReasonCodes(facadeHints);
   const overlayDepthBias = clamp(1.08 + weakEvidenceRatio * 0.7, 0.96, 1.92);
+
+  if (
+    weakEvidenceRatio >= 0.6 &&
+    !reasonCodes.includes('WEAK_EVIDENCE_RATIO_HIGH')
+  ) {
+    reasonCodes.push('WEAK_EVIDENCE_RATIO_HIGH');
+  }
 
   return {
     shellLuminanceCap: clamp(0.92 + weakEvidenceRatio * 0.05, 0.9, 0.97),
@@ -64,7 +73,20 @@ export function resolveMaterialTuningFromScene(
       0.72,
     ),
     overlayDepthBias,
+    inferenceReasonCodes: reasonCodes,
   };
+}
+
+function collectInferenceReasonCodes(
+  facadeHints: SceneFacadeHint[],
+): InferenceReasonCode[] {
+  const codes = new Set<InferenceReasonCode>();
+  for (const hint of facadeHints) {
+    for (const code of hint.inferenceReasonCodes ?? []) {
+      codes.add(code);
+    }
+  }
+  return [...codes];
 }
 
 function resolveDistrictEmissiveBoost(facadeHints: SceneFacadeHint[]): number {
