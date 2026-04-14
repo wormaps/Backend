@@ -1,21 +1,14 @@
 import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
-import type {
-  SceneFacadeHint,
-  SceneMeta,
-} from '../../../scene/types/scene.types';
+import type { SceneFacadeHint } from '../../../scene/types/scene.types';
 
 describe('glb-build-material-tuning.utils', () => {
-  const sceneMeta = {
-    sceneId: 'scene-test',
-  } as SceneMeta;
-
   it('propagates facade inference reason codes and adds weak-evidence aggregate reason', () => {
     const hints = buildHints(5, {
       weakEvidenceCount: 4,
       reasonCodes: ['MISSING_FACADE_COLOR', 'DEFAULT_STYLE_RULE'],
     });
 
-    const tuning = resolveMaterialTuningFromScene(sceneMeta, hints);
+    const tuning = resolveMaterialTuningFromScene(hints);
 
     expect(tuning.inferenceReasonCodes).toContain('MISSING_FACADE_COLOR');
     expect(tuning.inferenceReasonCodes).toContain('DEFAULT_STYLE_RULE');
@@ -28,7 +21,7 @@ describe('glb-build-material-tuning.utils', () => {
       reasonCodes: ['MISSING_MAPILLARY_IMAGES'],
     });
 
-    const tuning = resolveMaterialTuningFromScene(sceneMeta, hints);
+    const tuning = resolveMaterialTuningFromScene(hints);
 
     expect(tuning.inferenceReasonCodes).toContain('MISSING_MAPILLARY_IMAGES');
     expect(tuning.inferenceReasonCodes).not.toContain(

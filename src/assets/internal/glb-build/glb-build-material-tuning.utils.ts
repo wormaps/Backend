@@ -1,7 +1,6 @@
 import {
   SceneFacadeHint,
   InferenceReasonCode,
-  SceneMeta,
   SceneStaticAtmosphereProfile,
 } from '../../../scene/types/scene.types';
 import type { MaterialTuningOptions } from '../../compiler/materials';
@@ -9,7 +8,6 @@ import { resolveSceneFidelityModeSignal } from '../../../scene/utils/scene-fidel
 import type { SceneFidelityMode } from '../../../scene/types/scene.types';
 
 export function resolveMaterialTuningFromScene(
-  _sceneMeta: SceneMeta,
   facadeHints: SceneFacadeHint[],
   staticAtmosphere?: SceneStaticAtmosphereProfile,
   targetMode?: SceneFidelityMode,

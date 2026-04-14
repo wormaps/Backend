@@ -230,6 +230,80 @@ describe('GlbBuildRunner modularized', () => {
     expect(node.extras.meshName).toBe('road_base');
   });
 
+  it('attaches twin geometry provenance to building meshes', () => {
+    const doc = new FakeDoc();
+    const scene = new FakeScene('scene-buildings');
+    const semanticGroupNodes = new Map<string, unknown>();
+    const currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
+    const triangleBudget = { ...defaultTriangleBudget };
+
+    initializeDccHierarchy(doc, scene, 'scene-buildings', semanticGroupNodes);
+    registerBuildingGroupNodes(
+      doc,
+      scene,
+      {
+        sceneId: 'scene-buildings',
+        origin: { lat: 37, lng: 127 },
+        buildings: [
+          {
+            objectId: 'building-1',
+            osmWayId: 'way_1',
+            usage: 'COMMERCIAL',
+            outerRing: [
+              { lat: 37.0001, lng: 127.0001 },
+              { lat: 37.0001, lng: 127.0002 },
+              { lat: 37.0002, lng: 127.0002 },
+            ],
+            terrainOffsetM: 0.12,
+          },
+        ],
+      } as any,
+      semanticGroupNodes,
+    );
+
+    addMeshNode(
+      doc,
+      FakeAccessor,
+      scene,
+      {},
+      'building_shells_building-1',
+      {
+        positions: [0, 0, 0, 1, 0, 0, 0, 0, 1],
+        normals: [0, 1, 0, 0, 1, 0, 0, 1, 0],
+        indices: [0, 1, 2],
+      },
+      {},
+      {
+        sourceCount: 1,
+        selectedCount: 1,
+        semanticCategory: 'building',
+        sourceObjectIds: ['building-1'],
+      },
+      currentMeshDiagnostics,
+      triangleBudget,
+      semanticGroupNodes,
+    );
+
+    const root = scene.children[0];
+    const buildingsGroup = root.children.find(
+      (node) => node.name === 'grp_building',
+    );
+    const buildingNode = buildingsGroup?.children.find(
+      (node) => node.name === 'bld_building-1',
+    );
+    const meshNode = buildingNode?.children.find(
+      (node) => node.name === 'building_shells_building-1',
+    );
+
+    expect(buildingNode?.extras.twinEntityId).toMatch(/^entity-/);
+    expect(meshNode?.extras.twinEntityIds).toEqual([
+      buildingNode?.extras.twinEntityId,
+    ]);
+    expect(
+      (meshNode?.extras.sourceSnapshotIds as string[] | undefined)?.length,
+    ).toBeGreaterThan(0);
+  });
+
   it('registers per-building group nodes with pivot metadata for DCC editing', () => {
     const doc = new FakeDoc();
     const scene = new FakeScene('scene-buildings');

@@ -17,7 +17,7 @@ import {
   RunnerStageHooks,
   SceneMaterials,
 } from '../glb-build-stage.types';
-import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
+import type { GlbInputContract } from '../glb-build-contract';
 
 export function addStreetContextMeshes(
   hooks: Pick<
@@ -31,8 +31,8 @@ export function addStreetContextMeshes(
     | 'createLinearFeatureGeometry'
   >,
   ctx: MeshAddContext,
-  sceneMeta: SceneMeta,
-  sceneDetail: SceneDetail,
+  sceneMeta: GlbInputContract,
+  sceneDetail: GlbInputContract,
   assetSelection: AssetSelection,
   materials: SceneMaterials,
   triangulate: (
@@ -73,7 +73,9 @@ export function addStreetContextMeshes(
       ).length,
       selectedCount: assetSelection.trafficLights.length,
       semanticCategory: 'street_context',
-      sourceObjectIds: assetSelection.trafficLights.map((item) => item.objectId),
+      sourceObjectIds: assetSelection.trafficLights.map(
+        (item) => item.objectId,
+      ),
     },
   );
   hooks.addMeshNode(
@@ -444,8 +446,8 @@ export function addStreetContextMeshes(
 }
 
 function selectMinorFurniture(
-  items: SceneDetail['streetFurniture'],
-  type: SceneDetail['streetFurniture'][number]['type'],
-): SceneDetail['streetFurniture'] {
+  items: GlbInputContract['streetFurniture'],
+  type: GlbInputContract['streetFurniture'][number]['type'],
+): GlbInputContract['streetFurniture'] {
   return items.filter((item) => item.type === type);
 }

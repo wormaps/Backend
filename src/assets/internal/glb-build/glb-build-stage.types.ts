@@ -3,6 +3,7 @@ import {
   SceneDetail,
   SceneMeta,
 } from '../../../scene/types/scene.types';
+import type { GlbInputContract } from './glb-build-contract';
 import { ShellColorBucket } from '../../compiler/materials';
 import { createSceneMaterials } from '../../compiler/materials';
 import { createEnhancedSceneMaterials } from '../../compiler/materials';

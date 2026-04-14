@@ -11,7 +11,7 @@ import {
   getSceneDataDir,
 } from '../../../scene/storage/scene-storage.utils';
 import { SceneAssetProfileService } from '../../../scene/services/asset-profile';
-import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
+import type { SceneDetail, SceneMeta } from '../../../scene/types/scene.types';
 import { addTransportMeshes } from './stages/glb-build-transport.stage';
 import { addStreetContextMeshes } from './stages/glb-build-street-context.stage';
 import {
@@ -28,7 +28,6 @@ import {
   createStreetFurnitureGeometry,
 } from './geometry/glb-build-local-geometry.utils';
 import { triangulateRings as triangulateRingsUtil } from './geometry/glb-build-geometry-primitives.utils';
-import { SceneDetail, SceneMeta } from '../../../scene/types/scene.types';
 import { resolveMaterialTuningFromScene } from './glb-build-material-tuning.utils';
 import { resolveSceneVariationProfile } from './glb-build-variation.utils';
 import { resolveFacadeLayerMaterialProfile } from './glb-build-facade-material-profile.utils';
@@ -59,6 +58,7 @@ import {
   resolveHeroToneFromBuildings,
 } from './glb-build-style-metrics';
 import { createCrosswalkGeometry } from './glb-build-utils';
+import type { GlbInputContract } from './glb-build-contract';
 
 interface BuildingClosureDiagnosticsMetrics {
   openShellCount: number;
@@ -105,8 +105,7 @@ export class GlbBuildRunner {
   ) {}
 
   async build(
-    sceneMeta: SceneMeta,
-    sceneDetail: SceneDetail,
+    contract: GlbInputContract,
     runMetrics?: {
       pipelineMs?: number;
     },
@@ -124,48 +123,38 @@ export class GlbBuildRunner {
     const doc = new Document();
     installMaterialCache(
       doc as unknown as Record<string, unknown>,
-      sceneMeta.sceneId,
+      contract.sceneId,
       this.materialCacheStats,
     );
     const buffer = doc.createBuffer('scene-buffer');
-    const scene = doc.createScene(sceneMeta.sceneId);
+    const scene = doc.createScene(contract.sceneId);
     initializeDccHierarchy(
       doc as unknown as Record<string, unknown>,
       scene as unknown as Record<string, unknown>,
-      sceneMeta.sceneId,
+      contract.sceneId,
       this.semanticGroupNodes,
     );
     registerBuildingGroupNodes(
       doc as unknown as Record<string, unknown>,
       scene as unknown as Record<string, unknown>,
-      sceneMeta,
+      contract,
       this.semanticGroupNodes,
     );
     this.currentMeshDiagnostics = [];
 
-    const assetSelection = buildSceneAssetSelection(
-      sceneMeta,
-      sceneDetail,
-      sceneMeta.assetProfile.preset,
-    );
+    const assetSelection = contract.assetSelection;
     const adaptiveMeta =
       this.sceneAssetProfileService.buildSceneMetaWithAssetSelection(
-        sceneMeta,
+        contract,
         assetSelection,
       );
     const modePolicy = resolveSceneModePolicy(
-      sceneDetail.fidelityPlan?.targetMode,
-      sceneDetail.fidelityPlan?.currentMode,
+      contract.fidelityPlan?.targetMode,
+      contract.fidelityPlan?.currentMode,
     );
-    const materialTuning = this.resolveMaterialTuning(sceneMeta, sceneDetail);
-    const variationProfile = this.resolveVariationProfile(
-      adaptiveMeta,
-      sceneDetail,
-    );
-    const facadeMaterialProfile = this.resolveFacadeMaterialProfile(
-      sceneMeta,
-      sceneDetail,
-    );
+    const materialTuning = this.resolveMaterialTuning(contract);
+    const variationProfile = this.resolveVariationProfile(contract);
+    const facadeMaterialProfile = this.resolveFacadeMaterialProfile(contract);
     const materials = createEnhancedSceneMaterials(
       doc,
       materialTuning,
@@ -173,12 +162,12 @@ export class GlbBuildRunner {
     );
 
     this.appLoggerService.info('scene.glb_build.material_tuning', {
-      sceneId: sceneMeta.sceneId,
+      sceneId: contract.sceneId,
       step: 'glb_build',
       tuning: materialTuning,
       variationProfile,
       modePolicy: modePolicy.id,
-      staticAtmosphere: sceneDetail.staticAtmosphere?.preset ?? 'DAY_CLEAR',
+      staticAtmosphere: contract.staticAtmosphere?.preset ?? 'DAY_CLEAR',
       materialCache: {
         hits: this.materialCacheStats.hits,
         misses: this.materialCacheStats.misses,
@@ -217,8 +206,8 @@ export class GlbBuildRunner {
         modePolicy,
       },
       { doc, Accessor, scene, buffer },
-      sceneMeta,
-      sceneDetail,
+      contract,
+      contract,
       assetSelection,
       materials,
       triangulate,
@@ -235,8 +224,8 @@ export class GlbBuildRunner {
         createLinearFeatureGeometry,
       },
       { doc, Accessor, scene, buffer },
-      sceneMeta,
-      sceneDetail,
+      contract,
+      contract,
       assetSelection,
       materials,
       triangulate,
@@ -245,18 +234,18 @@ export class GlbBuildRunner {
     const groupedBuildings = buildGroupedBuildingShells(
       {
         buildGroupedBuildingShells: (
-          _sceneMeta: SceneMeta,
+          sceneMeta: SceneMeta,
           sceneDetail: SceneDetail,
-          assetSelection: ReturnType<typeof buildSceneAssetSelection>,
+          assetSelection: GlbInputContract['assetSelection'],
         ) => buildGroupedBuildingShellsLocal(sceneDetail, assetSelection),
       },
-      sceneMeta,
-      sceneDetail,
+      contract,
+      contract,
       assetSelection,
     );
 
     const buildingClosureDiagnostics = this.collectBuildingClosureDiagnostics(
-      adaptiveMeta,
+      contract,
       assetSelection,
     );
 
@@ -271,32 +260,32 @@ export class GlbBuildRunner {
         facadeMaterialProfile,
         variationProfile,
         modePolicy,
-        staticAtmosphere: sceneDetail.staticAtmosphere,
+        staticAtmosphere: contract.staticAtmosphere,
         createBuildingRoofAccentGeometry,
       },
       { doc, Accessor, scene, buffer },
-      sceneMeta,
-      sceneDetail,
+      contract,
+      contract,
       assetSelection,
       materials,
       triangulate,
       groupedBuildings,
     );
 
-    const outputPath = join(getSceneDataDir(), `${sceneMeta.sceneId}.glb`);
+    const outputPath = join(getSceneDataDir(), `${contract.sceneId}.glb`);
     await mkdir(dirname(outputPath), { recursive: true });
 
     const glbBinary = await new NodeIO().writeBinary(doc);
     await this.validateGlb(
       Uint8Array.from(glbBinary),
-      sceneMeta.sceneId,
+      contract.sceneId,
       validatorModule,
     );
     await writeFile(outputPath, glbBinary);
 
     const comparisonReport = buildSceneModeComparisonReport(
       adaptiveMeta,
-      sceneDetail,
+      contract,
       {
         generationMs:
           (runMetrics?.pipelineMs ?? 0) + (Date.now() - buildStartedAt),
@@ -305,15 +294,12 @@ export class GlbBuildRunner {
     );
 
     const facadeColorDiversity = buildFacadeColorDiversityMetrics(
-      sceneDetail,
+      contract,
       groupedBuildings,
     );
 
     const diagnosticsPayload = {
-      sceneScoreReport: buildSceneFidelityMetricsReport(
-        adaptiveMeta,
-        sceneDetail,
-      ),
+      sceneScoreReport: buildSceneFidelityMetricsReport(adaptiveMeta, contract),
       sceneModeComparisonReport: comparisonReport,
       modePolicy,
       assetSelection: {
@@ -322,13 +308,13 @@ export class GlbBuildRunner {
       },
       structuralCoverage: adaptiveMeta.structuralCoverage,
       sourceDetail: {
-        crossings: sceneDetail.crossings.length,
-        roadMarkings: sceneDetail.roadMarkings.length,
-        roadDecals: sceneDetail.roadDecals?.length ?? 0,
-        facadeHints: sceneDetail.facadeHints.length,
-        signageClusters: sceneDetail.signageClusters.length,
+        crossings: contract.crossings.length,
+        roadMarkings: contract.roadMarkings.length,
+        roadDecals: contract.roadDecals?.length ?? 0,
+        facadeHints: contract.facadeHints.length,
+        signageClusters: contract.signageClusters.length,
       },
-      facadeContextDiagnostics: sceneDetail.facadeContextDiagnostics,
+      facadeContextDiagnostics: contract.facadeContextDiagnostics,
       groupedBuildingShells: [...groupedBuildings.entries()].map(
         ([groupKey, group]) => ({
           groupKey,
@@ -344,28 +330,28 @@ export class GlbBuildRunner {
       materialTuning,
       facadeMaterialProfile,
       variationProfile,
-      staticAtmosphere: sceneDetail.staticAtmosphere,
-      sceneWideAtmosphereProfile: sceneDetail.sceneWideAtmosphereProfile,
-      districtAtmosphereProfiles: sceneDetail.districtAtmosphereProfiles,
+      staticAtmosphere: contract.staticAtmosphere,
+      sceneWideAtmosphereProfile: contract.sceneWideAtmosphereProfile,
+      districtAtmosphereProfiles: contract.districtAtmosphereProfiles,
     };
 
     this.appLoggerService.info('scene.glb_build.diagnostics', {
-      sceneId: sceneMeta.sceneId,
+      sceneId: contract.sceneId,
       step: 'glb_build',
       ...diagnosticsPayload,
     });
     await appendSceneDiagnosticsLog(
-      sceneMeta.sceneId,
+      contract.sceneId,
       'glb_build',
       diagnosticsPayload,
     );
     await appendSceneDiagnosticsLog(
-      sceneMeta.sceneId,
+      contract.sceneId,
       'mode_comparison',
       comparisonReport as unknown as Record<string, unknown>,
     );
     await writeFile(
-      join(getSceneDataDir(), `${sceneMeta.sceneId}.mode-comparison.json`),
+      join(getSceneDataDir(), `${contract.sceneId}.mode-comparison.json`),
       JSON.stringify(comparisonReport, null, 2),
       'utf8',
     );
@@ -374,39 +360,31 @@ export class GlbBuildRunner {
   }
 
   private collectBuildingClosureDiagnostics(
-    sceneMeta: SceneMeta,
-    assetSelection: ReturnType<typeof buildSceneAssetSelection>,
+    adaptiveMeta: GlbInputContract,
+    assetSelection: GlbInputContract['assetSelection'],
   ): BuildingClosureDiagnosticsMetrics {
     return collectBuildingClosureDiagnostics(
-      sceneMeta,
+      adaptiveMeta,
       assetSelection.buildings,
     );
   }
 
   private resolveMaterialTuning(
-    sceneMeta: SceneMeta,
-    sceneDetail: SceneDetail,
+    contract: GlbInputContract,
   ): MaterialTuningOptions {
     return resolveMaterialTuningFromScene(
-      sceneMeta,
-      sceneDetail.facadeHints,
-      sceneDetail.staticAtmosphere,
-      sceneDetail.fidelityPlan?.targetMode,
+      contract.facadeHints,
+      contract.staticAtmosphere,
+      contract.fidelityPlan?.targetMode,
     );
   }
 
-  private resolveVariationProfile(
-    sceneMeta: SceneMeta,
-    sceneDetail: SceneDetail,
-  ) {
-    return resolveSceneVariationProfile(sceneMeta, sceneDetail);
+  private resolveVariationProfile(contract: GlbInputContract) {
+    return resolveSceneVariationProfile(contract, contract);
   }
 
-  private resolveFacadeMaterialProfile(
-    sceneMeta: SceneMeta,
-    sceneDetail: SceneDetail,
-  ) {
-    return resolveFacadeLayerMaterialProfile(sceneMeta, sceneDetail);
+  private resolveFacadeMaterialProfile(contract: GlbInputContract) {
+    return resolveFacadeLayerMaterialProfile(contract, contract);
   }
 
   private async validateGlb(

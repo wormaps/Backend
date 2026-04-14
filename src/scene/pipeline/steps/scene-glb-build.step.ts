@@ -7,6 +7,8 @@ import {
   appendSceneDiagnosticsLog,
   getSceneDiagnosticsLogPath,
 } from '../../storage/scene-storage.utils';
+import { buildSceneAssetSelection } from '../../utils/scene-asset-profile.utils';
+import { buildGlbInputContract } from '../../../assets/internal/glb-build';
 
 interface BuildingClosureDiagnosticsShape {
   openShellCount?: number;
@@ -37,11 +39,13 @@ export class SceneGlbBuildStep {
       wetRoadBoost: detail.staticAtmosphere?.wetRoadBoost ?? 0,
     });
 
-    const assetPath = await this.glbBuilderService.build(
+    const assetSelection = buildSceneAssetSelection(
       meta,
       detail,
-      runMetrics,
+      meta.assetProfile.preset,
     );
+    const contract = buildGlbInputContract(meta, detail, assetSelection);
+    const assetPath = await this.glbBuilderService.build(contract, runMetrics);
 
     const closureDiagnostics = await this.resolveBuildingClosureDiagnostics(
       meta.sceneId,

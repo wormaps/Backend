@@ -26,7 +26,7 @@ import {
   RunnerStageHooks,
   SceneMaterials,
 } from '../glb-build-stage.types';
-import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
+import type { GlbInputContract } from '../glb-build-contract';
 import {
   resolveAccentToneFromPalette,
   resolveBuildingShellStyleFromHint,
@@ -39,8 +39,8 @@ export interface BuildingClosureDiagnostics {
 }
 
 export function collectBuildingClosureDiagnostics(
-  sceneMeta: SceneMeta,
-  buildings: SceneMeta['buildings'],
+  sceneMeta: GlbInputContract,
+  buildings: GlbInputContract['buildings'],
 ): BuildingClosureDiagnostics {
   const shellMetrics = collectBuildingShellClosureMetrics(
     sceneMeta.origin,
@@ -68,8 +68,8 @@ export function resolveWindowTriangleBudgetForSelection(
 
 export function buildGroupedBuildingShells(
   hooks: Pick<RunnerStageHooks, 'buildGroupedBuildingShells'>,
-  sceneMeta: SceneMeta,
-  sceneDetail: SceneDetail,
+  sceneMeta: GlbInputContract,
+  sceneDetail: GlbInputContract,
   assetSelection: AssetSelection,
 ): GroupedBuildings {
   return hooks.buildGroupedBuildingShells(
@@ -95,8 +95,8 @@ export function addBuildingAndHeroMeshes(
     | 'createBuildingRoofAccentGeometry'
   >,
   ctx: MeshAddContext,
-  sceneMeta: SceneMeta,
-  sceneDetail: SceneDetail,
+  sceneMeta: GlbInputContract,
+  sceneDetail: GlbInputContract,
   assetSelection: AssetSelection,
   materials: SceneMaterials,
   triangulate: (
@@ -184,7 +184,8 @@ export function addBuildingAndHeroMeshes(
       const panelTone = resolveAccentToneFromPalette(
         primaryHint.panelPalette ?? primaryHint.palette,
       );
-      const panelColor = primaryHint.panelPalette?.[0] ?? primaryHint.palette[0];
+      const panelColor =
+        primaryHint.panelPalette?.[0] ?? primaryHint.palette[0];
       if (panelColor) {
         hooks.addMeshNode(
           ctx.doc,
@@ -403,7 +404,7 @@ export function addBuildingAndHeroMeshes(
 }
 
 function resolveBuildingRoofTone(
-  building: SceneMeta['buildings'][number],
+  building: GlbInputContract['buildings'][number],
 ): 'cool' | 'warm' | 'neutral' {
   const explicit = building.roofColor ?? building.facadeColor;
   if (explicit) {

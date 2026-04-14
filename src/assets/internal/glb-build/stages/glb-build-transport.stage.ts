@@ -18,7 +18,7 @@ import {
   RunnerStageHooks,
   SceneMaterials,
 } from '../glb-build-stage.types';
-import { SceneDetail, SceneMeta } from '../../../../scene/types/scene.types';
+import type { GlbInputContract } from '../glb-build-contract';
 
 export function addTransportMeshes(
   hooks: Pick<
@@ -29,8 +29,8 @@ export function addTransportMeshes(
     | 'modePolicy'
   >,
   ctx: MeshAddContext,
-  sceneMeta: SceneMeta,
-  sceneDetail: SceneDetail,
+  sceneMeta: GlbInputContract,
+  sceneDetail: GlbInputContract,
   assetSelection: AssetSelection,
   materials: SceneMaterials,
   triangulate: (
@@ -127,13 +127,13 @@ export function addTransportMeshes(
     ctx.Accessor,
     ctx.scene,
     ctx.buffer,
-      'crosswalk_overlay',
-      mergeGeometryBuffers([
-        hooks.createCrosswalkGeometry(
-          sceneMeta.origin,
-          assetSelection.crossings,
-          sceneMeta.roads,
-        ),
+    'crosswalk_overlay',
+    mergeGeometryBuffers([
+      hooks.createCrosswalkGeometry(
+        sceneMeta.origin,
+        assetSelection.crossings,
+        sceneMeta.roads,
+      ),
       ...(hooks.modePolicy.stage.includeRoadDecal
         ? [
             createRoadDecalStripeGeometry(
