@@ -247,6 +247,7 @@ export interface SceneGeometryDiagnostic {
   hasHoles: boolean;
   polygonComplexity: 'simple' | 'concave' | 'complex';
   collisionRiskCount?: number;
+  buildingOverlapCount?: number;
   groundedGapCount?: number;
   averageGroundOffsetM?: number;
   maxGroundOffsetM?: number;

@@ -284,10 +284,10 @@ describe('building-mesh.builder', () => {
       return Math.min(...ys);
     };
 
-    expect(minY(shellNoOffset.positions)).toBeCloseTo(-0.35, 6);
-    expect(minY(shellNearRoad.positions)).toBeCloseTo(-0.41, 6);
-    expect(minY(shellAdaptiveOffset.positions)).toBeCloseTo(-0.53, 6);
-    expect(minY(shellDeepOffset.positions)).toBeCloseTo(-0.9, 6);
+    expect(minY(shellNoOffset.positions)).toBeCloseTo(-0.4, 6);
+    expect(minY(shellNearRoad.positions)).toBeCloseTo(-0.46, 6);
+    expect(minY(shellAdaptiveOffset.positions)).toBeCloseTo(-0.58, 6);
+    expect(minY(shellDeepOffset.positions)).toBeCloseTo(-1.1, 6);
   });
 
   it('applies terrainOffsetM consistently across building stack geometry', () => {
@@ -338,7 +338,9 @@ describe('building-mesh.builder', () => {
       [elevatedBuilding],
       facadeHints,
     );
-    const entrances = createBuildingEntranceGeometry(origin, [elevatedBuilding]);
+    const entrances = createBuildingEntranceGeometry(origin, [
+      elevatedBuilding,
+    ]);
     const roofEquipment = createBuildingRoofEquipmentGeometry(origin, [
       elevatedBuilding,
     ]);
@@ -352,7 +354,7 @@ describe('building-mesh.builder', () => {
     const minY = (positions: number[]): number =>
       Math.min(...positions.filter((_, index) => index % 3 === 1));
 
-    expect(minY(shell.positions)).toBeCloseTo(-0.11, 6);
+    expect(minY(shell.positions)).toBeCloseTo(-0.16, 6);
     expect(minY(roof.positions)).toBeGreaterThanOrEqual(48.24);
     expect(minY(panels.positions)).toBeGreaterThanOrEqual(0.24);
     expect(minY(windows.positions)).toBeGreaterThanOrEqual(0.24);

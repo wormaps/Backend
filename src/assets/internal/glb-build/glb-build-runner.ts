@@ -19,7 +19,6 @@ import {
   buildGroupedBuildingShells,
   collectBuildingClosureDiagnostics,
 } from './stages/glb-build-building-hero.stage';
-import { GroupedBuildings } from './glb-build-stage.types';
 import {
   createBuildingRoofAccentGeometry,
   createLandCoverGeometry,
@@ -49,7 +48,6 @@ import {
   addMeshNode,
 } from './glb-build-mesh-node';
 import {
-  FacadeColorDiversityMetrics,
   buildFacadeColorDiversityMetrics,
   buildGroupedBuildingShellsLocal,
   groupFacadeHintsByPanelColorLocal,
@@ -65,6 +63,54 @@ interface BuildingClosureDiagnosticsMetrics {
   roofWallGapCount: number;
   invalidSetbackJoinCount: number;
 }
+
+interface GlbTransformFunctionsModule {
+  prune: (options?: Record<string, unknown>) => unknown;
+  dedup: (options?: Record<string, unknown>) => unknown;
+  weld: (options?: Record<string, unknown>) => unknown;
+  quantize: (options?: Record<string, unknown>) => unknown;
+}
+
+interface TransformableGlbDocument {
+  transform: (...transforms: unknown[]) => Promise<void>;
+}
+
+interface GlbValidatorIssue {
+  code?: string;
+  message?: string;
+  pointer?: string;
+}
+
+interface GlbValidatorReport {
+  truncated?: boolean;
+  issues?: {
+    truncated?: boolean;
+    numErrors?: number;
+    numWarnings?: number;
+    numInfos?: number;
+    numHints?: number;
+    messages?: GlbValidatorIssue[];
+  };
+}
+
+const GLB_VALIDATOR_ERROR_SEVERITY = 0;
+const GLB_VALIDATION_DETAIL_LIMIT = 8;
+const GLB_VALIDATOR_SEVERITY_OVERRIDES: Record<string, number> = {
+  NON_OBJECT_EXTRAS: GLB_VALIDATOR_ERROR_SEVERITY,
+  EXTRA_PROPERTY: GLB_VALIDATOR_ERROR_SEVERITY,
+  UNDECLARED_EXTENSION: GLB_VALIDATOR_ERROR_SEVERITY,
+  UNEXPECTED_EXTENSION_OBJECT: GLB_VALIDATOR_ERROR_SEVERITY,
+  UNUSED_EXTENSION_REQUIRED: GLB_VALIDATOR_ERROR_SEVERITY,
+};
+
+const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
+  quantizePosition: 14,
+  quantizeNormal: 10,
+  quantizeTexcoord: 12,
+  quantizeColor: 8,
+  quantizeGeneric: 12,
+  cleanup: false,
+};
 
 @Injectable()
 export class GlbBuildRunner {
@@ -116,6 +162,7 @@ export class GlbBuildRunner {
     this.materialCacheStats = { hits: 0, misses: 0 };
     this.semanticGroupNodes.clear();
     const gltf = await import('@gltf-transform/core');
+    const transformFunctionsModule = await import('@gltf-transform/functions');
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
     const triangulate = earcutModule.default;
@@ -237,7 +284,10 @@ export class GlbBuildRunner {
           sceneMeta: SceneMeta,
           sceneDetail: SceneDetail,
           assetSelection: GlbInputContract['assetSelection'],
-        ) => buildGroupedBuildingShellsLocal(sceneDetail, assetSelection),
+        ) => {
+          void sceneMeta;
+          return buildGroupedBuildingShellsLocal(sceneDetail, assetSelection);
+        },
       },
       contract,
       contract,
@@ -274,6 +324,12 @@ export class GlbBuildRunner {
 
     const outputPath = join(getSceneDataDir(), `${contract.sceneId}.glb`);
     await mkdir(dirname(outputPath), { recursive: true });
+
+    await this.optimizeGlbDocument(
+      doc,
+      contract.sceneId,
+      transformFunctionsModule,
+    );
 
     const glbBinary = await new NodeIO().writeBinary(doc);
     await this.validateGlb(
@@ -387,6 +443,45 @@ export class GlbBuildRunner {
     return resolveFacadeLayerMaterialProfile(contract, contract);
   }
 
+  private async optimizeGlbDocument(
+    doc: unknown,
+    sceneId: string,
+    transformModule: GlbTransformFunctionsModule,
+  ): Promise<void> {
+    const transformableDoc = doc as TransformableGlbDocument;
+    if (typeof transformableDoc.transform !== 'function') {
+      return;
+    }
+
+    try {
+      await transformableDoc.transform(
+        transformModule.prune({
+          keepExtras: true,
+          keepLeaves: true,
+          keepAttributes: true,
+        }),
+        transformModule.dedup({
+          keepUniqueNames: true,
+        }),
+        transformModule.weld(),
+        transformModule.quantize(GLB_QUANTIZE_OPTIONS),
+      );
+
+      this.appLoggerService.info('scene.glb_build.optimize', {
+        sceneId,
+        step: 'glb_build',
+        transforms: ['prune', 'dedup', 'weld', 'quantize'],
+        quantize: GLB_QUANTIZE_OPTIONS,
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.glb_build.optimize_skipped', {
+        sceneId,
+        step: 'glb_build',
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   private async validateGlb(
     glbBinary: Uint8Array,
     sceneId: string,
@@ -399,25 +494,31 @@ export class GlbBuildRunner {
   ): Promise<void> {
     const report = (await validatorModule.validateBytes(glbBinary, {
       uri: `${sceneId}.glb`,
-      maxIssues: 1000,
-    })) as {
-      issues?: {
-        numErrors?: number;
-        messages?: Array<{ code?: string; message?: string; pointer?: string }>;
-      };
-    };
+      format: 'glb',
+      maxIssues: 0,
+      writeTimestamp: false,
+      severityOverrides: GLB_VALIDATOR_SEVERITY_OVERRIDES,
+    })) as GlbValidatorReport;
+
+    const isTruncated = Boolean(report.truncated || report.issues?.truncated);
+    if (isTruncated) {
+      throw new Error(
+        'GLB validation report was truncated. Increase observability or split diagnostics payload.',
+      );
+    }
 
     const numErrors = report.issues?.numErrors ?? 0;
     if (numErrors > 0) {
       const detail = report.issues?.messages
-        ?.slice(0, 5)
+        ?.slice(0, GLB_VALIDATION_DETAIL_LIMIT)
         .map(
           (issue) =>
             `${issue.code ?? 'UNKNOWN'}:${issue.pointer ?? '-'}:${issue.message ?? ''}`,
         )
         .join(' | ');
+      const warningSummary = `warnings=${report.issues?.numWarnings ?? 0}, infos=${report.issues?.numInfos ?? 0}, hints=${report.issues?.numHints ?? 0}`;
       throw new Error(
-        `GLB validation failed with ${numErrors} error(s).${detail ? ` ${detail}` : ''}`,
+        `GLB validation failed with ${numErrors} error(s) (${warningSummary}).${detail ? ` ${detail}` : ''}`,
       );
     }
   }

@@ -2,11 +2,13 @@ import {
   initializeDccHierarchy,
   registerBuildingGroupNodes,
 } from './glb-build-hierarchy';
+import type { AppLoggerService } from '../../../common/logging/app-logger.service';
 import {
   addMeshNode,
   MeshNodeDiagnostic,
   TriangleBudgetState,
 } from './glb-build-mesh-node';
+import { GlbBuildRunner } from './glb-build-runner';
 
 class FakeAccessor {
   static Type = {
@@ -173,6 +175,55 @@ const defaultTriangleBudget: TriangleBudgetState = {
   ]),
   budgetProtectedMeshPrefixes: ['building_panels_', 'building_shells_'],
 };
+
+type LoggerMock = {
+  info: jest.Mock<void, [string, Record<string, unknown>?]>;
+  warn: jest.Mock<void, [string, Record<string, unknown>?]>;
+  error: jest.Mock<void, [string, Record<string, unknown>?]>;
+  fromRequest: jest.Mock<{ requestId?: string | null }, [unknown?]>;
+};
+
+type RunnerPrivateMethods = {
+  optimizeGlbDocument: (
+    doc: unknown,
+    sceneId: string,
+    transformModule: {
+      prune: (options?: Record<string, unknown>) => unknown;
+      dedup: (options?: Record<string, unknown>) => unknown;
+      weld: (options?: Record<string, unknown>) => unknown;
+      quantize: (options?: Record<string, unknown>) => unknown;
+    },
+  ) => Promise<void>;
+  validateGlb: (
+    glbBinary: Uint8Array,
+    sceneId: string,
+    validatorModule: {
+      validateBytes: (
+        data: Uint8Array,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
+    },
+  ) => Promise<void>;
+};
+
+function createRunnerHarness(): {
+  runner: GlbBuildRunner;
+  runnerPrivate: RunnerPrivateMethods;
+  loggerMock: LoggerMock;
+} {
+  const loggerMock: LoggerMock = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    fromRequest: jest.fn(() => ({ requestId: null })),
+  };
+  const runner = new GlbBuildRunner(loggerMock as unknown as AppLoggerService);
+  return {
+    runner,
+    runnerPrivate: runner as unknown as RunnerPrivateMethods,
+    loggerMock,
+  };
+}
 
 describe('GlbBuildRunner modularized', () => {
   it('writes semantic provenance extras to node, mesh, and primitive', () => {
@@ -425,5 +476,174 @@ describe('GlbBuildRunner modularized', () => {
     expect(buildingNode).toBeDefined();
     expect(heroMeshNode?.extras.semanticCategory).toBe('building');
     expect(heroMeshNode?.extras.sourceObjectIds).toEqual(['building-hero']);
+  });
+
+  it('applies minimal GLB optimization transforms and logs result', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await runnerPrivate.optimizeGlbDocument(
+      doc,
+      'scene-optimize',
+      transformModule,
+    );
+
+    expect(transformModule.prune).toHaveBeenCalledWith(
+      expect.objectContaining({
+        keepExtras: true,
+        keepLeaves: true,
+        keepAttributes: true,
+      }),
+    );
+    expect(transformModule.dedup).toHaveBeenCalledWith(
+      expect.objectContaining({ keepUniqueNames: true }),
+    );
+    expect(transformModule.quantize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quantizePosition: 14,
+        quantizeNormal: 10,
+        quantizeTexcoord: 12,
+        quantizeColor: 8,
+        quantizeGeneric: 12,
+        cleanup: false,
+      }),
+    );
+    expect(transform).toHaveBeenCalledWith(
+      'prune-step',
+      'dedup-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'scene.glb_build.optimize',
+      expect.objectContaining({
+        sceneId: 'scene-optimize',
+        step: 'glb_build',
+      }),
+    );
+  });
+
+  it('warns and continues when optimization transform fails', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest
+      .fn<Promise<void>, unknown[]>()
+      .mockRejectedValue(new Error('transform-failed'));
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-optimize-warn',
+        transformModule,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-optimize-warn',
+        step: 'glb_build',
+        reason: 'transform-failed',
+      }),
+    );
+  });
+
+  it('passes strict validator options including format and severity overrides', async () => {
+    const { runnerPrivate } = createRunnerHarness();
+    const validateBytes = jest.fn().mockResolvedValue({
+      issues: {
+        numErrors: 0,
+        numWarnings: 0,
+        numInfos: 0,
+        numHints: 0,
+        messages: [],
+      },
+    });
+
+    await expect(
+      runnerPrivate.validateGlb(new Uint8Array([1, 2, 3]), 'scene-validate', {
+        validateBytes,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(validateBytes).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({
+        uri: 'scene-validate.glb',
+        format: 'glb',
+        maxIssues: 0,
+        writeTimestamp: false,
+      }),
+    );
+    const validatorOptions = validateBytes.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined;
+    const severityOverrides = (validatorOptions?.severityOverrides ?? {}) as
+      | Record<string, unknown>
+      | undefined;
+    expect(severityOverrides?.NON_OBJECT_EXTRAS).toBe(0);
+    expect(severityOverrides?.UNDECLARED_EXTENSION).toBe(0);
+    expect(severityOverrides?.UNEXPECTED_EXTENSION_OBJECT).toBe(0);
+  });
+
+  it('fails when validator report is truncated', async () => {
+    const { runnerPrivate } = createRunnerHarness();
+    const validateBytes = jest.fn().mockResolvedValue({
+      truncated: true,
+      issues: {
+        numErrors: 0,
+        messages: [],
+      },
+    });
+
+    await expect(
+      runnerPrivate.validateGlb(new Uint8Array([7, 8, 9]), 'scene-truncated', {
+        validateBytes,
+      }),
+    ).rejects.toThrow('validation report was truncated');
+  });
+
+  it('includes warning summary and issue details when validation fails', async () => {
+    const { runnerPrivate } = createRunnerHarness();
+    const validateBytes = jest.fn().mockResolvedValue({
+      issues: {
+        numErrors: 2,
+        numWarnings: 3,
+        numInfos: 1,
+        numHints: 0,
+        messages: [
+          {
+            code: 'NODE_MATRIX_TRS',
+            pointer: '/nodes/0',
+            message: 'Node has both matrix and TRS',
+          },
+        ],
+      },
+    });
+
+    await expect(
+      runnerPrivate.validateGlb(new Uint8Array([4, 5, 6]), 'scene-fail', {
+        validateBytes,
+      }),
+    ).rejects.toThrow('warnings=3, infos=1, hints=0');
+
+    await expect(
+      runnerPrivate.validateGlb(new Uint8Array([4, 5, 6]), 'scene-fail', {
+        validateBytes,
+      }),
+    ).rejects.toThrow('NODE_MATRIX_TRS:/nodes/0:Node has both matrix and TRS');
   });
 });

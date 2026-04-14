@@ -19,9 +19,9 @@ import {
   pushTriangle,
 } from './building-mesh.geometry-primitives';
 
-const MIN_FOUNDATION_DEPTH = 0.35;
-const MAX_FOUNDATION_DEPTH = 0.9;
-const SETBACK_OVERLAP = 0.01;
+const MIN_FOUNDATION_DEPTH = 0.4;
+const MAX_FOUNDATION_DEPTH = 1.1;
+const SETBACK_OVERLAP = 0.05;
 
 export interface BuildingShellClosureMetrics {
   openShellCount: number;

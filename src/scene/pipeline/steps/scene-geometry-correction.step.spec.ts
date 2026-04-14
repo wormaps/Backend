@@ -22,6 +22,7 @@ describe('SceneGeometryCorrectionStep', () => {
       (item) => item.objectId === '__geometry_correction__',
     ) as {
       collisionRiskCount?: number;
+      buildingOverlapCount?: number;
       groundedGapCount?: number;
       averageGroundOffsetM?: number;
       maxGroundOffsetM?: number;
@@ -36,6 +37,7 @@ describe('SceneGeometryCorrectionStep', () => {
 
     expect(correction).toBeDefined();
     expect(correction.collisionRiskCount).toBe(1);
+    expect(correction.buildingOverlapCount).toBe(0);
     expect(correction.groundedGapCount).toBe(1);
     expect((correction.averageGroundOffsetM ?? 0) > 0.06).toBe(true);
     expect((correction.maxGroundOffsetM ?? 0) > 0.06).toBe(true);
@@ -53,9 +55,9 @@ describe('SceneGeometryCorrectionStep', () => {
     expect(farBuilding?.collisionRisk).toBe('none');
     expect(farBuilding?.groundOffsetM).toBe(0);
     expect(Math.abs(farBuilding?.terrainOffsetM ?? 0)).toBeGreaterThan(0);
-    expect(Math.abs(corrected.meta.walkways[0]?.terrainOffsetM ?? 0)).toBeGreaterThan(
-      0,
-    );
+    expect(
+      Math.abs(corrected.meta.walkways[0]?.terrainOffsetM ?? 0),
+    ).toBeGreaterThan(0);
   });
 
   it('marks edge-near building using anchor-based road proximity', () => {
@@ -88,6 +90,102 @@ describe('SceneGeometryCorrectionStep', () => {
     );
     expect(farBuilding?.collisionRisk).toBe('none');
     expect(farBuilding?.groundOffsetM).toBe(0);
+  });
+
+  it('marks overlapping buildings as collision risk even when road is far', () => {
+    const step = new SceneGeometryCorrectionStep();
+    const { meta, detail } = createFixture();
+
+    meta.roads = [
+      {
+        ...meta.roads[0],
+        objectId: 'road-far',
+        osmWayId: 'road_far',
+        path: [coordinate(35.7, 139.8), coordinate(35.7002, 139.8002)],
+      },
+    ];
+    meta.buildings = [
+      {
+        ...meta.buildings[0],
+        objectId: 'building-overlap-a',
+        osmWayId: 'building_overlap_a',
+        outerRing: [
+          coordinate(35.6595, 139.7005),
+          coordinate(35.6595, 139.70062),
+          coordinate(35.65962, 139.70062),
+          coordinate(35.65962, 139.7005),
+        ],
+      },
+      {
+        ...meta.buildings[1],
+        objectId: 'building-overlap-b',
+        osmWayId: 'building_overlap_b',
+        outerRing: [
+          coordinate(35.65956, 139.70056),
+          coordinate(35.65956, 139.70068),
+          coordinate(35.65968, 139.70068),
+          coordinate(35.65968, 139.70056),
+        ],
+      },
+    ];
+
+    const corrected = step.execute(meta, detail);
+    const correction = corrected.detail.geometryDiagnostics?.find(
+      (item) => item.objectId === '__geometry_correction__',
+    ) as {
+      collisionRiskCount?: number;
+      buildingOverlapCount?: number;
+    };
+
+    expect(corrected.meta.buildings[0].collisionRisk).toBe('none');
+    expect(corrected.meta.buildings[1].collisionRisk).toBe('none');
+    expect((corrected.meta.buildings[0].groundOffsetM ?? 0) >= 0.08).toBe(true);
+    expect((corrected.meta.buildings[1].groundOffsetM ?? 0) >= 0.08).toBe(true);
+    expect(correction.collisionRiskCount).toBe(0);
+    expect(correction.buildingOverlapCount).toBe(2);
+  });
+
+  it('keeps terrain coverage as fully anchored on flat terrain samples', () => {
+    const step = new SceneGeometryCorrectionStep();
+    const { meta, detail } = createFixture();
+
+    meta.terrainProfile = {
+      ...(meta.terrainProfile ?? {
+        mode: 'LOCAL_DEM_SAMPLES',
+        source: 'LOCAL_FILE',
+        hasElevationModel: true,
+        heightReference: 'LOCAL_DEM',
+        baseHeightMeters: 30,
+        sampleCount: 1,
+        minHeightMeters: 30,
+        maxHeightMeters: 30,
+        sourcePath: '/tmp/flat-terrain.json',
+        notes: 'flat terrain',
+        samples: [
+          { location: coordinate(35.6595, 139.7005), heightMeters: 30 },
+        ],
+      }),
+      baseHeightMeters: 30,
+      minHeightMeters: 30,
+      maxHeightMeters: 30,
+      samples: [
+        { location: coordinate(35.6595, 139.7005), heightMeters: 30 },
+        { location: coordinate(35.65975, 139.70072), heightMeters: 30 },
+      ],
+    };
+
+    const corrected = step.execute(meta, detail);
+    const correction = corrected.detail.geometryDiagnostics?.find(
+      (item) => item.objectId === '__geometry_correction__',
+    ) as {
+      transportTerrainCoverageRatio?: number;
+      terrainAnchoredRoadCount?: number;
+      terrainAnchoredWalkwayCount?: number;
+    };
+
+    expect(correction.terrainAnchoredRoadCount).toBe(1);
+    expect(correction.terrainAnchoredWalkwayCount).toBe(1);
+    expect(correction.transportTerrainCoverageRatio).toBe(1);
   });
 });
 
@@ -259,7 +357,10 @@ function createFixture(): { meta: SceneMeta; detail: SceneDetail } {
         widthMeters: 3,
         walkwayType: 'footway',
         surface: 'paving_stones',
-        path: [coordinate(35.65955, 139.70055), coordinate(35.65975, 139.70072)],
+        path: [
+          coordinate(35.65955, 139.70055),
+          coordinate(35.65975, 139.70072),
+        ],
       },
     ],
     pois: [],

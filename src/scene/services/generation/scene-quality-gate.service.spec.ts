@@ -12,6 +12,7 @@ type SceneGeometryDiagnosticWithCorrection = {
   hasHoles: false;
   polygonComplexity: 'simple';
   collisionRiskCount: number;
+  buildingOverlapCount?: number;
   groundedGapCount: number;
   openShellCount: number;
   roofWallGapCount: number;
@@ -124,6 +125,7 @@ describe('SceneQualityGateService', () => {
       hasHoles: false,
       polygonComplexity: 'simple',
       collisionRiskCount: 3,
+      buildingOverlapCount: 1,
       groundedGapCount: 1,
       openShellCount: 0,
       roofWallGapCount: 0,
@@ -174,6 +176,7 @@ describe('SceneQualityGateService', () => {
         collisionRiskCount: Math.floor(
           200 * (COLLISION_HARD_FAIL_RATIO - 0.005),
         ),
+        buildingOverlapCount: 0,
         groundedGapCount: 0,
         openShellCount: 0,
         roofWallGapCount: 0,
@@ -192,6 +195,50 @@ describe('SceneQualityGateService', () => {
 
     const result = await service.evaluate(meta, detail);
     expect(result.reasonCodes).not.toContain('CRITICAL_COLLISION_DETECTED');
+  });
+
+  it('fails when building-overlap collision ratio exceeds threshold', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-overlap-'));
+    process.env.SCENE_DATA_DIR = tempDir;
+
+    const service = new SceneQualityGateService();
+    const sceneId = 'scene-qg-overlap-ratio';
+    const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
+    meta.buildings = Array.from({ length: 100 }, (_, index) => ({
+      ...meta.buildings[0],
+      objectId: `building-overlap-${index}`,
+      osmWayId: `building_overlap_${index}`,
+    }));
+    const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
+    detail.geometryDiagnostics = [
+      {
+        objectId: '__geometry_correction__',
+        strategy: 'fallback_massing',
+        fallbackApplied: true,
+        fallbackReason: 'NONE',
+        hasHoles: false,
+        polygonComplexity: 'simple',
+        collisionRiskCount: 0,
+        buildingOverlapCount: Math.ceil(100 * COLLISION_HARD_FAIL_RATIO),
+        groundedGapCount: 0,
+        openShellCount: 0,
+        roofWallGapCount: 0,
+        invalidSetbackJoinCount: 0,
+      } as unknown as NonNullable<SceneDetail['geometryDiagnostics']>[number],
+    ];
+
+    await writeFile(
+      join(tempDir, `${sceneId}.diagnostics.log`),
+      `${JSON.stringify({
+        stage: 'glb_build',
+        meshNodes: [{ name: 'road_base', skipped: false }],
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await service.evaluate(meta, detail);
+    expect(result.state).toBe('FAIL');
+    expect(result.reasonCodes).toContain('CRITICAL_COLLISION_DETECTED');
   });
 
   it('fails when geometry diagnostics report shell closure and roof-wall gaps', async () => {
