@@ -97,6 +97,26 @@ export class SceneReadService {
           weather: 'CURRENT_OR_HISTORICAL',
           state: 'SYNTHETIC_RULES_ENTITY_READY',
         },
+        loading: {
+          selectiveLoading: true,
+          progressiveLoading: true,
+          defaultNodeOrder: [
+            'transport',
+            'building_lod_high',
+            'street_context',
+            'building_lod_medium',
+            'building_lod_low',
+            'landmark',
+          ],
+          chunkPriority: [
+            { key: 'transport', priority: 'high' },
+            { key: 'building_lod_high', priority: 'high' },
+            { key: 'street_context', priority: 'medium' },
+            { key: 'building_lod_medium', priority: 'medium' },
+            { key: 'building_lod_low', priority: 'low' },
+            { key: 'landmark', priority: 'medium' },
+          ],
+        },
       },
     };
   }

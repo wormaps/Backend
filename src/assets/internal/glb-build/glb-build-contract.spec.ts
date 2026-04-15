@@ -45,6 +45,22 @@ describe('buildGlbInputContract', () => {
 
     expect(contract.structuralCoverage).toEqual(sceneMeta.structuralCoverage);
   });
+
+  it('attaches progressive/selective loading hints in contract', () => {
+    const contract = buildGlbInputContract(
+      createSceneMeta(),
+      createSceneDetail(),
+      createAssetSelection(),
+    );
+
+    expect(contract.loadingHints).toBeDefined();
+    expect(contract.loadingHints?.selectiveLoading).toBe(true);
+    expect(contract.loadingHints?.progressiveLoading).toBe(true);
+    expect(contract.loadingHints?.defaultNodeOrder).toContain('transport');
+    expect(contract.loadingHints?.defaultNodeOrder).toContain(
+      'building_lod_high',
+    );
+  });
 });
 
 function createSceneMeta(): SceneMeta {

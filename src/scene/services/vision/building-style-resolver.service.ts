@@ -22,6 +22,14 @@ export interface BuildingStyleInput {
   roofShape?: string | null;
   buildingPart?: string | null;
   outerRing: Coordinate[];
+  osmAttributes?: Record<string, string>;
+  googlePlacesInfo?: {
+    placeId: string;
+    primaryType?: string | null;
+    types?: string[];
+  } | null;
+  nearbyImageCount?: number;
+  nearbyFeatureCount?: number;
 }
 
 export interface BuildingStyleProfile {
@@ -250,8 +258,35 @@ export class BuildingStyleResolverService {
         }
         return 'brick';
       default:
+        if (
+          input.osmAttributes &&
+          Object.keys(input.osmAttributes).length > 0
+        ) {
+          return input.usage === 'COMMERCIAL' ? 'glass' : 'mixed';
+        }
+        if (input.googlePlacesInfo) {
+          return input.usage === 'COMMERCIAL' ? 'glass' : 'mixed';
+        }
         return input.usage === 'COMMERCIAL' ? 'glass' : 'mixed';
     }
+  }
+
+  determineEvidenceStrength(
+    input: BuildingStyleInput,
+  ): 'STRONG' | 'MODERATE' | 'WEAK' {
+    if (
+      (input.nearbyImageCount ?? 0) > 0 &&
+      (input.nearbyFeatureCount ?? 0) > 0
+    ) {
+      return 'STRONG';
+    }
+    if (input.osmAttributes && Object.keys(input.osmAttributes).length > 0) {
+      return 'MODERATE';
+    }
+    if (input.googlePlacesInfo) {
+      return 'MODERATE';
+    }
+    return 'WEAK';
   }
 
   resolveRoofType(

@@ -111,6 +111,22 @@ export function addBuildingAndHeroMeshes(
   const windowBudget = resolveWindowTriangleBudgetForSelection(
     selectedBuildingCount,
   );
+  let progressiveOrder = 0;
+  const nextProgressiveOrder = () => {
+    progressiveOrder += 1;
+    return progressiveOrder;
+  };
+  const resolveLoadTier = (
+    lod: 'HIGH' | 'MEDIUM' | 'LOW' | undefined,
+  ): 'high' | 'medium' | 'low' => {
+    if (lod === 'HIGH') {
+      return 'high';
+    }
+    if (lod === 'LOW') {
+      return 'low';
+    }
+    return 'medium';
+  };
   for (const building of assetSelection.buildings) {
     const buildingHints = sceneDetail.facadeHints.filter(
       (hint) => hint.objectId === building.objectId,
@@ -138,6 +154,9 @@ export function addBuildingAndHeroMeshes(
         sourceCount: 1,
         selectedCount: 1,
         selectionLod: building.lodLevel,
+        loadTier: resolveLoadTier(building.lodLevel),
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: `building_shell:${shellStyle.materialClass}:${shellStyle.bucket}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -160,6 +179,9 @@ export function addBuildingAndHeroMeshes(
         sourceCount: 1,
         selectedCount: 1,
         selectionLod: building.lodLevel,
+        loadTier: resolveLoadTier(building.lodLevel),
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: `building_roof_surface:${roofTone}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -183,6 +205,9 @@ export function addBuildingAndHeroMeshes(
         sourceCount: 1,
         selectedCount: 1,
         selectionLod: building.lodLevel,
+        loadTier: resolveLoadTier(building.lodLevel),
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: `building_roof_accent:${roofTone}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -218,6 +243,9 @@ export function addBuildingAndHeroMeshes(
             sourceCount: 1,
             selectedCount: 1,
             selectionLod: building.lodLevel,
+            loadTier: resolveLoadTier(building.lodLevel),
+            progressiveOrder: nextProgressiveOrder(),
+            instanceGroupKey: `building_panel:${panelTone}:${panelColor}`,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -247,6 +275,9 @@ export function addBuildingAndHeroMeshes(
         sourceCount: buildingHints.length,
         selectedCount: 1,
         selectionLod: building.lodLevel,
+        loadTier: resolveLoadTier(building.lodLevel),
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -266,6 +297,9 @@ export function addBuildingAndHeroMeshes(
         sourceCount: 1,
         selectedCount: 1,
         selectionLod: building.lodLevel,
+        loadTier: resolveLoadTier(building.lodLevel),
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: 'building_entrance:default',
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -282,6 +316,9 @@ export function addBuildingAndHeroMeshes(
         sourceCount: building.roofSpec?.roofUnits ?? 0,
         selectedCount: building.roofSpec?.roofUnits ?? 0,
         selectionLod: building.lodLevel,
+        loadTier: resolveLoadTier(building.lodLevel),
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: 'building_roof_equipment:default',
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -313,6 +350,9 @@ export function addBuildingAndHeroMeshes(
         {
           sourceCount: billboardGroup.sourceCount,
           selectedCount: billboardGroup.selectedClusters.length,
+          loadTier: 'medium',
+          progressiveOrder: nextProgressiveOrder(),
+          instanceGroupKey: `billboards:${billboardGroup.tone}:${billboardGroup.colorHex}`,
           semanticCategory: 'signage',
           sourceObjectIds: billboardGroup.selectedClusters.map(
             (cluster) => cluster.objectId,
@@ -341,6 +381,9 @@ export function addBuildingAndHeroMeshes(
             sourceCount: 1,
             selectedCount: 1,
             selectionLod: building.lodLevel,
+            loadTier: resolveLoadTier(building.lodLevel),
+            progressiveOrder: nextProgressiveOrder(),
+            instanceGroupKey: 'hero_canopy:default',
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -362,6 +405,9 @@ export function addBuildingAndHeroMeshes(
             sourceCount: 1,
             selectedCount: 1,
             selectionLod: building.lodLevel,
+            loadTier: resolveLoadTier(building.lodLevel),
+            progressiveOrder: nextProgressiveOrder(),
+            instanceGroupKey: 'hero_roof_unit:default',
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -383,6 +429,9 @@ export function addBuildingAndHeroMeshes(
             sourceCount: 1,
             selectedCount: 1,
             selectionLod: building.lodLevel,
+            loadTier: resolveLoadTier(building.lodLevel),
+            progressiveOrder: nextProgressiveOrder(),
+            instanceGroupKey: 'hero_billboard:default',
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -408,6 +457,9 @@ export function addBuildingAndHeroMeshes(
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
         selectedCount:
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
+        loadTier: 'medium',
+        progressiveOrder: nextProgressiveOrder(),
+        instanceGroupKey: 'landmark_extras:default',
         semanticCategory: 'landmark',
         sourceObjectIds: [
           ...sceneMeta.landmarkAnchors.map((item) => item.objectId),

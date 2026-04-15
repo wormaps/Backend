@@ -17,6 +17,7 @@ import {
   SceneFidelityPlan,
   SceneQualityGateResult,
   SceneScale,
+  StoredSceneCuratedAssetPayload,
   SceneStructuralCoverage,
 } from './scene-domain.types';
 import { SceneTwinGraph, ValidationReport } from './scene-twin.types';
@@ -68,6 +69,15 @@ export interface BootstrapResponse {
       traffic: 'LIVE_BEST_EFFORT';
       weather: 'CURRENT_OR_HISTORICAL';
       state: 'SYNTHETIC_RULES' | 'SYNTHETIC_RULES_ENTITY_READY';
+    };
+    loading?: {
+      selectiveLoading: boolean;
+      progressiveLoading: boolean;
+      defaultNodeOrder: string[];
+      chunkPriority: Array<{
+        key: string;
+        priority: 'high' | 'medium' | 'low';
+      }>;
     };
   };
 }
@@ -197,12 +207,14 @@ export interface StoredScene {
     capturedAt: string;
     upstreamEnvelopes?: FetchJsonEnvelope[];
   };
+  curatedAssetPayload?: StoredSceneCuratedAssetPayload;
 }
 
 export interface SceneCreateOptions {
   forceRegenerate?: boolean;
   requestId?: string | null;
   source?: 'api' | 'smoke';
+  curatedAssetPayload?: StoredSceneCuratedAssetPayload;
 }
 
 export interface SceneWeatherQuery {

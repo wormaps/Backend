@@ -51,8 +51,27 @@ export class SceneFacadeVisionService {
     }));
 
     return placePackage.buildings.map((building) => {
-      const style =
-        this.buildingStyleResolverService.resolveBuildingStyle(building);
+      const dominantImageColor = extractDominantFacadeColor(
+        averageCoordinate(building.outerRing) ?? building.outerRing[0],
+        mapillaryImages,
+      );
+      const style = this.buildingStyleResolverService.resolveBuildingStyle({
+        ...building,
+        nearbyImageCount: mapillaryImages.filter(
+          (image) =>
+            distanceMeters(
+              averageCoordinate(building.outerRing) ?? building.outerRing[0],
+              image.location,
+            ) <= 45,
+        ).length,
+        nearbyFeatureCount: mapillaryFeatures.filter(
+          (feature) =>
+            distanceMeters(
+              averageCoordinate(building.outerRing) ?? building.outerRing[0],
+              feature.location,
+            ) <= 35,
+        ).length,
+      });
       const anchor =
         averageCoordinate(building.outerRing) ?? building.outerRing[0];
       const explicitBuildingColor = hasExplicitBuildingColor(building);
@@ -101,6 +120,14 @@ export class SceneFacadeVisionService {
         evidenceDensityScore < 0.38 &&
         !explicitBuildingColor &&
         !building.facadeMaterial;
+      const auxiliaryEvidenceStrength =
+        this.buildingStyleResolverService.determineEvidenceStrength({
+          ...building,
+          nearbyImageCount,
+          nearbyFeatureCount,
+        });
+      const effectiveWeakEvidence =
+        weakEvidence && auxiliaryEvidenceStrength === 'WEAK';
       const inferenceReasonCodes: InferenceReasonCode[] = [];
       if (nearbyImageCount === 0) {
         inferenceReasonCodes.push('MISSING_MAPILLARY_IMAGES');
@@ -117,12 +144,29 @@ export class SceneFacadeVisionService {
       if (!building.roofShape) {
         inferenceReasonCodes.push('MISSING_ROOF_SHAPE');
       }
-      if (weakEvidence) {
+      if (effectiveWeakEvidence) {
         inferenceReasonCodes.push('WEAK_EVIDENCE_RATIO_HIGH');
         inferenceReasonCodes.push('DEFAULT_STYLE_RULE');
+        if (
+          !building.osmAttributes &&
+          !building.googlePlacesInfo &&
+          nearbyImageCount === 0 &&
+          nearbyFeatureCount === 0
+        ) {
+          inferenceReasonCodes.push('MISSING_AUXILIARY_DATA');
+        }
       }
       const palette = uniquePalette(
-        explicitBuildingColor ? style.palette : inferredPalette.palette,
+        dominantImageColor
+          ? [
+              dominantImageColor,
+              ...(explicitBuildingColor
+                ? style.palette
+                : inferredPalette.palette),
+            ]
+          : explicitBuildingColor
+            ? style.palette
+            : inferredPalette.palette,
         4,
       );
       const shellPalette = uniquePalette(
@@ -139,7 +183,7 @@ export class SceneFacadeVisionService {
       );
       const antiUniformPalette = applyWeakEvidencePaletteDrift({
         buildingId: building.id,
-        weakEvidence,
+        weakEvidence: effectiveWeakEvidence,
         hasExplicitColor: explicitBuildingColor,
         districtProfile: context.districtProfile,
         palette,
@@ -202,7 +246,7 @@ export class SceneFacadeVisionService {
         roofAccentType: style.roofAccentType,
         windowPatternDensity: style.windowPatternDensity,
         signBandLevels: style.signBandLevels,
-        weakEvidence,
+        weakEvidence: effectiveWeakEvidence,
         inferenceReasonCodes,
         contextProfile: context.districtProfile,
         districtCluster: districtResolution.cluster,
@@ -500,6 +544,38 @@ function resolveEvidenceStrengthFromScore(score: number): EvidenceStrength {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function extractDominantFacadeColor(
+  anchor: import('../../../places/types/place.types').Coordinate,
+  images: Awaited<ReturnType<MapillaryClient['getNearbyImages']>>,
+): string | null {
+  const nearest = images
+    .map((image) => ({
+      image,
+      distance: distanceMeters(anchor, image.location),
+    }))
+    .sort((a, b) => a.distance - b.distance)
+    .find((item) => item.distance <= 30);
+  if (!nearest) {
+    return null;
+  }
+  const seed = [
+    nearest.image.id,
+    nearest.image.thumbnailUrl ?? '',
+    nearest.image.sequenceId ?? '',
+    nearest.image.capturedAt ?? '',
+    nearest.image.compassAngle?.toFixed(1) ?? '',
+  ].join('|');
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const channel = (offset: number) => 64 + ((hash >> offset) & 0x8f);
+  const r = channel(0).toString(16).padStart(2, '0');
+  const g = channel(7).toString(16).padStart(2, '0');
+  const b = channel(14).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
 }
 
 function applyWeakEvidencePaletteDrift(input: {

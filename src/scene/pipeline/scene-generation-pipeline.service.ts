@@ -107,6 +107,8 @@ export class SceneGenerationPipelineService {
       storedScene.scale,
       placePackage.placePackage,
       vision.detail,
+      'fidelity_plan',
+      storedScene.curatedAssetPayload,
     );
 
     const baseMeta = this.sceneMetaBuilderStep.buildBaseMeta(
@@ -141,6 +143,7 @@ export class SceneGenerationPipelineService {
       placePackage.placePackage,
       mergedWithAtmosphere.detail,
       'fidelity_plan_final',
+      storedScene.curatedAssetPayload,
     );
     mergedWithAtmosphere.detail.fidelityPlan = finalFidelityPlan;
     mergedWithAtmosphere.detail.staticAtmosphere =

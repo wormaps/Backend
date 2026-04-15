@@ -212,6 +212,7 @@ type RunnerPrivateMethods = {
       ) => Promise<unknown>;
     },
   ) => Promise<void>;
+  enforceSizeBudget: (glbBytes: number, sceneId: string) => void;
 };
 
 function createRunnerHarness(): {
@@ -280,6 +281,9 @@ describe('GlbBuildRunner modularized', () => {
         sourceCount: 3,
         selectedCount: 2,
         selectionLod: 'MEDIUM',
+        loadTier: 'medium',
+        progressiveOrder: 7,
+        instanceGroupKey: 'transport:road-base',
         semanticCategory: 'transport',
         sourceObjectIds: ['road-1', 'road-2'],
       },
@@ -299,6 +303,9 @@ describe('GlbBuildRunner modularized', () => {
     expect(node.extras.semanticCategory).toBe('transport');
     expect(mesh.extras.semanticMetadataCoverage).toBe('PARTIAL');
     expect(mesh.extras.selectionLod).toBe('MEDIUM');
+    expect(mesh.extras.loadTier).toBe('medium');
+    expect(mesh.extras.progressiveOrder).toBe(7);
+    expect(mesh.extras.instanceGroupKey).toBe('transport:road-base');
     expect(primitive.extras.sourceObjectIds).toEqual(['road-1', 'road-2']);
     expect((node.extras.twinEntityIds as string[]).length).toBe(2);
     expect(
@@ -573,12 +580,11 @@ describe('GlbBuildRunner modularized', () => {
     );
     expect(transformModule.quantize).toHaveBeenCalledWith(
       expect.objectContaining({
-        quantizePosition: 14,
-        quantizeNormal: 10,
         quantizeTexcoord: 12,
         quantizeColor: 8,
         quantizeGeneric: 12,
         cleanup: false,
+        pattern: expect.any(RegExp),
       }),
     );
     expect(transform).toHaveBeenCalledWith(
@@ -1123,5 +1129,21 @@ describe('GlbBuildRunner modularized', () => {
         validateBytes,
       }),
     ).rejects.toThrow('NODE_MATRIX_TRS:/nodes/0:Node has both matrix and TRS');
+  });
+
+  it('throws when GLB size exceeds 30MB budget', () => {
+    const { runnerPrivate } = createRunnerHarness();
+
+    expect(() =>
+      runnerPrivate.enforceSizeBudget(30 * 1024 * 1024 + 1, 'scene-too-large'),
+    ).toThrow('GLB size budget exceeded');
+  });
+
+  it('passes when GLB size is within 30MB budget', () => {
+    const { runnerPrivate } = createRunnerHarness();
+
+    expect(() =>
+      runnerPrivate.enforceSizeBudget(30 * 1024 * 1024, 'scene-fit-budget'),
+    ).not.toThrow();
   });
 });

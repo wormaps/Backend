@@ -41,6 +41,25 @@ export class CreateSceneRequestDto {
       'true이면 동일 query/scale의 READY scene이 있어도 재사용하지 않습니다.',
   })
   forceRegenerate?: boolean;
+
+  @ApiProperty({
+    required: false,
+    example: {
+      landmarks: [
+        { id: 'lm-1', name: 'Landmark 1' },
+        { id: 'lm-2', name: 'Landmark 2' },
+      ],
+      facadeOverrides: [{ objectId: 'building-1', palette: ['#ff7755'] }],
+      signageOverrides: [{ objectId: 'sign-1', panelCount: 3 }],
+    },
+    description:
+      'Optional curated asset payload used by scene fidelity planner.',
+  })
+  curatedAssetPayload?: {
+    landmarks?: Array<{ id: string; name: string }>;
+    facadeOverrides?: Array<{ objectId: string; palette: string[] }>;
+    signageOverrides?: Array<{ objectId: string; panelCount: number }>;
+  };
 }
 
 export class SceneEntityDto {

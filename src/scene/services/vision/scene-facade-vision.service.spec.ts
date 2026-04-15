@@ -197,6 +197,86 @@ describe('SceneFacadeVisionService', () => {
     expect(hints[0].inferenceReasonCodes).not.toContain('DEFAULT_STYLE_RULE');
   });
 
+  it('does not mark weakEvidence when auxiliary OSM attributes exist', () => {
+    const hints = service.buildFacadeHints(
+      place,
+      {
+        ...placePackage,
+        buildings: [
+          {
+            ...placePackage.buildings[0],
+            osmAttributes: { building: 'yes', name: 'Aux OSM Building' },
+          },
+        ],
+      },
+      [],
+      [],
+    );
+
+    expect(hints).toHaveLength(1);
+    expect(hints[0].weakEvidence).toBe(false);
+    expect(hints[0].inferenceReasonCodes).not.toContain('DEFAULT_STYLE_RULE');
+    expect(hints[0].inferenceReasonCodes).not.toContain(
+      'MISSING_AUXILIARY_DATA',
+    );
+  });
+
+  it('prepends dominant image-derived color when nearby mapillary image exists', () => {
+    const hints = service.buildFacadeHints(
+      place,
+      placePackage,
+      [
+        {
+          id: 'img-1',
+          capturedAt: null,
+          compassAngle: null,
+          location: { lat: 35.65953, lng: 139.70053 },
+          sequenceId: null,
+          thumbnailUrl: null,
+        },
+      ],
+      [],
+    );
+
+    expect(hints).toHaveLength(2);
+    expect(hints[0].palette[0]).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it('uses nearby image metadata to stabilize dominant color extraction', () => {
+    const hintsA = service.buildFacadeHints(
+      place,
+      placePackage,
+      [
+        {
+          id: 'img-a',
+          capturedAt: '2026-04-06T00:00:00.000Z',
+          compassAngle: 15,
+          location: { lat: 35.65953, lng: 139.70053 },
+          sequenceId: 'seq-a',
+          thumbnailUrl: 'https://example.com/a.jpg',
+        },
+      ],
+      [],
+    );
+    const hintsB = service.buildFacadeHints(
+      place,
+      placePackage,
+      [
+        {
+          id: 'img-a',
+          capturedAt: '2026-04-06T00:00:00.000Z',
+          compassAngle: 15,
+          location: { lat: 35.65953, lng: 139.70053 },
+          sequenceId: 'seq-a',
+          thumbnailUrl: 'https://example.com/a.jpg',
+        },
+      ],
+      [],
+    );
+
+    expect(hintsA[0]?.palette[0]).toBe(hintsB[0]?.palette[0]);
+  });
+
   it('summarizes facade context diagnostics for logging', () => {
     const hints = service.buildFacadeHints(place, placePackage, [], []);
     const diagnostics = service.summarizeFacadeContextDiagnostics(

@@ -23,6 +23,17 @@ export class ScenePlacePackageStep {
       requestId,
     });
     const placePackage = traced.placePackage;
+    const enrichedPlacePackage: PlacePackage = {
+      ...placePackage,
+      buildings: placePackage.buildings.map((building) => ({
+        ...building,
+        googlePlacesInfo: {
+          placeId: place.placeId,
+          primaryType: place.primaryType,
+          types: place.types,
+        },
+      })),
+    };
     const providerTrace: ProviderTrace = {
       provider: 'OVERPASS',
       observedAt: placePackage.generatedAt,
@@ -46,29 +57,29 @@ export class ScenePlacePackageStep {
       responseSummary: {
         status: 'SUCCESS',
         itemCount:
-          placePackage.buildings.length +
-          placePackage.roads.length +
-          placePackage.walkways.length +
-          placePackage.pois.length +
-          placePackage.crossings.length +
-          placePackage.streetFurniture.length +
-          placePackage.vegetation.length +
-          placePackage.landCovers.length +
-          placePackage.linearFeatures.length,
-        objectId: placePackage.placeId,
+          enrichedPlacePackage.buildings.length +
+          enrichedPlacePackage.roads.length +
+          enrichedPlacePackage.walkways.length +
+          enrichedPlacePackage.pois.length +
+          enrichedPlacePackage.crossings.length +
+          enrichedPlacePackage.streetFurniture.length +
+          enrichedPlacePackage.vegetation.length +
+          enrichedPlacePackage.landCovers.length +
+          enrichedPlacePackage.linearFeatures.length,
+        objectId: enrichedPlacePackage.placeId,
         diagnostics: {
-          buildingCount: placePackage.buildings.length,
-          roadCount: placePackage.roads.length,
-          walkwayCount: placePackage.walkways.length,
-          poiCount: placePackage.pois.length,
-          crossingCount: placePackage.crossings.length,
+          buildingCount: enrichedPlacePackage.buildings.length,
+          roadCount: enrichedPlacePackage.roads.length,
+          walkwayCount: enrichedPlacePackage.walkways.length,
+          poiCount: enrichedPlacePackage.pois.length,
+          crossingCount: enrichedPlacePackage.crossings.length,
         },
       },
       upstreamEnvelopes: traced.upstreamEnvelopes,
     };
 
     return {
-      placePackage,
+      placePackage: enrichedPlacePackage,
       providerTrace,
     };
   }

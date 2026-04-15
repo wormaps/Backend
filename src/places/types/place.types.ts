@@ -48,6 +48,12 @@ export interface BuildingData {
   roofMaterial?: string | null;
   roofShape?: string | null;
   buildingPart?: string | null;
+  osmAttributes?: Record<string, string>;
+  googlePlacesInfo?: {
+    placeId: string;
+    primaryType?: string | null;
+    types?: string[];
+  };
 }
 
 export interface RoadData {

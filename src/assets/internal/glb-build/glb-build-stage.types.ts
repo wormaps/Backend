@@ -55,6 +55,9 @@ export interface MeshAddDelegate {
       sourceCount?: number;
       selectedCount?: number;
       selectionLod?: 'HIGH' | 'MEDIUM' | 'LOW';
+      loadTier?: 'high' | 'medium' | 'low';
+      progressiveOrder?: number;
+      instanceGroupKey?: string;
       semanticCategory?: string;
       semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
       sourceObjectIds?: string[];

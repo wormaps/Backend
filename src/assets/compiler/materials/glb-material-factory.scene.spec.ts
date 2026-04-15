@@ -1,4 +1,7 @@
-import { createSceneMaterials } from './glb-material-factory.scene';
+import {
+  createBuildingShellMaterial,
+  createSceneMaterials,
+} from './glb-material-factory.scene';
 
 class FakeMaterial {
   public readonly name: string;
@@ -181,6 +184,24 @@ describe('glb-material-factory.scene', () => {
       const roadBase = materials.roadBase as FakeMaterial;
       expect(roadBase.baseColorFactor).toEqual([0.14, 0.15, 0.17, 1]);
       expect(roadBase.baseColorTexture).toBeNull();
+    });
+
+    it('applies building shell texture slot when texture path is enabled', () => {
+      const buildingShellTexture = { uri: 'building-shell.png' };
+      const shell = createBuildingShellMaterial(
+        new FakeDoc(),
+        'glass',
+        'cool-light',
+        undefined,
+        {
+          enableTexturePath: true,
+          textureSlots: {
+            buildingShell: buildingShellTexture,
+          },
+        },
+      ) as FakeMaterial;
+
+      expect(shell.baseColorTexture).toEqual(buildingShellTexture);
     });
   });
 });

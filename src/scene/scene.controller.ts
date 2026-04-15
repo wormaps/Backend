@@ -44,6 +44,7 @@ import {
   ValidationReportDto,
   SceneWeatherResponseDto,
 } from '../docs/scene';
+import type { StoredSceneCuratedAssetPayload } from './types/scene.types';
 import {
   TIME_OF_DAY_VALUES,
   WEATHER_VALUES,
@@ -88,6 +89,8 @@ export class SceneController {
     @Body('query') query?: string,
     @Body('scale') rawScale?: string,
     @Body('forceRegenerate') rawForceRegenerate?: boolean | string,
+    @Body('curatedAssetPayload')
+    curatedAssetPayload?: StoredSceneCuratedAssetPayload,
   ): Promise<ResponsePayload<SceneEntity>> {
     const validatedQuery = parseRequiredQuery(query, 'query');
     const scale = parseOptionalEnum(
@@ -109,6 +112,7 @@ export class SceneController {
           forceRegenerate,
           requestId: requestContext.requestId,
           source: 'api',
+          curatedAssetPayload,
         },
       ),
     };

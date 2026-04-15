@@ -314,6 +314,8 @@ function buildBuildingRecord(
     roofMaterial: tags?.['roof:material'] ?? null,
     roofShape: tags?.['roof:shape'] ?? null,
     buildingPart: tags?.['building:part'] ?? null,
+    osmAttributes: { ...(tags ?? {}) },
+    googlePlacesInfo: undefined,
   };
 }
 

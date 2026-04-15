@@ -189,7 +189,7 @@ export class SceneHeroOverrideApplierService {
   ): void {
     const targetHeroCount = Math.max(
       4,
-      Math.ceil(meta.assetProfile.selected.buildingCount * 0.02),
+      Math.ceil(meta.assetProfile.selected.buildingCount * 0.3),
     );
     const existingHero = meta.buildings.filter(
       (building) => building.visualRole && building.visualRole !== 'generic',

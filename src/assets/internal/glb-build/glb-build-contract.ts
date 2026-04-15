@@ -42,6 +42,15 @@ export type GlbInputContract = SceneMeta &
   SceneDetail & {
     readonly version: 'glb-input.v1';
     readonly assetSelection: SceneAssetSelection;
+    readonly loadingHints?: {
+      selectiveLoading: boolean;
+      progressiveLoading: boolean;
+      defaultNodeOrder: string[];
+      chunkPriority: Array<{
+        key: string;
+        priority: 'high' | 'medium' | 'low';
+      }>;
+    };
   };
 
 export function buildGlbInputContract(
@@ -59,5 +68,25 @@ export function buildGlbInputContract(
     structuralCoverage: sceneMeta.structuralCoverage,
     version: 'glb-input.v1',
     assetSelection,
+    loadingHints: {
+      selectiveLoading: true,
+      progressiveLoading: true,
+      defaultNodeOrder: [
+        'transport',
+        'building_lod_high',
+        'street_context',
+        'building_lod_medium',
+        'building_lod_low',
+        'landmark',
+      ],
+      chunkPriority: [
+        { key: 'transport', priority: 'high' },
+        { key: 'building_lod_high', priority: 'high' },
+        { key: 'street_context', priority: 'medium' },
+        { key: 'building_lod_medium', priority: 'medium' },
+        { key: 'building_lod_low', priority: 'low' },
+        { key: 'landmark', priority: 'medium' },
+      ],
+    },
   };
 }

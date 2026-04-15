@@ -88,6 +88,7 @@ export class SceneGenerationService {
         scale,
         generationSource: options.source ?? 'api',
         requestId: options.requestId ?? null,
+        curatedAssetPayload: options.curatedAssetPayload,
         attempts: 0,
         scene,
       },

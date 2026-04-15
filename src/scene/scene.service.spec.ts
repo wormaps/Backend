@@ -168,6 +168,11 @@ describe('Scene Services', () => {
     expect(bootstrap.renderContract.liveDataModes.state).toBe(
       'SYNTHETIC_RULES_ENTITY_READY',
     );
+    expect(bootstrap.renderContract.loading?.selectiveLoading).toBe(true);
+    expect(bootstrap.renderContract.loading?.progressiveLoading).toBe(true);
+    expect(bootstrap.renderContract.loading?.defaultNodeOrder).toContain(
+      'building_lod_high',
+    );
     expect(bootstrap.glbSources).toEqual({
       googlePlaces: true,
       overpass: true,
@@ -183,6 +188,10 @@ describe('Scene Services', () => {
     expect(meta.roads[0]?.path).toHaveLength(3);
     expect(meta.roads[0]?.roadClass).toBe('primary');
     expect(meta.roads[0]?.widthMeters).toBe(14);
+    expect(meta.buildings[0]?.osmAttributes).toBeDefined();
+    expect(meta.buildings[0]?.googlePlacesInfo?.placeId).toBe(
+      placeDetail.placeId,
+    );
     expect(meta.buildings[0]?.osmWayId).toBe('building_11');
     expect(meta.buildings[0]?.footprint).toHaveLength(3);
     expect(meta.camera.topView.y).toBeGreaterThan(0);
@@ -430,6 +439,32 @@ describe('Scene Services', () => {
     expect(second.status).toBe('PENDING');
     await generationService.waitForIdle();
     expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists curatedAssetPayload in stored scene on creation', async () => {
+    const { generationService, readService } = context!;
+    const curatedAssetPayload = {
+      landmarks: [
+        { id: 'lm-1', name: 'Landmark 1' },
+        { id: 'lm-2', name: 'Landmark 2' },
+      ],
+      facadeOverrides: [{ objectId: 'building-1', palette: ['#ff7755'] }],
+      signageOverrides: [{ objectId: 'sign-1', panelCount: 3 }],
+    };
+
+    const scene = await generationService.createScene(
+      'Seoul City Hall',
+      'MEDIUM',
+      {
+        forceRegenerate: true,
+        requestId: 'req_curated',
+        source: 'api',
+        curatedAssetPayload,
+      },
+    );
+
+    const stored = await readService['sceneRepository'].findById(scene.sceneId);
+    expect(stored?.curatedAssetPayload).toEqual(curatedAssetPayload);
   });
 
   it('marks scene as failed after retry exhaustion', async () => {

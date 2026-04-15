@@ -514,12 +514,18 @@ export function createBuildingShellMaterial(
     facadeProfile.shellSurfaceBias,
   );
 
-  return doc
+  const material = doc
     .createMaterial(`building-shell-${materialClass}-${explicitHex ?? bucket}`)
     .setBaseColorFactor([r, g, b, 1])
     .setMetallicFactor(adjustedSurface.metallicFactor)
     .setRoughnessFactor(adjustedSurface.roughnessFactor)
     .setDoubleSided(true);
+  applyTextureSlotIfAvailable(
+    material,
+    tuning.textureSlots.buildingShell,
+    tuning.enableTexturePath,
+  );
+  return material;
 }
 
 export function createBuildingPanelMaterial(

@@ -144,6 +144,7 @@ export type InferenceReasonCode =
   | 'WEAK_EVIDENCE_RATIO_HIGH'
   | 'DEFAULT_STYLE_RULE'
   | 'GEOMETRY_FALLBACK_TRIGGERED'
+  | 'MISSING_AUXILIARY_DATA'
   | 'UNKNOWN_INFERENCE_REASON';
 export type SceneRealitySourceType =
   | 'OSM'
@@ -577,6 +578,12 @@ export interface SceneStreetFurnitureRowHint {
   type: 'TRAFFIC_LIGHT' | 'STREET_LIGHT' | 'SIGN_POLE';
   points: Coordinate[];
   principal?: boolean;
+}
+
+export interface StoredSceneCuratedAssetPayload {
+  landmarks?: Array<{ id: string; name: string }>;
+  facadeOverrides?: Array<{ objectId: string; palette: string[] }>;
+  signageOverrides?: Array<{ objectId: string; panelCount: number }>;
 }
 
 export interface LandmarkAnnotationManifest {

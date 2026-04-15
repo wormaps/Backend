@@ -1,916 +1,520 @@
-# 디지털 트윈 BE Phase 문서
+# GLB 산출물 품질 개선 - Phase 계획서
 
-## 현재 구현 상태
-
-현재는 초기 문서보다 한 단계 더 진행된 상태입니다.
-
-* `scene-meta.json` 생성
-* `scene-detail.json` 생성
-* semantic `base.glb` 생성
-* `GET /api/scenes/{sceneId}/detail` 제공
-* 시부야 전용 hero override 적용
-
-즉, 현재 MVP는 `scene-meta + scene-detail + base.glb + live API` 조합으로 동작합니다.
-
-## 목표
-
-MVP 단계에서는 4개의 외부 API를 모두 하나의 3D 자산 파일에 넣는 것이 아니라,
-정적인 공간 구조는 우선 `scene-meta.json`으로 만들고,
-동적으로 변하는 데이터는 별도의 API 응답으로 제공하는 구조를 사용한다.
-
-* 정적 구조 → `scene-meta.json`
-* 실시간 상태 → JSON API
-* 최종 렌더링 및 상태 반영 → FE Engine
+> **작성일**: 2026-04-15  
+> **목적**: GLB 검증 에러 해결 및 디지털 트윈 품질 개선  
+> **현재 상태**: GLB validation 실패 (19,972 errors)
 
 ---
 
-# Phase 1. 장소 결정 및 Scene 생성 기준 확보
+## Phase 0: 즉시 수정 (Critical - GLB 검증 실패 해결)
 
-## 목적
+**목표**: `bun scene:shibuya` 실행 시 GLB 생성 성공  
+**기간**: 1일  
+**우선순위**: 🔴 Critical
 
-사용자가 입력한 장소를 기준으로 Scene의 중심점과 범위를 결정한다.
+### 0.1 quantize POSITION/NORMAL 제외
 
-## 사용 API
+**파일**: `src/assets/internal/glb-build/glb-build-runner.ts`
 
-* Google Places API
+**현재 코드 (Line 119-126)**:
 
-## 입력
-
-* 장소명
-* placeId
-* 좌표
-
-예시:
-
-```json
-{
-  "query": "Seoul City Hall"
-}
+```typescript
+const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
+  quantizePosition: 14,
+  quantizeNormal: 10,
+  quantizeTexcoord: 12,
+  quantizeColor: 8,
+  quantizeGeneric: 12,
+  cleanup: false,
+};
 ```
 
-## 처리
+**수정 코드**:
 
-1. Google Places로 장소 검색
-2. placeId, 중심 좌표(lat/lng), viewport 확보
-3. 내부 sceneId 생성
-4. Scene 중심 좌표와 반경(radius) 결정
-
-## 출력
-
-```json
-{
-  "sceneId": "scene_seoul_cityhall",
-  "placeId": "google_place_id",
-  "center": {
-    "lat": 37.5665,
-    "lng": 126.9780
-  },
-  "radiusM": 600
-}
+```typescript
+const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
+  quantizeTexcoord: 12,
+  quantizeColor: 8,
+  quantizeGeneric: 12,
+  cleanup: false,
+  // POSITION, NORMAL은 glTF 2.0 core 사양에서 FLOAT만 허용
+  // quantize()가 SHORT normalized로 변환하면 validator 에러 발생
+  pattern: /^(?!POSITION$|NORMAL$)/,
+};
 ```
 
-## 권장 범위
+**근거**:
 
-* small: 300m
-* medium: 600m
-* large: 1000m
+- glTF 2.0 Core 사양 3.7.2.1: POSITION accessor는 FLOAT componentType이어야 함
+- glTF Transform의 `quantize()`는 `pattern` 옵션으로 semantic 제외 가능
+- 공식 테스트(`quantize.test.ts` Line 36-45)에서 동일한 패턴 사용
 
-MVP에서는 medium(600m) 정도를 기본값으로 사용한다.
+**검증 방법**:
 
----
-
-# Phase 2. 공간 데이터 수집
-
-## 목적
-
-Scene 범위 안의 건물, 도로, 인도, POI 데이터를 수집한다.
-
-## 사용 API
-
-* OpenStreetMap + Overpass API
-
-## 수집 대상
-
-* 건물
-* 도로
-* 인도
-* 공원
-* 주요 POI
-
-## 주요 태그
-
-* building=* → 건물
-* highway=* → 도로
-* highway=footway / path → 인도
-* amenity=* → 시설
-* shop=* → 상점
-* tourism=* → 관광지
-
-## 처리
-
-1. radius 기준 bbox 계산
-2. Overpass API 호출
-3. building, road, footway, poi 데이터 수집
-4. 내부 Geometry 형태로 변환
-
-## 내부 구조 예시
-
-```ts
-interface SceneGeometry {
-  buildings: BuildingFootprint[]
-  roads: RoadLine[]
-  footways: FootwayLine[]
-  pois: PoiPoint[]
-}
+```bash
+bun scene:shibuya
+# 예상 결과: GLB validation passed
 ```
 
 ---
 
-# Phase 3. Geometry 정리 및 Mesh 생성
+### 0.2 NodeIO 확장 등록
 
-## 목적
+**파일**: `src/assets/internal/glb-build/glb-build-runner.ts`
 
-OSM 데이터를 실제 3D 메시로 변환 가능한 형태로 정리한다.
+**현재 코드 (Line 375)**:
 
-## 처리
-
-### Building
-
-* polygon 추출
-* extrusion 적용
-* 높이 계산
-
-높이 우선순위:
-
-1. height
-2. building:levels
-3. 기본 높이 fallback
-
-예시:
-
-* 소형 건물: 8m
-* 일반 건물: 15m
-* 고층 건물: 40m
-
-### Road
-
-* centerline 기반 strip mesh 생성
-* 도로 타입별 width 적용
-
-예시:
-
-* primary: 12m
-* secondary: 8m
-* residential: 5m
-* footway: 2m
-
-### Footway
-
-* 얇은 plane mesh 생성
-* 도로보다 밝은 머티리얼 사용
-
-### POI
-
-* 실제 mesh 대신 anchor point 생성
-* FE에서 아이콘/마커로 표현
-
----
-
-# Phase 4. Scene Meta 생성
-
-## 목적
-
-정적인 공간 구조를 FE가 바로 사용할 수 있는 `scene-meta.json` 형태로 생성한다.
-
-## 포함 대상
-
-* Scene origin / bounds
-* 건물 목록
-* 도로 목록
-* 보행로 목록
-* 주요 landmark / POI
-* objectId metadata
-
-## 포함하지 않는 대상
-
-* 실시간 교통 흐름
-* 날씨 상태
-* Places 상세정보
-* 운영시간
-* 혼잡도
-* 최종 mesh binary 자산
-
-## MVP 출력 형태
-
-MVP 1차에서는 `.glb`를 생성하지 않는다.
-
-우선 아래 산출물을 만든다.
-
-* `scene-meta.json`
-* `bootstrap.json` 또는 bootstrap API 응답
-* live API와 연결 가능한 `objectId` 목록
-
-`.glb` 생성은 geometry 정규화 규칙과 FE 바인딩 규격이 안정화된 뒤 후속 단계로 미룬다.
-
-## 권장 스타일
-
-애니메이션풍보다는 lowpoly + data visualization 스타일 사용
-
-### 이유
-
-* 자동 생성 mesh와 잘 맞음
-* 교통/날씨 overlay 적용이 쉬움
-* 렌더 비용이 낮음
-* MVP 속도에 유리함
-
-## 권장 머티리얼
-
-* 건물: 중성 회색
-* 도로: 어두운 회색
-* 보행로: 밝은 회색
-* 주요 POI: emissive point
-* 녹지: 단순 녹색 plane
-
-## Metadata 예시
-
-```json
-{
-  "objectId": "building_123",
-  "osmId": "way_9988",
-  "type": "building",
-  "placeId": "google_place_id"
-}
+```typescript
+const glbBinary = await new NodeIO().writeBinary(doc);
 ```
 
----
+**수정 코드**:
 
-# Phase 5. Scene 데이터 저장
+```typescript
+const io = new NodeIO();
 
-## 목적
-
-생성된 Scene 메타데이터를 저장하고 FE에서 접근 가능한 URL 또는 조회 경로를 제공한다.
-
-## 저장 위치
-
-* 로컬 파일 저장 또는 DB
-* 필요 시 S3 / CloudFront
-
-## 역할
-
-### 1차 MVP
-
-* `scene-meta.json` 저장
-* bootstrap 응답에 필요한 scene 정보 저장
-* live API 조회를 위한 scene / poi / road 매핑 저장
-
-### 후속 확장
-
-* `.glb` 저장
-* texture 저장
-* scene manifest 저장
-* CDN 캐싱
-
-## 저장 예시
-
-```txt
-/scenes/scene_seoul_cityhall/manifest.json
-/scenes/scene_seoul_cityhall/scene-meta.json
-/scenes/scene_seoul_cityhall/pois.json
-```
-
----
-
-# Phase 6. 실시간 상태 API 제공
-
-## 목적
-
-실시간 교통, 날씨, 장소 정보를 FE에 제공한다.
-
-## 사용 API
-
-* Open-Meteo Historical Weather API
-* TomTom Traffic API
-* Google Places Details API
-
-## 제공 Endpoint
-
-```txt
-GET /scenes/:sceneId/bootstrap
-GET /scenes/:sceneId/weather
-GET /scenes/:sceneId/traffic
-GET /scenes/:sceneId/places
-```
-
-## Weather 역할
-
-* 하늘 색상
-* 조명 세기
-* 안개
-* 비/눈 파티클
-* 노면 반사
-
-## Traffic 역할
-
-* 도로 색상 변경
-* congestion score 계산
-* 혼잡도 표시
-* 도로 pulse 애니메이션
-
-예시:
-
-```ts
-congestionScore = 1 - currentSpeed / freeFlowSpeed
-```
-
-혼잡도 기준:
-
-* 0.0 ~ 0.2 → green
-* 0.2 ~ 0.5 → yellow
-* 0.5 ~ 0.8 → orange
-* 0.8 이상 → red
-
----
-
-# Phase 7. FE 연동
-
-## 목적
-
-FE Engine이 `scene-meta.json`과 실시간 상태를 조합해 최종 Scene을 렌더링한다.
-
-## FE 흐름
-
-1. Scene bootstrap 호출
-2. metaUrl 수신
-3. `scene-meta.json` 로드
-4. weather/traffic/places API 병렬 호출
-5. metadata id와 상태값 매핑
-6. 도로 색상, 날씨 효과, POI 마커 반영
-
-## Bootstrap 응답 예시
-
-```json
-{
-  "sceneId": "scene_seoul_cityhall",
-  "metaUrl": "https://cdn.example.com/scenes/scene_seoul_cityhall/scene-meta.json",
-  "liveEndpoints": {
-    "weather": "/scenes/scene_seoul_cityhall/weather",
-    "traffic": "/scenes/scene_seoul_cityhall/traffic",
-    "places": "/scenes/scene_seoul_cityhall/places"
+// quantize()가 사용하는 KHR_mesh_quantization 확장 등록
+try {
+  const extensionsModule = await import('@gltf-transform/extensions');
+  const allExtensions = Object.values(extensionsModule).filter(
+    (ext): ext is new (...args: unknown[]) => unknown =>
+      typeof ext === 'function' && 'EXTENSION_NAME' in ext.prototype,
+  );
+  if (allExtensions.length > 0) {
+    io.registerExtensions(allExtensions);
   }
+} catch (extensionImportError) {
+  this.appLoggerService.warn('scene.glb_build.extension_registration_skipped', {
+    sceneId: contract.sceneId,
+    step: 'glb_build',
+    reason:
+      extensionImportError instanceof Error
+        ? extensionImportError.message
+        : String(extensionImportError),
+  });
 }
+
+const glbBinary = await io.writeBinary(doc);
+```
+
+**근거**:
+
+- `quantize()`가 `KHR_mesh_quantization` 확장을 문서에 추가
+- `NodeIO`에 확장을 등록하지 않으면 "Some extensions were not registered" 경고 발생
+- `@gltf-transform/extensions` 패키지에 모든 공식 확장이 포함됨
+
+**검증 방법**:
+
+```bash
+bun scene:shibuya
+# 예상 결과: "Some extensions were not registered" 경고 사라짐
 ```
 
 ---
 
-# Phase 8. 추후 확장
+### 0.3 검증 결과
 
-## 이후 고려 가능
-
-* 차량 이동 애니메이션
-* 군중 시뮬레이션
-* 시간대 변화
-* 실시간 이벤트
-* CCTV/센서 연동
-* CesiumJS
-* 3D Tiles
-* 대규모 도시 단위 Scene
-
-## CesiumJS 재검토 시점
-
-* Scene 범위가 1km 이상으로 커짐
-* 도시 단위 지형 필요
-* 정밀 좌표계 필요
-* 지형/위성/LOD 스트리밍 필요
-* `.glb` 단일 Scene 구조가 한계에 도달함
-
-현재 MVP 단계에서는 Three.js 기반 단일 Scene 구조를 유지한다.
+| 지표                     | 현재   | 목표   |
+| ------------------------ | ------ | ------ |
+| GLB validation errors    | 19,972 | 0      |
+| "Some extensions" 경고   | 발생   | 미발생 |
+| `bun scene:shibuya` 실행 | 실패   | 성공   |
 
 ---
 
-# BE MVP 설계
+## Phase 1: 충돌 감지 강화
 
-## 1. MVP 목표
+**목표**: mesh 중첩으로 인한 시각적 충돌 제거  
+**기간**: 1주  
+**우선순위**: 🔴 High  
+**현재 지표**: collisionRiskCount: 72
 
-BE MVP의 목표는 아래 3가지를 동시에 만족하는 것이다.
+### 1.1 건물 간 AABB 충돌 검사 추가
 
-1. 사용자가 입력한 장소를 기준으로 Scene을 생성할 수 있어야 한다.
-2. 정적인 공간 구조를 `scene-meta.json`으로 생성할 수 있어야 한다.
-3. FE가 교통, 날씨, 장소 정보를 동적으로 덧입힐 수 있도록 bootstrap/live API를 제공해야 한다.
+**파일**: `src/scene/pipeline/steps/scene-geometry-correction.step.ts`
 
-즉 MVP는 **"Scene metadata 생성기 + 상태 제공 서버"** 로 정의한다.
+**현재 코드**:
 
----
-
-## 2. MVP 범위
-
-### 포함
-
-* Google Places 기반 장소 검색 및 중심 좌표 결정
-* Overpass 기반 건물/도로/보행로/POI 수집
-* `scene-meta.json` 생성
-* scene 저장
-* Scene bootstrap API
-* Traffic API
-* Weather API
-* Places overlay API
-
-### 제외
-
-* 정적 Scene `.glb` 생성
-* S3 / CloudFront 업로드
-* 차량 이동 시뮬레이션
-* 실시간 WebSocket
-* CesiumJS
-* 3D Tiles
-* 도시 단위 타일 스트리밍
-* 포토리얼리스틱 재질
-* 복잡한 애니메이션 연출
-
----
-
-## 3. 시스템 역할 정의
-
-### BE
-
-* 외부 API 호출
-* 공간 데이터 정규화
-* Scene metadata 생성
-* scene 저장
-* bootstrap/live API 제공
-* 캐시 관리
-
-### FE
-
-* `scene-meta.json` 해석
-* objectId와 live 상태 바인딩
-* 교통/날씨/POI 상태 반영
-* Scene 렌더링
-
----
-
-## 4. NestJS 모듈 구조
-
-```txt
-src/
-  app.module.ts
-  common/
-    config/
-    logger/
-    errors/
-  scene/
-    scene.module.ts
-    controllers/
-      scene.controller.ts
-    application/
-      create-scene.usecase.ts
-      get-bootstrap.usecase.ts
-      get-scene-status.usecase.ts
-    domain/
-      entities/
-      dto/
-      types/
-    infrastructure/
-      repositories/
-      storage/
-      generators/
-      mappers/
-  providers/
-    providers.module.ts
-    google-places/
-      google-places.client.ts
-    overpass/
-      overpass.client.ts
-    open-meteo/
-      open-meteo.client.ts
-    tomtom/
-      tomtom.client.ts
-  cache/
-    cache.module.ts
-  database/
-    database.module.ts
+```typescript
+// 도로와의 거리만 검사
+const COLLISION_NEAR_ROAD_METERS = 1.6;
 ```
 
-NestJS는 controller, provider, module 기반으로 구조를 나누는 것이 기본 개념이고, provider는 의존성 주입 단위로 관리된다. ([docs.nestjs.com](https://docs.nestjs.com/?utm_source=chatgpt.com))
+**수정 코드**:
 
----
+```typescript
+// 건물 간 충돌 검사 함수 추가
+function checkBuildingBuildingCollision(
+  buildingA: SceneMetaBuildings,
+  buildingB: SceneMetaBuildings,
+  minDistance: number = 2.0,
+): boolean {
+  const boundsA = computeBuildingBounds(buildingA);
+  const boundsB = computeBuildingBounds(buildingB);
 
-## 5. 핵심 엔티티
-
-### Scene
-
-```ts
-interface SceneEntity {
-  sceneId: string
-  placeId: string
-  name: string
-  centerLat: number
-  centerLng: number
-  radiusM: number
-  status: 'pending' | 'ready' | 'failed'
-  metaUrl?: string
-  createdAt: string
-  updatedAt: string
+  // AABB 교차 검사
+  return (
+    boundsA.minX <= boundsB.maxX + minDistance &&
+    boundsA.maxX >= boundsB.minX - minDistance &&
+    boundsA.minY <= boundsB.maxY + minDistance &&
+    boundsA.maxY >= boundsB.minY - minDistance
+  );
 }
-```
 
-### SceneMeta
+// 기존 correctBuilding 함수에 건물 간 충돌 검사 추가
+function correctBuilding(
+  building: SceneMetaBuildings,
+  allBuildings: SceneMetaBuildings[],
+  crossings: SceneMetaCrossings[],
+): BuildingDiagnostics {
+  // ... 기존 도로 충돌 검사 ...
 
-```ts
-interface SceneMeta {
-  sceneId: string
-  origin: {
-    lat: number
-    lng: number
+  // 건물 간 충돌 검사 추가
+  const collidingBuildings = allBuildings.filter(
+    (other) =>
+      other.id !== building.id &&
+      checkBuildingBuildingCollision(building, other, 2.0),
+  );
+
+  if (collidingBuildings.length > 0) {
+    // 충돌 시 건물을 분리하거나 크기 조정
+    return {
+      ...diagnostics,
+      collisionRiskCount: collidingBuildings.length,
+      collisionResolution: 'SEPARATE',
+    };
   }
-  bounds: {
-    radiusM: number
+
+  return diagnostics;
+}
+```
+
+### 1.2 충돌 임계값 조정
+
+**현재**:
+
+```typescript
+const COLLISION_NEAR_ROAD_METERS = 1.6;
+```
+
+**수정**:
+
+```typescript
+const COLLISION_NEAR_ROAD_METERS = 3.0; // 도로와의 거리 증가
+const COLLISION_BETWEEN_BUILDINGS_METERS = 2.0; // 건물 간 거리 추가
+```
+
+### 1.3 검증 결과
+
+| 지표               | 현재 | 목표 |
+| ------------------ | ---- | ---- |
+| collisionRiskCount | 72   | < 10 |
+
+---
+
+## Phase 2: 지면 연결 개선
+
+**목표**: 건물이 공중에 떠있지 않도록  
+**기간**: 1주  
+**우선순위**: 🟡 High  
+**현재 지표**: groundedGapCount: 22, averageGroundOffsetM: 0.132
+
+### 2.1 SETBACK_OVERLAP 증가
+
+**파일**: `src/assets/compiler/building/building-mesh.shell.builder.ts`
+
+**현재 코드 (Line 19)**:
+
+```typescript
+const SETBACK_OVERLAP = 0.01; // 1cm
+```
+
+**수정 코드**:
+
+```typescript
+const SETBACK_OVERLAP = 0.05; // 5cm로 증가
+// 또는 환경 변수로 제어 가능하게
+const SETBACK_OVERLAP = Number(process.env.SETBACK_OVERLAP_METERS ?? '0.05');
+```
+
+### 2.2 TERRAIN_RELIEF_SCALE 조정
+
+**파일**: `src/scene/pipeline/steps/scene-geometry-correction.step.ts`
+
+**현재 코드**:
+
+```typescript
+const TERRAIN_RELIEF_SCALE = 0.18;
+```
+
+**수정 코드**:
+
+```typescript
+const TERRAIN_RELIEF_SCALE = 0.5; // 지형 높이 변화를 50%로 반영
+```
+
+### 2.3 groundOffsetM 설정 개선
+
+**현재**: 도로와의 충돌 시에만 groundOffsetM 설정  
+**수정**: 지형 높이 변화에 따라 자동으로 groundOffsetM 설정
+
+```typescript
+function calculateGroundOffset(
+  building: SceneMetaBuildings,
+  terrainProfile: TerrainProfile,
+): number {
+  // 건물 footprint 중심의 지형 높이
+  const buildingCenter = computeBuildingCenter(building);
+  const terrainHeight = getTerrainHeightAt(terrainProfile, buildingCenter);
+
+  // 지형 높이가 건물 base보다 낮으면 offset 설정
+  const baseHeight = building.terrainOffsetM ?? 0;
+  const gap = baseHeight - terrainHeight;
+
+  if (gap > 0.05) {
+    // 5cm 이상 차이날 때
+    return Math.min(gap, 0.3); // 최대 30cm
   }
-  roads: {
-    objectId: string
-    osmWayId: string
-    type: string
-  }[]
-  buildings: {
-    objectId: string
-    osmWayId: string
-    name?: string
-  }[]
-  pois: {
-    poiId: string
-    placeId?: string
-    lat: number
-    lng: number
-    category?: string
-  }[]
+
+  return 0;
 }
 ```
 
-### BootstrapResponse
+### 2.4 검증 결과
 
-```ts
-interface BootstrapResponse {
-  sceneId: string
-  metaUrl: string
-  liveEndpoints: {
-    traffic: string
-    weather: string
-    places: string
+| 지표                 | 현재  | 목표   |
+| -------------------- | ----- | ------ |
+| groundedGapCount     | 22    | < 5    |
+| averageGroundOffsetM | 0.132 | < 0.05 |
+
+---
+
+## Phase 3: 재질 다양화
+
+**목표**: 건물별 고유 외형 구현  
+**기간**: 2주  
+**우선순위**: 🟡 High  
+**현재 지표**: districtMaterialDiversity: 8
+
+### 3.1 텍스처 기반 재질 시스템
+
+**파일**: `src/assets/compiler/materials/glb-material-factory.scene.ts`
+
+**현재 코드**:
+
+```typescript
+ground: doc
+  .createMaterial('ground')
+  .setBaseColorFactor([0.52, 0.55, 0.5, 1])
+  .setMetallicFactor(0)
+  .setRoughnessFactor(1);
+```
+
+**수정 방향**:
+
+1. Mapillary 이미지에서 facade 색상 추출
+2. 건물별 고유 색상 적용
+3. 재질 캐시로 중복 생성 방지
+
+### 3.2 Mapillary facade 색상 추출 강화
+
+**파일**: `src/scene/services/vision/scene-facade-vision.service.ts`
+
+**현재**: weakEvidence 시 팔레트 드리프트 적용  
+**수정**: 실제 이미지 색상 추출 우선
+
+```typescript
+async function extractFacadeColorFromImage(
+  imageUrl: string,
+  buildingBounds: BuildingBounds,
+): Promise<FacadeColorResult> {
+  // Mapillary 이미지에서 건물 facade 영역 크롭
+  // 평균 색상 추출
+  // 신뢰도 점수 계산
+}
+```
+
+### 3.3 검증 결과
+
+| 지표                      | 현재 | 목표 |
+| ------------------------- | ---- | ---- |
+| districtMaterialDiversity | 8    | > 20 |
+
+---
+
+## Phase 4: 데이터 기반 전환
+
+**목표**: 추론 비율 대폭 감소  
+**기간**: 2주  
+**우선순위**: 🟡 Medium  
+**현재 지표**: heroOverrideRate: 0.003
+
+### 4.1 heroOverrideRate 증가
+
+**현재**: 0.3%만 실제 데이터 반영  
+**목표**: 30% 이상
+
+**방안**:
+
+1. CURATED_ASSET_PACK 데이터 통합
+2. Google Places 상세 정보 활용
+3. OSM building 속성 활용
+
+### 4.2 weakEvidence 비율 감소
+
+**현재**: Mapillary 데이터 없으면 추론  
+**수정**: 대체 데이터 소스 활용
+
+```typescript
+function determineEvidenceStrength(
+  building: BuildingStyleInput,
+): EvidenceStrength {
+  // Mapillary 데이터 확인
+  if (building.nearbyImageCount > 0 && building.nearbyFeatureCount > 0) {
+    return 'STRONG';
   }
-}
-```
 
----
-
-## 6. 생성 파이프라인
-
-### Step 1. 장소 검색
-
-입력된 query를 Google Places로 검색해 중심 좌표와 placeId를 구한다.
-
-입력:
-
-```json
-{
-  "query": "Seoul City Hall"
-}
-```
-
-출력:
-
-```json
-{
-  "placeId": "google_place_id",
-  "name": "Seoul City Hall",
-  "lat": 37.5665,
-  "lng": 126.9780
-}
-```
-
-### Step 2. Scene 범위 계산
-
-입력 좌표를 기준으로 radius를 정하고 bbox를 계산한다.
-
-기본 규칙:
-
-* small: 300m
-* medium: 600m
-* large: 1000m
-
-MVP 기본값은 `medium`으로 고정한다.
-
-### Step 3. Overpass 수집
-
-bbox 기준으로 건물, 도로, 보행로, POI를 조회한다.
-
-수집 대상:
-
-* building
-* highway
-* footway/path
-* amenity/shop/tourism
-
-### Step 4. Geometry 정규화
-
-수집한 OSM 데이터를 FE 렌더에 맞게 정규화한다.
-
-처리:
-
-* polygon 닫힘 보정
-* 중복 좌표 제거
-* local origin 변환
-* 도로 타입 정리
-* 잘못된 shape 제거
-
-### Step 5. Meta JSON 생성
-
-FE가 objectId와 live 상태를 연결할 수 있도록 `scene-meta.json`을 생성한다.
-
-### Step 6. Scene 저장
-
-MVP 1차에서는 생성된 scene 결과를 DB 또는 로컬 파일로 저장한다.
-
-저장 대상:
-
-* `scene-meta.json`
-* scene 기본 정보
-* road / poi objectId 매핑
-
-### Step 7. 후속 자산화
-
-`.glb` 생성과 S3 업로드는 후속 단계에서 붙인다.
-
-후속 단계에서는 아래를 추가한다.
-
-* `base.glb`
-* S3 업로드
-* CloudFront asset URL 제공
-
----
-
-## 7. API 설계
-
-### 7-1. Scene 생성
-
-`POST /scenes`
-
-요청:
-
-```json
-{
-  "query": "Seoul City Hall",
-  "scale": "medium"
-}
-```
-
-응답:
-
-```json
-{
-  "sceneId": "scene_001",
-  "status": "ready",
-  "metaUrl": "https://cdn.example.com/scenes/scene_001/scene-meta.json"
-}
-```
-
-### 7-2. Bootstrap 조회
-
-`GET /scenes/:sceneId/bootstrap`
-
-응답:
-
-```json
-{
-  "sceneId": "scene_001",
-  "metaUrl": "https://cdn.example.com/scenes/scene_001/scene-meta.json",
-  "liveEndpoints": {
-    "traffic": "/scenes/scene_001/traffic",
-    "weather": "/scenes/scene_001/weather",
-    "places": "/scenes/scene_001/places"
+  // OSM 속성 확인
+  if (
+    building.osmAttributes &&
+    Object.keys(building.osmAttributes).length > 0
+  ) {
+    return 'MODERATE';
   }
+
+  // Google Places 정보 확인
+  if (building.googlePlacesInfo) {
+    return 'MODERATE';
+  }
+
+  return 'WEAK';
 }
 ```
 
-### 7-3. Traffic 조회
+### 4.3 검증 결과
 
-`GET /scenes/:sceneId/traffic`
+| 지표              | 현재  | 목표  |
+| ----------------- | ----- | ----- |
+| heroOverrideRate  | 0.003 | > 0.3 |
+| weakEvidence 비율 | 높음  | < 0.5 |
 
-응답:
+---
 
-```json
-{
-  "updatedAt": "2026-04-04T13:00:00Z",
-  "segments": [
-    {
-      "objectId": "road_1",
-      "currentSpeed": 11,
-      "freeFlowSpeed": 17,
-      "congestionScore": 0.35,
-      "status": "slow"
-    }
-  ]
+## Phase 5: LOD + 메모리 최적화
+
+**목표**: GLB 크기 50% 감소  
+**기간**: 1주  
+**우선순위**: 🟢 Medium  
+**현재 지표**: GLB 57MB
+
+### 5.1 LOD 시스템 추가
+
+**파일**: `src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts`
+
+**방안**:
+
+1. 거리별 메시 복잡도 조절
+2. `gltf-transform`의 `simplify()` 활용
+3. Three.js `LOD` 노드 생성
+
+### 5.2 InstancedMesh 활용
+
+**현재**: 동일 메시를 여러 번 저장  
+**수정**: 동일 메시를 인스턴싱
+
+```typescript
+// 동일한 facade 패널이 5개 이상인 경우 instancing 적용
+if (identicalPanelCount >= 5) {
+  createInstancedMesh(panelGeometry, panelMaterial, identicalPanelCount);
 }
 ```
 
-### 7-4. Weather 조회
+### 5.3 선택적 로딩
 
-`GET /scenes/:sceneId/weather`
+**방안**:
 
-응답:
+1. 메시를 semantic 그룹으로 분리
+2. 뷰포트 기반 로딩
+3. 프로그레시브 로딩
 
-```json
-{
-  "updatedAt": "2026-04-04T13:00:00Z",
-  "weatherCode": 3,
-  "temperature": 13.2,
-  "preset": "cloudy"
-}
-```
+### 5.4 검증 결과
 
-### 7-5. Places Overlay 조회
-
-`GET /scenes/:sceneId/places`
-
-응답:
-
-```json
-{
-  "pois": [
-    {
-      "poiId": "poi_1",
-      "name": "Cafe Example",
-      "category": "cafe",
-      "lat": 37.5666,
-      "lng": 126.9781
-    }
-  ]
-}
-```
+| 지표      | 현재 | 목표     |
+| --------- | ---- | -------- |
+| GLB 크기  | 57MB | < 30MB   |
+| 로딩 시간 | -    | 50% 감소 |
 
 ---
 
-## 8. 상태 흐름
+## 전체 일정
 
-### Scene 생성 시
-
-1. FE가 `POST /scenes` 호출
-2. BE가 Places 검색
-3. BE가 bbox 계산
-4. BE가 Overpass 수집
-5. BE가 geometry 정규화
-6. BE가 `scene-meta.json` 생성
-7. BE가 scene 저장
-8. ready 응답 반환
-
-### Scene 렌더 시
-
-1. FE가 `GET /scenes/:sceneId/bootstrap` 호출
-2. FE가 `metaUrl` 수신
-3. FE가 `scene-meta.json` 로드
-4. FE가 traffic/weather/places 요청
-5. FE가 objectId 기준으로 상태 매핑
-6. FE가 색상/이펙트/마커 반영
+| Phase                | 기간    | 시작   | 완료   |
+| -------------------- | ------- | ------ | ------ |
+| Phase 0: 즉시 수정   | 1일     | Day 1  | Day 1  |
+| Phase 1: 충돌 감지   | 1주     | Day 2  | Day 8  |
+| Phase 2: 지면 연결   | 1주     | Day 9  | Day 15 |
+| Phase 3: 재질 다양화 | 2주     | Day 16 | Day 29 |
+| Phase 4: 데이터 전환 | 2주     | Day 30 | Day 43 |
+| Phase 5: LOD 최적화  | 1주     | Day 44 | Day 50 |
+| **합계**             | **7주** |        |        |
 
 ---
 
-## 9. 캐시 전략
+## 성공 지표 요약
 
-### Scene Meta
-
-* scene 생성 후 DB 또는 파일 저장
-* 동일 query + 동일 scale 요청 시 기존 scene 재사용 가능
-
-### Traffic
-
-* TTL 1~3분
-* 좌표별 짧은 캐시
-
-### Weather
-
-* TTL 5~10분
-
-### Places
-
-* placeId 중심 저장
-* 상세정보는 필요할 때 재호출
+| 지표                      | 현재   | Phase 0 목표 | 최종 목표 |
+| ------------------------- | ------ | ------------ | --------- |
+| GLB validation errors     | 19,972 | 0            | 0         |
+| collisionRiskCount        | 72     | 72           | < 10      |
+| groundedGapCount          | 22     | 22           | < 5       |
+| GLB 크기                  | 57MB   | 57MB         | < 30MB    |
+| heroOverrideRate          | 0.003  | 0.003        | > 0.3     |
+| districtMaterialDiversity | 8      | 8            | > 20      |
+| overallScore              | 0.679  | 0.679        | > 0.85    |
 
 ---
 
-## 10. DB 최소 스키마
+## 수정 대상 파일 요약
 
-### scenes
+| Phase | 파일                                                                    | 수정 내용                               |
+| ----- | ----------------------------------------------------------------------- | --------------------------------------- |
+| 0     | `src/assets/internal/glb-build/glb-build-runner.ts`                     | quantize pattern 추가, NodeIO 확장 등록 |
+| 1     | `src/scene/pipeline/steps/scene-geometry-correction.step.ts`            | 건물 간 충돌 검사 추가                  |
+| 2     | `src/assets/compiler/building/building-mesh.shell.builder.ts`           | SETBACK_OVERLAP 증가                    |
+| 2     | `src/scene/pipeline/steps/scene-geometry-correction.step.ts`            | TERRAIN_RELIEF_SCALE 조정               |
+| 3     | `src/assets/compiler/materials/glb-material-factory.scene.ts`           | 텍스처 기반 재질                        |
+| 3     | `src/scene/services/vision/scene-facade-vision.service.ts`              | facade 색상 추출 강화                   |
+| 4     | `src/scene/services/vision/building-style-resolver.service.ts`          | 해시 기반 랜덤 제거                     |
+| 5     | `src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts` | LOD 시스템 추가                         |
 
-```sql
-CREATE TABLE scenes (
-  scene_id VARCHAR(100) PRIMARY KEY,
-  place_id VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  center_lat DOUBLE PRECISION NOT NULL,
-  center_lng DOUBLE PRECISION NOT NULL,
-  radius_m INTEGER NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  meta_url TEXT,
-  created_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP NOT NULL
-);
+---
+
+## 테스트 시나리오
+
+### Phase 0 테스트
+
+```bash
+# 1. GLB 생성 테스트
+bun scene:shibuya
+
+# 2. 예상 결과
+# - GLB validation passed
+# - "Some extensions" 경고 없음
+# - /data/scene/scene-shibuya-*.glb 파일 생성됨
 ```
 
-### scene_generation_logs
+### Phase 1-5 테스트
 
-```sql
-CREATE TABLE scene_generation_logs (
-  id BIGSERIAL PRIMARY KEY,
-  scene_id VARCHAR(100) NOT NULL,
-  step VARCHAR(50) NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  message TEXT,
-  created_at TIMESTAMP NOT NULL
-);
+```bash
+# 1. 진단 로그 확인
+cat /data/scene/scene-shibuya-*.diagnostics.log | jq '.collisionRiskCount, .groundedGapCount'
+
+# 2. Blender에서 시각적 확인
+# - 건물 간 겹침 없음
+# - 건물이 공중에 떠있지 않음
+# - 건물별 고유 색상/재질
 ```
 
 ---
 
-## 11. MVP 기술 선택
-
-### 서버
-
-* NestJS
-* TypeScript
-* Bun 또는 Node 런타임
-
-### 외부 API
-
-* Google Places
-* Overpass
-* Open-Meteo
-* TomTom
-
-### 저장소
-
-* PostgreSQL 또는 로컬 파일
-
-### 후속 자산 생성
-
-* `@gltf-transform/core`
-* 커스텀 geometry builder
-* S3
-* CloudFront
-
-### 캐시
-
-* Redis
-
-### DB
-
-* PostgreSQL
-
----
-
-## 12. 구현 우선순위
-
-### P0
-
-* `POST /scenes`
-* Places 검색
-* bbox 계산
-* Overpass 수집
-* geometry 정규화
-* `scene-meta.json` 생성
-* bootstrap API
-* traffic API
-* weather API
-* places overlay API
-
-### P1
-
-* scene 재사용 전략
-* Redis 캐시
-* file/DB 저장 안정화
-
-### P2
-
-* `.glb` 생성
-* S3 / CloudFront 업로드
-* generation queue
-* background worker 분리
-* error retry
-
----
-
-## 13. 이 MVP의 최종 정의
-
-이 MVP는 아래처럼 정의한다.
-
-**"사용자가 입력한 장소를 기준으로 Scene metadata를 생성하고, FE가 해당 metadata와 실시간 상태 API를 결합해 디지털 트윈 화면을 구성할 수 있도록 지원하는 BE 시스템"**
-
----
-
-## 14. 핵심 판단
-
-이 MVP 1차에서 핵심 자산은 `.glb`가 아니라,
-**장소의 정적인 공간 골격을 설명하는 `scene-meta.json`** 이다.
-
-동적으로 변하는 교통, 날씨, 장소 정보는 별도의 API로 분리하고,
-FE가 이를 objectId 기반으로 장면에 반영하는 구조를 사용한다.
-
-`.glb`는 geometry 정규화 규칙과 FE 바인딩 규격이 충분히 안정화된 뒤 붙인다.
-이 순서가 현재 코드베이스와 구현 난이도 기준에서 더 현실적이다.
+_작성 완료: 2026-04-15_

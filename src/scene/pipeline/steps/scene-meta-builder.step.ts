@@ -52,6 +52,8 @@ export class SceneMetaBuilderStep {
       roofMaterial: building.roofMaterial ?? null,
       roofShape: building.roofShape ?? null,
       buildingPart: building.buildingPart ?? null,
+      osmAttributes: building.osmAttributes,
+      googlePlacesInfo: building.googlePlacesInfo,
     }));
     const roads = placePackage.roads.map((road) => ({
       objectId: road.id,

@@ -88,6 +88,10 @@ export const placePackage: PlacePackage = {
         { lat: 37.566, lng: 126.9782 },
       ],
       usage: 'PUBLIC',
+      osmAttributes: {
+        building: 'yes',
+        name: 'City Hall',
+      },
     },
   ],
   roads: [

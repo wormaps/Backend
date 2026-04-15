@@ -117,17 +117,18 @@ const GLB_VALIDATOR_SEVERITY_OVERRIDES: Record<string, number> = {
 };
 
 const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
-  quantizePosition: 14,
-  quantizeNormal: 10,
   quantizeTexcoord: 12,
   quantizeColor: 8,
   quantizeGeneric: 12,
   cleanup: false,
+  pattern: /^(?!POSITION$|NORMAL$)/,
 };
 
 const GLB_INSTANCE_OPTIONS: Record<string, unknown> = {
   min: 5,
 };
+
+const GLB_SIZE_TARGET_MAX_BYTES = 30 * 1024 * 1024;
 
 const DEFAULT_GLB_SIMPLIFY_OPTIONS: GlbSimplifyOptions = {
   ratio: 0.75,
@@ -372,7 +373,10 @@ export class GlbBuildRunner {
       meshoptimizerModule?.MeshoptSimplifier,
     );
 
-    const glbBinary = await new NodeIO().writeBinary(doc);
+    const io = new NodeIO();
+    await this.registerNodeIoExtensions(io, contract.sceneId);
+    const glbBinary = await io.writeBinary(doc);
+    this.enforceSizeBudget(glbBinary.byteLength, contract.sceneId);
     await this.validateGlb(
       Uint8Array.from(glbBinary),
       contract.sceneId,
@@ -430,6 +434,7 @@ export class GlbBuildRunner {
       staticAtmosphere: contract.staticAtmosphere,
       sceneWideAtmosphereProfile: contract.sceneWideAtmosphereProfile,
       districtAtmosphereProfiles: contract.districtAtmosphereProfiles,
+      loadingHints: contract.loadingHints,
     };
 
     this.appLoggerService.info('scene.glb_build.diagnostics', {
@@ -899,6 +904,66 @@ export class GlbBuildRunner {
     } catch {
       return undefined;
     }
+  }
+
+  private async registerNodeIoExtensions(
+    io: unknown,
+    sceneId: string,
+  ): Promise<void> {
+    const candidateIo = io as {
+      registerExtensions?: (extensions: unknown[]) => unknown;
+    };
+    if (typeof candidateIo.registerExtensions !== 'function') {
+      return;
+    }
+
+    try {
+      const extensionsModule = await import('@gltf-transform/extensions');
+      const exportedAllExtensions = (
+        extensionsModule as {
+          ALL_EXTENSIONS?: unknown;
+        }
+      ).ALL_EXTENSIONS;
+      const allExtensions = Array.isArray(exportedAllExtensions)
+        ? exportedAllExtensions
+        : Object.values(extensionsModule).filter((extension) => {
+            if (typeof extension !== 'function') {
+              return false;
+            }
+            const extensionClass = extension as {
+              EXTENSION_NAME?: string;
+              prototype?: { EXTENSION_NAME?: string };
+            };
+            return Boolean(
+              extensionClass.EXTENSION_NAME ??
+              extensionClass.prototype?.EXTENSION_NAME,
+            );
+          });
+      if (allExtensions.length > 0) {
+        candidateIo.registerExtensions(allExtensions);
+      }
+    } catch (extensionImportError) {
+      this.appLoggerService.warn(
+        'scene.glb_build.extension_registration_skipped',
+        {
+          sceneId,
+          step: 'glb_build',
+          reason:
+            extensionImportError instanceof Error
+              ? extensionImportError.message
+              : String(extensionImportError),
+        },
+      );
+    }
+  }
+
+  private enforceSizeBudget(glbBytes: number, sceneId: string): void {
+    if (glbBytes <= GLB_SIZE_TARGET_MAX_BYTES) {
+      return;
+    }
+    throw new Error(
+      `GLB size budget exceeded: ${glbBytes} bytes > ${GLB_SIZE_TARGET_MAX_BYTES} bytes (sceneId=${sceneId})`,
+    );
   }
 }
 

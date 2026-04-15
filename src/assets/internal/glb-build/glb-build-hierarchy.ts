@@ -55,6 +55,8 @@ export function resolveParentNode(
     dccCollection: label,
     blenderCollection: label,
     isGroupNode: true,
+    selectiveLoadCandidate: true,
+    progressiveChunkKey: category,
   });
   (root ?? scene).addChild(node);
   semanticGroupNodes.set(key, node);
@@ -177,6 +179,8 @@ function createBuildingLodGroups(
       blenderCollection: `Buildings_${lod}`,
       isGroupNode: true,
       selectionLod: lod,
+      selectiveLoadCandidate: true,
+      progressiveChunkKey: `building_lod_${lod.toLowerCase()}`,
     });
     buildingsParent.addChild(node);
     map.set(lod, node);

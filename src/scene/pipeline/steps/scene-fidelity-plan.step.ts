@@ -3,6 +3,7 @@ import type { ExternalPlaceDetail } from '../../../places/types/external-place.t
 import type { PlacePackage } from '../../../places/types/place.types';
 import { appendSceneDiagnosticsLog } from '../../storage/scene-storage.utils';
 import { SceneFidelityPlannerService } from '../../services/planning';
+import type { CuratedAssetPayload } from '../../services/planning';
 import type {
   SceneDetail,
   SceneFidelityPlan,
@@ -22,12 +23,14 @@ export class SceneFidelityPlanStep {
     placePackage: PlacePackage,
     detail: SceneDetail,
     stage: 'fidelity_plan' | 'fidelity_plan_final' = 'fidelity_plan',
+    curatedPayload?: CuratedAssetPayload,
   ): Promise<SceneFidelityPlan> {
     const plan = this.sceneFidelityPlannerService.buildPlan(
       place,
       scale,
       placePackage,
       detail,
+      curatedPayload,
     );
 
     await appendSceneDiagnosticsLog(sceneId, stage, {
