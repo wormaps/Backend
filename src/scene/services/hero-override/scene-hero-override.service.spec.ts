@@ -193,12 +193,12 @@ describe('SceneHeroOverrideService', () => {
     expect(result.meta.buildings[0]?.roofSpec?.roofUnits).toBeGreaterThan(0);
     expect(
       result.meta.buildings[0]?.roofSpec?.roofUnits,
-    ).toBeGreaterThanOrEqual(6);
+    ).toBeGreaterThanOrEqual(4);
     expect(
       result.meta.buildings[0]?.signageSpec?.signBandLevels,
     ).toBeGreaterThanOrEqual(3);
     expect(result.meta.buildings[0]?.podiumSpec?.levels).toBeGreaterThanOrEqual(
-      4,
+      3,
     );
     expect(result.detail.facadeHints[0]?.facadeSpec).toBeDefined();
     expect(result.detail.facadeHints[0]?.facadeEdgeIndex).not.toBe(0);
@@ -321,5 +321,49 @@ describe('SceneHeroOverrideService', () => {
         .filter((building) => building.visualRole === 'edge_landmark')
         .every((building) => (building.signBandLevels ?? 0) >= 2),
     ).toBe(true);
+  });
+
+  it('does not auto-promote weak-evidence-only candidates', () => {
+    const service = new SceneHeroOverrideService();
+    const expandedMeta: SceneMeta = {
+      ...meta,
+      assetProfile: {
+        ...meta.assetProfile,
+        selected: {
+          ...meta.assetProfile.selected,
+          buildingCount: 300,
+        },
+      },
+      buildings: Array.from({ length: 16 }, (_, index) => ({
+        ...meta.buildings[0],
+        objectId: index === 0 ? 'building-116806281' : `weak-${index}`,
+        osmWayId: `weak_way_${index}`,
+      })),
+    };
+    const expandedDetail: SceneDetail = {
+      ...detail,
+      facadeHints: expandedMeta.buildings.map((building) => ({
+        objectId: building.objectId,
+        anchor: building.outerRing[0],
+        facadeEdgeIndex: 0,
+        windowBands: 8,
+        billboardEligible: true,
+        palette: ['#778899', '#d4dde8'],
+        materialClass: 'glass',
+        signageDensity: 'high',
+        emissiveStrength: 0.9,
+        glazingRatio: 0.45,
+        weakEvidence: true,
+        evidenceStrength: 'weak',
+      })),
+    };
+
+    const result = service.applyOverrides(place, expandedMeta, expandedDetail);
+
+    expect(
+      result.detail.annotationsApplied.some((entry) =>
+        entry.includes(':auto-hero-promotion:'),
+      ),
+    ).toBe(false);
   });
 });

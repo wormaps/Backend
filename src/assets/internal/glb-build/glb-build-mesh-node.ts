@@ -24,6 +24,7 @@ export interface MeshNodeDiagnostic {
 export type MeshSemanticTrace = {
   sourceCount?: number;
   selectedCount?: number;
+  selectionLod?: 'HIGH' | 'MEDIUM' | 'LOW';
   semanticCategory?: string;
   semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
   sourceObjectIds?: string[];
@@ -46,6 +47,16 @@ type GltfDoc = any;
 type GltfScene = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GltfAccessor = any;
+
+function resolveLodLevel(triangleCount: number): 'HIGH' | 'MEDIUM' | 'LOW' {
+  if (triangleCount >= 1000) {
+    return 'HIGH';
+  }
+  if (triangleCount >= 200) {
+    return 'MEDIUM';
+  }
+  return 'LOW';
+}
 
 export function addMeshNode(
   doc: GltfDoc,
@@ -78,7 +89,8 @@ export function addMeshNode(
   if (!isProtected) {
     const nonProtectedBudget = Math.max(
       0,
-      triangleBudget.totalTriangleBudget - triangleBudget.protectedTriangleReserve,
+      triangleBudget.totalTriangleBudget -
+        triangleBudget.protectedTriangleReserve,
     );
     const nonProtectedTriangleCount =
       triangleBudget.totalTriangleCount - triangleBudget.protectedTriangleCount;
@@ -96,7 +108,10 @@ export function addMeshNode(
     }
   }
 
-  if (triangleBudget.totalTriangleCount + triangleCount > triangleBudget.totalTriangleBudget) {
+  if (
+    triangleBudget.totalTriangleCount + triangleCount >
+    triangleBudget.totalTriangleBudget
+  ) {
     currentMeshDiagnostics.push({
       name,
       vertices: geometry.positions.length / 3,
@@ -114,6 +129,7 @@ export function addMeshNode(
     triangleBudget.protectedTriangleCount += triangleCount;
   }
 
+  const lodLevel = resolveLodLevel(triangleCount);
   currentMeshDiagnostics.push({
     name,
     vertices: geometry.positions.length / 3,
@@ -121,6 +137,7 @@ export function addMeshNode(
     skipped: false,
     sourceCount: trace.sourceCount,
     selectedCount: trace.selectedCount,
+    lodLevel,
   });
 
   const mesh = doc.createMesh(name);
@@ -154,8 +171,8 @@ export function addMeshNode(
     sourceCount: trace.sourceCount ?? 0,
     selectedCount: trace.selectedCount ?? 0,
     sourceObjectIds: (trace.sourceObjectIds ?? []).slice(0, 256),
-    semanticCategory:
-      trace.semanticCategory ?? resolveSemanticCategory(name),
+    selectionLod: trace.selectionLod,
+    semanticCategory: trace.semanticCategory ?? resolveSemanticCategory(name),
     semanticMetadataCoverage:
       trace.semanticCoverage ??
       resolveSemanticCoverage(trace.sourceCount, trace.selectedCount),
@@ -206,7 +223,10 @@ export function resolveSkippedReason(trace: {
   return 'empty_or_invalid_geometry';
 }
 
-export function isBudgetProtectedMesh(name: string, triangleBudget: TriangleBudgetState): boolean {
+export function isBudgetProtectedMesh(
+  name: string,
+  triangleBudget: TriangleBudgetState,
+): boolean {
   if (triangleBudget.budgetProtectedMeshNames.has(name)) {
     return true;
   }

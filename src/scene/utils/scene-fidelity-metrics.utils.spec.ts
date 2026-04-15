@@ -284,4 +284,40 @@ describe('scene-fidelity-metrics.utils', () => {
       withoutAuto.quality.heroOverrideRate,
     );
   });
+
+  it('excludes weak-evidence hero buildings from heroOverrideRate', () => {
+    const reliableDetail = createSceneDetail(10);
+    const weakHeavyDetail = createSceneDetail(10);
+    reliableDetail.roadDecals = [
+      {
+        objectId: 'hero-crosswalk-1',
+        intersectionId: 'intersection-1',
+        type: 'CROSSWALK_OVERLAY',
+        color: '#f8f8f6',
+        emphasis: 'hero',
+        priority: 'hero',
+        layer: 'crosswalk_overlay',
+        shapeKind: 'path_strip',
+        path: [
+          coordinate(35.65931, 139.70031),
+          coordinate(35.65936, 139.70039),
+        ],
+      },
+    ];
+    weakHeavyDetail.roadDecals = reliableDetail.roadDecals;
+    weakHeavyDetail.facadeHints = weakHeavyDetail.facadeHints.map(
+      (hint, index) => ({
+        ...hint,
+        weakEvidence: index < 2,
+      }),
+    );
+
+    const meta = createSceneMeta(10);
+    const reliable = buildSceneFidelityMetricsReport(meta, reliableDetail);
+    const weakHeavy = buildSceneFidelityMetricsReport(meta, weakHeavyDetail);
+
+    expect(weakHeavy.quality.heroOverrideRate).toBeLessThan(
+      reliable.quality.heroOverrideRate,
+    );
+  });
 });

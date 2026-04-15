@@ -81,6 +81,7 @@ export interface SceneRoadMeta extends Omit<RoadData, 'id'> {
 export interface SceneBuildingMeta extends Omit<BuildingData, 'id'> {
   objectId: string;
   osmWayId: string;
+  lodLevel?: 'HIGH' | 'MEDIUM' | 'LOW';
   preset: BuildingPreset;
   roofType: RoofType;
   visualArchetype?: VisualArchetype;

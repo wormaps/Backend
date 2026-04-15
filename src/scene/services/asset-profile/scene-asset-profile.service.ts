@@ -74,12 +74,13 @@ export class SceneAssetProfileService {
     ).map((building) => {
       const center = averageCoordinate(building.outerRing) ?? sceneMeta.origin;
       const dist = distanceMeters(center, sceneMeta.origin);
-      const lodLevel = dist <= 200 ? 'HIGH' : dist <= 400 ? 'MEDIUM' : 'LOW';
+      const lodLevel: SceneBuildingMeta['lodLevel'] =
+        dist <= 200 ? 'HIGH' : dist <= 400 ? 'MEDIUM' : 'LOW';
       return {
         ...building,
         lodLevel,
       };
-    }) as SceneMeta['buildings'];
+    });
     const crossings = this.selectCrossings(
       sceneDetail.crossings,
       budget.crossingCount,

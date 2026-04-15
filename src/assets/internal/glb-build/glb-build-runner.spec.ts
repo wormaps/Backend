@@ -279,6 +279,7 @@ describe('GlbBuildRunner modularized', () => {
       {
         sourceCount: 3,
         selectedCount: 2,
+        selectionLod: 'MEDIUM',
         semanticCategory: 'transport',
         sourceObjectIds: ['road-1', 'road-2'],
       },
@@ -297,6 +298,7 @@ describe('GlbBuildRunner modularized', () => {
     expect(group.extras.dccCollection).toBe('Transport');
     expect(node.extras.semanticCategory).toBe('transport');
     expect(mesh.extras.semanticMetadataCoverage).toBe('PARTIAL');
+    expect(mesh.extras.selectionLod).toBe('MEDIUM');
     expect(primitive.extras.sourceObjectIds).toEqual(['road-1', 'road-2']);
     expect((node.extras.twinEntityIds as string[]).length).toBe(2);
     expect(
@@ -327,6 +329,7 @@ describe('GlbBuildRunner modularized', () => {
           {
             objectId: 'building-1',
             osmWayId: 'way_1',
+            lodLevel: 'HIGH',
             usage: 'COMMERCIAL',
             outerRing: [
               { lat: 37.0001, lng: 127.0001 },
@@ -399,6 +402,7 @@ describe('GlbBuildRunner modularized', () => {
           {
             objectId: 'building-1',
             osmWayId: 'way_1',
+            lodLevel: 'HIGH',
             usage: 'COMMERCIAL',
             outerRing: [
               { lat: 37.0001, lng: 127.0001 },
@@ -422,6 +426,7 @@ describe('GlbBuildRunner modularized', () => {
 
     expect(buildingsGroup?.extras.blenderCollection).toBe('Buildings');
     expect(buildingNode?.extras.objectId).toBe('building-1');
+    expect(buildingNode?.extras.selectionLod).toBe('HIGH');
     expect(buildingNode?.extras.suggestedPivotPolicy).toBe(
       'footprint_centroid',
     );

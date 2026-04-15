@@ -92,8 +92,15 @@ export class SceneFacadeVisionService {
         mapillarySignalSummary,
       );
       const hasAnyEvidence = nearbyImageCount > 0 || nearbyFeatureCount > 0;
+      const evidenceDensityScore =
+        (nearbyImageCount > 0 ? 0.4 : 0) +
+        (nearbyFeatureCount > 0 ? 0.3 : 0) +
+        (explicitBuildingColor ? 0.2 : 0) +
+        (building.facadeMaterial ? 0.1 : 0);
       const weakEvidence =
-        !hasAnyEvidence && !explicitBuildingColor && !building.facadeMaterial;
+        evidenceDensityScore < 0.38 &&
+        !explicitBuildingColor &&
+        !building.facadeMaterial;
       const inferenceReasonCodes: InferenceReasonCode[] = [];
       if (nearbyImageCount === 0) {
         inferenceReasonCodes.push('MISSING_MAPILLARY_IMAGES');
@@ -111,6 +118,7 @@ export class SceneFacadeVisionService {
         inferenceReasonCodes.push('MISSING_ROOF_SHAPE');
       }
       if (weakEvidence) {
+        inferenceReasonCodes.push('WEAK_EVIDENCE_RATIO_HIGH');
         inferenceReasonCodes.push('DEFAULT_STYLE_RULE');
       }
       const palette = uniquePalette(
@@ -267,9 +275,17 @@ export class SceneFacadeVisionService {
     const explicitColorBuildingCount = placePackage.buildings.filter(
       (building) => hasExplicitBuildingColor(building),
     ).length;
+    const weakEvidenceCount = facadeHints.filter(
+      (hint) => hint.weakEvidence,
+    ).length;
+    const weakEvidenceRatio =
+      facadeHints.length > 0
+        ? Number((weakEvidenceCount / facadeHints.length).toFixed(3))
+        : 0;
 
     return {
-      weakEvidenceCount: facadeHints.filter((hint) => hint.weakEvidence).length,
+      weakEvidenceCount,
+      weakEvidenceRatio,
       contextualUpgradeCount: facadeHints.filter(
         (hint) => hint.contextualMaterialUpgrade,
       ).length,

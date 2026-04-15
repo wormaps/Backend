@@ -106,6 +106,11 @@ export function addBuildingAndHeroMeshes(
   ) => number[],
   groupedBuildings: GroupedBuildings,
 ): void {
+  void groupedBuildings;
+  const selectedBuildingCount = Math.max(1, assetSelection.buildings.length);
+  const windowBudget = resolveWindowTriangleBudgetForSelection(
+    selectedBuildingCount,
+  );
   for (const building of assetSelection.buildings) {
     const buildingHints = sceneDetail.facadeHints.filter(
       (hint) => hint.objectId === building.objectId,
@@ -132,6 +137,7 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: 1,
         selectedCount: 1,
+        selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -153,6 +159,7 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: 1,
         selectedCount: 1,
+        selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -175,6 +182,7 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: 1,
         selectedCount: 1,
+        selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -209,6 +217,7 @@ export function addBuildingAndHeroMeshes(
           {
             sourceCount: 1,
             selectedCount: 1,
+            selectionLod: building.lodLevel,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -226,7 +235,7 @@ export function addBuildingAndHeroMeshes(
         sceneMeta.origin,
         [building],
         buildingHints,
-        resolveWindowTriangleBudgetForSelection(1),
+        windowBudget,
       ),
       materials.windowPrimary ??
         materials.windowGlassCurtainWall ??
@@ -237,6 +246,7 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: buildingHints.length,
         selectedCount: 1,
+        selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -255,6 +265,7 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: 1,
         selectedCount: 1,
+        selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -270,6 +281,7 @@ export function addBuildingAndHeroMeshes(
       {
         sourceCount: building.roofSpec?.roofUnits ? 1 : 0,
         selectedCount: building.roofSpec?.roofUnits ? 1 : 0,
+        selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
       },
@@ -328,6 +340,7 @@ export function addBuildingAndHeroMeshes(
           {
             sourceCount: 1,
             selectedCount: 1,
+            selectionLod: building.lodLevel,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -348,6 +361,7 @@ export function addBuildingAndHeroMeshes(
           {
             sourceCount: 1,
             selectedCount: 1,
+            selectionLod: building.lodLevel,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },
@@ -368,6 +382,7 @@ export function addBuildingAndHeroMeshes(
           {
             sourceCount: 1,
             selectedCount: 1,
+            selectionLod: building.lodLevel,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
           },

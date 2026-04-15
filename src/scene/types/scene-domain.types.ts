@@ -419,6 +419,7 @@ export interface SceneFacadeContextCount {
 
 export interface SceneFacadeContextDiagnostics {
   weakEvidenceCount: number;
+  weakEvidenceRatio: number;
   contextualUpgradeCount: number;
   explicitColorBuildingCount: number;
   profileCounts: SceneFacadeContextCount[];

@@ -54,6 +54,7 @@ export interface MeshAddDelegate {
     trace?: {
       sourceCount?: number;
       selectedCount?: number;
+      selectionLod?: 'HIGH' | 'MEDIUM' | 'LOW';
       semanticCategory?: string;
       semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
       sourceObjectIds?: string[];

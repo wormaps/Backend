@@ -87,6 +87,14 @@ export function resolveCategoryLabel(category: string): string {
       return 'StreetContext';
     case 'building':
       return 'Buildings';
+    case 'vegetation':
+      return 'Vegetation';
+    case 'landmark':
+      return 'Landmarks';
+    case 'signage':
+      return 'Signage';
+    case 'street_furniture':
+      return 'StreetFurniture';
     default:
       return 'SceneMisc';
   }
@@ -114,6 +122,7 @@ export function registerBuildingGroupNodes(
       blenderCollection: 'Buildings',
       isGroupNode: true,
       objectId: building.objectId,
+      selectionLod: building.lodLevel,
       osmWayId: building.osmWayId,
       buildingUsage: building.usage,
       pivotLocal: pivot,

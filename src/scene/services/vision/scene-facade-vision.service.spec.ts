@@ -170,6 +170,7 @@ describe('SceneFacadeVisionService', () => {
       expect(hint.inferenceReasonCodes).toContain('MISSING_FACADE_COLOR');
       expect(hint.inferenceReasonCodes).toContain('MISSING_FACADE_MATERIAL');
       expect(hint.inferenceReasonCodes).toContain('MISSING_ROOF_SHAPE');
+      expect(hint.inferenceReasonCodes).toContain('WEAK_EVIDENCE_RATIO_HIGH');
       expect(hint.inferenceReasonCodes).toContain('DEFAULT_STYLE_RULE');
     }
   });

@@ -25,5 +25,11 @@ describe('glb-build-building-hero.stage', () => {
         maxWindowTriangles: 780_000,
       });
     });
+
+    it('guards lower bound for empty selection input', () => {
+      expect(resolveWindowTriangleBudgetForSelection(0)).toEqual({
+        maxWindowTriangles: 900_000,
+      });
+    });
   });
 });

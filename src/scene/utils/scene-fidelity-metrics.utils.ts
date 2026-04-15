@@ -25,6 +25,7 @@ export interface SceneFidelityMetricsReport {
     districtMaterialDiversity: number;
     heroOverrideRate: number;
     fallbackProceduralRate: number;
+    weakEvidenceRatio: number;
     landmarkCoverage: number;
     crosswalkCompleteness: number;
     signageDensity: number;
@@ -68,7 +69,15 @@ export function buildSceneFidelityMetricsReport(
       )
     : 0;
   const selectedHeroOverrides = Math.min(
-    heroOverrides,
+    sceneMeta.buildings.filter((building) => {
+      if (!building.visualRole || building.visualRole === 'generic') {
+        return false;
+      }
+      const facadeHint = sceneDetail.facadeHints.find(
+        (hint) => hint.objectId === building.objectId,
+      );
+      return !facadeHint?.weakEvidence;
+    }).length,
     sceneMeta.assetProfile.selected.buildingCount,
   );
   const heroDensity = selectedHeroOverrides / selectedBuildings;
@@ -88,6 +97,12 @@ export function buildSceneFidelityMetricsReport(
       sceneMeta.buildings.filter(
         (building) => building.geometryStrategy === 'fallback_massing',
       ).length / Math.max(1, sceneMeta.buildings.length)
+    ).toFixed(3),
+  );
+  const weakEvidenceRatio = Number(
+    (
+      sceneDetail.facadeHints.filter((hint) => hint.weakEvidence).length /
+      Math.max(1, sceneDetail.facadeHints.length)
     ).toFixed(3),
   );
   const landmarkCoverage = sceneMeta.structuralCoverage.heroLandmarkCoverage;
@@ -177,6 +192,7 @@ export function buildSceneFidelityMetricsReport(
       districtMaterialDiversity: materialDiversity,
       heroOverrideRate,
       fallbackProceduralRate,
+      weakEvidenceRatio,
       landmarkCoverage,
       crosswalkCompleteness,
       signageDensity,

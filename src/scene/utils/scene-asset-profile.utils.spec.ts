@@ -54,6 +54,200 @@ function createCrossing(
 }
 
 describe('buildSceneAssetSelection', () => {
+  it('assigns distance-based lodLevel to selected buildings', () => {
+    const sceneMeta: SceneMeta = {
+      sceneId: 'scene-selection-lod-test',
+      placeId: 'place-selection-lod-test',
+      name: 'Selection LOD Test',
+      generatedAt: '2026-04-06T00:00:00Z',
+      origin: coordinate(37, 127),
+      camera: {
+        topView: { x: 0, y: 120, z: 80 },
+        walkViewStart: { x: 0, y: 1.7, z: 12 },
+      },
+      bounds: {
+        radiusM: 2200,
+        northEast: coordinate(37.02, 127.02),
+        southWest: coordinate(36.98, 126.98),
+      },
+      stats: {
+        buildingCount: 3,
+        roadCount: 0,
+        walkwayCount: 0,
+        poiCount: 0,
+      },
+      diagnostics: {
+        droppedBuildings: 0,
+        droppedRoads: 0,
+        droppedWalkways: 0,
+        droppedPois: 0,
+        droppedCrossings: 0,
+        droppedStreetFurniture: 0,
+        droppedVegetation: 0,
+        droppedLandCovers: 0,
+        droppedLinearFeatures: 0,
+      },
+      detailStatus: 'FULL',
+      visualCoverage: {
+        structure: 1,
+        streetDetail: 1,
+        landmark: 1,
+        signage: 1,
+      },
+      materialClasses: [],
+      landmarkAnchors: [],
+      assetProfile: {
+        preset: 'SMALL',
+        budget: {
+          buildingCount: 300,
+          roadCount: 220,
+          walkwayCount: 300,
+          poiCount: 140,
+          crossingCount: 32,
+          trafficLightCount: 24,
+          streetLightCount: 36,
+          signPoleCount: 48,
+          treeClusterCount: 40,
+          billboardPanelCount: 72,
+        },
+        selected: {
+          buildingCount: 0,
+          roadCount: 0,
+          walkwayCount: 0,
+          poiCount: 0,
+          crossingCount: 0,
+          trafficLightCount: 0,
+          streetLightCount: 0,
+          signPoleCount: 0,
+          treeClusterCount: 0,
+          billboardPanelCount: 0,
+        },
+      },
+      structuralCoverage: {
+        selectedBuildingCoverage: 0,
+        coreAreaBuildingCoverage: 0,
+        fallbackMassingRate: 0,
+        footprintPreservationRate: 0,
+        heroLandmarkCoverage: 0,
+      },
+      roads: [],
+      buildings: [
+        {
+          objectId: 'building-near',
+          osmWayId: 'b-near',
+          name: 'Near',
+          heightMeters: 20,
+          outerRing: [
+            coordinate(37.0002, 127.0002),
+            coordinate(37.0002, 127.00025),
+            coordinate(37.00025, 127.00025),
+            coordinate(37.00025, 127.0002),
+          ],
+          holes: [],
+          footprint: [],
+          usage: 'COMMERCIAL',
+          facadeColor: null,
+          facadeMaterial: null,
+          roofColor: null,
+          roofMaterial: null,
+          roofShape: null,
+          buildingPart: null,
+          preset: 'mixed_midrise',
+          roofType: 'flat',
+        },
+        {
+          objectId: 'building-mid',
+          osmWayId: 'b-mid',
+          name: 'Mid',
+          heightMeters: 20,
+          outerRing: [
+            coordinate(37.0024, 127.0024),
+            coordinate(37.0024, 127.00245),
+            coordinate(37.00245, 127.00245),
+            coordinate(37.00245, 127.0024),
+          ],
+          holes: [],
+          footprint: [],
+          usage: 'COMMERCIAL',
+          facadeColor: null,
+          facadeMaterial: null,
+          roofColor: null,
+          roofMaterial: null,
+          roofShape: null,
+          buildingPart: null,
+          preset: 'mixed_midrise',
+          roofType: 'flat',
+        },
+        {
+          objectId: 'building-far',
+          osmWayId: 'b-far',
+          name: 'Far',
+          heightMeters: 20,
+          outerRing: [
+            coordinate(37.0052, 127.0052),
+            coordinate(37.0052, 127.00525),
+            coordinate(37.00525, 127.00525),
+            coordinate(37.00525, 127.0052),
+          ],
+          holes: [],
+          footprint: [],
+          usage: 'COMMERCIAL',
+          facadeColor: null,
+          facadeMaterial: null,
+          roofColor: null,
+          roofMaterial: null,
+          roofShape: null,
+          buildingPart: null,
+          preset: 'mixed_midrise',
+          roofType: 'flat',
+        },
+      ],
+      walkways: [],
+      pois: [],
+    };
+
+    const sceneDetail: SceneDetail = {
+      sceneId: sceneMeta.sceneId,
+      placeId: sceneMeta.placeId,
+      generatedAt: sceneMeta.generatedAt,
+      detailStatus: 'FULL',
+      crossings: [],
+      roadMarkings: [],
+      streetFurniture: [],
+      vegetation: [],
+      landCovers: [],
+      linearFeatures: [],
+      facadeHints: [],
+      signageClusters: [],
+      annotationsApplied: [],
+      provenance: {
+        mapillaryUsed: false,
+        mapillaryImageCount: 0,
+        mapillaryFeatureCount: 0,
+        osmTagCoverage: {
+          coloredBuildings: 0,
+          materialBuildings: 0,
+          crossings: 0,
+          streetFurniture: 0,
+          vegetation: 0,
+        },
+        overrideCount: 0,
+      },
+    };
+
+    const selection = buildSceneAssetSelection(sceneMeta, sceneDetail, 'SMALL');
+    const lodById = new Map(
+      selection.buildings.map((building) => [
+        building.objectId,
+        building.lodLevel,
+      ]),
+    );
+
+    expect(lodById.get('building-near')).toBe('HIGH');
+    expect(lodById.get('building-mid')).toBe('MEDIUM');
+    expect(lodById.get('building-far')).toBe('LOW');
+  });
+
   it('preserves principal crossings and nearby anchor geometry in MEDIUM scenes', () => {
     const roads = Array.from({ length: 430 }, (_, index) =>
       createRoad(index, 37.0002 + index * 0.00001, 127.0002 + index * 0.00001),

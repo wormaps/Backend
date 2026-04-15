@@ -214,6 +214,14 @@ export class SceneHeroOverrideApplierService {
         const center =
           averageCoordinate(building.outerRing) ?? building.outerRing[0];
         const hint = hintByObjectId.get(building.objectId);
+        if (!hint) {
+          return {
+            building,
+            hint,
+            score: Number.NEGATIVE_INFINITY,
+            passesEvidenceGate: false,
+          };
+        }
         const nearestHeroDistance = heroAnchorPoints.length
           ? Math.min(
               ...heroAnchorPoints.map((anchor) =>
@@ -221,6 +229,12 @@ export class SceneHeroOverrideApplierService {
               ),
             )
           : 0;
+        const passesEvidenceGate =
+          !hint.weakEvidence &&
+          (hint.evidenceStrength === 'strong' ||
+            hint.evidenceStrength === 'medium' ||
+            hint.signageDensity === 'high' ||
+            (hint.emissiveStrength ?? 0) >= 0.6);
         const score =
           (hint?.billboardEligible ? 2.8 : 0) +
           (hint?.signageDensity === 'high'
@@ -245,8 +259,9 @@ export class SceneHeroOverrideApplierService {
               ? 0.45
               : 0) -
           Math.min(2.2, nearestHeroDistance / 180);
-        return { building, hint, score };
+        return { building, hint, score, passesEvidenceGate };
       })
+      .filter((item) => item.passesEvidenceGate)
       .sort((a, b) => b.score - a.score)
       .slice(0, promoteCount);
 
@@ -302,6 +317,27 @@ export class SceneHeroOverrideApplierService {
       ...detail.annotationsApplied,
       `${manifestId}:auto-hero-promotion:${candidates.length}`,
     ];
+
+    const weakEvidencePromoted = candidates.filter(
+      (item) => item.hint?.weakEvidence,
+    ).length;
+    const promotionAudit = {
+      manifestId,
+      promotedCount: candidates.length,
+      weakEvidencePromoted,
+      evidenceGateApplied: true,
+      candidateScores: candidates.map((item) => ({
+        objectId: item.building.objectId,
+        score: Number(item.score.toFixed(3)),
+        weakEvidence: item.hint?.weakEvidence ?? false,
+        evidenceAccepted: item.passesEvidenceGate,
+      })),
+    };
+    this.appLoggerService.info('scene.hero_promotion.audit', {
+      sceneId: meta.sceneId,
+      step: 'hero_promotion',
+      ...promotionAudit,
+    });
   }
 
   private applyLandmarkAnnotations(
