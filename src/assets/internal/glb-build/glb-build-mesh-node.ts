@@ -27,6 +27,7 @@ export type MeshSemanticTrace = {
   selectionLod?: 'HIGH' | 'MEDIUM' | 'LOW';
   loadTier?: 'high' | 'medium' | 'low';
   progressiveOrder?: number;
+  prototypeKey?: string;
   instanceGroupKey?: string;
   semanticCategory?: string;
   semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
@@ -177,6 +178,7 @@ export function addMeshNode(
     selectionLod: trace.selectionLod,
     loadTier: trace.loadTier,
     progressiveOrder: trace.progressiveOrder,
+    prototypeKey: trace.prototypeKey ?? trace.instanceGroupKey,
     instanceGroupKey: trace.instanceGroupKey,
     semanticCategory: trace.semanticCategory ?? resolveSemanticCategory(name),
     semanticMetadataCoverage:

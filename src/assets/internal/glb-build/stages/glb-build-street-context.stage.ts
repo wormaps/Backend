@@ -23,6 +23,8 @@ export function addStreetContextMeshes(
   hooks: Pick<
     RunnerStageHooks,
     | 'addMeshNode'
+    | 'collectGraphIntent'
+    | 'prototypeRegistry'
     | 'createStreetFurnitureGeometry'
     | 'createPoiGeometry'
     | 'createLandCoverGeometry'
@@ -41,6 +43,22 @@ export function addStreetContextMeshes(
     dimensions?: number,
   ) => number[],
 ): void {
+  hooks.collectGraphIntent?.({
+    stage: 'street_context',
+    semanticCategory: 'street_context',
+    sourceCount:
+      sceneDetail.streetFurniture.length +
+      sceneDetail.vegetation.length +
+      sceneDetail.landCovers.length +
+      sceneMeta.pois.length,
+    selectedCount:
+      assetSelection.trafficLights.length +
+      assetSelection.streetLights.length +
+      assetSelection.signPoles.length +
+      assetSelection.vegetation.length +
+      assetSelection.pois.length,
+    loadTier: 'medium',
+  });
   const benchItems = selectMinorFurniture(sceneDetail.streetFurniture, 'BENCH');
   const bikeRackItems = selectMinorFurniture(
     sceneDetail.streetFurniture,

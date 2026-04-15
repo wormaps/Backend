@@ -48,9 +48,12 @@ export function buildSceneFidelityMetricsReport(
   const currentMode = plan?.currentMode ?? 'PROCEDURAL_ONLY';
   const targetMode = plan?.targetMode ?? currentMode;
 
+  const selectedBuildingTarget = sceneMeta.assetProfile.selected.buildingCount;
   const selectedBuildings = Math.max(
     1,
-    sceneMeta.assetProfile.selected.buildingCount,
+    selectedBuildingTarget > 0
+      ? Math.min(selectedBuildingTarget, sceneMeta.buildings.length)
+      : sceneMeta.buildings.length,
   );
   const signageDensity = Number(
     (
@@ -78,7 +81,7 @@ export function buildSceneFidelityMetricsReport(
       );
       return !facadeHint?.weakEvidence;
     }).length,
-    sceneMeta.assetProfile.selected.buildingCount,
+    selectedBuildings,
   );
   const heroDensity = selectedHeroOverrides / selectedBuildings;
   const hasMeaningfulHeroCoverage = heroDensity >= 0.02;
@@ -222,7 +225,70 @@ function resolveDistrictMaterialDiversity(
           Boolean(cluster),
       ),
   );
-  return materialClasses.size + Math.min(3, clusters.size);
+  const paletteColors = new Set(
+    facadeHints.flatMap((hint) => [
+      ...(hint.palette ?? []),
+      ...(hint.shellPalette ?? []),
+      ...(hint.panelPalette ?? []),
+    ]),
+  );
+  const roleColorCount = new Set(
+    facadeHints.flatMap((hint) => [
+      hint.mainColor,
+      hint.accentColor,
+      hint.trimColor,
+      hint.roofColor,
+    ]),
+  ).size;
+  const hueBuckets = new Set(
+    [...paletteColors]
+      .map((hex) => normalizeHex(hex))
+      .filter((hex): hex is string => Boolean(hex))
+      .map((hex) => resolveHueBucket(hex)),
+  );
+  const paletteSpread = Math.min(10, Math.floor(paletteColors.size / 2));
+  return (
+    materialClasses.size +
+    Math.min(5, clusters.size) +
+    Math.min(12, hueBuckets.size) +
+    Math.min(10, roleColorCount) +
+    paletteSpread
+  );
+}
+
+function normalizeHex(hex: string): string | null {
+  const value = hex.trim();
+  const short = /^#[0-9a-fA-F]{3}$/;
+  const full = /^#[0-9a-fA-F]{6}$/;
+  if (full.test(value)) {
+    return value.toLowerCase();
+  }
+  if (short.test(value)) {
+    return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`.toLowerCase();
+  }
+  return null;
+}
+
+function resolveHueBucket(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  if (delta < 0.03) {
+    return 0;
+  }
+  let hue = 0;
+  if (max === r) {
+    hue = ((g - b) / delta) % 6;
+  } else if (max === g) {
+    hue = (b - r) / delta + 2;
+  } else {
+    hue = (r - g) / delta + 4;
+  }
+  const degrees = (hue * 60 + 360) % 360;
+  return Math.floor(degrees / 15) + 1;
 }
 
 function resolveRoadRoughnessFromDistricts(sceneDetail: SceneDetail): number {

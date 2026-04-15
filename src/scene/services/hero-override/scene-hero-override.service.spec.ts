@@ -321,6 +321,13 @@ describe('SceneHeroOverrideService', () => {
         .filter((building) => building.visualRole === 'edge_landmark')
         .every((building) => (building.signBandLevels ?? 0) >= 2),
     ).toBe(true);
+    expect(
+      result.meta.assetProfile.selected.buildingCount,
+    ).toBeGreaterThanOrEqual(
+      result.meta.buildings.filter(
+        (building) => building.visualRole && building.visualRole !== 'generic',
+      ).length,
+    );
   });
 
   it('does not auto-promote weak-evidence-only candidates', () => {

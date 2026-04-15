@@ -15,6 +15,7 @@ import type { SceneStaticAtmosphereProfile } from '../../../scene/types/scene.ty
 import type { SceneVariationProfile } from '../../compiler/scene-variation';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 import type { SceneModePolicy } from '../../../scene/utils/scene-mode-policy.utils';
+import type { PrototypeRegistry } from './glb-build-prototype.types';
 
 export type AssetSelection = ReturnType<typeof buildSceneAssetSelection>;
 export type SceneMaterials =
@@ -57,6 +58,7 @@ export interface MeshAddDelegate {
       selectionLod?: 'HIGH' | 'MEDIUM' | 'LOW';
       loadTier?: 'high' | 'medium' | 'low';
       progressiveOrder?: number;
+      prototypeKey?: string;
       instanceGroupKey?: string;
       semanticCategory?: string;
       semanticCoverage?: 'NONE' | 'PARTIAL' | 'FULL';
@@ -67,6 +69,17 @@ export interface MeshAddDelegate {
 
 export interface RunnerStageHooks {
   addMeshNode: MeshAddDelegate;
+  collectGraphIntent?: (intent: {
+    stage: 'transport' | 'street_context' | 'building_hero';
+    semanticCategory: string;
+    selectionLod?: 'HIGH' | 'MEDIUM' | 'LOW';
+    loadTier?: 'high' | 'medium' | 'low';
+    progressiveOrder?: number;
+    instanceGroupKey?: string;
+    sourceCount?: number;
+    selectedCount?: number;
+  }) => void;
+  prototypeRegistry?: PrototypeRegistry;
   createCrosswalkGeometry: (
     origin: SceneMeta['origin'],
     crossings: SceneDetail['crossings'],

@@ -83,6 +83,8 @@ export function addBuildingAndHeroMeshes(
   hooks: Pick<
     RunnerStageHooks,
     | 'addMeshNode'
+    | 'collectGraphIntent'
+    | 'prototypeRegistry'
     | 'groupFacadeHintsByPanelColor'
     | 'groupBillboardClustersByColor'
     | 'resolveWindowMaterialTone'
@@ -93,6 +95,7 @@ export function addBuildingAndHeroMeshes(
     | 'modePolicy'
     | 'staticAtmosphere'
     | 'createBuildingRoofAccentGeometry'
+    | 'prototypeRegistry'
   >,
   ctx: MeshAddContext,
   sceneMeta: GlbInputContract,
@@ -111,6 +114,13 @@ export function addBuildingAndHeroMeshes(
   const windowBudget = resolveWindowTriangleBudgetForSelection(
     selectedBuildingCount,
   );
+  hooks.collectGraphIntent?.({
+    stage: 'building_hero',
+    semanticCategory: 'building',
+    sourceCount: sceneMeta.buildings.length,
+    selectedCount: assetSelection.buildings.length,
+    loadTier: selectedBuildingCount > 700 ? 'medium' : 'high',
+  });
   let progressiveOrder = 0;
   const nextProgressiveOrder = () => {
     progressiveOrder += 1;
@@ -156,6 +166,7 @@ export function addBuildingAndHeroMeshes(
         selectionLod: building.lodLevel,
         loadTier: resolveLoadTier(building.lodLevel),
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: `building_shell:${shellStyle.materialClass}:${shellStyle.bucket}`,
         instanceGroupKey: `building_shell:${shellStyle.materialClass}:${shellStyle.bucket}:${building.lodLevel ?? 'HIGH'}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -181,6 +192,7 @@ export function addBuildingAndHeroMeshes(
         selectionLod: building.lodLevel,
         loadTier: resolveLoadTier(building.lodLevel),
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: `building_roof_surface:${roofTone}`,
         instanceGroupKey: `building_roof_surface:${roofTone}:${building.lodLevel ?? 'HIGH'}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -207,6 +219,7 @@ export function addBuildingAndHeroMeshes(
         selectionLod: building.lodLevel,
         loadTier: resolveLoadTier(building.lodLevel),
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: `building_roof_accent:${roofTone}`,
         instanceGroupKey: `building_roof_accent:${roofTone}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -245,6 +258,7 @@ export function addBuildingAndHeroMeshes(
             selectionLod: building.lodLevel,
             loadTier: resolveLoadTier(building.lodLevel),
             progressiveOrder: nextProgressiveOrder(),
+            prototypeKey: `building_panel:${panelTone}:${panelColor}`,
             instanceGroupKey: `building_panel:${panelTone}:${panelColor}:${building.lodLevel ?? 'HIGH'}`,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
@@ -277,6 +291,7 @@ export function addBuildingAndHeroMeshes(
         selectionLod: building.lodLevel,
         loadTier: resolveLoadTier(building.lodLevel),
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
         instanceGroupKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -299,6 +314,7 @@ export function addBuildingAndHeroMeshes(
         selectionLod: building.lodLevel,
         loadTier: resolveLoadTier(building.lodLevel),
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: 'building_entrance:default',
         instanceGroupKey: `building_entrance:default:${building.lodLevel ?? 'HIGH'}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -318,6 +334,7 @@ export function addBuildingAndHeroMeshes(
         selectionLod: building.lodLevel,
         loadTier: resolveLoadTier(building.lodLevel),
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: 'building_roof_equipment:default',
         instanceGroupKey: `building_roof_equipment:default:${building.lodLevel ?? 'HIGH'}`,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -352,6 +369,7 @@ export function addBuildingAndHeroMeshes(
           selectedCount: billboardGroup.selectedClusters.length,
           loadTier: 'medium',
           progressiveOrder: nextProgressiveOrder(),
+          prototypeKey: `billboards:${billboardGroup.tone}:${billboardGroup.colorHex}`,
           instanceGroupKey: `billboards:${billboardGroup.tone}:${billboardGroup.colorHex}`,
           semanticCategory: 'signage',
           sourceObjectIds: billboardGroup.selectedClusters.map(
@@ -383,6 +401,7 @@ export function addBuildingAndHeroMeshes(
             selectionLod: building.lodLevel,
             loadTier: resolveLoadTier(building.lodLevel),
             progressiveOrder: nextProgressiveOrder(),
+            prototypeKey: 'hero_canopy:default',
             instanceGroupKey: `hero_canopy:default:${building.lodLevel ?? 'HIGH'}`,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
@@ -407,6 +426,7 @@ export function addBuildingAndHeroMeshes(
             selectionLod: building.lodLevel,
             loadTier: resolveLoadTier(building.lodLevel),
             progressiveOrder: nextProgressiveOrder(),
+            prototypeKey: 'hero_roof_unit:default',
             instanceGroupKey: `hero_roof_unit:default:${building.lodLevel ?? 'HIGH'}`,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
@@ -431,6 +451,7 @@ export function addBuildingAndHeroMeshes(
             selectionLod: building.lodLevel,
             loadTier: resolveLoadTier(building.lodLevel),
             progressiveOrder: nextProgressiveOrder(),
+            prototypeKey: 'hero_billboard:default',
             instanceGroupKey: `hero_billboard:default:${building.lodLevel ?? 'HIGH'}`,
             semanticCategory: 'building',
             sourceObjectIds: [building.objectId],
@@ -459,6 +480,7 @@ export function addBuildingAndHeroMeshes(
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
         loadTier: 'medium',
         progressiveOrder: nextProgressiveOrder(),
+        prototypeKey: 'landmark_extras:default',
         instanceGroupKey: 'landmark_extras:default:medium',
         semanticCategory: 'landmark',
         sourceObjectIds: [

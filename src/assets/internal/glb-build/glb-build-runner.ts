@@ -55,6 +55,12 @@ import {
   resolveWindowMaterialTone,
   resolveHeroToneFromBuildings,
 } from './glb-build-style-metrics';
+import {
+  createGraphIntent,
+  StageGraphIntent,
+  summarizeGraphIntents,
+} from './glb-build-graph-intent';
+import { createPrototypeRegistry } from './glb-build-prototype.registry';
 import { createCrosswalkGeometry } from './glb-build-utils';
 import type { GlbInputContract } from './glb-build-contract';
 
@@ -158,6 +164,9 @@ export class GlbBuildRunner {
   private readonly sceneAssetProfileService = new SceneAssetProfileService();
   private materialCacheStats: MaterialCacheStats = { hits: 0, misses: 0 };
   private semanticGroupNodes = new Map<string, unknown>();
+  private graphIntents: Array<ReturnType<typeof createGraphIntent>> = [];
+  private stageGraphIntents: StageGraphIntent[] = [];
+  private prototypeRegistry = createPrototypeRegistry();
   private triangleBudget: TriangleBudgetState = {
     totalTriangleBudget: 2_500_000,
     totalTriangleCount: 0,
@@ -229,6 +238,9 @@ export class GlbBuildRunner {
       this.semanticGroupNodes,
     );
     this.currentMeshDiagnostics = [];
+    this.stageGraphIntents = [];
+    this.graphIntents = [];
+    this.prototypeRegistry = createPrototypeRegistry();
 
     const assetSelection = contract.assetSelection;
     const adaptiveMeta =
@@ -271,8 +283,9 @@ export class GlbBuildRunner {
       geometry: unknown,
       material: unknown,
       trace: MeshSemanticTrace = {},
-    ) =>
-      addMeshNode(
+    ) => {
+      this.graphIntents.push(createGraphIntent(name, trace));
+      return addMeshNode(
         docParam as Record<string, unknown>,
         AccessorRef as Record<string, unknown>,
         sceneParam as Record<string, unknown>,
@@ -285,10 +298,15 @@ export class GlbBuildRunner {
         this.triangleBudget,
         this.semanticGroupNodes,
       );
+    };
 
     addTransportMeshes(
       {
         addMeshNode: addMeshNodeBound,
+        collectGraphIntent: (intent) => {
+          this.stageGraphIntents.push(intent);
+        },
+        prototypeRegistry: this.prototypeRegistry,
         createCrosswalkGeometry: createCrosswalkGeometry.bind(this),
         triangulateRings: triangulateRingsUtil,
         modePolicy,
@@ -304,6 +322,10 @@ export class GlbBuildRunner {
     addStreetContextMeshes(
       {
         addMeshNode: addMeshNodeBound,
+        collectGraphIntent: (intent) => {
+          this.stageGraphIntents.push(intent);
+        },
+        prototypeRegistry: this.prototypeRegistry,
         createStreetFurnitureGeometry,
         createPoiGeometry,
         createLandCoverGeometry,
@@ -343,6 +365,10 @@ export class GlbBuildRunner {
     addBuildingAndHeroMeshes(
       {
         addMeshNode: addMeshNodeBound,
+        collectGraphIntent: (intent) => {
+          this.stageGraphIntents.push(intent);
+        },
+        prototypeRegistry: this.prototypeRegistry,
         groupFacadeHintsByPanelColor: groupFacadeHintsByPanelColorLocal,
         groupBillboardClustersByColor: groupBillboardClustersByColorLocal,
         resolveWindowMaterialTone: resolveWindowMaterialTone,
@@ -375,7 +401,34 @@ export class GlbBuildRunner {
 
     const io = new NodeIO();
     await this.registerNodeIoExtensions(io, contract.sceneId);
-    const glbBinary = await io.writeBinary(doc);
+    let glbBinary = await io.writeBinary(doc);
+    if (glbBinary.byteLength > GLB_SIZE_TARGET_MAX_BYTES) {
+      this.appLoggerService.warn('scene.glb_build.size_budget_retry', {
+        sceneId: contract.sceneId,
+        step: 'glb_build',
+        glbBytes: glbBinary.byteLength,
+        targetBytes: GLB_SIZE_TARGET_MAX_BYTES,
+      });
+      await this.optimizeGlbDocument(
+        doc,
+        contract.sceneId,
+        transformFunctionsModule,
+        meshoptimizerModule?.MeshoptSimplifier,
+        {
+          simplify: {
+            enabled: true,
+            options: {
+              ratio: 0.55,
+              error: 0.002,
+              lockBorder: false,
+            },
+          },
+          disableInstance: true,
+          reason: 'size_budget_retry',
+        },
+      );
+      glbBinary = await io.writeBinary(doc);
+    }
     this.enforceSizeBudget(glbBinary.byteLength, contract.sceneId);
     await this.validateGlb(
       Uint8Array.from(glbBinary),
@@ -428,6 +481,11 @@ export class GlbBuildRunner {
       buildingClosureDiagnostics,
       meshNodes: this.currentMeshDiagnostics,
       facadeColorDiversity,
+      graphIntentSummary: summarizeGraphIntents(
+        this.graphIntents,
+        this.stageGraphIntents,
+      ),
+      prototypeSummary: this.prototypeRegistry.snapshot(),
       materialTuning,
       facadeMaterialProfile,
       variationProfile,
@@ -495,6 +553,14 @@ export class GlbBuildRunner {
     sceneId: string,
     transformModule: GlbTransformFunctionsModule,
     simplifyMeshoptSimplifier?: unknown,
+    controls?: {
+      simplify?: {
+        enabled: boolean;
+        options: GlbSimplifyOptions;
+      };
+      disableInstance?: boolean;
+      reason?: string;
+    },
   ): Promise<void> {
     const transformableDoc = doc as TransformableGlbDocument;
     if (typeof transformableDoc.transform !== 'function') {
@@ -515,12 +581,16 @@ export class GlbBuildRunner {
       transformModule.weld(),
       transformModule.quantize(GLB_QUANTIZE_OPTIONS),
     ];
-    const simplifyConfig = this.resolveSimplifyOptionsFromEnv();
+    const simplifyConfig =
+      controls?.simplify ?? this.resolveSimplifyOptionsFromEnv();
     let supportsInstance = false;
     let supportsSimplify = false;
     let simplifyTransform: unknown;
     let transforms = [...baseTransforms, ...tailTransforms];
-    if (typeof transformModule.instance === 'function') {
+    if (
+      !controls?.disableInstance &&
+      typeof transformModule.instance === 'function'
+    ) {
       try {
         const instanceTransform =
           transformModule.instance(GLB_INSTANCE_OPTIONS);
@@ -626,6 +696,7 @@ export class GlbBuildRunner {
       this.appLoggerService.info('scene.glb_build.optimize', {
         sceneId,
         step: 'glb_build',
+        reason: controls?.reason,
         transforms: transformSteps,
         instance: supportsInstance ? GLB_INSTANCE_OPTIONS : undefined,
         simplify: supportsSimplify ? simplifyConfig.options : undefined,

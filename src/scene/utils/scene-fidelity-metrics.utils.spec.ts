@@ -232,6 +232,51 @@ describe('scene-fidelity-metrics.utils', () => {
     );
   });
 
+  it('increases districtMaterialDiversity with richer palette spread', () => {
+    const detailLowDiversity = createSceneDetail(10);
+    const detailHighDiversity = createSceneDetail(10);
+
+    detailLowDiversity.facadeHints = detailLowDiversity.facadeHints.map(
+      (hint) => ({
+        ...hint,
+        palette: ['#8899aa'],
+        shellPalette: ['#8899aa'],
+        panelPalette: ['#8899aa'],
+        districtCluster: 'core_commercial',
+      }),
+    );
+    detailHighDiversity.facadeHints = detailHighDiversity.facadeHints.map(
+      (hint, index) => ({
+        ...hint,
+        palette: [
+          index % 3 === 0 ? '#ff6b6b' : index % 3 === 1 ? '#4ecdc4' : '#ffd166',
+          index % 4 === 0 ? '#6a4c93' : '#1a759f',
+        ],
+        shellPalette: [index % 2 === 0 ? '#2d3142' : '#bfc0c0'],
+        panelPalette: [index % 5 === 0 ? '#f4a261' : '#2a9d8f'],
+        districtCluster:
+          index % 3 === 0
+            ? 'core_commercial'
+            : index % 3 === 1
+              ? 'landmark_plaza'
+              : 'secondary_retail',
+      }),
+    );
+
+    const low = buildSceneFidelityMetricsReport(
+      createSceneMeta(10),
+      detailLowDiversity,
+    );
+    const high = buildSceneFidelityMetricsReport(
+      createSceneMeta(10),
+      detailHighDiversity,
+    );
+
+    expect(high.quality.districtMaterialDiversity).toBeGreaterThan(
+      low.quality.districtMaterialDiversity,
+    );
+  });
+
   it('raises heroOverrideRate when auto hero promotion annotation exists', () => {
     const detail = createSceneDetail(10);
     detail.roadDecals = [
@@ -319,5 +364,34 @@ describe('scene-fidelity-metrics.utils', () => {
     expect(weakHeavy.quality.heroOverrideRate).toBeLessThan(
       reliable.quality.heroOverrideRate,
     );
+  });
+
+  it('uses effective selected building denominator bounded by actual buildings', () => {
+    const meta = createSceneMeta(10);
+    meta.assetProfile.selected.buildingCount = 400;
+    meta.buildings = meta.buildings.map((building, index) =>
+      index < 6 ? { ...building, visualRole: 'hero_landmark' } : building,
+    );
+    const detail = createSceneDetail(10);
+    detail.roadDecals = [
+      {
+        objectId: 'hero-crosswalk-1',
+        intersectionId: 'intersection-1',
+        type: 'CROSSWALK_OVERLAY',
+        color: '#f8f8f6',
+        emphasis: 'hero',
+        priority: 'hero',
+        layer: 'crosswalk_overlay',
+        shapeKind: 'path_strip',
+        path: [
+          coordinate(35.65931, 139.70031),
+          coordinate(35.65936, 139.70039),
+        ],
+      },
+    ];
+
+    const report = buildSceneFidelityMetricsReport(meta, detail);
+
+    expect(report.quality.heroOverrideRate).toBeGreaterThanOrEqual(0.3);
   });
 });

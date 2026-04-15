@@ -201,6 +201,18 @@ type RunnerPrivateMethods = {
       quantize: (options?: Record<string, unknown>) => unknown;
     },
     simplifyMeshoptSimplifier?: unknown,
+    controls?: {
+      simplify?: {
+        enabled: boolean;
+        options: {
+          ratio: number;
+          error: number;
+          lockBorder: boolean;
+        };
+      };
+      disableInstance?: boolean;
+      reason?: string;
+    },
   ) => Promise<void>;
   validateGlb: (
     glbBinary: Uint8Array,
@@ -1145,5 +1157,52 @@ describe('GlbBuildRunner modularized', () => {
     expect(() =>
       runnerPrivate.enforceSizeBudget(30 * 1024 * 1024, 'scene-fit-budget'),
     ).not.toThrow();
+  });
+
+  it('skips instance transform when disableInstance control is true', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest.fn().mockResolvedValue(undefined);
+    const transformModule = {
+      prune: jest.fn(() => 'prune-transform'),
+      dedup: jest.fn(() => 'dedup-transform'),
+      instance: jest.fn(() => 'instance-transform'),
+      simplify: jest.fn(() => 'simplify-transform'),
+      weld: jest.fn(() => 'weld-transform'),
+      quantize: jest.fn(() => 'quantize-transform'),
+    };
+
+    await runnerPrivate.optimizeGlbDocument(
+      { transform },
+      'scene-disable-instance',
+      transformModule,
+      { simplify: jest.fn() },
+      {
+        disableInstance: true,
+        simplify: {
+          enabled: false,
+          options: {
+            ratio: 0.75,
+            error: 0.001,
+            lockBorder: false,
+          },
+        },
+        reason: 'size_budget_retry',
+      },
+    );
+
+    expect(transformModule.instance).not.toHaveBeenCalled();
+    expect(transform).toHaveBeenCalledWith(
+      'prune-transform',
+      'dedup-transform',
+      'weld-transform',
+      'quantize-transform',
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'scene.glb_build.optimize',
+      expect.objectContaining({
+        sceneId: 'scene-disable-instance',
+        reason: 'size_budget_retry',
+      }),
+    );
   });
 });

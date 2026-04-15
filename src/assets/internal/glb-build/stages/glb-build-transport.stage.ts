@@ -24,6 +24,8 @@ export function addTransportMeshes(
   hooks: Pick<
     RunnerStageHooks,
     | 'addMeshNode'
+    | 'collectGraphIntent'
+    | 'prototypeRegistry'
     | 'createCrosswalkGeometry'
     | 'triangulateRings'
     | 'modePolicy'
@@ -39,6 +41,14 @@ export function addTransportMeshes(
     dimensions?: number,
   ) => number[],
 ): void {
+  hooks.collectGraphIntent?.({
+    stage: 'transport',
+    semanticCategory: 'transport',
+    sourceCount: sceneMeta.roads.length + sceneDetail.crossings.length,
+    selectedCount:
+      assetSelection.roads.length + assetSelection.crossings.length,
+    loadTier: 'high',
+  });
   hooks.addMeshNode(
     ctx.doc,
     ctx.Accessor,

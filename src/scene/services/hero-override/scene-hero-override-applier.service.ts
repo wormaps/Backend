@@ -318,6 +318,20 @@ export class SceneHeroOverrideApplierService {
       `${manifestId}:auto-hero-promotion:${candidates.length}`,
     ];
 
+    const updatedHeroCount = meta.buildings.filter(
+      (building) => building.visualRole && building.visualRole !== 'generic',
+    ).length;
+    meta.assetProfile = {
+      ...meta.assetProfile,
+      selected: {
+        ...meta.assetProfile.selected,
+        buildingCount: Math.max(
+          meta.assetProfile.selected.buildingCount,
+          updatedHeroCount,
+        ),
+      },
+    };
+
     const weakEvidencePromoted = candidates.filter(
       (item) => item.hint?.weakEvidence,
     ).length;

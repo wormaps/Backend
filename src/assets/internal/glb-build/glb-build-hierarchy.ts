@@ -131,6 +131,7 @@ export function registerBuildingGroupNodes(
       isGroupNode: true,
       objectId: building.objectId,
       selectionLod: building.lodLevel,
+      progressiveChunkKey: `building_lod_${(building.lodLevel ?? 'MEDIUM').toLowerCase()}`,
       osmWayId: building.osmWayId,
       buildingUsage: building.usage,
       pivotLocal: pivot,
