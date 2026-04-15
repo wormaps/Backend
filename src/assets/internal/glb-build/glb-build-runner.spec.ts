@@ -370,8 +370,14 @@ describe('GlbBuildRunner modularized', () => {
     const buildingsGroup = root.children.find(
       (node) => node.name === 'grp_building',
     );
-    const buildingNode = buildingsGroup?.children.find(
+    const lodHighGroup = buildingsGroup?.children.find(
+      (node) => node.name === 'grp_building_lod_high',
+    );
+    const buildingNode = lodHighGroup?.children.find(
       (node) => node.name === 'bld_building-1',
+    );
+    const meshNodeUnderBuilding = buildingNode?.children.find(
+      (node) => node.name === 'building_shells_building-1',
     );
     const meshNode = buildingNode?.children.find(
       (node) => node.name === 'building_shells_building-1',
@@ -381,6 +387,7 @@ describe('GlbBuildRunner modularized', () => {
     expect(meshNode?.extras.twinEntityIds).toEqual([
       buildingNode?.extras.twinEntityId,
     ]);
+    expect(meshNodeUnderBuilding?.name).toBe('building_shells_building-1');
     expect(
       (meshNode?.extras.sourceSnapshotIds as string[] | undefined)?.length,
     ).toBeGreaterThan(0);
@@ -420,11 +427,15 @@ describe('GlbBuildRunner modularized', () => {
     const buildingsGroup = root.children.find(
       (node) => node.name === 'grp_building',
     );
-    const buildingNode = buildingsGroup?.children.find(
+    const lodHighGroup = buildingsGroup?.children.find(
+      (node) => node.name === 'grp_building_lod_high',
+    );
+    const buildingNode = lodHighGroup?.children.find(
       (node) => node.name === 'bld_building-1',
     );
 
     expect(buildingsGroup?.extras.blenderCollection).toBe('Buildings');
+    expect(lodHighGroup?.extras.selectionLod).toBe('HIGH');
     expect(buildingNode?.extras.objectId).toBe('building-1');
     expect(buildingNode?.extras.selectionLod).toBe('HIGH');
     expect(buildingNode?.extras.suggestedPivotPolicy).toBe(
@@ -459,6 +470,7 @@ describe('GlbBuildRunner modularized', () => {
           {
             objectId: 'building-hero',
             osmWayId: 'way_hero',
+            lodLevel: 'LOW',
             usage: 'COMMERCIAL',
             outerRing: [
               { lat: 37.0001, lng: 127.0001 },
@@ -499,14 +511,22 @@ describe('GlbBuildRunner modularized', () => {
     const buildingsGroup = root.children.find(
       (node) => node.name === 'grp_building',
     );
-    const buildingNode = buildingsGroup?.children.find(
+    const lodLowGroup = buildingsGroup?.children.find(
+      (node) => node.name === 'grp_building_lod_low',
+    );
+    const buildingNode = lodLowGroup?.children.find(
       (node) => node.name === 'bld_building-hero',
+    );
+    const directHeroMeshNode = lodLowGroup?.children.find(
+      (node) => node.name === 'hero_canopy_building-hero',
     );
     const heroMeshNode = buildingNode?.children.find(
       (node) => node.name === 'hero_canopy_building-hero',
     );
 
     expect(buildingNode).toBeDefined();
+    expect(lodLowGroup).toBeDefined();
+    expect(directHeroMeshNode).toBeUndefined();
     expect(heroMeshNode?.extras.semanticCategory).toBe('building');
     expect(heroMeshNode?.extras.sourceObjectIds).toEqual(['building-hero']);
   });

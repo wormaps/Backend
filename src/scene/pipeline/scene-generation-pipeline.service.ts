@@ -178,11 +178,12 @@ export class SceneGenerationPipelineService {
       },
     };
 
-    const finalizedMeta = await this.sceneAssetProfileStep.execute(
+    const finalized = await this.sceneAssetProfileStep.execute(
       correctedWithTerrain.meta,
       correctedWithTerrain.detail,
       storedScene.scale,
     );
+    const finalizedMeta = finalized.meta;
     this.appLoggerService.info('scene.glb_build.started', {
       ...logContext,
       step: 'glb_build',
@@ -193,6 +194,7 @@ export class SceneGenerationPipelineService {
     const assetPath = await this.sceneGlbBuildStep.execute(
       finalizedMeta,
       correctedWithTerrain.detail,
+      finalized.assetSelection,
       {
         pipelineMs: Date.now() - pipelineStartedAt,
       },

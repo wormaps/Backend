@@ -279,8 +279,8 @@ export function addBuildingAndHeroMeshes(
       createBuildingRoofEquipmentGeometry(sceneMeta.origin, [building]),
       materials.roofEquipmentPrimary ?? materials.roofAccents.neutral,
       {
-        sourceCount: building.roofSpec?.roofUnits ? 1 : 0,
-        selectedCount: building.roofSpec?.roofUnits ? 1 : 0,
+        sourceCount: building.roofSpec?.roofUnits ?? 0,
+        selectedCount: building.roofSpec?.roofUnits ?? 0,
         selectionLod: building.lodLevel,
         semanticCategory: 'building',
         sourceObjectIds: [building.objectId],
@@ -313,7 +313,7 @@ export function addBuildingAndHeroMeshes(
         {
           sourceCount: billboardGroup.sourceCount,
           selectedCount: billboardGroup.selectedClusters.length,
-          semanticCategory: 'building',
+          semanticCategory: 'signage',
           sourceObjectIds: billboardGroup.selectedClusters.map(
             (cluster) => cluster.objectId,
           ),
@@ -408,7 +408,7 @@ export function addBuildingAndHeroMeshes(
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
         selectedCount:
           sceneMeta.landmarkAnchors.length + sceneDetail.signageClusters.length,
-        semanticCategory: 'building',
+        semanticCategory: 'landmark',
         sourceObjectIds: [
           ...sceneMeta.landmarkAnchors.map((item) => item.objectId),
           ...sceneDetail.signageClusters.map((item) => item.objectId),

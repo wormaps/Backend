@@ -112,6 +112,12 @@ export function registerBuildingGroupNodes(
     'building',
     semanticGroupNodes,
   );
+  const lodParents = createBuildingLodGroups(
+    doc,
+    sceneMeta.sceneId,
+    buildingsParent,
+    semanticGroupNodes,
+  );
   for (const building of sceneMeta.buildings) {
     const pivot = resolveBuildingPivot(sceneMeta.origin, building);
     const node = doc.createNode(`bld_${building.objectId}`);
@@ -147,9 +153,36 @@ export function registerBuildingGroupNodes(
         createSnapshotId(sceneMeta.sceneId, 'SCENE_PIPELINE', 'SCENE_META'),
       ],
     });
-    buildingsParent.addChild(node);
+    const lodKey = building.lodLevel ?? 'MEDIUM';
+    const lodParent = lodParents.get(lodKey) ?? buildingsParent;
+    lodParent.addChild(node);
     semanticGroupNodes.set(`building:${building.objectId}`, node);
   }
+}
+
+function createBuildingLodGroups(
+  doc: GltfDoc,
+  sceneId: string,
+  buildingsParent: GltfNode,
+  semanticGroupNodes: Map<string, GltfNode>,
+): Map<'HIGH' | 'MEDIUM' | 'LOW', GltfNode> {
+  const lods: Array<'HIGH' | 'MEDIUM' | 'LOW'> = ['HIGH', 'MEDIUM', 'LOW'];
+  const map = new Map<'HIGH' | 'MEDIUM' | 'LOW', GltfNode>();
+  for (const lod of lods) {
+    const node = doc.createNode(`grp_building_lod_${lod.toLowerCase()}`);
+    applyExtras(node, {
+      sceneId,
+      semanticCategory: 'building',
+      dccCollection: `Buildings_${lod}`,
+      blenderCollection: `Buildings_${lod}`,
+      isGroupNode: true,
+      selectionLod: lod,
+    });
+    buildingsParent.addChild(node);
+    map.set(lod, node);
+    semanticGroupNodes.set(`building_lod:${lod}`, node);
+  }
+  return map;
 }
 
 export function resolveBuildingPivot(

@@ -22,6 +22,29 @@ describe('buildGlbInputContract', () => {
     expect(contract.signageClusters).toEqual(sceneDetail.signageClusters);
     expect(contract.assetSelection).toEqual(assetSelection);
   });
+
+  it('prefers meta structuralCoverage when detail has stale value', () => {
+    const sceneMeta = createSceneMeta();
+    const sceneDetail = {
+      ...createSceneDetail(),
+      structuralCoverage: {
+        selectedBuildingCoverage: 0.01,
+        coreAreaBuildingCoverage: 0.02,
+        fallbackMassingRate: 0.99,
+        footprintPreservationRate: 0.03,
+        heroLandmarkCoverage: 0.04,
+      },
+    } as SceneDetail;
+    const assetSelection = createAssetSelection();
+
+    const contract = buildGlbInputContract(
+      sceneMeta,
+      sceneDetail,
+      assetSelection,
+    );
+
+    expect(contract.structuralCoverage).toEqual(sceneMeta.structuralCoverage);
+  });
 });
 
 function createSceneMeta(): SceneMeta {

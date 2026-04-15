@@ -49,9 +49,14 @@ export function buildGlbInputContract(
   sceneDetail: SceneDetail,
   assetSelection: SceneAssetSelection,
 ): GlbInputContract {
+  const { structuralCoverage: _detailStructuralCoverage, ...restDetail } =
+    sceneDetail;
+  void _detailStructuralCoverage;
+
   return {
     ...sceneMeta,
-    ...sceneDetail,
+    ...restDetail,
+    structuralCoverage: sceneMeta.structuralCoverage,
     version: 'glb-input.v1',
     assetSelection,
   };
