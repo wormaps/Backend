@@ -1,5 +1,23 @@
 import type { MaterialClass } from '../../../scene/types/scene.types';
 
+export interface TextureSlot {
+  uri: string;
+  mimeType?: string;
+  sampler?: {
+    magFilter?: number;
+    minFilter?: number;
+    wrapS?: number;
+    wrapT?: number;
+  };
+}
+
+export interface MaterialTextureSlots {
+  ground?: TextureSlot;
+  roadBase?: TextureSlot;
+  sidewalk?: TextureSlot;
+  buildingShell?: TextureSlot;
+}
+
 export interface MaterialTuningOptions {
   shellLuminanceCap?: number;
   panelLuminanceCap?: number;
@@ -9,6 +27,9 @@ export interface MaterialTuningOptions {
   wetRoadBoost?: number;
   overlayDepthBias?: number;
   inferenceReasonCodes?: string[];
+  weakEvidenceRatio?: number;
+  textureSlots?: MaterialTextureSlots;
+  enableTexturePath?: boolean;
 }
 
 export interface GlbMaterial {
@@ -21,6 +42,14 @@ export interface GlbMaterial {
   setAlphaCutoff(value: number): GlbMaterial;
   setExtras?(value: Record<string, unknown>): GlbMaterial;
   setExtra?(key: string, value: Record<string, unknown>): GlbMaterial;
+  setBaseColorTexture?(texture: unknown): GlbMaterial;
+}
+
+export interface TextureDiagnostics {
+  texturePathActive: boolean;
+  fallbackPathActive: boolean;
+  textureSlotUsed?: string;
+  reason?: string;
 }
 
 export interface GlbMaterialDocument {
@@ -63,6 +92,9 @@ const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   wetRoadBoost: 0,
   overlayDepthBias: 1,
   inferenceReasonCodes: [],
+  weakEvidenceRatio: 0,
+  textureSlots: {},
+  enableTexturePath: false,
 };
 
 export type AccentTone = 'warm' | 'cool' | 'neutral';
@@ -125,6 +157,7 @@ export interface SceneMaterials {
   heroCanopyPrimary?: GlbMaterial;
   heroRoofUnitPrimary?: GlbMaterial;
   heroBillboardPrimary?: GlbMaterial;
+  textureDiagnostics?: TextureDiagnostics;
 }
 
 export function createSceneMaterials(
@@ -134,22 +167,49 @@ export function createSceneMaterials(
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const overlayBias = resolveOverlayDepthBias(tuning.overlayDepthBias);
   const overlayCutoff = clampRange(0.022 / overlayBias, 0.008, 0.03);
-  return {
-    ground: doc
-      .createMaterial('ground')
-      .setBaseColorFactor([0.52, 0.55, 0.5, 1])
-      .setMetallicFactor(0)
-      .setRoughnessFactor(1),
-    roadBase: doc
-      .createMaterial('road-base')
-      .setBaseColorFactor([0.14, 0.15, 0.17, 1])
-      .setMetallicFactor(0)
-      .setRoughnessFactor(
-        applyWetRoad(
-          scaleRoughness(0.69, tuning.roadRoughnessScale),
-          tuning.wetRoadBoost,
-        ),
+  const textureDiagnostics = resolveTextureDiagnostics(tuning);
+
+  const ground = doc
+    .createMaterial('ground')
+    .setBaseColorFactor([0.52, 0.55, 0.5, 1])
+    .setMetallicFactor(0)
+    .setRoughnessFactor(1);
+  applyTextureSlotIfAvailable(
+    ground,
+    tuning.textureSlots.ground,
+    tuning.enableTexturePath,
+  );
+
+  const roadBase = doc
+    .createMaterial('road-base')
+    .setBaseColorFactor([0.14, 0.15, 0.17, 1])
+    .setMetallicFactor(0)
+    .setRoughnessFactor(
+      applyWetRoad(
+        scaleRoughness(0.69, tuning.roadRoughnessScale),
+        tuning.wetRoadBoost,
       ),
+    );
+  applyTextureSlotIfAvailable(
+    roadBase,
+    tuning.textureSlots.roadBase,
+    tuning.enableTexturePath,
+  );
+
+  const sidewalk = doc
+    .createMaterial('sidewalk')
+    .setBaseColorFactor([0.58, 0.57, 0.54, 1])
+    .setMetallicFactor(0)
+    .setRoughnessFactor(0.78);
+  applyTextureSlotIfAvailable(
+    sidewalk,
+    tuning.textureSlots.sidewalk,
+    tuning.enableTexturePath,
+  );
+
+  return {
+    ground,
+    roadBase,
     roadEdge: doc
       .createMaterial('road-edge')
       .setBaseColorFactor([0.38, 0.38, 0.36, 1])
@@ -217,11 +277,7 @@ export function createSceneMaterials(
           tuning.wetRoadBoost,
         ),
       ),
-    sidewalk: doc
-      .createMaterial('sidewalk')
-      .setBaseColorFactor([0.58, 0.57, 0.54, 1])
-      .setMetallicFactor(0)
-      .setRoughnessFactor(0.78),
+    sidewalk,
     curb: doc
       .createMaterial('curb')
       .setBaseColorFactor([0.82, 0.81, 0.78, 1])
@@ -434,6 +490,7 @@ export function createSceneMaterials(
       )
       .setMetallicFactor(0)
       .setRoughnessFactor(0.75),
+    textureDiagnostics,
   };
 }
 
@@ -689,6 +746,13 @@ function resolveAdaptiveLuminanceCap(
 function resolveMaterialTuningOptions(
   tuningOptions: MaterialTuningOptions,
 ): Required<MaterialTuningOptions> {
+  const weakEvidenceRatio = clampRange(
+    tuningOptions.weakEvidenceRatio ??
+      DEFAULT_MATERIAL_TUNING.weakEvidenceRatio,
+    0,
+    1,
+  );
+  const weakEvidencePenalty = 1 - weakEvidenceRatio * 0.22;
   return {
     shellLuminanceCap:
       tuningOptions.shellLuminanceCap ??
@@ -699,8 +763,12 @@ function resolveMaterialTuningOptions(
     billboardLuminanceCap:
       tuningOptions.billboardLuminanceCap ??
       DEFAULT_MATERIAL_TUNING.billboardLuminanceCap,
-    emissiveBoost:
-      tuningOptions.emissiveBoost ?? DEFAULT_MATERIAL_TUNING.emissiveBoost,
+    emissiveBoost: clampRange(
+      (tuningOptions.emissiveBoost ?? DEFAULT_MATERIAL_TUNING.emissiveBoost) *
+        weakEvidencePenalty,
+      0,
+      2.4,
+    ),
     roadRoughnessScale:
       tuningOptions.roadRoughnessScale ??
       DEFAULT_MATERIAL_TUNING.roadRoughnessScale,
@@ -712,6 +780,12 @@ function resolveMaterialTuningOptions(
     inferenceReasonCodes:
       tuningOptions.inferenceReasonCodes ??
       DEFAULT_MATERIAL_TUNING.inferenceReasonCodes,
+    weakEvidenceRatio,
+    textureSlots:
+      tuningOptions.textureSlots ?? DEFAULT_MATERIAL_TUNING.textureSlots,
+    enableTexturePath:
+      tuningOptions.enableTexturePath ??
+      DEFAULT_MATERIAL_TUNING.enableTexturePath,
   };
 }
 
@@ -742,4 +816,57 @@ function scaleEmissive(
 
 function scaleRoughness(value: number, factor: number): number {
   return clamp01(value * factor);
+}
+
+function applyTextureSlotIfAvailable(
+  material: GlbMaterial,
+  textureSlot: TextureSlot | undefined,
+  enableTexturePath: boolean,
+): void {
+  if (!enableTexturePath || !textureSlot) {
+    return;
+  }
+  if (typeof material.setBaseColorTexture === 'function') {
+    material.setBaseColorTexture(textureSlot);
+  }
+}
+
+function resolveTextureDiagnostics(
+  tuning: Required<MaterialTuningOptions>,
+): TextureDiagnostics {
+  const hasTextureSlots =
+    tuning.enableTexturePath &&
+    (tuning.textureSlots.ground !== undefined ||
+      tuning.textureSlots.roadBase !== undefined ||
+      tuning.textureSlots.sidewalk !== undefined ||
+      tuning.textureSlots.buildingShell !== undefined);
+
+  if (!tuning.enableTexturePath) {
+    return {
+      texturePathActive: false,
+      fallbackPathActive: true,
+      reason: 'enableTexturePath is false',
+    };
+  }
+
+  if (!hasTextureSlots) {
+    return {
+      texturePathActive: false,
+      fallbackPathActive: true,
+      reason: 'No texture slots provided',
+    };
+  }
+
+  const activeSlots: string[] = [];
+  if (tuning.textureSlots.ground) activeSlots.push('ground');
+  if (tuning.textureSlots.roadBase) activeSlots.push('roadBase');
+  if (tuning.textureSlots.sidewalk) activeSlots.push('sidewalk');
+  if (tuning.textureSlots.buildingShell) activeSlots.push('buildingShell');
+
+  return {
+    texturePathActive: true,
+    fallbackPathActive: false,
+    textureSlotUsed: activeSlots.join(', '),
+    reason: `Texture path active for: ${activeSlots.join(', ')}`,
+  };
 }

@@ -137,52 +137,65 @@ describe('SceneFidelityPlannerService', () => {
   });
 
   it('marks scene as reality overlay ready when landmark and mapillary evidence are strong', () => {
-    const plan = service.buildPlan(place, 'MEDIUM', placePackage, {
-      ...baseDetail,
-      annotationsApplied: ['ann-1', 'ann-2'],
-      facadeHints: [
-        {
-          objectId: 'facade-1',
-          anchor: { lat: 35.6595, lng: 139.7005 },
-          facadeEdgeIndex: 0,
-          windowBands: 8,
-          billboardEligible: true,
-          palette: ['#4d79c7'],
-          materialClass: 'glass',
-          signageDensity: 'high',
-          emissiveStrength: 0.92,
-          glazingRatio: 0.72,
+    const plan = service.buildPlan(
+      place,
+      'MEDIUM',
+      placePackage,
+      {
+        ...baseDetail,
+        annotationsApplied: ['ann-1', 'ann-2'],
+        facadeHints: [
+          {
+            objectId: 'facade-1',
+            anchor: { lat: 35.6595, lng: 139.7005 },
+            facadeEdgeIndex: 0,
+            windowBands: 8,
+            billboardEligible: true,
+            palette: ['#4d79c7'],
+            materialClass: 'glass',
+            signageDensity: 'high',
+            emissiveStrength: 0.92,
+            glazingRatio: 0.72,
+          },
+        ],
+        signageClusters: [
+          {
+            objectId: 'sig-1',
+            anchor: { lat: 35.6595, lng: 139.7005 },
+            panelCount: 5,
+            palette: ['#ff0000'],
+            emissiveStrength: 1,
+            widthMeters: 4,
+            heightMeters: 2,
+          },
+        ],
+        provenance: {
+          ...baseDetail.provenance,
+          mapillaryUsed: true,
+          mapillaryImageCount: 120,
+          mapillaryFeatureCount: 85,
+          osmTagCoverage: {
+            ...baseDetail.provenance.osmTagCoverage,
+            coloredBuildings: 1,
+            materialBuildings: 1,
+          },
         },
-      ],
-      signageClusters: [
-        {
-          objectId: 'sig-1',
-          anchor: { lat: 35.6595, lng: 139.7005 },
-          panelCount: 5,
-          palette: ['#ff0000'],
-          emissiveStrength: 1,
-          widthMeters: 4,
-          heightMeters: 2,
-        },
-      ],
-      provenance: {
-        ...baseDetail.provenance,
-        mapillaryUsed: true,
-        mapillaryImageCount: 120,
-        mapillaryFeatureCount: 85,
-        osmTagCoverage: {
-          ...baseDetail.provenance.osmTagCoverage,
-          coloredBuildings: 1,
-          materialBuildings: 1,
+        staticAtmosphere: {
+          preset: 'NIGHT_NEON',
+          emissiveBoost: 1.25,
+          roadRoughnessScale: 0.9,
+          wetRoadBoost: 0.45,
         },
       },
-      staticAtmosphere: {
-        preset: 'NIGHT_NEON',
-        emissiveBoost: 1.25,
-        roadRoughnessScale: 0.9,
-        wetRoadBoost: 0.45,
+      {
+        landmarks: [
+          { id: 'lm-1', name: 'Landmark 1' },
+          { id: 'lm-2', name: 'Landmark 2' },
+        ],
+        facadeOverrides: [{ objectId: 'facade-1', palette: ['#ff0000'] }],
+        signageOverrides: [{ objectId: 'sign-1', panelCount: 3 }],
       },
-    });
+    );
 
     expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
     expect(plan.phase).toBe('PHASE_2_HYBRID_FOUNDATION');
@@ -205,46 +218,59 @@ describe('SceneFidelityPlannerService', () => {
   });
 
   it('keeps landmark mode when atmosphere gate is missing even with high mapillary evidence', () => {
-    const plan = service.buildPlan(place, 'MEDIUM', placePackage, {
-      ...baseDetail,
-      annotationsApplied: ['ann-1', 'ann-2'],
-      facadeHints: [
-        {
-          objectId: 'facade-1',
-          anchor: { lat: 35.6595, lng: 139.7005 },
-          facadeEdgeIndex: 0,
-          windowBands: 8,
-          billboardEligible: true,
-          palette: ['#4d79c7'],
-          materialClass: 'glass',
-          signageDensity: 'high',
-          emissiveStrength: 0.92,
-          glazingRatio: 0.72,
-        },
-      ],
-      signageClusters: [
-        {
-          objectId: 'sig-1',
-          anchor: { lat: 35.6595, lng: 139.7005 },
-          panelCount: 5,
-          palette: ['#ff0000'],
-          emissiveStrength: 1,
-          widthMeters: 4,
-          heightMeters: 2,
-        },
-      ],
-      provenance: {
-        ...baseDetail.provenance,
-        mapillaryUsed: true,
-        mapillaryImageCount: 120,
-        mapillaryFeatureCount: 85,
-        osmTagCoverage: {
-          ...baseDetail.provenance.osmTagCoverage,
-          coloredBuildings: 1,
-          materialBuildings: 1,
+    const plan = service.buildPlan(
+      place,
+      'MEDIUM',
+      placePackage,
+      {
+        ...baseDetail,
+        annotationsApplied: ['ann-1', 'ann-2'],
+        facadeHints: [
+          {
+            objectId: 'facade-1',
+            anchor: { lat: 35.6595, lng: 139.7005 },
+            facadeEdgeIndex: 0,
+            windowBands: 8,
+            billboardEligible: true,
+            palette: ['#4d79c7'],
+            materialClass: 'glass',
+            signageDensity: 'high',
+            emissiveStrength: 0.92,
+            glazingRatio: 0.72,
+          },
+        ],
+        signageClusters: [
+          {
+            objectId: 'sig-1',
+            anchor: { lat: 35.6595, lng: 139.7005 },
+            panelCount: 5,
+            palette: ['#ff0000'],
+            emissiveStrength: 1,
+            widthMeters: 4,
+            heightMeters: 2,
+          },
+        ],
+        provenance: {
+          ...baseDetail.provenance,
+          mapillaryUsed: true,
+          mapillaryImageCount: 120,
+          mapillaryFeatureCount: 85,
+          osmTagCoverage: {
+            ...baseDetail.provenance.osmTagCoverage,
+            coloredBuildings: 1,
+            materialBuildings: 1,
+          },
         },
       },
-    });
+      {
+        landmarks: [
+          { id: 'lm-1', name: 'Landmark 1' },
+          { id: 'lm-2', name: 'Landmark 2' },
+        ],
+        facadeOverrides: [{ objectId: 'facade-1', palette: ['#ff0000'] }],
+        signageOverrides: [{ objectId: 'sign-1', panelCount: 3 }],
+      },
+    );
 
     expect(plan.currentMode).toBe('LANDMARK_ENRICHED');
     expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
@@ -290,54 +316,148 @@ describe('SceneFidelityPlannerService', () => {
       ],
     };
 
-    const plan = service.buildPlan(place, 'MEDIUM', richPackage, {
-      ...baseDetail,
-      annotationsApplied: ['ann-1', 'ann-2', 'ann-3'],
-      facadeHints: [
-        {
-          objectId: 'facade-1',
-          anchor: { lat: 35.6595, lng: 139.7005 },
-          facadeEdgeIndex: 0,
-          windowBands: 8,
-          billboardEligible: true,
-          palette: ['#4d79c7', '#e1f3ff'],
-          materialClass: 'glass',
-          signageDensity: 'high',
-          emissiveStrength: 0.95,
-          glazingRatio: 0.74,
+    const plan = service.buildPlan(
+      place,
+      'MEDIUM',
+      richPackage,
+      {
+        ...baseDetail,
+        annotationsApplied: ['ann-1', 'ann-2', 'ann-3'],
+        facadeHints: [
+          {
+            objectId: 'facade-1',
+            anchor: { lat: 35.6595, lng: 139.7005 },
+            facadeEdgeIndex: 0,
+            windowBands: 8,
+            billboardEligible: true,
+            palette: ['#4d79c7', '#e1f3ff'],
+            materialClass: 'glass',
+            signageDensity: 'high',
+            emissiveStrength: 0.95,
+            glazingRatio: 0.74,
+          },
+        ],
+        signageClusters: [
+          {
+            objectId: 'sig-1',
+            anchor: { lat: 35.6595, lng: 139.7005 },
+            panelCount: 6,
+            palette: ['#ff0000', '#00ffff'],
+            emissiveStrength: 1,
+            widthMeters: 4,
+            heightMeters: 2,
+          },
+        ],
+        provenance: {
+          ...baseDetail.provenance,
+          mapillaryUsed: true,
+          mapillaryImageCount: 4,
+          mapillaryFeatureCount: 130,
+          osmTagCoverage: {
+            ...baseDetail.provenance.osmTagCoverage,
+            coloredBuildings: 1,
+            materialBuildings: 1,
+          },
         },
-      ],
-      signageClusters: [
-        {
-          objectId: 'sig-1',
-          anchor: { lat: 35.6595, lng: 139.7005 },
-          panelCount: 6,
-          palette: ['#ff0000', '#00ffff'],
-          emissiveStrength: 1,
-          widthMeters: 4,
-          heightMeters: 2,
-        },
-      ],
-      provenance: {
-        ...baseDetail.provenance,
-        mapillaryUsed: true,
-        mapillaryImageCount: 4,
-        mapillaryFeatureCount: 130,
-        osmTagCoverage: {
-          ...baseDetail.provenance.osmTagCoverage,
-          coloredBuildings: 1,
-          materialBuildings: 1,
+        staticAtmosphere: {
+          preset: 'NIGHT_NEON',
+          emissiveBoost: 1.25,
+          roadRoughnessScale: 0.9,
+          wetRoadBoost: 0.45,
         },
       },
-      staticAtmosphere: {
-        preset: 'NIGHT_NEON',
-        emissiveBoost: 1.25,
-        roadRoughnessScale: 0.9,
-        wetRoadBoost: 0.45,
+      {
+        landmarks: [
+          { id: 'lm-1', name: 'Landmark 1' },
+          { id: 'lm-2', name: 'Landmark 2' },
+        ],
+        facadeOverrides: [{ objectId: 'facade-1', palette: ['#ff0000'] }],
+        signageOverrides: [{ objectId: 'sign-1', panelCount: 3 }],
       },
-    });
+    );
 
     expect(plan.targetMode).toBe('REALITY_OVERLAY_READY');
     expect(plan.phase).toBe('PHASE_3_PRODUCTION_LOCK');
+  });
+
+  describe('CURATED_ASSET_PACK integration', () => {
+    it('disables CURATED_ASSET_PACK when no curated payload is provided', () => {
+      const plan = service.buildPlan(place, 'MEDIUM', placePackage, baseDetail);
+
+      const curatedSource = plan.sourceRegistry.find(
+        (source) => source.sourceType === 'CURATED_ASSET_PACK',
+      );
+      expect(curatedSource?.enabled).toBe(false);
+      expect(curatedSource?.coverage).toBe('NONE');
+      expect(curatedSource?.reason).toBe('No curated asset payload provided');
+    });
+
+    it('enables CURATED_ASSET_PACK when curated payload has sufficient data', () => {
+      const plan = service.buildPlan(
+        place,
+        'MEDIUM',
+        placePackage,
+        baseDetail,
+        {
+          landmarks: [
+            { id: 'lm-1', name: 'Landmark 1' },
+            { id: 'lm-2', name: 'Landmark 2' },
+          ],
+          facadeOverrides: [{ objectId: 'facade-1', palette: ['#ff0000'] }],
+          signageOverrides: [{ objectId: 'sign-1', panelCount: 3 }],
+        },
+      );
+
+      const curatedSource = plan.sourceRegistry.find(
+        (source) => source.sourceType === 'CURATED_ASSET_PACK',
+      );
+      expect(curatedSource?.enabled).toBe(true);
+      expect(curatedSource?.coverage).toBe('CORE');
+      expect(curatedSource?.reason).toContain('Curated asset pack ready');
+    });
+
+    it('disables CURATED_ASSET_PACK when curated payload has insufficient landmarks', () => {
+      const plan = service.buildPlan(
+        place,
+        'MEDIUM',
+        placePackage,
+        baseDetail,
+        {
+          landmarks: [{ id: 'lm-1', name: 'Landmark 1' }],
+          facadeOverrides: [{ objectId: 'facade-1', palette: ['#ff0000'] }],
+        },
+      );
+
+      const curatedSource = plan.sourceRegistry.find(
+        (source) => source.sourceType === 'CURATED_ASSET_PACK',
+      );
+      expect(curatedSource?.enabled).toBe(false);
+      expect(curatedSource?.coverage).toBe('NONE');
+      expect(curatedSource?.reason).toContain('Insufficient curated landmarks');
+    });
+
+    it('disables CURATED_ASSET_PACK when curated payload has no facade or signage overrides', () => {
+      const plan = service.buildPlan(
+        place,
+        'MEDIUM',
+        placePackage,
+        baseDetail,
+        {
+          landmarks: [
+            { id: 'lm-1', name: 'Landmark 1' },
+            { id: 'lm-2', name: 'Landmark 2' },
+          ],
+        },
+      );
+
+      const curatedSource = plan.sourceRegistry.find(
+        (source) => source.sourceType === 'CURATED_ASSET_PACK',
+      );
+      expect(curatedSource?.enabled).toBe(false);
+      expect(curatedSource?.coverage).toBe('NONE');
+      expect(curatedSource?.reason).toBe(
+        'No facade or signage overrides in curated payload',
+      );
+    });
   });
 });

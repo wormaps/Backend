@@ -64,9 +64,22 @@ interface BuildingClosureDiagnosticsMetrics {
   invalidSetbackJoinCount: number;
 }
 
+interface GlbSimplifyOptions {
+  ratio: number;
+  error: number;
+  lockBorder: boolean;
+}
+
 interface GlbTransformFunctionsModule {
   prune: (options?: Record<string, unknown>) => unknown;
   dedup: (options?: Record<string, unknown>) => unknown;
+  instance?: (options?: Record<string, unknown>) => unknown;
+  simplify?: (options: {
+    simplifier: unknown;
+    ratio?: number;
+    error?: number;
+    lockBorder?: boolean;
+  }) => unknown;
   weld: (options?: Record<string, unknown>) => unknown;
   quantize: (options?: Record<string, unknown>) => unknown;
 }
@@ -111,6 +124,32 @@ const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
   quantizeGeneric: 12,
   cleanup: false,
 };
+
+const GLB_INSTANCE_OPTIONS: Record<string, unknown> = {
+  min: 5,
+};
+
+const DEFAULT_GLB_SIMPLIFY_OPTIONS: GlbSimplifyOptions = {
+  ratio: 0.75,
+  error: 0.001,
+  lockBorder: false,
+};
+
+const GLB_SIMPLIFY_RATIO_RANGE = {
+  min: 0,
+  max: 1,
+} as const;
+
+const GLB_SIMPLIFY_ERROR_RANGE = {
+  min: 0.0001,
+  max: 1,
+} as const;
+
+const ENV_GLB_OPTIMIZE_SIMPLIFY_ENABLED = 'GLB_OPTIMIZE_SIMPLIFY_ENABLED';
+const ENV_GLB_OPTIMIZE_SIMPLIFY_RATIO = 'GLB_OPTIMIZE_SIMPLIFY_RATIO';
+const ENV_GLB_OPTIMIZE_SIMPLIFY_ERROR = 'GLB_OPTIMIZE_SIMPLIFY_ERROR';
+const ENV_GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER =
+  'GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER';
 
 @Injectable()
 export class GlbBuildRunner {
@@ -163,6 +202,7 @@ export class GlbBuildRunner {
     this.semanticGroupNodes.clear();
     const gltf = await import('@gltf-transform/core');
     const transformFunctionsModule = await import('@gltf-transform/functions');
+    const meshoptimizerModule = await this.loadMeshoptimizerModule();
     const earcutModule = await import('earcut');
     const validatorModule = await import('gltf-validator');
     const triangulate = earcutModule.default;
@@ -329,6 +369,7 @@ export class GlbBuildRunner {
       doc,
       contract.sceneId,
       transformFunctionsModule,
+      meshoptimizerModule?.MeshoptSimplifier,
     );
 
     const glbBinary = await new NodeIO().writeBinary(doc);
@@ -447,39 +488,361 @@ export class GlbBuildRunner {
     doc: unknown,
     sceneId: string,
     transformModule: GlbTransformFunctionsModule,
+    simplifyMeshoptSimplifier?: unknown,
   ): Promise<void> {
     const transformableDoc = doc as TransformableGlbDocument;
     if (typeof transformableDoc.transform !== 'function') {
       return;
     }
 
+    const baseTransforms: unknown[] = [
+      transformModule.prune({
+        keepExtras: true,
+        keepLeaves: true,
+        keepAttributes: true,
+      }),
+      transformModule.dedup({
+        keepUniqueNames: true,
+      }),
+    ];
+    const tailTransforms: unknown[] = [
+      transformModule.weld(),
+      transformModule.quantize(GLB_QUANTIZE_OPTIONS),
+    ];
+    const simplifyConfig = this.resolveSimplifyOptionsFromEnv();
+    let supportsInstance = false;
+    let supportsSimplify = false;
+    let simplifyTransform: unknown;
+    let transforms = [...baseTransforms, ...tailTransforms];
+    if (typeof transformModule.instance === 'function') {
+      try {
+        const instanceTransform =
+          transformModule.instance(GLB_INSTANCE_OPTIONS);
+        if (instanceTransform) {
+          supportsInstance = true;
+          transforms = [
+            ...baseTransforms,
+            instanceTransform,
+            ...tailTransforms,
+          ];
+        }
+      } catch (instanceFactoryError) {
+        this.appLoggerService.warn(
+          'scene.glb_build.optimize_instance_skipped',
+          {
+            sceneId,
+            step: 'glb_build',
+            reason:
+              instanceFactoryError instanceof Error
+                ? instanceFactoryError.message
+                : String(instanceFactoryError),
+            fallbackTransforms: ['prune', 'dedup', 'weld', 'quantize'],
+            phase: 'instance_factory',
+          },
+        );
+      }
+    }
+    if (!simplifyConfig.enabled) {
+      this.appLoggerService.info('scene.glb_build.optimize_simplify_disabled', {
+        sceneId,
+        step: 'glb_build',
+        env: ENV_GLB_OPTIMIZE_SIMPLIFY_ENABLED,
+      });
+    } else if (typeof transformModule.simplify === 'function') {
+      if (!simplifyMeshoptSimplifier) {
+        this.appLoggerService.warn(
+          'scene.glb_build.optimize_simplify_skipped',
+          {
+            sceneId,
+            step: 'glb_build',
+            reason: 'meshopt_simplifier_unavailable',
+            fallbackTransforms: [
+              'prune',
+              'dedup',
+              'instance?',
+              'weld',
+              'quantize',
+            ],
+            phase: 'simplify_factory',
+          },
+        );
+      } else {
+        try {
+          simplifyTransform = transformModule.simplify({
+            simplifier: simplifyMeshoptSimplifier,
+            ratio: simplifyConfig.options.ratio,
+            error: simplifyConfig.options.error,
+            lockBorder: simplifyConfig.options.lockBorder,
+          });
+          supportsSimplify = Boolean(simplifyTransform);
+        } catch (simplifyFactoryError) {
+          this.appLoggerService.warn(
+            'scene.glb_build.optimize_simplify_skipped',
+            {
+              sceneId,
+              step: 'glb_build',
+              reason:
+                simplifyFactoryError instanceof Error
+                  ? simplifyFactoryError.message
+                  : String(simplifyFactoryError),
+              fallbackTransforms: [
+                'prune',
+                'dedup',
+                'instance?',
+                'weld',
+                'quantize',
+              ],
+              phase: 'simplify_factory',
+            },
+          );
+        }
+      }
+    }
+    if (supportsSimplify) {
+      transforms = [
+        ...transforms.slice(0, -2),
+        simplifyTransform,
+        ...transforms.slice(-2),
+      ];
+    }
+
     try {
-      await transformableDoc.transform(
-        transformModule.prune({
-          keepExtras: true,
-          keepLeaves: true,
-          keepAttributes: true,
-        }),
-        transformModule.dedup({
-          keepUniqueNames: true,
-        }),
-        transformModule.weld(),
-        transformModule.quantize(GLB_QUANTIZE_OPTIONS),
-      );
+      await transformableDoc.transform(...transforms);
+
+      const transformSteps = supportsInstance
+        ? ['prune', 'dedup', 'instance']
+        : ['prune', 'dedup'];
+      if (supportsSimplify) {
+        transformSteps.push('simplify');
+      }
+      transformSteps.push('weld', 'quantize');
 
       this.appLoggerService.info('scene.glb_build.optimize', {
         sceneId,
         step: 'glb_build',
-        transforms: ['prune', 'dedup', 'weld', 'quantize'],
+        transforms: transformSteps,
+        instance: supportsInstance ? GLB_INSTANCE_OPTIONS : undefined,
+        simplify: supportsSimplify ? simplifyConfig.options : undefined,
         quantize: GLB_QUANTIZE_OPTIONS,
       });
     } catch (error) {
+      if (supportsInstance) {
+        try {
+          const fallbackTransforms = supportsSimplify
+            ? [...baseTransforms, simplifyTransform, ...tailTransforms]
+            : [...baseTransforms, ...tailTransforms];
+          await transformableDoc.transform(...fallbackTransforms);
+          const fallbackTransformSteps = supportsSimplify
+            ? ['prune', 'dedup', 'simplify', 'weld', 'quantize']
+            : ['prune', 'dedup', 'weld', 'quantize'];
+          this.appLoggerService.info('scene.glb_build.optimize', {
+            sceneId,
+            step: 'glb_build',
+            transforms: fallbackTransformSteps,
+            simplify: supportsSimplify ? simplifyConfig.options : undefined,
+            quantize: GLB_QUANTIZE_OPTIONS,
+            fallbackFromInstance: true,
+          });
+          this.appLoggerService.warn(
+            'scene.glb_build.optimize_instance_skipped',
+            {
+              sceneId,
+              step: 'glb_build',
+              reason: error instanceof Error ? error.message : String(error),
+              fallbackTransforms: fallbackTransformSteps,
+            },
+          );
+          return;
+        } catch (fallbackError) {
+          if (supportsSimplify) {
+            try {
+              await transformableDoc.transform(
+                ...baseTransforms,
+                ...tailTransforms,
+              );
+              this.appLoggerService.info('scene.glb_build.optimize', {
+                sceneId,
+                step: 'glb_build',
+                transforms: ['prune', 'dedup', 'weld', 'quantize'],
+                quantize: GLB_QUANTIZE_OPTIONS,
+                fallbackFromInstanceAndSimplify: true,
+              });
+              this.appLoggerService.warn(
+                'scene.glb_build.optimize_simplify_skipped',
+                {
+                  sceneId,
+                  step: 'glb_build',
+                  reason:
+                    fallbackError instanceof Error
+                      ? fallbackError.message
+                      : String(fallbackError),
+                  fallbackTransforms: ['prune', 'dedup', 'weld', 'quantize'],
+                  triggeredBy: 'instance_fallback',
+                },
+              );
+              this.appLoggerService.warn(
+                'scene.glb_build.optimize_instance_skipped',
+                {
+                  sceneId,
+                  step: 'glb_build',
+                  reason:
+                    error instanceof Error ? error.message : String(error),
+                  fallbackTransforms: ['prune', 'dedup', 'weld', 'quantize'],
+                  triggeredBy: 'simplify_fallback',
+                },
+              );
+              return;
+            } catch (baseFallbackError) {
+              this.appLoggerService.warn('scene.glb_build.optimize_skipped', {
+                sceneId,
+                step: 'glb_build',
+                reason:
+                  baseFallbackError instanceof Error
+                    ? baseFallbackError.message
+                    : String(baseFallbackError),
+                initialReason:
+                  error instanceof Error ? error.message : String(error),
+              });
+              return;
+            }
+          }
+
+          this.appLoggerService.warn('scene.glb_build.optimize_skipped', {
+            sceneId,
+            step: 'glb_build',
+            reason:
+              fallbackError instanceof Error
+                ? fallbackError.message
+                : String(fallbackError),
+            initialReason:
+              error instanceof Error ? error.message : String(error),
+          });
+          return;
+        }
+      }
+
+      if (supportsSimplify) {
+        try {
+          await transformableDoc.transform(
+            ...baseTransforms,
+            ...tailTransforms,
+          );
+          this.appLoggerService.info('scene.glb_build.optimize', {
+            sceneId,
+            step: 'glb_build',
+            transforms: supportsInstance
+              ? ['prune', 'dedup', 'instance', 'weld', 'quantize']
+              : ['prune', 'dedup', 'weld', 'quantize'],
+            instance: supportsInstance ? GLB_INSTANCE_OPTIONS : undefined,
+            quantize: GLB_QUANTIZE_OPTIONS,
+            fallbackFromSimplify: true,
+          });
+          this.appLoggerService.warn(
+            'scene.glb_build.optimize_simplify_skipped',
+            {
+              sceneId,
+              step: 'glb_build',
+              reason: error instanceof Error ? error.message : String(error),
+              fallbackTransforms: supportsInstance
+                ? ['prune', 'dedup', 'instance', 'weld', 'quantize']
+                : ['prune', 'dedup', 'weld', 'quantize'],
+            },
+          );
+          return;
+        } catch (fallbackError) {
+          this.appLoggerService.warn('scene.glb_build.optimize_skipped', {
+            sceneId,
+            step: 'glb_build',
+            reason:
+              fallbackError instanceof Error
+                ? fallbackError.message
+                : String(fallbackError),
+            initialReason:
+              error instanceof Error ? error.message : String(error),
+          });
+          return;
+        }
+      }
+
       this.appLoggerService.warn('scene.glb_build.optimize_skipped', {
         sceneId,
         step: 'glb_build',
         reason: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  private resolveSimplifyOptionsFromEnv(): {
+    enabled: boolean;
+    options: GlbSimplifyOptions;
+  } {
+    const enabled = this.parseBooleanEnv(
+      process.env[ENV_GLB_OPTIMIZE_SIMPLIFY_ENABLED],
+      true,
+    );
+    const ratio = this.parseNumericEnv(
+      process.env[ENV_GLB_OPTIMIZE_SIMPLIFY_RATIO],
+      DEFAULT_GLB_SIMPLIFY_OPTIONS.ratio,
+      GLB_SIMPLIFY_RATIO_RANGE.min,
+      GLB_SIMPLIFY_RATIO_RANGE.max,
+    );
+    const error = this.parseNumericEnv(
+      process.env[ENV_GLB_OPTIMIZE_SIMPLIFY_ERROR],
+      DEFAULT_GLB_SIMPLIFY_OPTIONS.error,
+      GLB_SIMPLIFY_ERROR_RANGE.min,
+      GLB_SIMPLIFY_ERROR_RANGE.max,
+    );
+    const lockBorder = this.parseBooleanEnv(
+      process.env[ENV_GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER],
+      DEFAULT_GLB_SIMPLIFY_OPTIONS.lockBorder,
+    );
+
+    return {
+      enabled,
+      options: {
+        ratio,
+        error,
+        lockBorder,
+      },
+    };
+  }
+
+  private parseBooleanEnv(
+    rawValue: string | undefined,
+    fallback: boolean,
+  ): boolean {
+    const normalized = rawValue?.trim().toLowerCase();
+    if (!normalized) {
+      return fallback;
+    }
+
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['0', 'false', 'no', 'off'].includes(normalized)) {
+      return false;
+    }
+
+    return fallback;
+  }
+
+  private parseNumericEnv(
+    rawValue: string | undefined,
+    fallback: number,
+    min: number,
+    max: number,
+  ): number {
+    const normalized = rawValue?.trim();
+    if (!normalized) {
+      return fallback;
+    }
+
+    const parsed = Number.parseFloat(normalized);
+    if (!Number.isFinite(parsed)) {
+      return fallback;
+    }
+
+    return clampRange(parsed, min, max);
   }
 
   private async validateGlb(
@@ -522,4 +885,23 @@ export class GlbBuildRunner {
       );
     }
   }
+
+  private async loadMeshoptimizerModule(): Promise<
+    | {
+        MeshoptSimplifier?: unknown;
+      }
+    | undefined
+  > {
+    try {
+      return (await import('meshoptimizer/simplifier')) as {
+        MeshoptSimplifier?: unknown;
+      };
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+function clampRange(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

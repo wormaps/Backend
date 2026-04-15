@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
 import type {
@@ -6,14 +6,27 @@ import type {
   SceneFidelityPlan,
   SceneScale,
 } from '../../types/scene.types';
+import {
+  CuratedAssetResolverService,
+  type CuratedAssetPayload,
+} from './curated-asset-resolver.service';
 
 @Injectable()
 export class SceneFidelityPlannerService {
+  constructor(
+    @Optional()
+    private readonly curatedAssetResolver?: CuratedAssetResolverService,
+  ) {
+    this.curatedAssetResolver =
+      curatedAssetResolver ?? new CuratedAssetResolverService();
+  }
+
   buildPlan(
     place: ExternalPlaceDetail,
     scale: SceneScale,
     placePackage: PlacePackage,
     detail: SceneDetail,
+    curatedPayload?: CuratedAssetPayload,
   ): SceneFidelityPlan {
     const targetCoverageRatio = 0.7;
     const landmarkCount =
@@ -46,6 +59,7 @@ export class SceneFidelityPlannerService {
       mapillaryEvidence,
       landmarkCount,
       facadeEvidenceScore,
+      curatedPayload,
     );
     const rawCoverageRatio = this.resolveAchievedCoverageRatio(
       detail,
@@ -134,9 +148,7 @@ export class SceneFidelityPlannerService {
           sourceType: 'CURATED_ASSET_PACK',
           enabled: overlayReadiness.curatedReady,
           coverage: overlayReadiness.curatedReady ? 'CORE' : 'NONE',
-          reason: overlayReadiness.curatedReady
-            ? '랜드마크 주석과 근거 밀도가 충분해 curated hybrid 보강이 가능합니다.'
-            : '현재는 적용 가능한 curated asset 데이터가 없습니다.',
+          reason: overlayReadiness.curatedReason,
         },
         {
           sourceType: 'PHOTOREAL_3D_TILES',
@@ -180,6 +192,7 @@ export class SceneFidelityPlannerService {
     overlayReadiness: {
       mapillaryReady: boolean;
       curatedReady: boolean;
+      curatedReason: string;
       atmosphereReady: boolean;
     },
   ): SceneFidelityPlan['targetMode'] {
@@ -221,6 +234,7 @@ export class SceneFidelityPlannerService {
     overlayReadiness: {
       mapillaryReady: boolean;
       curatedReady: boolean;
+      curatedReason: string;
       atmosphereReady: boolean;
     },
   ): string[] {
@@ -261,6 +275,7 @@ export class SceneFidelityPlannerService {
     overlayReadiness: {
       mapillaryReady: boolean;
       curatedReady: boolean;
+      curatedReason: string;
       atmosphereReady: boolean;
     },
   ): number {
@@ -344,11 +359,13 @@ export class SceneFidelityPlannerService {
   private resolveOverlayReadiness(
     detail: SceneDetail,
     mapillaryEvidence: number,
-    landmarkCount: number,
-    facadeEvidenceScore: number,
+    _landmarkCount: number,
+    _facadeEvidenceScore: number,
+    curatedPayload?: CuratedAssetPayload,
   ): {
     mapillaryReady: boolean;
     curatedReady: boolean;
+    curatedReason: string;
     atmosphereReady: boolean;
   } {
     const mapillaryReady =
@@ -357,10 +374,12 @@ export class SceneFidelityPlannerService {
       detail.signageClusters.length >= 1 &&
       detail.facadeHints.length >= 1;
 
-    const curatedReady =
-      detail.annotationsApplied.length >= 2 &&
-      landmarkCount >= 3 &&
-      facadeEvidenceScore >= 70;
+    const curatedReadiness = this.curatedAssetResolver!.resolveReadiness(
+      detail,
+      curatedPayload,
+    );
+    const curatedReady = curatedReadiness.ready;
+    const curatedReason = curatedReadiness.reason;
 
     const staticPreset = detail.staticAtmosphere?.preset;
     const sceneTone = detail.sceneWideAtmosphereProfile?.cityTone;
@@ -373,6 +392,7 @@ export class SceneFidelityPlannerService {
     return {
       mapillaryReady,
       curatedReady,
+      curatedReason,
       atmosphereReady,
     };
   }

@@ -22,6 +22,9 @@ import {
 const MIN_FOUNDATION_DEPTH = 0.4;
 const MAX_FOUNDATION_DEPTH = 1.1;
 const SETBACK_OVERLAP = 0.05;
+const MIN_SETBACK_RING_AREA_M2 = 0.5;
+const FOUNDATION_TERRAIN_SCALE = 0.3;
+const MAX_FOUNDATION_TERRAIN_OFFSET = 0.5;
 
 export interface BuildingShellClosureMetrics {
   openShellCount: number;
@@ -72,6 +75,11 @@ export function collectBuildingShellClosureMetrics(
       for (let stage = 0; stage < setbackLevels; stage += 1) {
         const nextRing = insetRing(currentRing, 0.12 + stage * 0.04);
         if (nextRing.length < 3) {
+          metrics.invalidSetbackJoinCount += 1;
+          break;
+        }
+        const ringArea = computeRingAreaM2(nextRing);
+        if (ringArea < MIN_SETBACK_RING_AREA_M2) {
           metrics.invalidSetbackJoinCount += 1;
           break;
         }
@@ -436,7 +444,12 @@ function resolveFoundationDepth(
   building: SceneMeta['buildings'][number],
 ): number {
   const groundOffset = Math.max(0, building.groundOffsetM ?? 0);
-  const base = MIN_FOUNDATION_DEPTH + groundOffset;
+  const terrainOffset = Math.abs(building.terrainOffsetM ?? 0);
+  const terrainAdjustment = Math.min(
+    MAX_FOUNDATION_TERRAIN_OFFSET,
+    terrainOffset * FOUNDATION_TERRAIN_SCALE,
+  );
+  const base = MIN_FOUNDATION_DEPTH + groundOffset + terrainAdjustment;
   return Math.min(MAX_FOUNDATION_DEPTH, Number(base.toFixed(3)));
 }
 
@@ -577,6 +590,19 @@ function resolveBuildingGeometryStrategy(
     return 'fallback_massing';
   }
   return building.geometryStrategy ?? 'simple_extrude';
+}
+
+function computeRingAreaM2(ring: Vec3[]): number {
+  if (ring.length < 3) {
+    return 0;
+  }
+  let area = 0;
+  for (let i = 0; i < ring.length; i += 1) {
+    const current = ring[i];
+    const next = ring[(i + 1) % ring.length];
+    area += current[0] * next[2] - next[0] * current[2];
+  }
+  return Math.abs(area) / 2;
 }
 
 function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {

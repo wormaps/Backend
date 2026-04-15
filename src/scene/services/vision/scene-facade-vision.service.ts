@@ -91,7 +91,9 @@ export class SceneFacadeVisionService {
         building,
         mapillarySignalSummary,
       );
-      const weakEvidence = nearbyImageCount === 0 && nearbyFeatureCount === 0;
+      const hasAnyEvidence = nearbyImageCount > 0 || nearbyFeatureCount > 0;
+      const weakEvidence =
+        !hasAnyEvidence && !explicitBuildingColor && !building.facadeMaterial;
       const inferenceReasonCodes: InferenceReasonCode[] = [];
       if (nearbyImageCount === 0) {
         inferenceReasonCodes.push('MISSING_MAPILLARY_IMAGES');
@@ -137,6 +139,8 @@ export class SceneFacadeVisionService {
         panelPalette,
         explicitSignalBoost,
       });
+      const shouldApplyContextualUpgrade =
+        hasAnyEvidence || explicitBuildingColor || !weakEvidence;
       const channels = resolveFacadeColorChannels({
         palette: antiUniformPalette.palette,
         roofColor: building.roofColor,
@@ -197,8 +201,9 @@ export class SceneFacadeVisionService {
         districtConfidence: districtResolution.confidence,
         evidenceStrength: districtResolution.evidenceStrength,
         contextualMaterialUpgrade:
-          inferredPalette.contextualUpgrade ||
-          antiUniformPalette.contextualUpgradeBoost,
+          shouldApplyContextualUpgrade &&
+          (inferredPalette.contextualUpgrade ||
+            antiUniformPalette.contextualUpgradeBoost),
       };
     });
   }

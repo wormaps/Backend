@@ -10,6 +10,7 @@ class FakeMaterial {
   public alphaCutoff: number | null = null;
   public doubleSided: boolean | null = null;
   public extras: Record<string, unknown> = {};
+  public baseColorTexture: unknown = null;
 
   constructor(name: string) {
     this.name = name;
@@ -59,6 +60,11 @@ class FakeMaterial {
     this.extras = { ...this.extras, ...value };
     return this;
   }
+
+  setBaseColorTexture(texture: unknown) {
+    this.baseColorTexture = texture;
+    return this;
+  }
 }
 
 class FakeDoc {
@@ -95,5 +101,86 @@ describe('glb-material-factory.scene', () => {
     expect(crosswalk.emissiveFactor?.[0] ?? 0).toBeGreaterThan(0.2);
     expect(laneOverlay.emissiveFactor?.[0] ?? 0).toBeGreaterThan(0.15);
     expect(junctionOverlay.emissiveFactor?.[0] ?? 0).toBeGreaterThan(0.2);
+  });
+
+  describe('texture path behavior', () => {
+    it('uses fallback path when enableTexturePath is false (default)', () => {
+      const materials = createSceneMaterials(new FakeDoc());
+
+      expect(materials.textureDiagnostics).toBeDefined();
+      expect(materials.textureDiagnostics?.texturePathActive).toBe(false);
+      expect(materials.textureDiagnostics?.fallbackPathActive).toBe(true);
+      expect(materials.textureDiagnostics?.reason).toBe(
+        'enableTexturePath is false',
+      );
+
+      const ground = materials.ground as FakeMaterial;
+      expect(ground.baseColorTexture).toBeNull();
+    });
+
+    it('uses fallback path when enableTexturePath is true but no texture slots provided', () => {
+      const materials = createSceneMaterials(new FakeDoc(), {
+        enableTexturePath: true,
+      });
+
+      expect(materials.textureDiagnostics).toBeDefined();
+      expect(materials.textureDiagnostics?.texturePathActive).toBe(false);
+      expect(materials.textureDiagnostics?.fallbackPathActive).toBe(true);
+      expect(materials.textureDiagnostics?.reason).toBe(
+        'No texture slots provided',
+      );
+
+      const ground = materials.ground as FakeMaterial;
+      expect(ground.baseColorTexture).toBeNull();
+    });
+
+    it('uses texture path when enableTexturePath is true and texture slots are provided', () => {
+      const groundTexture = { uri: 'ground.png', mimeType: 'image/png' };
+      const roadTexture = { uri: 'road.png', mimeType: 'image/png' };
+
+      const materials = createSceneMaterials(new FakeDoc(), {
+        enableTexturePath: true,
+        textureSlots: {
+          ground: groundTexture,
+          roadBase: roadTexture,
+        },
+      });
+
+      expect(materials.textureDiagnostics).toBeDefined();
+      expect(materials.textureDiagnostics?.texturePathActive).toBe(true);
+      expect(materials.textureDiagnostics?.fallbackPathActive).toBe(false);
+      expect(materials.textureDiagnostics?.textureSlotUsed).toBe(
+        'ground, roadBase',
+      );
+      expect(materials.textureDiagnostics?.reason).toBe(
+        'Texture path active for: ground, roadBase',
+      );
+
+      const ground = materials.ground as FakeMaterial;
+      expect(ground.baseColorTexture).toEqual(groundTexture);
+
+      const roadBase = materials.roadBase as FakeMaterial;
+      expect(roadBase.baseColorTexture).toEqual(roadTexture);
+
+      const sidewalk = materials.sidewalk as FakeMaterial;
+      expect(sidewalk.baseColorTexture).toBeNull();
+    });
+
+    it('preserves color factor fallback when texture is not available', () => {
+      const materials = createSceneMaterials(new FakeDoc(), {
+        enableTexturePath: true,
+        textureSlots: {
+          ground: { uri: 'ground.png' },
+        },
+      });
+
+      const ground = materials.ground as FakeMaterial;
+      expect(ground.baseColorFactor).toEqual([0.52, 0.55, 0.5, 1]);
+      expect(ground.baseColorTexture).toEqual({ uri: 'ground.png' });
+
+      const roadBase = materials.roadBase as FakeMaterial;
+      expect(roadBase.baseColorFactor).toEqual([0.14, 0.15, 0.17, 1]);
+      expect(roadBase.baseColorTexture).toBeNull();
+    });
   });
 });

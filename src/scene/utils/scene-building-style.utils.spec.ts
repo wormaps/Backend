@@ -79,4 +79,44 @@ describe('scene-building-style utils', () => {
     expect(style.visualArchetype).toBe('apartment_block');
     expect(style.facadePreset).toBe('concrete_repetitive');
   });
+
+  it('uses deterministic non-random material class for small_lowrise', () => {
+    const styleA = resolveBuildingStyle({
+      usage: 'MIXED',
+      heightMeters: 10,
+      facadeMaterial: null,
+      roofMaterial: null,
+      roofShape: null,
+      facadeColor: null,
+      roofColor: null,
+      buildingPart: null,
+      outerRing: [
+        { lat: 35.7, lng: 139.7 },
+        { lat: 35.7, lng: 139.7001 },
+        { lat: 35.6999, lng: 139.7001 },
+        { lat: 35.6999, lng: 139.7 },
+      ],
+    });
+    const styleB = resolveBuildingStyle({
+      usage: 'MIXED',
+      heightMeters: 10,
+      facadeMaterial: null,
+      roofMaterial: null,
+      roofShape: null,
+      facadeColor: null,
+      roofColor: null,
+      buildingPart: null,
+      outerRing: [
+        { lat: 35.71, lng: 139.71 },
+        { lat: 35.71, lng: 139.7101 },
+        { lat: 35.7099, lng: 139.7101 },
+        { lat: 35.7099, lng: 139.71 },
+      ],
+    });
+
+    expect(styleA.preset).toBe('small_lowrise');
+    expect(styleB.preset).toBe('small_lowrise');
+    expect(styleA.materialClass).toBe('brick');
+    expect(styleB.materialClass).toBe('brick');
+  });
 });

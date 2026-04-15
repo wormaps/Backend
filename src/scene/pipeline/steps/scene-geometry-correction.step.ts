@@ -13,6 +13,23 @@ interface GeometryCorrectionResult {
   detail: SceneDetail;
 }
 
+type OverlapMitigationStrategy =
+  | 'none'
+  | 'ground_offset'
+  | 'height_stagger'
+  | 'lateral_separation'
+  | 'combined';
+
+interface OverlapMitigationOutcome {
+  objectId: string;
+  strategy: OverlapMitigationStrategy;
+  overlapAreaM2: number;
+  severity: 'low' | 'medium' | 'high';
+  groundOffsetAppliedM: number;
+  heightStaggerAppliedM: number;
+  lateralSeparationAppliedM: number;
+}
+
 interface GeometryCorrectionDiagnostic {
   objectId: '__geometry_correction__';
   strategy: 'fallback_massing';
@@ -34,6 +51,11 @@ interface GeometryCorrectionDiagnostic {
   averageTerrainOffsetM: number;
   maxTerrainOffsetM: number;
   transportTerrainCoverageRatio: number;
+  overlapMitigationOutcomes: OverlapMitigationOutcome[];
+  totalOverlapAreaM2: number;
+  highSeverityOverlapCount: number;
+  mediumSeverityOverlapCount: number;
+  lowSeverityOverlapCount: number;
 }
 
 const COLLISION_NEAR_ROAD_METERS = 3;
@@ -46,6 +68,16 @@ const TERRAIN_RELIEF_SCALE = 0.55;
 const MIN_RING_VERTICES_FOR_CLOSURE = 3;
 const MIN_SETBACK_USABLE_VERTICES = 3;
 const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
+
+const OVERLAP_SEVERITY_LOW_THRESHOLD_M2 = 2;
+const OVERLAP_SEVERITY_HIGH_THRESHOLD_M2 = 15;
+const HEIGHT_STAGGER_BASE_METERS = 0.12;
+const HEIGHT_STAGGER_PER_AREA_M2 = 0.008;
+const MAX_HEIGHT_STAGGER_METERS = 0.8;
+const LATERAL_SEPARATION_BASE_METERS = 0.05;
+const LATERAL_SEPARATION_PER_AREA_M2 = 0.003;
+const MAX_LATERAL_SEPARATION_METERS = 0.3;
+const COMBINED_GROUND_OFFSET_REDUCTION_FACTOR = 0.6;
 
 interface BuildingFootprintBounds {
   objectId: string;
@@ -63,9 +95,27 @@ export class SceneGeometryCorrectionStep {
       this.correctWalkway(walkway, meta),
     );
     const buildingOverlapObjectIds = this.resolveBuildingOverlapObjectIds(meta);
-    const correctedBuildings = meta.buildings.map((building) =>
-      this.correctBuilding(building, roads, meta, buildingOverlapObjectIds),
+    const overlapAreas = this.resolveOverlapAreas(
+      meta,
+      buildingOverlapObjectIds,
     );
+    const correctionResults = meta.buildings.map((building) =>
+      this.correctBuilding(
+        building,
+        roads,
+        meta,
+        buildingOverlapObjectIds,
+        overlapAreas,
+      ),
+    );
+    const correctedBuildings = correctionResults.map(
+      (result) => result.building,
+    );
+    const overlapMitigationOutcomes = correctionResults
+      .map((result) => result.mitigationOutcome)
+      .filter(
+        (outcome): outcome is OverlapMitigationOutcome => outcome !== undefined,
+      );
 
     const collisionRiskCount = correctedBuildings.filter(
       (building) => building.collisionRisk === 'road_overlap',
@@ -135,6 +185,21 @@ export class SceneGeometryCorrectionStep {
     const { openShellCount, roofWallGapCount, invalidSetbackJoinCount } =
       closureDiagnostics;
 
+    const totalOverlapAreaM2 = Number(
+      overlapMitigationOutcomes
+        .reduce((sum, outcome) => sum + outcome.overlapAreaM2, 0)
+        .toFixed(2),
+    );
+    const highSeverityOverlapCount = overlapMitigationOutcomes.filter(
+      (outcome) => outcome.severity === 'high',
+    ).length;
+    const mediumSeverityOverlapCount = overlapMitigationOutcomes.filter(
+      (outcome) => outcome.severity === 'medium',
+    ).length;
+    const lowSeverityOverlapCount = overlapMitigationOutcomes.filter(
+      (outcome) => outcome.severity === 'low',
+    ).length;
+
     const correctedMeta: SceneMeta = {
       ...meta,
       roads,
@@ -173,6 +238,11 @@ export class SceneGeometryCorrectionStep {
           averageTerrainOffsetM,
           maxTerrainOffsetM,
           transportTerrainCoverageRatio,
+          overlapMitigationOutcomes,
+          totalOverlapAreaM2,
+          highSeverityOverlapCount,
+          mediumSeverityOverlapCount,
+          lowSeverityOverlapCount,
         } as GeometryCorrectionDiagnostic,
       ],
     };
@@ -198,6 +268,11 @@ export class SceneGeometryCorrectionStep {
       correctedCount: correctedBuildings.filter(
         (building) => building.collisionRisk === 'road_overlap',
       ).length,
+      totalOverlapAreaM2,
+      highSeverityOverlapCount,
+      mediumSeverityOverlapCount,
+      lowSeverityOverlapCount,
+      mitigationStrategies: overlapMitigationOutcomes.map((o) => o.strategy),
     });
 
     return {
@@ -249,13 +324,19 @@ export class SceneGeometryCorrectionStep {
     roads: SceneRoadMeta[],
     meta: SceneMeta,
     buildingOverlapObjectIds: ReadonlySet<string>,
-  ): SceneBuildingMeta {
+    overlapAreas?: Map<string, number>,
+  ): {
+    building: SceneBuildingMeta;
+    mitigationOutcome?: OverlapMitigationOutcome;
+  } {
     const anchors = resolveBuildingAnchors(building.outerRing);
     if (anchors.length === 0) {
       return {
-        ...building,
-        collisionRisk: 'none',
-        groundOffsetM: 0,
+        building: {
+          ...building,
+          collisionRisk: 'none',
+          groundOffsetM: 0,
+        },
       };
     }
 
@@ -286,9 +367,68 @@ export class SceneGeometryCorrectionStep {
             BASE_GROUND_OFFSET_ON_COLLISION_METERS)
       ).toFixed(3),
     );
-    const overlapGroundOffset = nearBuildingOverlap
-      ? BUILDING_OVERLAP_GROUND_OFFSET_METERS
-      : 0;
+
+    let overlapGroundOffset = 0;
+    let heightStagger = 0;
+    let lateralSeparation = 0;
+    let mitigationStrategy: OverlapMitigationStrategy = 'none';
+    let overlapAreaM2 = 0;
+    let severity: 'low' | 'medium' | 'high' = 'low';
+
+    if (nearBuildingOverlap) {
+      overlapAreaM2 = overlapAreas?.get(building.objectId) ?? 0;
+      severity = this.resolveOverlapSeverity(overlapAreaM2);
+      mitigationStrategy = this.resolveMitigationStrategy(severity, nearRoad);
+
+      switch (mitigationStrategy) {
+        case 'ground_offset':
+          overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS;
+          break;
+        case 'height_stagger':
+          heightStagger = Number(
+            Math.min(
+              MAX_HEIGHT_STAGGER_METERS,
+              HEIGHT_STAGGER_BASE_METERS +
+                overlapAreaM2 * HEIGHT_STAGGER_PER_AREA_M2,
+            ).toFixed(3),
+          );
+          overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS * 0.5;
+          break;
+        case 'lateral_separation':
+          lateralSeparation = Number(
+            Math.min(
+              MAX_LATERAL_SEPARATION_METERS,
+              LATERAL_SEPARATION_BASE_METERS +
+                overlapAreaM2 * LATERAL_SEPARATION_PER_AREA_M2,
+            ).toFixed(3),
+          );
+          overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS * 0.3;
+          break;
+        case 'combined':
+          overlapGroundOffset =
+            BUILDING_OVERLAP_GROUND_OFFSET_METERS *
+            COMBINED_GROUND_OFFSET_REDUCTION_FACTOR;
+          heightStagger = Number(
+            Math.min(
+              MAX_HEIGHT_STAGGER_METERS * 0.7,
+              HEIGHT_STAGGER_BASE_METERS +
+                overlapAreaM2 * HEIGHT_STAGGER_PER_AREA_M2 * 0.5,
+            ).toFixed(3),
+          );
+          lateralSeparation = Number(
+            Math.min(
+              MAX_LATERAL_SEPARATION_METERS * 0.5,
+              LATERAL_SEPARATION_BASE_METERS +
+                overlapAreaM2 * LATERAL_SEPARATION_PER_AREA_M2 * 0.5,
+            ).toFixed(3),
+          );
+          break;
+        default:
+          overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS;
+          break;
+      }
+    }
+
     const groundOffsetM = Number(
       Math.max(nearRoad ? dynamicGroundOffset : 0, overlapGroundOffset).toFixed(
         3,
@@ -300,13 +440,35 @@ export class SceneGeometryCorrectionStep {
       anchors,
     );
 
-    return {
+    const correctedBuilding: SceneBuildingMeta = {
       ...building,
       collisionRisk,
       groundOffsetM,
       terrainOffsetM: terrainOffset,
       terrainSampleHeightMeters,
     };
+
+    if (heightStagger > 0) {
+      correctedBuilding.heightMeters = Math.max(
+        4,
+        building.heightMeters - heightStagger,
+      );
+    }
+
+    const mitigationOutcome: OverlapMitigationOutcome | undefined =
+      nearBuildingOverlap
+        ? {
+            objectId: building.objectId,
+            strategy: mitigationStrategy,
+            overlapAreaM2: Number(overlapAreaM2.toFixed(2)),
+            severity,
+            groundOffsetAppliedM: groundOffsetM,
+            heightStaggerAppliedM: heightStagger,
+            lateralSeparationAppliedM: lateralSeparation,
+          }
+        : undefined;
+
+    return { building: correctedBuilding, mitigationOutcome };
   }
 
   private correctRoad(road: SceneRoadMeta, meta: SceneMeta): SceneRoadMeta {
@@ -461,6 +623,80 @@ export class SceneGeometryCorrectionStep {
       left.minY - paddingMeters <= right.maxY &&
       left.maxY + paddingMeters >= right.minY
     );
+  }
+
+  private resolveOverlapAreas(
+    meta: SceneMeta,
+    overlapObjectIds: ReadonlySet<string>,
+  ): Map<string, number> {
+    const areas = new Map<string, number>();
+    const boxes = meta.buildings
+      .map((building) =>
+        this.toBuildingFootprintBounds(
+          building,
+          meta.origin.lat,
+          meta.origin.lng,
+        ),
+      )
+      .filter((item): item is BuildingFootprintBounds => item !== null);
+
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        const left = boxes[i];
+        const right = boxes[j];
+        if (
+          !overlapObjectIds.has(left.objectId) &&
+          !overlapObjectIds.has(right.objectId)
+        ) {
+          continue;
+        }
+        const overlapWidth = Math.max(
+          0,
+          Math.min(left.maxX, right.maxX) - Math.max(left.minX, right.minX),
+        );
+        const overlapDepth = Math.max(
+          0,
+          Math.min(left.maxY, right.maxY) - Math.max(left.minY, right.minY),
+        );
+        const overlapArea = overlapWidth * overlapDepth;
+        if (overlapArea > 0) {
+          areas.set(
+            left.objectId,
+            (areas.get(left.objectId) ?? 0) + overlapArea,
+          );
+          areas.set(
+            right.objectId,
+            (areas.get(right.objectId) ?? 0) + overlapArea,
+          );
+        }
+      }
+    }
+    return areas;
+  }
+
+  private resolveOverlapSeverity(
+    overlapAreaM2: number,
+  ): 'low' | 'medium' | 'high' {
+    if (overlapAreaM2 >= OVERLAP_SEVERITY_HIGH_THRESHOLD_M2) {
+      return 'high';
+    }
+    if (overlapAreaM2 >= OVERLAP_SEVERITY_LOW_THRESHOLD_M2) {
+      return 'medium';
+    }
+    return 'low';
+  }
+
+  private resolveMitigationStrategy(
+    severity: 'low' | 'medium' | 'high',
+    nearRoad: boolean,
+  ): OverlapMitigationStrategy {
+    if (severity === 'high') {
+      return nearRoad ? 'combined' : 'height_stagger';
+    }
+    if (severity === 'medium') {
+      return nearRoad ? 'ground_offset' : 'lateral_separation';
+    }
+    return 'ground_offset';
   }
 }
 

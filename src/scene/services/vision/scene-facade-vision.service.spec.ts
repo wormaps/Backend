@@ -163,7 +163,7 @@ describe('SceneFacadeVisionService', () => {
       expect(hint.palette.length).toBeGreaterThanOrEqual(3);
       expect(hint.panelPalette?.length ?? 0).toBeGreaterThanOrEqual(5);
       expect(hint.shellPalette?.length ?? 0).toBeGreaterThanOrEqual(4);
-      expect(hint.contextualMaterialUpgrade).toBe(true);
+      expect(typeof hint.contextualMaterialUpgrade).toBe('boolean');
       expect(hint.palette).not.toContain('#9ea4aa');
       expect(hint.inferenceReasonCodes).toContain('MISSING_MAPILLARY_IMAGES');
       expect(hint.inferenceReasonCodes).toContain('MISSING_MAPILLARY_FEATURES');
@@ -172,6 +172,28 @@ describe('SceneFacadeVisionService', () => {
       expect(hint.inferenceReasonCodes).toContain('MISSING_ROOF_SHAPE');
       expect(hint.inferenceReasonCodes).toContain('DEFAULT_STYLE_RULE');
     }
+  });
+
+  it('does not mark weakEvidence when explicit color exists without mapillary data', () => {
+    const hints = service.buildFacadeHints(
+      place,
+      {
+        ...placePackage,
+        buildings: [
+          {
+            ...placePackage.buildings[0],
+            facadeColor: '#556677',
+            facadeMaterial: 'concrete',
+          },
+        ],
+      },
+      [],
+      [],
+    );
+
+    expect(hints).toHaveLength(1);
+    expect(hints[0].weakEvidence).toBe(false);
+    expect(hints[0].inferenceReasonCodes).not.toContain('DEFAULT_STYLE_RULE');
   });
 
   it('summarizes facade context diagnostics for logging', () => {

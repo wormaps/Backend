@@ -190,9 +190,17 @@ type RunnerPrivateMethods = {
     transformModule: {
       prune: (options?: Record<string, unknown>) => unknown;
       dedup: (options?: Record<string, unknown>) => unknown;
+      instance?: (options?: Record<string, unknown>) => unknown;
+      simplify?: (options: {
+        simplifier: unknown;
+        ratio?: number;
+        error?: number;
+        lockBorder?: boolean;
+      }) => unknown;
       weld: (options?: Record<string, unknown>) => unknown;
       quantize: (options?: Record<string, unknown>) => unknown;
     },
+    simplifyMeshoptSimplifier?: unknown,
   ) => Promise<void>;
   validateGlb: (
     glbBinary: Uint8Array,
@@ -226,6 +234,26 @@ function createRunnerHarness(): {
 }
 
 describe('GlbBuildRunner modularized', () => {
+  const originalSimplifyEnabled = process.env.GLB_OPTIMIZE_SIMPLIFY_ENABLED;
+  const originalSimplifyRatio = process.env.GLB_OPTIMIZE_SIMPLIFY_RATIO;
+  const originalSimplifyError = process.env.GLB_OPTIMIZE_SIMPLIFY_ERROR;
+  const originalSimplifyLockBorder =
+    process.env.GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER;
+
+  beforeEach(() => {
+    delete process.env.GLB_OPTIMIZE_SIMPLIFY_ENABLED;
+    delete process.env.GLB_OPTIMIZE_SIMPLIFY_RATIO;
+    delete process.env.GLB_OPTIMIZE_SIMPLIFY_ERROR;
+    delete process.env.GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER;
+  });
+
+  afterAll(() => {
+    process.env.GLB_OPTIMIZE_SIMPLIFY_ENABLED = originalSimplifyEnabled;
+    process.env.GLB_OPTIMIZE_SIMPLIFY_RATIO = originalSimplifyRatio;
+    process.env.GLB_OPTIMIZE_SIMPLIFY_ERROR = originalSimplifyError;
+    process.env.GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER = originalSimplifyLockBorder;
+  });
+
   it('writes semantic provenance extras to node, mesh, and primitive', () => {
     const doc = new FakeDoc();
     const scene = new FakeScene('scene-provenance');
@@ -485,6 +513,8 @@ describe('GlbBuildRunner modularized', () => {
     const transformModule = {
       prune: jest.fn().mockReturnValue('prune-step'),
       dedup: jest.fn().mockReturnValue('dedup-step'),
+      instance: jest.fn().mockReturnValue('instance-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
       weld: jest.fn().mockReturnValue('weld-step'),
       quantize: jest.fn().mockReturnValue('quantize-step'),
     };
@@ -493,6 +523,7 @@ describe('GlbBuildRunner modularized', () => {
       doc,
       'scene-optimize',
       transformModule,
+      { mock: 'meshopt' },
     );
 
     expect(transformModule.prune).toHaveBeenCalledWith(
@@ -504,6 +535,16 @@ describe('GlbBuildRunner modularized', () => {
     );
     expect(transformModule.dedup).toHaveBeenCalledWith(
       expect.objectContaining({ keepUniqueNames: true }),
+    );
+    expect(transformModule.instance).toHaveBeenCalledWith(
+      expect.objectContaining({ min: 5 }),
+    );
+    expect(transformModule.simplify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ratio: 0.75,
+        error: 0.001,
+        lockBorder: false,
+      }),
     );
     expect(transformModule.quantize).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -518,6 +559,8 @@ describe('GlbBuildRunner modularized', () => {
     expect(transform).toHaveBeenCalledWith(
       'prune-step',
       'dedup-step',
+      'instance-step',
+      'simplify-step',
       'weld-step',
       'quantize-step',
     );
@@ -526,6 +569,58 @@ describe('GlbBuildRunner modularized', () => {
       expect.objectContaining({
         sceneId: 'scene-optimize',
         step: 'glb_build',
+      }),
+    );
+  });
+
+  it('falls back to non-instance transforms when instance transform fails', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest
+      .fn<Promise<void>, unknown[]>()
+      .mockRejectedValueOnce(new Error('instance-failed'))
+      .mockResolvedValueOnce();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      instance: jest.fn().mockReturnValue('instance-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-instance-fallback',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transform).toHaveBeenNthCalledWith(
+      1,
+      'prune-step',
+      'dedup-step',
+      'instance-step',
+      'simplify-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(transform).toHaveBeenNthCalledWith(
+      2,
+      'prune-step',
+      'dedup-step',
+      'simplify-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_instance_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-instance-fallback',
+        step: 'glb_build',
+        reason: 'instance-failed',
       }),
     );
   });
@@ -548,6 +643,7 @@ describe('GlbBuildRunner modularized', () => {
         doc,
         'scene-optimize-warn',
         transformModule,
+        undefined,
       ),
     ).resolves.toBeUndefined();
 
@@ -557,6 +653,363 @@ describe('GlbBuildRunner modularized', () => {
         sceneId: 'scene-optimize-warn',
         step: 'glb_build',
         reason: 'transform-failed',
+      }),
+    );
+  });
+
+  it('falls back to non-simplify chain when simplify transform fails', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest
+      .fn<Promise<void>, unknown[]>()
+      .mockRejectedValueOnce(new Error('simplify-failed'))
+      .mockResolvedValueOnce();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-simplify-fallback',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transform).toHaveBeenNthCalledWith(
+      1,
+      'prune-step',
+      'dedup-step',
+      'simplify-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(transform).toHaveBeenNthCalledWith(
+      2,
+      'prune-step',
+      'dedup-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_simplify_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-simplify-fallback',
+        step: 'glb_build',
+        reason: 'simplify-failed',
+      }),
+    );
+  });
+
+  it('falls back to base chain when both instance and simplify path fails', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest
+      .fn<Promise<void>, unknown[]>()
+      .mockRejectedValueOnce(new Error('instance-simplify-failed'))
+      .mockRejectedValueOnce(new Error('instance-fallback-simplify-failed'))
+      .mockResolvedValueOnce();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      instance: jest.fn().mockReturnValue('instance-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-instance-simplify-double-fallback',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transform).toHaveBeenNthCalledWith(
+      1,
+      'prune-step',
+      'dedup-step',
+      'instance-step',
+      'simplify-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(transform).toHaveBeenNthCalledWith(
+      2,
+      'prune-step',
+      'dedup-step',
+      'simplify-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(transform).toHaveBeenNthCalledWith(
+      3,
+      'prune-step',
+      'dedup-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_simplify_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-instance-simplify-double-fallback',
+        triggeredBy: 'instance_fallback',
+      }),
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_instance_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-instance-simplify-double-fallback',
+        triggeredBy: 'simplify_fallback',
+      }),
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'scene.glb_build.optimize',
+      expect.objectContaining({
+        sceneId: 'scene-instance-simplify-double-fallback',
+        fallbackFromInstanceAndSimplify: true,
+      }),
+    );
+  });
+
+  it('skips instance gracefully when instance factory throws before transform', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      instance: jest.fn(() => {
+        throw new Error('instance-factory-failed');
+      }),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-instance-factory-fail',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transform).toHaveBeenCalledWith(
+      'prune-step',
+      'dedup-step',
+      'simplify-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_instance_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-instance-factory-fail',
+        step: 'glb_build',
+        reason: 'instance-factory-failed',
+        phase: 'instance_factory',
+      }),
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'scene.glb_build.optimize',
+      expect.objectContaining({
+        sceneId: 'scene-instance-factory-fail',
+        transforms: ['prune', 'dedup', 'simplify', 'weld', 'quantize'],
+      }),
+    );
+  });
+
+  it('skips simplify gracefully when simplify factory throws before transform', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      instance: jest.fn().mockReturnValue('instance-step'),
+      simplify: jest.fn(() => {
+        throw new Error('simplify-factory-failed');
+      }),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-simplify-factory-fail',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transform).toHaveBeenCalledWith(
+      'prune-step',
+      'dedup-step',
+      'instance-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_simplify_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-simplify-factory-fail',
+        step: 'glb_build',
+        reason: 'simplify-factory-failed',
+        phase: 'simplify_factory',
+      }),
+    );
+  });
+
+  it('skips simplify when meshopt simplifier is unavailable', async () => {
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-simplify-unavailable',
+        transformModule,
+        undefined,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transform).toHaveBeenCalledWith(
+      'prune-step',
+      'dedup-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_simplify_skipped',
+      expect.objectContaining({
+        sceneId: 'scene-simplify-unavailable',
+        reason: 'meshopt_simplifier_unavailable',
+        phase: 'simplify_factory',
+      }),
+    );
+  });
+
+  it('disables simplify when env flag is false', async () => {
+    process.env.GLB_OPTIMIZE_SIMPLIFY_ENABLED = 'false';
+    const { runnerPrivate, loggerMock } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-simplify-disabled-by-env',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transformModule.simplify).not.toHaveBeenCalled();
+    expect(transform).toHaveBeenCalledWith(
+      'prune-step',
+      'dedup-step',
+      'weld-step',
+      'quantize-step',
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'scene.glb_build.optimize_simplify_disabled',
+      expect.objectContaining({
+        sceneId: 'scene-simplify-disabled-by-env',
+        env: 'GLB_OPTIMIZE_SIMPLIFY_ENABLED',
+      }),
+    );
+  });
+
+  it('applies simplify env overrides with clamped numeric values', async () => {
+    process.env.GLB_OPTIMIZE_SIMPLIFY_RATIO = '1.9';
+    process.env.GLB_OPTIMIZE_SIMPLIFY_ERROR = '0';
+    process.env.GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER = 'true';
+
+    const { runnerPrivate } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-simplify-env-override',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transformModule.simplify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ratio: 1,
+        error: 0.0001,
+        lockBorder: true,
+      }),
+    );
+  });
+
+  it('falls back to defaults on invalid simplify env values', async () => {
+    process.env.GLB_OPTIMIZE_SIMPLIFY_ENABLED = 'flase';
+    process.env.GLB_OPTIMIZE_SIMPLIFY_RATIO = 'abc';
+    process.env.GLB_OPTIMIZE_SIMPLIFY_ERROR = 'not-a-number';
+    process.env.GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER = 'maybe';
+
+    const { runnerPrivate } = createRunnerHarness();
+    const transform = jest.fn<Promise<void>, unknown[]>().mockResolvedValue();
+    const doc = { transform };
+    const transformModule = {
+      prune: jest.fn().mockReturnValue('prune-step'),
+      dedup: jest.fn().mockReturnValue('dedup-step'),
+      simplify: jest.fn().mockReturnValue('simplify-step'),
+      weld: jest.fn().mockReturnValue('weld-step'),
+      quantize: jest.fn().mockReturnValue('quantize-step'),
+    };
+
+    await expect(
+      runnerPrivate.optimizeGlbDocument(
+        doc,
+        'scene-simplify-invalid-env',
+        transformModule,
+        { mock: 'meshopt' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(transformModule.simplify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ratio: 0.75,
+        error: 0.001,
+        lockBorder: false,
       }),
     );
   });

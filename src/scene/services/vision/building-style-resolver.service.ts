@@ -241,14 +241,14 @@ export class BuildingStyleResolverService {
       case 'mall_block':
       case 'station_block':
         return 'concrete';
-      case 'small_lowrise': {
-        const seed = `${input.outerRing[0]?.lat ?? 0}:${input.outerRing[0]?.lng ?? 0}`;
-        const hash = seed
-          .split('')
-          .reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const variants: MaterialClass[] = ['brick', 'concrete', 'mixed'];
-        return variants[hash % variants.length];
-      }
+      case 'small_lowrise':
+        if (input.usage === 'PUBLIC') {
+          return 'concrete';
+        }
+        if (input.usage === 'COMMERCIAL') {
+          return 'brick';
+        }
+        return 'brick';
       default:
         return input.usage === 'COMMERCIAL' ? 'glass' : 'mixed';
     }
@@ -351,11 +351,18 @@ export class BuildingStyleResolverService {
       return [...new Set(explicit)].slice(0, 3);
     }
 
-    const seed = `${input.outerRing[0]?.lat ?? 0}:${input.outerRing[0]?.lng ?? 0}:${input.heightMeters}:${input.usage}:${preset}`;
     const pool =
       MATERIAL_CLASS_PALETTE_POOL[materialClass] ??
       MATERIAL_CLASS_PALETTE_POOL.mixed;
-    const variant = pool[stableVariant(seed, pool.length)] ?? pool[0];
+    const variant =
+      pool[
+        resolvePaletteVariantIndex({
+          input,
+          preset,
+          materialClass,
+          poolSize: pool.length,
+        })
+      ] ?? pool[0];
     if (materialClass === 'glass' && preset === 'glass_tower') {
       return uniquePalette([
         mixHex(variant[0], '#6f9dc8', 0.22),
@@ -572,15 +579,60 @@ export class BuildingStyleResolverService {
   }
 }
 
-function stableVariant(seed: string, modulo: number): number {
-  if (modulo <= 0) {
+function resolvePaletteVariantIndex(args: {
+  input: BuildingStyleInput;
+  preset: BuildingPreset;
+  materialClass: MaterialClass;
+  poolSize: number;
+}): number {
+  if (args.poolSize <= 0) {
     return 0;
   }
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  }
-  return hash % modulo;
+
+  const usageWeight =
+    args.input.usage === 'COMMERCIAL'
+      ? 5
+      : args.input.usage === 'TRANSIT'
+        ? 4
+        : args.input.usage === 'PUBLIC'
+          ? 3
+          : args.input.usage === 'MIXED'
+            ? 2
+            : 1;
+  const presetWeight =
+    args.preset === 'glass_tower'
+      ? 7
+      : args.preset === 'mall_block'
+        ? 6
+        : args.preset === 'station_block'
+          ? 5
+          : args.preset === 'office_midrise'
+            ? 4
+            : args.preset === 'mixed_midrise'
+              ? 3
+              : 2;
+  const materialWeight =
+    args.materialClass === 'glass'
+      ? 5
+      : args.materialClass === 'metal'
+        ? 4
+        : args.materialClass === 'concrete'
+          ? 3
+          : args.materialClass === 'brick'
+            ? 2
+            : 1;
+  const heightBucket = Math.max(1, Math.round(args.input.heightMeters / 6));
+  const areaBucket = Math.max(
+    1,
+    Math.round(
+      Math.abs(polygonSignedArea(args.input.outerRing)) * 111_320 * 111_320,
+    ),
+  );
+
+  return (
+    (usageWeight + presetWeight + materialWeight + heightBucket + areaBucket) %
+    args.poolSize
+  );
 }
 
 function uniquePalette(colors: string[]): string[] {

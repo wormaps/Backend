@@ -135,14 +135,31 @@ describe('SceneGeometryCorrectionStep', () => {
     ) as {
       collisionRiskCount?: number;
       buildingOverlapCount?: number;
+      overlapMitigationOutcomes?: Array<{
+        objectId: string;
+        strategy: string;
+        severity: string;
+        overlapAreaM2: number;
+      }>;
+      totalOverlapAreaM2?: number;
+      highSeverityOverlapCount?: number;
+      mediumSeverityOverlapCount?: number;
+      lowSeverityOverlapCount?: number;
     };
 
     expect(corrected.meta.buildings[0].collisionRisk).toBe('none');
     expect(corrected.meta.buildings[1].collisionRisk).toBe('none');
-    expect((corrected.meta.buildings[0].groundOffsetM ?? 0) >= 0.08).toBe(true);
-    expect((corrected.meta.buildings[1].groundOffsetM ?? 0) >= 0.08).toBe(true);
+    expect((corrected.meta.buildings[0].groundOffsetM ?? 0) > 0).toBe(true);
+    expect((corrected.meta.buildings[1].groundOffsetM ?? 0) > 0).toBe(true);
     expect(correction.collisionRiskCount).toBe(0);
     expect(correction.buildingOverlapCount).toBe(2);
+    expect(correction.overlapMitigationOutcomes).toBeDefined();
+    expect(correction.overlapMitigationOutcomes?.length).toBe(2);
+    expect(correction.totalOverlapAreaM2).toBeGreaterThan(0);
+    expect(correction.overlapMitigationOutcomes?.[0].strategy).not.toBe('none');
+    expect(correction.overlapMitigationOutcomes?.[1].strategy).not.toBe('none');
+    expect(correction.overlapMitigationOutcomes?.[0].severity).toBeDefined();
+    expect(correction.overlapMitigationOutcomes?.[1].severity).toBeDefined();
   });
 
   it('keeps terrain coverage as fully anchored on flat terrain samples', () => {

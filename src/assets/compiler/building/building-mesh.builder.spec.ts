@@ -290,6 +290,50 @@ describe('building-mesh.builder', () => {
     expect(minY(shellDeepOffset.positions)).toBeCloseTo(-1.1, 6);
   });
 
+  it('applies terrain-aware foundation depth adjustment', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const triangulateQuad = () => [0, 1, 2, 0, 2, 3];
+    const buildWithTerrainOffset = (
+      terrainOffsetM: number,
+    ): ReturnType<typeof createBuildingShellGeometry> =>
+      createBuildingShellGeometry(
+        origin,
+        [
+          {
+            ...building,
+            objectId: `shell-terrain-${terrainOffsetM}`,
+            osmWayId: `shell_terrain_${terrainOffsetM}`,
+            visualRole: 'generic',
+            geometryStrategy: 'simple_extrude',
+            groundOffsetM: 0.06,
+            terrainOffsetM,
+          },
+        ],
+        triangulateQuad,
+      );
+
+    const shellFlatTerrain = buildWithTerrainOffset(0);
+    const shellElevatedTerrain = buildWithTerrainOffset(0.5);
+    const shellHighTerrain = buildWithTerrainOffset(2.0);
+
+    const minY = (positions: number[]): number => {
+      const ys = positions.filter((_, index) => index % 3 === 1);
+      return Math.min(...ys);
+    };
+
+    const foundationDepth = (positions: number[]): number => {
+      const ys = positions.filter((_, index) => index % 3 === 1);
+      return Math.max(...ys) - Math.min(...ys);
+    };
+
+    expect(minY(shellFlatTerrain.positions)).toBeCloseTo(-0.46, 6);
+    expect(minY(shellElevatedTerrain.positions)).toBeCloseTo(-0.11, 2);
+    expect(foundationDepth(shellHighTerrain.positions)).toBeGreaterThan(
+      foundationDepth(shellElevatedTerrain.positions),
+    );
+    expect(minY(shellHighTerrain.positions)).toBeGreaterThanOrEqual(-1.1);
+  });
+
   it('applies terrainOffsetM consistently across building stack geometry', () => {
     const origin = coordinate(35.659482, 139.7005596);
     const elevatedBuilding = {
@@ -354,7 +398,7 @@ describe('building-mesh.builder', () => {
     const minY = (positions: number[]): number =>
       Math.min(...positions.filter((_, index) => index % 3 === 1));
 
-    expect(minY(shell.positions)).toBeCloseTo(-0.16, 6);
+    expect(minY(shell.positions)).toBeCloseTo(-0.232, 3);
     expect(minY(roof.positions)).toBeGreaterThanOrEqual(48.24);
     expect(minY(panels.positions)).toBeGreaterThanOrEqual(0.24);
     expect(minY(windows.positions)).toBeGreaterThanOrEqual(0.24);
