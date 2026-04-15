@@ -60,6 +60,8 @@ describe('buildGlbInputContract', () => {
     expect(contract.loadingHints?.defaultNodeOrder).toContain(
       'building_lod_high',
     );
+    expect(contract.extensionIntents?.msftLodNodeLevel).toBe(true);
+    expect(contract.extensionIntents?.extMeshGpuInstancing).toBe(true);
   });
 });
 

@@ -117,6 +117,11 @@ export class SceneReadService {
             { key: 'landmark', priority: 'medium' },
           ],
         },
+        gltfExtensionIntents: {
+          msftLodNodeLevel: true,
+          extMeshGpuInstancing: true,
+          backendOnlyHints: true,
+        },
       },
     };
   }

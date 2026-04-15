@@ -173,6 +173,17 @@ describe('Scene Services', () => {
     expect(bootstrap.renderContract.loading?.defaultNodeOrder).toContain(
       'building_lod_high',
     );
+    expect(bootstrap.renderContract.gltfExtensionIntents).toEqual({
+      msftLodNodeLevel: true,
+      extMeshGpuInstancing: true,
+      backendOnlyHints: true,
+    });
+    expect(bootstrap.renderContract.loading?.chunkPriority).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'building_lod_high', priority: 'high' }),
+        expect.objectContaining({ key: 'building_lod_low', priority: 'low' }),
+      ]),
+    );
     expect(bootstrap.glbSources).toEqual({
       googlePlaces: true,
       overpass: true,

@@ -178,6 +178,34 @@ describe('building-mesh.builder', () => {
     expect(roofEquipments.indices.length).toBeGreaterThan(0);
   });
 
+  it('reduces roof equipment density for low LOD non-hero buildings', () => {
+    const origin = coordinate(35.659482, 139.7005596);
+    const highLodEquipment = createBuildingRoofEquipmentGeometry(origin, [
+      {
+        ...building,
+        objectId: 'roof-high',
+        osmWayId: 'roof_high',
+        visualRole: 'generic',
+        lodLevel: 'HIGH',
+      },
+    ] as SceneMeta['buildings']);
+    const lowLodEquipment = createBuildingRoofEquipmentGeometry(origin, [
+      {
+        ...building,
+        objectId: 'roof-low',
+        osmWayId: 'roof_low',
+        visualRole: 'generic',
+        lodLevel: 'LOW',
+      },
+    ] as SceneMeta['buildings']);
+
+    expect(highLodEquipment.indices.length).toBeGreaterThan(0);
+    expect(lowLodEquipment.indices.length).toBeGreaterThan(0);
+    expect(lowLodEquipment.indices.length).toBeLessThan(
+      highLodEquipment.indices.length,
+    );
+  });
+
   it('generates fallback windows even when facade hints are missing', () => {
     const origin = coordinate(35.659482, 139.7005596);
     const windows = createBuildingWindowGeometry(origin, [building], []);

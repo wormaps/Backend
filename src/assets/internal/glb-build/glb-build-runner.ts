@@ -434,6 +434,7 @@ export class GlbBuildRunner {
       staticAtmosphere: contract.staticAtmosphere,
       sceneWideAtmosphereProfile: contract.sceneWideAtmosphereProfile,
       districtAtmosphereProfiles: contract.districtAtmosphereProfiles,
+      extensionIntents: contract.extensionIntents,
       loadingHints: contract.loadingHints,
     };
 

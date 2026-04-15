@@ -36,7 +36,8 @@ export function createBuildingRoofEquipmentGeometry(
     const inset = insetRing(outerRing, 0.15);
     const bounds = computeBounds(inset.length >= 3 ? inset : outerRing);
     const topHeight =
-      resolveBuildingVerticalBase(building) + Math.max(4, building.heightMeters);
+      resolveBuildingVerticalBase(building) +
+      Math.max(4, building.heightMeters);
 
     pushRoofEquipmentAssembly(geometry, bounds, topHeight, equipmentConfig);
   }
@@ -56,11 +57,20 @@ function resolveRoofEquipmentConfig(
   const archetype = building.visualArchetype ?? 'commercial_midrise';
   const explicitUnits = building.roofSpec?.roofUnits ?? 0;
   const height = Math.max(4, building.heightMeters);
+  const lodLevel =
+    (building as { lodLevel?: 'HIGH' | 'MEDIUM' | 'LOW' }).lodLevel ?? 'HIGH';
+  const isHeroBuilding =
+    Boolean(building.visualRole) && building.visualRole !== 'generic';
+  const lodScale = resolveRoofEquipmentLodScale(lodLevel, isHeroBuilding);
+  const minimumUnits = isHeroBuilding ? 2 : 1;
 
   if (explicitUnits > 0) {
     return {
-      unitCount:
+      unitCount: scaleRoofEquipmentUnits(
         explicitUnits + (building.visualRole === 'hero_landmark' ? 2 : 1),
+        lodScale,
+        minimumUnits,
+      ),
       unitType: 'mixed' as const,
       spacing: 2.5,
     };
@@ -76,38 +86,85 @@ function resolveRoofEquipmentConfig(
     case 'highrise_office':
       return {
         ...baseConfig,
-        unitCount: Math.max(3, Math.floor(height / 12)),
+        unitCount: scaleRoofEquipmentUnits(
+          Math.max(3, Math.floor(height / 12)),
+          lodScale,
+          minimumUnits,
+        ),
         unitType: 'mixed',
       };
     case 'commercial_midrise':
     case 'mall_podium':
       return {
         ...baseConfig,
-        unitCount: Math.max(4, Math.floor(height / 9)),
+        unitCount: scaleRoofEquipmentUnits(
+          Math.max(4, Math.floor(height / 9)),
+          lodScale,
+          minimumUnits,
+        ),
         unitType: 'ac',
       };
     case 'hotel_tower':
       return {
         ...baseConfig,
-        unitCount: Math.max(5, Math.floor(height / 10)),
+        unitCount: scaleRoofEquipmentUnits(
+          Math.max(5, Math.floor(height / 10)),
+          lodScale,
+          minimumUnits,
+        ),
         unitType: 'mixed',
       };
     case 'apartment_block':
       return {
         ...baseConfig,
-        unitCount: Math.max(1, Math.floor(height / 20)),
+        unitCount: scaleRoofEquipmentUnits(
+          Math.max(1, Math.floor(height / 20)),
+          lodScale,
+          minimumUnits,
+        ),
         unitType: 'ac',
       };
     case 'station_like':
     case 'landmark_special':
       return {
         ...baseConfig,
-        unitCount: Math.max(3, Math.floor(height / 7)),
+        unitCount: scaleRoofEquipmentUnits(
+          Math.max(3, Math.floor(height / 7)),
+          lodScale,
+          minimumUnits,
+        ),
         unitType: 'antenna',
       };
     default:
       return baseConfig;
   }
+}
+
+function resolveRoofEquipmentLodScale(
+  lodLevel: 'HIGH' | 'MEDIUM' | 'LOW',
+  isHeroBuilding: boolean,
+): number {
+  if (isHeroBuilding) {
+    return 1;
+  }
+  if (lodLevel === 'LOW') {
+    return 0.35;
+  }
+  if (lodLevel === 'MEDIUM') {
+    return 0.65;
+  }
+  return 1;
+}
+
+function scaleRoofEquipmentUnits(
+  baseUnitCount: number,
+  lodScale: number,
+  minimumUnits: number,
+): number {
+  if (baseUnitCount <= 0) {
+    return 0;
+  }
+  return Math.max(minimumUnits, Math.round(baseUnitCount * lodScale));
 }
 
 function pushRoofEquipmentAssembly(

@@ -79,6 +79,11 @@ export interface BootstrapResponse {
         priority: 'high' | 'medium' | 'low';
       }>;
     };
+    gltfExtensionIntents?: {
+      msftLodNodeLevel: boolean;
+      extMeshGpuInstancing: boolean;
+      backendOnlyHints: boolean;
+    };
   };
 }
 

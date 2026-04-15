@@ -42,6 +42,11 @@ export type GlbInputContract = SceneMeta &
   SceneDetail & {
     readonly version: 'glb-input.v1';
     readonly assetSelection: SceneAssetSelection;
+    readonly extensionIntents?: {
+      msftLodNodeLevel: boolean;
+      extMeshGpuInstancing: boolean;
+      backendOnlyHints: boolean;
+    };
     readonly loadingHints?: {
       selectiveLoading: boolean;
       progressiveLoading: boolean;
@@ -68,6 +73,11 @@ export function buildGlbInputContract(
     structuralCoverage: sceneMeta.structuralCoverage,
     version: 'glb-input.v1',
     assetSelection,
+    extensionIntents: {
+      msftLodNodeLevel: true,
+      extMeshGpuInstancing: true,
+      backendOnlyHints: true,
+    },
     loadingHints: {
       selectiveLoading: true,
       progressiveLoading: true,
