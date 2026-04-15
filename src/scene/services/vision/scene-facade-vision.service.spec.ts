@@ -109,8 +109,8 @@ describe('SceneFacadeVisionService', () => {
     },
   };
 
-  it('infers non-gray fallback palettes for buildings without explicit colors', () => {
-    const hints = service.buildFacadeHints(place, placePackage, [], []);
+  it('infers non-gray fallback palettes for buildings without explicit colors', async () => {
+    const hints = await service.buildFacadeHints(place, placePackage, [], []);
     const coreHint = hints[0];
     const edgeHint = hints[1];
 
@@ -131,8 +131,8 @@ describe('SceneFacadeVisionService', () => {
     expect(coreHint.evidenceStrength).toBeDefined();
   });
 
-  it('preserves explicit OSM colors when they exist', () => {
-    const hints = service.buildFacadeHints(
+  it('preserves explicit OSM colors when they exist', async () => {
+    const hints = await service.buildFacadeHints(
       place,
       {
         ...placePackage,
@@ -154,8 +154,8 @@ describe('SceneFacadeVisionService', () => {
     expect(firstHint.shellPalette).toContain('#445566');
   });
 
-  it('applies weak-evidence palette drift for non-explicit colors', () => {
-    const hints = service.buildFacadeHints(place, placePackage, [], []);
+  it('applies weak-evidence palette drift for non-explicit colors', async () => {
+    const hints = await service.buildFacadeHints(place, placePackage, [], []);
 
     expect(hints).toHaveLength(2);
     for (const hint of hints) {
@@ -175,8 +175,8 @@ describe('SceneFacadeVisionService', () => {
     }
   });
 
-  it('does not mark weakEvidence when explicit color exists without mapillary data', () => {
-    const hints = service.buildFacadeHints(
+  it('does not mark weakEvidence when explicit color exists without mapillary data', async () => {
+    const hints = await service.buildFacadeHints(
       place,
       {
         ...placePackage,
@@ -197,8 +197,8 @@ describe('SceneFacadeVisionService', () => {
     expect(hints[0].inferenceReasonCodes).not.toContain('DEFAULT_STYLE_RULE');
   });
 
-  it('does not mark weakEvidence when auxiliary OSM attributes exist', () => {
-    const hints = service.buildFacadeHints(
+  it('does not mark weakEvidence when auxiliary OSM attributes exist', async () => {
+    const hints = await service.buildFacadeHints(
       place,
       {
         ...placePackage,
@@ -221,8 +221,8 @@ describe('SceneFacadeVisionService', () => {
     );
   });
 
-  it('prepends dominant image-derived color when nearby mapillary image exists', () => {
-    const hints = service.buildFacadeHints(
+  it('prepends dominant image-derived color when nearby mapillary image exists', async () => {
+    const hints = await service.buildFacadeHints(
       place,
       placePackage,
       [
@@ -242,8 +242,8 @@ describe('SceneFacadeVisionService', () => {
     expect(hints[0].palette[0]).toMatch(/^#[0-9a-f]{6}$/);
   });
 
-  it('uses nearby image metadata to stabilize dominant color extraction', () => {
-    const hintsA = service.buildFacadeHints(
+  it('uses nearby image metadata to stabilize dominant color extraction', async () => {
+    const hintsA = await service.buildFacadeHints(
       place,
       placePackage,
       [
@@ -258,7 +258,7 @@ describe('SceneFacadeVisionService', () => {
       ],
       [],
     );
-    const hintsB = service.buildFacadeHints(
+    const hintsB = await service.buildFacadeHints(
       place,
       placePackage,
       [
@@ -277,8 +277,8 @@ describe('SceneFacadeVisionService', () => {
     expect(hintsA[0]?.palette[0]).toBe(hintsB[0]?.palette[0]);
   });
 
-  it('summarizes facade context diagnostics for logging', () => {
-    const hints = service.buildFacadeHints(place, placePackage, [], []);
+  it('summarizes facade context diagnostics for logging', async () => {
+    const hints = await service.buildFacadeHints(place, placePackage, [], []);
     const diagnostics = service.summarizeFacadeContextDiagnostics(
       hints,
       placePackage,
@@ -293,15 +293,15 @@ describe('SceneFacadeVisionService', () => {
     expect(diagnostics.evidenceStrengthCounts).toBeDefined();
   });
 
-  it('expands signage clusters through vision pipeline when medium/high hints increase', () => {
-    const hints = service.buildFacadeHints(place, placePackage, [], []);
+  it('expands signage clusters through vision pipeline when medium/high hints increase', async () => {
+    const hints = await service.buildFacadeHints(place, placePackage, [], []);
     const eligible = hints.filter((hint) => hint.signageDensity !== 'low');
 
     expect(eligible.length).toBeGreaterThan(0);
   });
 
-  it('preserves district confidence and uses it for district aggregation', () => {
-    const hints = service.buildFacadeHints(place, placePackage, [], []);
+  it('preserves district confidence and uses it for district aggregation', async () => {
+    const hints = await service.buildFacadeHints(place, placePackage, [], []);
     const districts = service.buildDistrictAtmosphereProfiles(hints);
 
     expect(

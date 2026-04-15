@@ -190,7 +190,7 @@ export class SceneVisionService {
         radiusMeters: item.radiusMeters,
       }),
     );
-    const facadeHints = this.sceneFacadeVisionService.buildFacadeHints(
+    const facadeHints = await this.sceneFacadeVisionService.buildFacadeHints(
       place,
       placePackage,
       mapillaryImages,
@@ -315,7 +315,9 @@ export class SceneVisionService {
   }
 }
 
-function extractUpstreamEnvelopes(error: unknown): ProviderTrace['upstreamEnvelopes'] {
+function extractUpstreamEnvelopes(
+  error: unknown,
+): ProviderTrace['upstreamEnvelopes'] {
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -335,7 +337,9 @@ function extractUpstreamEnvelopes(error: unknown): ProviderTrace['upstreamEnvelo
       >
     ).upstreamEnvelope;
     if (typeof envelope === 'object' && envelope !== null) {
-      return [envelope as NonNullable<ProviderTrace['upstreamEnvelopes']>[number]];
+      return [
+        envelope as NonNullable<ProviderTrace['upstreamEnvelopes']>[number],
+      ];
     }
   }
   return [];
