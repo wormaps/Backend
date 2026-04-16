@@ -27,9 +27,7 @@ import { resolveSceneQualityGateThresholds } from './quality-gate/scene-quality-
 
 @Injectable()
 export class SceneQualityGateService {
-  constructor(
-    private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
-  ) {}
+  constructor(private readonly appLoggerService: AppLoggerService) {}
 
   async evaluate(
     sceneMeta: SceneMeta,

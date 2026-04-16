@@ -5,7 +5,9 @@ import {
   BuildingStyleResolverService,
 } from '../services/vision/building-style-resolver.service';
 
-const buildingStyleResolver = new BuildingStyleResolverService();
+const buildingStyleResolver = Object.create(
+  BuildingStyleResolverService.prototype,
+) as BuildingStyleResolverService;
 
 export type { BuildingStyleInput, BuildingStyleProfile };
 

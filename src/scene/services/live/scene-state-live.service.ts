@@ -16,6 +16,7 @@ import type {
   SceneStateResponse,
 } from '../../types/scene.types';
 import { SceneReadService } from '../read/scene-read.service';
+import type { StoredScene } from '../../types/scene.types';
 
 @Injectable()
 export class SceneStateLiveService {
@@ -38,16 +39,25 @@ export class SceneStateLiveService {
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
         const date = query.date ?? resolvePlaceLocalDate(storedScene.place);
+        const snapshotWeather =
+          query.weather === undefined
+            ? this.readFreshWeatherSnapshot(storedScene, date, query.timeOfDay)
+            : null;
         const weatherObservation =
           query.weather === undefined
-            ? await this.openMeteoClient.getObservation(
-                storedScene.place,
-                date,
-                query.timeOfDay,
-              )
+            ? snapshotWeather
+              ? null
+              : await this.openMeteoClient.getObservation(
+                  storedScene.place,
+                  date,
+                  query.timeOfDay,
+                )
             : null;
         const resolvedWeather =
-          query.weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
+          query.weather ??
+          snapshotWeather?.resolvedWeather ??
+          weatherObservation?.resolvedWeather ??
+          'CLEAR';
         const snapshot = this.snapshotBuilderService.build(
           toRegistryLikePlace(storedScene.place),
           query.timeOfDay,
@@ -71,9 +81,15 @@ export class SceneStateLiveService {
                 date: weatherObservation.date,
                 localTime: weatherObservation.localTime,
               }
-            : {
-                provider: 'MVP_SYNTHETIC_RULES',
-              },
+            : snapshotWeather
+              ? {
+                  provider: snapshotWeather.provider,
+                  date: snapshotWeather.date,
+                  localTime: snapshotWeather.localTime,
+                }
+              : {
+                  provider: 'MVP_SYNTHETIC_RULES',
+                },
         };
       },
     );
@@ -102,16 +118,25 @@ export class SceneStateLiveService {
         }
 
         const date = query.date ?? resolvePlaceLocalDate(storedScene.place);
+        const snapshotWeather =
+          query.weather === undefined
+            ? this.readFreshWeatherSnapshot(storedScene, date, query.timeOfDay)
+            : null;
         const weatherObservation =
           query.weather === undefined
-            ? await this.openMeteoClient.getObservation(
-                storedScene.place,
-                date,
-                query.timeOfDay,
-              )
+            ? snapshotWeather
+              ? null
+              : await this.openMeteoClient.getObservation(
+                  storedScene.place,
+                  date,
+                  query.timeOfDay,
+                )
             : null;
         const resolvedWeather =
-          query.weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
+          query.weather ??
+          snapshotWeather?.resolvedWeather ??
+          weatherObservation?.resolvedWeather ??
+          'CLEAR';
         const snapshot = this.snapshotBuilderService.build(
           toRegistryLikePlace(storedScene.place),
           query.timeOfDay,
@@ -149,6 +174,48 @@ export class SceneStateLiveService {
     query: SceneEntityStateQuery,
   ): string {
     return `scene-entity-state:${sceneId}:${query.date ?? 'AUTO'}:${query.timeOfDay}:${query.weather ?? 'AUTO'}:${query.kind ?? 'ALL'}:${query.objectId ?? 'ALL'}`;
+  }
+
+  private readFreshWeatherSnapshot(
+    storedScene: StoredScene,
+    date: string,
+    timeOfDay: SceneStateQuery['timeOfDay'],
+  ): {
+    provider: 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL';
+    date: string;
+    localTime: string;
+    resolvedWeather: SceneStateResponse['weather'];
+  } | null {
+    const snapshot = storedScene.latestWeatherSnapshot;
+    if (!snapshot) {
+      return null;
+    }
+
+    const capturedAtMs = Date.parse(snapshot.capturedAt);
+    if (!Number.isFinite(capturedAtMs)) {
+      return null;
+    }
+    if (Date.now() - capturedAtMs > this.ttlMs) {
+      return null;
+    }
+    if (snapshot.date !== date) {
+      return null;
+    }
+
+    const snapshotHour = Number.parseInt(snapshot.localTime.slice(11, 13), 10);
+    if (!Number.isFinite(snapshotHour)) {
+      return null;
+    }
+    if (resolveTimeOfDayFromHour(snapshotHour) !== timeOfDay) {
+      return null;
+    }
+
+    return {
+      provider: snapshot.provider,
+      date: snapshot.date,
+      localTime: snapshot.localTime,
+      resolvedWeather: snapshot.resolvedWeather,
+    };
   }
 }
 
@@ -213,4 +280,14 @@ export function resolvePlaceLocalDate(place: {
   const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
   const day = String(shifted.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function resolveTimeOfDayFromHour(hour: number): SceneStateQuery['timeOfDay'] {
+  if (hour >= 5 && hour < 17) {
+    return 'DAY';
+  }
+  if (hour >= 17 && hour < 21) {
+    return 'EVENING';
+  }
+  return 'NIGHT';
 }

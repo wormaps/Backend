@@ -9,6 +9,7 @@ import {
   TriangleBudgetState,
 } from './glb-build-mesh-node';
 import { GlbBuildRunner } from './glb-build-runner';
+import { SceneAssetProfileService } from '../../../scene/services/asset-profile';
 
 class FakeAccessor {
   static Type = {
@@ -238,7 +239,10 @@ function createRunnerHarness(): {
     error: jest.fn(),
     fromRequest: jest.fn(() => ({ requestId: null })),
   };
-  const runner = new GlbBuildRunner(loggerMock as unknown as AppLoggerService);
+  const runner = new GlbBuildRunner(
+    loggerMock as unknown as AppLoggerService,
+    new SceneAssetProfileService(),
+  );
   return {
     runner,
     runnerPrivate: runner as unknown as RunnerPrivateMethods,

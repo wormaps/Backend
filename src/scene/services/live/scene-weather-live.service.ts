@@ -32,6 +32,17 @@ export class SceneWeatherLiveService {
       this.ttlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
+        const snapshotDate =
+          query.date ?? resolvePlaceLocalDate(storedScene.place);
+        const snapshotResponse = this.readFreshSnapshot(
+          storedScene,
+          snapshotDate,
+          query.timeOfDay,
+        );
+        if (snapshotResponse) {
+          return snapshotResponse;
+        }
+
         const date = query.date ?? resolvePlaceLocalDate(storedScene.place);
         const observationResult = await this.sampleWeatherByPlace(
           storedScene.place,
@@ -87,6 +98,49 @@ export class SceneWeatherLiveService {
   private buildCacheKey(sceneId: string, query: SceneWeatherQuery): string {
     return `scene-weather:${sceneId}:${query.date ?? 'AUTO'}:${query.timeOfDay}`;
   }
+
+  private readFreshSnapshot(
+    storedScene: Awaited<ReturnType<SceneReadService['getReadyScene']>>,
+    date: string,
+    timeOfDay: SceneWeatherQuery['timeOfDay'],
+  ): SceneWeatherResponse | null {
+    const snapshot = storedScene.latestWeatherSnapshot;
+    if (!snapshot) {
+      return null;
+    }
+
+    const capturedAtMs = Date.parse(snapshot.capturedAt);
+    if (!Number.isFinite(capturedAtMs)) {
+      return null;
+    }
+
+    if (Date.now() - capturedAtMs > this.ttlMs) {
+      return null;
+    }
+
+    if (snapshot.date !== date) {
+      return null;
+    }
+
+    const snapshotHour = Number.parseInt(snapshot.localTime.slice(11, 13), 10);
+    if (!Number.isFinite(snapshotHour)) {
+      return null;
+    }
+
+    const snapshotTimeOfDay = resolveTimeOfDayFromHour(snapshotHour);
+    if (snapshotTimeOfDay !== timeOfDay) {
+      return null;
+    }
+
+    return {
+      updatedAt: snapshot.capturedAt,
+      weatherCode: resolveWeatherCode(snapshot.resolvedWeather),
+      temperature: snapshot.temperatureCelsius,
+      preset: snapshot.resolvedWeather.toLowerCase(),
+      source: snapshot.provider,
+      observedAt: snapshot.localTime,
+    };
+  }
 }
 
 function toSceneWeatherResponse(
@@ -115,4 +169,16 @@ function resolveWeatherCode(weather: string | undefined): number | null {
     return 0;
   }
   return null;
+}
+
+function resolveTimeOfDayFromHour(
+  hour: number,
+): SceneWeatherQuery['timeOfDay'] {
+  if (hour >= 5 && hour < 17) {
+    return 'DAY';
+  }
+  if (hour >= 17 && hour < 21) {
+    return 'EVENING';
+  }
+  return 'NIGHT';
 }

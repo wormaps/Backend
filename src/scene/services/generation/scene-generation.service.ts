@@ -26,6 +26,7 @@ import type {
 export class SceneGenerationService implements OnApplicationShutdown {
   private readonly maxGenerationAttempts = 2;
   private readonly generationQueue: string[] = [];
+  private readonly queuedSceneIds = new Set<string>();
   private isProcessingQueue = false;
   private isShuttingDown = false;
   private currentProcessingSceneId: string | null = null;
@@ -135,6 +136,12 @@ export class SceneGenerationService implements OnApplicationShutdown {
     if (this.isShuttingDown) {
       return;
     }
+
+    if (this.queuedSceneIds.has(sceneId)) {
+      return;
+    }
+
+    this.queuedSceneIds.add(sceneId);
     this.generationQueue.push(sceneId);
     void this.processQueue();
   }
@@ -151,6 +158,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
         if (!sceneId) {
           continue;
         }
+        this.queuedSceneIds.delete(sceneId);
         this.currentProcessingSceneId = sceneId;
         await this.processGeneration(sceneId);
         this.currentProcessingSceneId = null;
@@ -305,7 +313,9 @@ export class SceneGenerationService implements OnApplicationShutdown {
         qa,
         latestWeatherSnapshot: {
           provider: weatherSnapshot.source,
-          date: weatherSnapshot.updatedAt.slice(0, 10),
+          date:
+            weatherObserved.observation?.date ??
+            weatherSnapshot.updatedAt.slice(0, 10),
           localTime: weatherSnapshot.observedAt ?? weatherSnapshot.updatedAt,
           resolvedWeather: this.toWeatherType(weatherSnapshot.preset),
           temperatureCelsius: weatherSnapshot.temperature,
@@ -328,6 +338,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
                   ).toFixed(3),
                 )
               : 0,
+          segments: trafficSnapshot.segments,
           degraded: trafficSnapshot.degraded,
           failedSegmentCount: trafficSnapshot.failedSegmentCount,
           capturedAt: trafficSnapshot.updatedAt,

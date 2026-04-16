@@ -171,9 +171,9 @@
 
 #### 작업
 
-- [ ] 파이프라인에서 fidelity plan을 1회만 실행하도록 수정
-- [ ] `fidelity_plan_final` stage 제거 또는 통합
-- [ ] 로그에서 `fidelity_plan`과 `fidelity_plan_final` 구분 제거
+- [x] 파이프라인에서 fidelity plan을 1회만 실행하도록 수정
+- [x] `fidelity_plan_final` stage 제거 또는 통합
+- [x] 로그에서 `fidelity_plan`과 `fidelity_plan_final` 구분 제거
 
 **참조 파일**:
 
@@ -192,9 +192,9 @@
 
 #### 작업
 
-- [ ] Generation 시 호출한 weather/traffic 데이터를 씬에 저장
-- [ ] 엔드포인트에서 저장된 데이터 우선 반환 (TTL 이내)
-- [ ] 필요 시에만 외부 API 재호출
+- [x] Generation 시 호출한 weather/traffic 데이터를 씬에 저장
+- [x] 엔드포인트에서 저장된 데이터 우선 반환 (TTL 이내)
+- [x] 필요 시에만 외부 API 재호출
 
 **참조 파일**:
 
@@ -214,12 +214,12 @@
 
 #### 작업 (우선순위별)
 
-1. [ ] `scene-vision.service.ts` (4개 서비스 `new`)
-2. [ ] `scene-hero-override.service.ts` (2개 서비스 `new`)
-3. [ ] `scene-quality-gate.service.ts` (`new AppLoggerService()`)
-4. [ ] `glb-build-runner.ts` (2개 서비스 `new`)
-5. [ ] `scene-asset-profile.step.ts` (2개 서비스 `new`)
-6. [ ] 그 외 31개 위치
+1. [x] `scene-vision.service.ts` (4개 서비스 `new`)
+2. [x] `scene-hero-override.service.ts` (2개 서비스 `new`)
+3. [x] `scene-quality-gate.service.ts` (`new AppLoggerService()`)
+4. [x] `glb-build-runner.ts` (2개 서비스 `new`)
+5. [x] `scene-asset-profile.step.ts` (2개 서비스 `new`)
+6. [x] 그 외 31개 위치
 
 **참조 파일**:
 
@@ -239,8 +239,8 @@
 
 #### 작업
 
-- [ ] `/scenes/:sceneId/status`를 제거하거나 별도 경량 응답으로 변경
-- [ ] 또는 status에 추가 정보 포함 (큐 위치, 예상 완료 시간 등)
+- [x] `/scenes/:sceneId/status`를 제거하거나 별도 경량 응답으로 변경
+- [x] 또는 status에 추가 정보 포함 (큐 위치, 예상 완료 시간 등)
 
 **참조 파일**:
 
@@ -258,9 +258,9 @@
 
 #### 작업
 
-- [ ] 프로토타입 레지스트리 활용 방안 결정 (활성화 또는 제거)
-- [ ] 활성화 시: building 패턴 등록 로직 추가
-- [ ] 제거 시: 관련 코드 정리
+- [x] 프로토타입 레지스트리 활용 방안 결정 (활성화 또는 제거)
+- [x] 활성화 시: building 패턴 등록 로직 추가
+- [x] 제거 시: 관련 코드 정리
 
 **참조 파일**:
 
@@ -279,8 +279,8 @@
 
 #### 작업
 
-- [ ] `generationQueue`를 `Set`으로 변경 또는 중복 체크 로직 추가
-- [ ] 동일 sceneId 재요청 시 기존 큐 항목 우선 처리
+- [x] `generationQueue`를 `Set`으로 변경 또는 중복 체크 로직 추가
+- [x] 동일 sceneId 재요청 시 기존 큐 항목 우선 처리
 
 **참조 파일**:
 

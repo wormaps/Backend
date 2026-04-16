@@ -84,7 +84,6 @@ export function addBuildingAndHeroMeshes(
     RunnerStageHooks,
     | 'addMeshNode'
     | 'collectGraphIntent'
-    | 'prototypeRegistry'
     | 'groupFacadeHintsByPanelColor'
     | 'groupBillboardClustersByColor'
     | 'resolveWindowMaterialTone'
@@ -95,7 +94,6 @@ export function addBuildingAndHeroMeshes(
     | 'modePolicy'
     | 'staticAtmosphere'
     | 'createBuildingRoofAccentGeometry'
-    | 'prototypeRegistry'
   >,
   ctx: MeshAddContext,
   sceneMeta: GlbInputContract,

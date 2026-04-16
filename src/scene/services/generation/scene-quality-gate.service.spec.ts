@@ -3,6 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SceneQualityGateService } from './scene-quality-gate.service';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
+
+function createLoggerStub(): AppLoggerService {
+  return {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    fromRequest: jest.fn(),
+  } as unknown as AppLoggerService;
+}
 
 type SceneGeometryDiagnosticWithCorrection = {
   objectId: string;
@@ -43,7 +53,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-test-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-phase3';
     const meta = createSceneMeta(sceneId, 'PHASE_3_PRODUCTION_LOCK');
     const detail = createSceneDetail(sceneId, 'PHASE_3_PRODUCTION_LOCK');
@@ -113,7 +123,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-geom-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-geometry';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
@@ -156,7 +166,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-collide-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-collision-ratio';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     meta.buildings = Array.from({ length: 200 }, (_, index) => ({
@@ -201,7 +211,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-overlap-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-overlap-ratio';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     meta.buildings = Array.from({ length: 100 }, (_, index) => ({
@@ -245,7 +255,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-closure-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-closure';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
@@ -284,7 +294,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-terrain-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-terrain-alignment';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     meta.terrainProfile = {
@@ -354,7 +364,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-meshwarn-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-mesh-warn';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');
@@ -384,7 +394,7 @@ describe('SceneQualityGateService', () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'wormapb-qg-meshok-'));
     process.env.SCENE_DATA_DIR = tempDir;
 
-    const service = new SceneQualityGateService();
+    const service = new SceneQualityGateService(createLoggerStub());
     const sceneId = 'scene-qg-mesh-ok';
     const meta = createSceneMeta(sceneId, 'PHASE_1_BASELINE');
     const detail = createSceneDetail(sceneId, 'PHASE_1_BASELINE');

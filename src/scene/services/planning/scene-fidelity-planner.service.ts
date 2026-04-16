@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
 import type {
@@ -14,12 +14,8 @@ import {
 @Injectable()
 export class SceneFidelityPlannerService {
   constructor(
-    @Optional()
-    private readonly curatedAssetResolver?: CuratedAssetResolverService,
-  ) {
-    this.curatedAssetResolver =
-      curatedAssetResolver ?? new CuratedAssetResolverService();
-  }
+    private readonly curatedAssetResolver: CuratedAssetResolverService,
+  ) {}
 
   buildPlan(
     place: ExternalPlaceDetail,

@@ -1,9 +1,12 @@
 import { SceneFacadeVisionService } from './scene-facade-vision.service';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
+import { BuildingStyleResolverService } from './building-style-resolver.service';
 
 describe('SceneFacadeVisionService', () => {
-  const service = new SceneFacadeVisionService();
+  const service = new SceneFacadeVisionService(
+    new BuildingStyleResolverService(),
+  );
 
   const place: ExternalPlaceDetail = {
     provider: 'GOOGLE_PLACES',

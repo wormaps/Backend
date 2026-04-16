@@ -27,6 +27,11 @@ export class SceneTrafficLiveService {
       this.ttlMs,
       async () => {
         const storedScene = await this.sceneReadService.getReadyScene(sceneId);
+        const cachedSnapshotResponse = this.readFreshSnapshot(storedScene);
+        if (cachedSnapshotResponse) {
+          return cachedSnapshotResponse;
+        }
+
         const sampled = await this.sampleTrafficByRoads(
           storedScene.meta.roads.map((road) => ({
             objectId: road.objectId,
@@ -114,6 +119,48 @@ export class SceneTrafficLiveService {
 
   private buildCacheKey(sceneId: string): string {
     return `scene-traffic:${sceneId}`;
+  }
+
+  private readFreshSnapshot(
+    storedScene: Awaited<ReturnType<SceneReadService['getReadyScene']>>,
+  ): SceneTrafficResponse | null {
+    const snapshot = storedScene.latestTrafficSnapshot;
+    if (!snapshot) {
+      return null;
+    }
+
+    const capturedAtMs = Date.parse(snapshot.capturedAt);
+    if (!Number.isFinite(capturedAtMs)) {
+      return null;
+    }
+
+    if (Date.now() - capturedAtMs > this.ttlMs) {
+      return null;
+    }
+
+    if (!storedScene.meta) {
+      return null;
+    }
+
+    return {
+      updatedAt: snapshot.capturedAt,
+      segments:
+        snapshot.segments && snapshot.segments.length > 0
+          ? snapshot.segments
+          : storedScene.meta.roads.map((road) => ({
+              objectId: road.objectId,
+              currentSpeed: 0,
+              freeFlowSpeed: 0,
+              congestionScore: Number(
+                snapshot.averageCongestionScore.toFixed(2),
+              ),
+              status: resolveTrafficStatus(snapshot.averageCongestionScore),
+              confidence: null,
+              roadClosure: false,
+            })),
+      degraded: snapshot.degraded,
+      failedSegmentCount: snapshot.failedSegmentCount,
+    };
   }
 }
 

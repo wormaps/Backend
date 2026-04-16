@@ -16,6 +16,7 @@ import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneController } from './scene.controller';
 import { SceneService } from './scene.service';
 import {
+  CuratedAssetResolverService,
   BuildingStyleResolverService,
   SceneAtmosphereRecomputeService,
   SceneAssetProfileService,
@@ -53,6 +54,7 @@ import { SceneRepository } from './storage/scene.repository';
     SceneRoadVisionService,
     SceneFacadeVisionService,
     SceneAtmosphereRecomputeService,
+    CuratedAssetResolverService,
     SceneFidelityPlannerService,
     SceneQualityGateService,
     SceneMidQaService,

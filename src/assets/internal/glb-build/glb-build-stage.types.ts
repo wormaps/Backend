@@ -15,7 +15,6 @@ import type { SceneStaticAtmosphereProfile } from '../../../scene/types/scene.ty
 import type { SceneVariationProfile } from '../../compiler/scene-variation';
 import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
 import type { SceneModePolicy } from '../../../scene/utils/scene-mode-policy.utils';
-import type { PrototypeRegistry } from './glb-build-prototype.types';
 
 export type AssetSelection = ReturnType<typeof buildSceneAssetSelection>;
 export type SceneMaterials =
@@ -79,7 +78,6 @@ export interface RunnerStageHooks {
     sourceCount?: number;
     selectedCount?: number;
   }) => void;
-  prototypeRegistry?: PrototypeRegistry;
   createCrosswalkGeometry: (
     origin: SceneMeta['origin'],
     crossings: SceneDetail['crossings'],

@@ -24,7 +24,6 @@ export function addStreetContextMeshes(
     RunnerStageHooks,
     | 'addMeshNode'
     | 'collectGraphIntent'
-    | 'prototypeRegistry'
     | 'createStreetFurnitureGeometry'
     | 'createPoiGeometry'
     | 'createLandCoverGeometry'

@@ -12,7 +12,7 @@ import {
   SceneFacadeHint,
   SceneMeta,
 } from '../../../scene/types/scene.types';
-import { buildSceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
+import type { SceneAssetSelection } from '../../../scene/services/asset-profile';
 
 export interface FacadeColorDiversityMetrics {
   facadeHintCount: number;
@@ -82,7 +82,7 @@ export function resolveHeroToneFromBuildings(
 
 export function buildGroupedBuildingShellsLocal(
   sceneDetail: SceneDetail,
-  assetSelection: ReturnType<typeof buildSceneAssetSelection>,
+  assetSelection: SceneAssetSelection,
 ): GroupedBuildings {
   const materialHintMap = new Map(
     sceneDetail.facadeHints.map((hint) => [hint.objectId, hint]),

@@ -646,7 +646,26 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 function normalizeColor(value: string): string {
-  return new BuildingStyleResolverService().normalizeColor(value);
+  if (value.startsWith('#')) {
+    return value.toLowerCase();
+  }
+
+  const paletteMap: Record<string, string> = {
+    gray: '#9ea4aa',
+    grey: '#9ea4aa',
+    white: '#f2f2f2',
+    black: '#1f1f1f',
+    blue: '#4d79c7',
+    red: '#cc5a4f',
+    brown: '#8d5a44',
+    beige: '#d6c0a7',
+    green: '#5c8b61',
+    silver: '#b9c0c7',
+    concrete: '#aab1b8',
+    brick: '#a65b42',
+  };
+
+  return paletteMap[value.toLowerCase()] ?? '#9ea4aa';
 }
 
 function isNearNeutral(hex: string): boolean {

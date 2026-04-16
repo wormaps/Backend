@@ -7,8 +7,8 @@ import { SceneHeroOverrideMatcherService } from './scene-hero-override-matcher.s
 @Injectable()
 export class SceneHeroOverrideService {
   constructor(
-    private readonly matcher: SceneHeroOverrideMatcherService = new SceneHeroOverrideMatcherService(),
-    private readonly applier: SceneHeroOverrideApplierService = new SceneHeroOverrideApplierService(),
+    private readonly matcher: SceneHeroOverrideMatcherService,
+    private readonly applier: SceneHeroOverrideApplierService,
   ) {}
 
   applyOverrides(

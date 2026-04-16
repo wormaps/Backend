@@ -10,7 +10,10 @@ import {
   appendSceneDiagnosticsLog,
   getSceneDataDir,
 } from '../../../scene/storage/scene-storage.utils';
-import { SceneAssetProfileService } from '../../../scene/services/asset-profile';
+import {
+  SceneAssetProfileService,
+  type SceneAssetSelection,
+} from '../../../scene/services/asset-profile';
 import type { SceneDetail, SceneMeta } from '../../../scene/types/scene.types';
 import { addTransportMeshes } from './stages/glb-build-transport.stage';
 import { addStreetContextMeshes } from './stages/glb-build-street-context.stage';
@@ -60,7 +63,6 @@ import {
   StageGraphIntent,
   summarizeGraphIntents,
 } from './glb-build-graph-intent';
-import { createPrototypeRegistry } from './glb-build-prototype.registry';
 import { createCrosswalkGeometry } from './glb-build-utils';
 import type { GlbInputContract } from './glb-build-contract';
 
@@ -161,12 +163,12 @@ const ENV_GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER =
 @Injectable()
 export class GlbBuildRunner {
   private currentMeshDiagnostics: MeshNodeDiagnostic[] = [];
-  private readonly sceneAssetProfileService = new SceneAssetProfileService();
+  private readonly appLoggerService: AppLoggerService;
+  private readonly sceneAssetProfileService: SceneAssetProfileService;
   private materialCacheStats: MaterialCacheStats = { hits: 0, misses: 0 };
   private semanticGroupNodes = new Map<string, unknown>();
   private graphIntents: Array<ReturnType<typeof createGraphIntent>> = [];
   private stageGraphIntents: StageGraphIntent[] = [];
-  private prototypeRegistry = createPrototypeRegistry();
   private triangleBudget: TriangleBudgetState = {
     totalTriangleBudget: 2_500_000,
     totalTriangleCount: 0,
@@ -196,8 +198,12 @@ export class GlbBuildRunner {
   };
 
   constructor(
-    private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
-  ) {}
+    appLoggerService: AppLoggerService,
+    sceneAssetProfileService: SceneAssetProfileService,
+  ) {
+    this.appLoggerService = appLoggerService;
+    this.sceneAssetProfileService = sceneAssetProfileService;
+  }
 
   async build(
     contract: GlbInputContract,
@@ -240,7 +246,6 @@ export class GlbBuildRunner {
     this.currentMeshDiagnostics = [];
     this.stageGraphIntents = [];
     this.graphIntents = [];
-    this.prototypeRegistry = createPrototypeRegistry();
 
     const assetSelection = contract.assetSelection;
     const adaptiveMeta =
@@ -306,8 +311,7 @@ export class GlbBuildRunner {
         collectGraphIntent: (intent) => {
           this.stageGraphIntents.push(intent);
         },
-        prototypeRegistry: this.prototypeRegistry,
-        createCrosswalkGeometry: createCrosswalkGeometry.bind(this),
+        createCrosswalkGeometry,
         triangulateRings: triangulateRingsUtil,
         modePolicy,
       },
@@ -325,7 +329,6 @@ export class GlbBuildRunner {
         collectGraphIntent: (intent) => {
           this.stageGraphIntents.push(intent);
         },
-        prototypeRegistry: this.prototypeRegistry,
         createStreetFurnitureGeometry,
         createPoiGeometry,
         createLandCoverGeometry,
@@ -346,7 +349,7 @@ export class GlbBuildRunner {
         buildGroupedBuildingShells: (
           sceneMeta: SceneMeta,
           sceneDetail: SceneDetail,
-          assetSelection: GlbInputContract['assetSelection'],
+          assetSelection: SceneAssetSelection,
         ) => {
           void sceneMeta;
           return buildGroupedBuildingShellsLocal(sceneDetail, assetSelection);
@@ -368,7 +371,6 @@ export class GlbBuildRunner {
         collectGraphIntent: (intent) => {
           this.stageGraphIntents.push(intent);
         },
-        prototypeRegistry: this.prototypeRegistry,
         groupFacadeHintsByPanelColor: groupFacadeHintsByPanelColorLocal,
         groupBillboardClustersByColor: groupBillboardClustersByColorLocal,
         resolveWindowMaterialTone: resolveWindowMaterialTone,
@@ -485,7 +487,6 @@ export class GlbBuildRunner {
         this.graphIntents,
         this.stageGraphIntents,
       ),
-      prototypeSummary: this.prototypeRegistry.snapshot(),
       materialTuning,
       facadeMaterialProfile,
       variationProfile,

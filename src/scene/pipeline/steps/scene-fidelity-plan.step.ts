@@ -22,7 +22,7 @@ export class SceneFidelityPlanStep {
     scale: SceneScale,
     placePackage: PlacePackage,
     detail: SceneDetail,
-    stage: 'fidelity_plan' | 'fidelity_plan_final' = 'fidelity_plan',
+    stage: 'fidelity_plan' = 'fidelity_plan',
     curatedPayload?: CuratedAssetPayload,
   ): Promise<SceneFidelityPlan> {
     const plan = this.sceneFidelityPlannerService.buildPlan(

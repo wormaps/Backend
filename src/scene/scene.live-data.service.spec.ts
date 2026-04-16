@@ -278,7 +278,7 @@ describe('Scene Live Data Service', () => {
     });
 
     expect(second).toEqual(first);
-    expect(openMeteoClient.getObservationWithEnvelope).toHaveBeenCalledTimes(2);
+    expect(openMeteoClient.getObservationWithEnvelope).toHaveBeenCalledTimes(1);
   });
 
   it('maps traffic flow to congestion response', async () => {
@@ -353,7 +353,7 @@ describe('Scene Live Data Service', () => {
     expect(second).toEqual(first);
     expect(
       tomTomTrafficClient.getFlowSegmentWithEnvelope,
-    ).toHaveBeenCalledTimes(2);
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('degrades traffic response instead of failing the entire scene', async () => {

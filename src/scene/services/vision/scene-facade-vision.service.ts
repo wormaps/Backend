@@ -35,7 +35,7 @@ import {
 @Injectable()
 export class SceneFacadeVisionService {
   constructor(
-    private readonly buildingStyleResolverService: BuildingStyleResolverService = new BuildingStyleResolverService(),
+    private readonly buildingStyleResolverService: BuildingStyleResolverService,
   ) {}
 
   async buildFacadeHints(

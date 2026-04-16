@@ -19,8 +19,8 @@ import { SceneHeroOverrideMatcherService } from './scene-hero-override-matcher.s
 @Injectable()
 export class SceneHeroOverrideApplierService {
   constructor(
-    private readonly matcher: SceneHeroOverrideMatcherService = new SceneHeroOverrideMatcherService(),
-    private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
+    private readonly matcher: SceneHeroOverrideMatcherService,
+    private readonly appLoggerService: AppLoggerService,
   ) {}
 
   apply(

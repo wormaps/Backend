@@ -207,6 +207,7 @@ export interface StoredScene {
     observedAt: string;
     segmentCount: number;
     averageCongestionScore: number;
+    segments?: TrafficSegment[];
     degraded: boolean;
     failedSegmentCount: number;
     capturedAt: string;

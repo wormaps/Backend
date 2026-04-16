@@ -18,7 +18,7 @@ import { BuildingStyleResolverService } from '../../services/vision';
 @Injectable()
 export class SceneMetaBuilderStep {
   constructor(
-    private readonly buildingStyleResolverService: BuildingStyleResolverService = new BuildingStyleResolverService(),
+    private readonly buildingStyleResolverService: BuildingStyleResolverService,
   ) {}
 
   buildBaseMeta(

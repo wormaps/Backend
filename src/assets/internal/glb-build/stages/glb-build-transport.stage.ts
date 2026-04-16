@@ -25,7 +25,6 @@ export function addTransportMeshes(
     RunnerStageHooks,
     | 'addMeshNode'
     | 'collectGraphIntent'
-    | 'prototypeRegistry'
     | 'createCrosswalkGeometry'
     | 'triangulateRings'
     | 'modePolicy'

@@ -36,7 +36,7 @@ import type {
   Coordinate,
   PlacePackage,
 } from '../../../places/types/place.types';
-import type { SceneAssetSelection } from '../../../scene/utils/scene-asset-profile.utils';
+import type { SceneAssetSelection } from '../../../scene/services/asset-profile';
 
 export type GlbInputContract = SceneMeta &
   SceneDetail & {

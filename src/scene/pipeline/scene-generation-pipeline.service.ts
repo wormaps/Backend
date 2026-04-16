@@ -136,19 +136,10 @@ export class SceneGenerationPipelineService {
       meta: recomputedAtmosphere.meta,
       detail: recomputedAtmosphere.detail,
     };
-    const finalFidelityPlan = await this.sceneFidelityPlanStep.execute(
-      sceneId,
-      resolvedPlace.place,
-      storedScene.scale,
-      placePackage.placePackage,
-      mergedWithAtmosphere.detail,
-      'fidelity_plan_final',
-      storedScene.curatedAssetPayload,
-    );
-    mergedWithAtmosphere.detail.fidelityPlan = finalFidelityPlan;
+    mergedWithAtmosphere.detail.fidelityPlan = fidelityPlan;
     mergedWithAtmosphere.detail.staticAtmosphere =
       resolveSceneStaticAtmosphereProfile(mergedWithAtmosphere.detail);
-    mergedWithAtmosphere.meta.fidelityPlan = finalFidelityPlan;
+    mergedWithAtmosphere.meta.fidelityPlan = fidelityPlan;
     this.appLoggerService.info('scene.atmosphere.recomputed', {
       ...logContext,
       step: 'atmosphere_recompute',

@@ -27,10 +27,10 @@ interface SceneVisionResult {
 export class SceneVisionService {
   constructor(
     private readonly mapillaryClient: MapillaryClient,
-    private readonly sceneRoadVisionService: SceneRoadVisionService = new SceneRoadVisionService(),
-    private readonly sceneFacadeVisionService: SceneFacadeVisionService = new SceneFacadeVisionService(),
-    private readonly sceneGeometryDiagnosticsService: SceneGeometryDiagnosticsService = new SceneGeometryDiagnosticsService(),
-    private readonly sceneSignageVisionService: SceneSignageVisionService = new SceneSignageVisionService(),
+    private readonly sceneRoadVisionService: SceneRoadVisionService,
+    private readonly sceneFacadeVisionService: SceneFacadeVisionService,
+    private readonly sceneGeometryDiagnosticsService: SceneGeometryDiagnosticsService,
+    private readonly sceneSignageVisionService: SceneSignageVisionService,
   ) {}
 
   async buildSceneVision(

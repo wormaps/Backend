@@ -67,7 +67,6 @@ bun run scene:shibuya
 
 - `POST /api/scenes`
 - `GET /api/scenes/{sceneId}`
-- `GET /api/scenes/{sceneId}/status`
 - `GET /api/scenes/{sceneId}/meta`
 - `GET /api/scenes/{sceneId}/detail`
 - `GET /api/scenes/{sceneId}/bootstrap`

@@ -1,4 +1,11 @@
-import { GlbBuilderService } from './glb-builder.service';
+import { resolveBuildingShellStyle } from './internal/glb-build/glb-build-style-metrics';
+import {
+  createCrosswalkGeometry,
+  normalizeLocalRing,
+  signedAreaXZ,
+} from './internal/glb-build/glb-build-utils';
+import type { Vec3 } from './compiler/road';
+import type { SceneCrossingDetail } from '../scene/types/scene.types';
 
 function coordinate(lat: number, lng: number) {
   return { lat, lng };
@@ -6,9 +13,7 @@ function coordinate(lat: number, lng: number) {
 
 describe('GlbBuilderService', () => {
   it('resolves building shell buckets from explicit or inferred colors', () => {
-    const service = new GlbBuilderService() as any;
-
-    const coolStyle = service.resolveBuildingShellStyle(
+    const coolStyle = resolveBuildingShellStyle(
       {
         objectId: 'building-glass',
         osmWayId: 'building_glass',
@@ -45,7 +50,7 @@ describe('GlbBuilderService', () => {
         glazingRatio: 0.7,
       },
     );
-    const brickStyle = service.resolveBuildingShellStyle({
+    const brickStyle = resolveBuildingShellStyle({
       objectId: 'building-brick',
       osmWayId: 'building_brick',
       name: 'Brick Hall',
@@ -84,24 +89,22 @@ describe('GlbBuilderService', () => {
   });
 
   it('normalizes local outer rings to counter-clockwise winding', () => {
-    const service = new GlbBuilderService() as any;
-    const clockwiseRing = [
+    const clockwiseRing: Vec3[] = [
       [0, 0, 0],
       [0, 0, 10],
       [10, 0, 10],
       [10, 0, 0],
     ];
 
-    const normalized = service.normalizeLocalRing(clockwiseRing, 'CCW');
-    const signedArea = service.signedAreaXZ(normalized);
+    const normalized = normalizeLocalRing(clockwiseRing, 'CCW');
+    const signedArea = signedAreaXZ(normalized);
 
     expect(signedArea).toBeGreaterThan(0);
   });
 
   it('widens principal crossing geometry more than non-principal geometry', () => {
-    const service = new GlbBuilderService() as any;
     const origin = coordinate(37.0, 127.0);
-    const baseCrossing = {
+    const baseCrossing: SceneCrossingDetail = {
       objectId: 'crossing-main',
       name: 'Main Crossing',
       type: 'CROSSING',
@@ -111,15 +114,16 @@ describe('GlbBuilderService', () => {
       path: [coordinate(37.0003, 127.0002), coordinate(37.0007, 127.0008)],
       center: coordinate(37.0005, 127.0005),
       style: 'zebra',
+      principal: false,
     };
 
-    const standardGeometry = service.createCrosswalkGeometry(origin, [
+    const standardGeometry = createCrosswalkGeometry(origin, [
       {
         ...baseCrossing,
         principal: false,
       },
     ]);
-    const principalGeometry = service.createCrosswalkGeometry(origin, [
+    const principalGeometry = createCrosswalkGeometry(origin, [
       {
         ...baseCrossing,
         principal: true,

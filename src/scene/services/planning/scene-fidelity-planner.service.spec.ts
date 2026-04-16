@@ -2,9 +2,12 @@ import { SceneFidelityPlannerService } from './scene-fidelity-planner.service';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
 import type { SceneDetail } from '../../types/scene.types';
+import { CuratedAssetResolverService } from './curated-asset-resolver.service';
 
 describe('SceneFidelityPlannerService', () => {
-  const service = new SceneFidelityPlannerService();
+  const service = new SceneFidelityPlannerService(
+    new CuratedAssetResolverService(),
+  );
 
   const place: ExternalPlaceDetail = {
     provider: 'GOOGLE_PLACES',

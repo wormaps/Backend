@@ -25,8 +25,10 @@ import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
 import { SceneService } from './scene.service';
 import {
   BuildingStyleResolverService,
+  CuratedAssetResolverService,
   SceneAssetProfileService,
   SceneAtmosphereRecomputeService,
+  SceneFacadeVisionService,
   SceneFidelityPlannerService,
   SceneGenerationService,
   SceneMidQaService,
@@ -210,7 +212,9 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneService,
       SceneGenerationService,
       BuildingStyleResolverService,
+      CuratedAssetResolverService,
       SceneAssetProfileService,
+      SceneFacadeVisionService,
       SceneAtmosphereRecomputeService,
       SceneFidelityPlannerService,
       SceneQualityGateService,

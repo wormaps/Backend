@@ -4,6 +4,11 @@ import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import { PlacePackage } from '../../../places/types/place.types';
 import { AppException } from '../../../common/errors/app.exception';
+import { SceneRoadVisionService } from './scene-road-vision.service';
+import { SceneFacadeVisionService } from './scene-facade-vision.service';
+import { SceneGeometryDiagnosticsService } from './scene-geometry-diagnostics.service';
+import { SceneSignageVisionService } from './scene-signage-vision.service';
+import { BuildingStyleResolverService } from './building-style-resolver.service';
 
 describe('SceneVisionService', () => {
   const place: ExternalPlaceDetail = {
@@ -138,7 +143,13 @@ describe('SceneVisionService', () => {
       ),
     } as unknown as MapillaryClient;
 
-    const service = new SceneVisionService(mapillaryClient);
+    const service = new SceneVisionService(
+      mapillaryClient,
+      new SceneRoadVisionService(),
+      new SceneFacadeVisionService(new BuildingStyleResolverService()),
+      new SceneGeometryDiagnosticsService(),
+      new SceneSignageVisionService(),
+    );
     const result = await service.buildSceneVision(
       'scene-cityhall',
       place,

@@ -2,6 +2,21 @@ import { SceneHeroOverrideService } from './scene-hero-override.service';
 import { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import { SceneDetail, SceneMeta } from '../../types/scene.types';
 import { SHIBUYA_SCRAMBLE_CROSSING_OVERRIDE } from '../../overrides/shibuya-scramble-crossing.override';
+import { SceneHeroOverrideMatcherService } from './scene-hero-override-matcher.service';
+import { SceneHeroOverrideApplierService } from './scene-hero-override-applier.service';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
+
+function createService(): SceneHeroOverrideService {
+  const matcher = new SceneHeroOverrideMatcherService();
+  const logger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    fromRequest: jest.fn(),
+  } as unknown as AppLoggerService;
+  const applier = new SceneHeroOverrideApplierService(matcher, logger);
+  return new SceneHeroOverrideService(matcher, applier);
+}
 
 describe('SceneHeroOverrideService', () => {
   const place: ExternalPlaceDetail = {
@@ -174,7 +189,7 @@ describe('SceneHeroOverrideService', () => {
   };
 
   it('applies shibuya overrides with higher precedence than base detail', () => {
-    const service = new SceneHeroOverrideService();
+    const service = createService();
     const result = service.applyOverrides(place, meta, detail);
 
     expect(result.detail.annotationsApplied.length).toBeGreaterThan(0);
@@ -215,7 +230,7 @@ describe('SceneHeroOverrideService', () => {
   });
 
   it('applies exact objectId override without spilling to nearby buildings', () => {
-    const service = new SceneHeroOverrideService();
+    const service = createService();
     const crowdedMeta: SceneMeta = {
       ...meta,
       buildings: [
@@ -257,7 +272,7 @@ describe('SceneHeroOverrideService', () => {
   });
 
   it('auto-promotes additional hero context buildings to lift hero coverage', () => {
-    const service = new SceneHeroOverrideService();
+    const service = createService();
     const expandedMeta: SceneMeta = {
       ...meta,
       assetProfile: {
@@ -331,7 +346,7 @@ describe('SceneHeroOverrideService', () => {
   });
 
   it('does not auto-promote weak-evidence-only candidates', () => {
-    const service = new SceneHeroOverrideService();
+    const service = createService();
     const expandedMeta: SceneMeta = {
       ...meta,
       assetProfile: {

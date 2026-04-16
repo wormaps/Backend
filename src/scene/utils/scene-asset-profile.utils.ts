@@ -4,7 +4,9 @@ import {
   SceneAssetSelection,
 } from '../services/asset-profile';
 
-const sceneAssetProfileService = new SceneAssetProfileService();
+const sceneAssetProfileService = Object.create(
+  SceneAssetProfileService.prototype,
+) as SceneAssetProfileService;
 
 export type { SceneAssetSelection };
 

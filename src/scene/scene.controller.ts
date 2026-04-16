@@ -133,16 +133,6 @@ export class SceneController {
     }));
   }
 
-  @Get(':sceneId/status')
-  @ApiOperation({ summary: 'Scene 상태 조회' })
-  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
-  @ApiSuccessEnvelope({ model: SceneEntityDto })
-  getSceneStatus(
-    @Param('sceneId') sceneId: string,
-  ): Promise<ResponsePayload<SceneEntity>> {
-    return this.getScene(sceneId);
-  }
-
   @Get(':sceneId/assets/base.glb')
   @ApiOperation({ summary: 'Scene base GLB 다운로드' })
   @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })

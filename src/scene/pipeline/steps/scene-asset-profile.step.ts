@@ -17,8 +17,8 @@ export interface SceneAssetProfileStepResult {
 @Injectable()
 export class SceneAssetProfileStep {
   constructor(
-    private readonly sceneAssetProfileService: SceneAssetProfileService = new SceneAssetProfileService(),
-    private readonly appLoggerService: AppLoggerService = new AppLoggerService(),
+    private readonly sceneAssetProfileService: SceneAssetProfileService,
+    private readonly appLoggerService: AppLoggerService,
   ) {}
 
   async execute(
