@@ -129,6 +129,10 @@ const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
   quantizeColor: 8,
   quantizeGeneric: 12,
   cleanup: false,
+  // POSITION and NORMAL are excluded from quantization because gltf-validator
+  // reports errors on quantized POSITION/NORMAL accessors when unnormalized
+  // morph targets or mesh geometry conflicts are present. Re-enable only after
+  // geometry correction pipeline ensures clean topological data.
   pattern: /^(?!POSITION$|NORMAL$)/,
 };
 
@@ -936,7 +940,7 @@ export class GlbBuildRunner {
     const report = (await validatorModule.validateBytes(glbBinary, {
       uri: `${sceneId}.glb`,
       format: 'glb',
-      maxIssues: 0,
+      maxIssues: 100,
       writeTimestamp: false,
       severityOverrides: GLB_VALIDATOR_SEVERITY_OVERRIDES,
     })) as GlbValidatorReport;

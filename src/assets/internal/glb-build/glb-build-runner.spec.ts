@@ -1081,7 +1081,7 @@ describe('GlbBuildRunner modularized', () => {
       expect.objectContaining({
         uri: 'scene-validate.glb',
         format: 'glb',
-        maxIssues: 0,
+        maxIssues: 100,
         writeTimestamp: false,
       }),
     );

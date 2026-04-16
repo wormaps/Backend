@@ -10,14 +10,22 @@ export class SceneRepository {
   private readonly requestIndex = new Map<string, string>();
   private readonly baseDir = getSceneDataDir();
   private readonly indexPath = join(this.baseDir, 'index.json');
+  private readonly maxInMemoryScenes = 256;
+  private readonly maxRequestIndexEntries = 1024;
 
   async save(scene: StoredScene, requestKey?: string): Promise<StoredScene> {
     await mkdir(this.baseDir, { recursive: true });
     this.scenes.set(scene.scene.sceneId, scene);
+    this.touchScene(scene.scene.sceneId);
+    this.evictOldestSceneIfNeeded();
+
     if (requestKey) {
       this.requestIndex.set(requestKey, scene.scene.sceneId);
+      this.touchRequestKey(requestKey);
+      this.evictOldestRequestKeyIfNeeded();
       await this.persistIndex();
     }
+
     await writeFile(
       this.buildScenePath(scene.scene.sceneId),
       JSON.stringify(scene, null, 2),
@@ -44,6 +52,7 @@ export class SceneRepository {
   async findById(sceneId: string): Promise<StoredScene | undefined> {
     const cached = this.scenes.get(sceneId);
     if (cached) {
+      this.touchScene(sceneId);
       return cached;
     }
 
@@ -51,6 +60,8 @@ export class SceneRepository {
       const raw = await readFile(this.buildScenePath(sceneId), 'utf8');
       const parsed = JSON.parse(raw) as StoredScene;
       this.scenes.set(sceneId, parsed);
+      this.touchScene(sceneId);
+      this.evictOldestSceneIfNeeded();
       return parsed;
     } catch {
       return undefined;
@@ -60,6 +71,7 @@ export class SceneRepository {
   async findByRequestKey(requestKey: string): Promise<StoredScene | undefined> {
     const cachedSceneId = this.requestIndex.get(requestKey);
     if (cachedSceneId) {
+      this.touchRequestKey(requestKey);
       return this.findById(cachedSceneId);
     }
 
@@ -73,6 +85,8 @@ export class SceneRepository {
       if (!sceneId) {
         return undefined;
       }
+      this.touchRequestKey(requestKey);
+      this.evictOldestRequestKeyIfNeeded();
       return this.findById(sceneId);
     } catch {
       return undefined;
@@ -182,6 +196,47 @@ export class SceneRepository {
       await unlink(path);
     } catch {
       return;
+    }
+  }
+
+  private touchScene(sceneId: string): void {
+    const entry = this.scenes.get(sceneId);
+    if (entry != null) {
+      this.scenes.delete(sceneId);
+      this.scenes.set(sceneId, entry);
+    }
+  }
+
+  private evictOldestSceneIfNeeded(): void {
+    while (this.scenes.size > this.maxInMemoryScenes) {
+      const oldestKey = this.scenes.keys().next().value;
+      if (oldestKey == null) {
+        break;
+      }
+      this.scenes.delete(oldestKey);
+      for (const [requestKey, sceneId] of this.requestIndex) {
+        if (sceneId === oldestKey) {
+          this.requestIndex.delete(requestKey);
+        }
+      }
+    }
+  }
+
+  private touchRequestKey(requestKey: string): void {
+    const entry = this.requestIndex.get(requestKey);
+    if (entry != null) {
+      this.requestIndex.delete(requestKey);
+      this.requestIndex.set(requestKey, entry);
+    }
+  }
+
+  private evictOldestRequestKeyIfNeeded(): void {
+    while (this.requestIndex.size > this.maxRequestIndexEntries) {
+      const oldestKey = this.requestIndex.keys().next().value;
+      if (oldestKey == null) {
+        break;
+      }
+      this.requestIndex.delete(oldestKey);
     }
   }
 }

@@ -94,6 +94,7 @@ const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   inferenceReasonCodes: [],
   weakEvidenceRatio: 0,
   textureSlots: {},
+  // Texture path intentionally disabled; PBR procedural fallback is production standard.
   enableTexturePath: false,
 };
 

@@ -330,10 +330,10 @@ function pushWindowGrid(
   const floorHeight = buildingHeight / Math.max(1, config.floorCount);
 
   for (let floor = 0; floor < config.floorCount; floor += 1) {
-    const floorY = floor * floorHeight + floorHeight * 0.28;
+    const floorY = floor * floorHeight + floorHeight * 0.25;
     const floorTopY = floorY + config.windowHeight;
 
-    if (floorTopY > buildingHeight - 0.5) {
+    if (floorTopY > buildingHeight - 0.25) {
       continue;
     }
 

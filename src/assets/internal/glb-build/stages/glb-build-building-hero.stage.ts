@@ -107,7 +107,6 @@ export function addBuildingAndHeroMeshes(
   ) => number[],
   groupedBuildings: GroupedBuildings,
 ): void {
-  void groupedBuildings;
   const selectedBuildingCount = Math.max(1, assetSelection.buildings.length);
   const windowBudget = resolveWindowTriangleBudgetForSelection(
     selectedBuildingCount,
@@ -135,41 +134,49 @@ export function addBuildingAndHeroMeshes(
     }
     return 'medium';
   };
-  for (const building of assetSelection.buildings) {
-    const buildingHints = sceneDetail.facadeHints.filter(
-      (hint) => hint.objectId === building.objectId,
-    );
-    const primaryHint = buildingHints[0];
-    const shellStyle = resolveBuildingShellStyleFromHint(building, primaryHint);
-    const roofTone = resolveBuildingRoofTone(building);
 
+  // Grouped shells: same-style buildings merged into one geometry per group
+  for (const [groupKey, group] of groupedBuildings) {
+    const representativeLod = group.buildings[0]?.lodLevel;
     hooks.addMeshNode(
       ctx.doc,
       ctx.Accessor,
       ctx.scene,
       ctx.buffer,
-      `building_shell_${building.objectId}`,
-      createBuildingShellGeometry(sceneMeta.origin, [building], triangulate),
+      `building_shell_group_${groupKey}`,
+      createBuildingShellGeometry(
+        sceneMeta.origin,
+        group.buildings,
+        triangulate,
+      ),
       createBuildingShellMaterial(
         ctx.doc,
-        shellStyle.materialClass,
-        shellStyle.bucket,
-        shellStyle.colorHex,
+        group.materialClass,
+        group.bucket,
+        group.colorHex,
         hooks.materialTuning,
         hooks.facadeMaterialProfile,
       ),
       {
-        sourceCount: 1,
-        selectedCount: 1,
-        selectionLod: building.lodLevel,
-        loadTier: resolveLoadTier(building.lodLevel),
+        sourceCount: group.buildings.length,
+        selectedCount: group.buildings.length,
+        selectionLod: representativeLod,
+        loadTier: resolveLoadTier(representativeLod),
         progressiveOrder: nextProgressiveOrder(),
-        prototypeKey: `building_shell:${shellStyle.materialClass}:${shellStyle.bucket}`,
-        instanceGroupKey: `building_shell:${shellStyle.materialClass}:${shellStyle.bucket}:${building.lodLevel ?? 'HIGH'}`,
+        prototypeKey: `building_shell:${group.materialClass}:${group.bucket}`,
+        instanceGroupKey: `building_shell:${group.materialClass}:${group.bucket}:${representativeLod ?? 'HIGH'}`,
         semanticCategory: 'building',
-        sourceObjectIds: [building.objectId],
+        sourceObjectIds: group.buildings.map((b) => b.objectId),
       },
     );
+  }
+
+  for (const building of assetSelection.buildings) {
+    const buildingHints = sceneDetail.facadeHints.filter(
+      (hint) => hint.objectId === building.objectId,
+    );
+    const primaryHint = buildingHints[0];
+    const roofTone = resolveBuildingRoofTone(building);
 
     hooks.addMeshNode(
       ctx.doc,

@@ -64,7 +64,7 @@ export function buildFacadeFrame(
   if (normal[0] * toCentroid[0] + normal[2] * toCentroid[2] > 0) {
     normal = [-normal[0], 0, -normal[2]];
   }
-  const offset = 0.18;
+  const offset = 0.22;
   return {
     a: [current[0] + normal[0] * offset, 0, current[2] + normal[2] * offset],
     b: [next[0] + normal[0] * offset, 0, next[2] + normal[2] * offset],

@@ -237,7 +237,10 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneTerrainProfileService,
       SceneTwinBuilderService,
       SceneRepository,
-      TtlCacheService,
+      {
+        provide: TtlCacheService,
+        useFactory: () => new TtlCacheService(1000, undefined),
+      },
       SnapshotBuilderService,
       {
         provide: GlbBuilderService,

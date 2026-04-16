@@ -68,7 +68,7 @@ export function createBuildingRoofSurfaceGeometry(
     const baseY = resolveBuildingVerticalBase(building);
     const topHeight = baseY + Math.max(4, building.heightMeters);
     const roofBoost = resolveRoofSurfaceBoost(building, staticAtmosphere);
-    const slabMin = topHeight + 0.02;
+    const slabMin = topHeight + 0.04;
     const slabMax =
       topHeight +
       (building.roofType === 'gable'

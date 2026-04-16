@@ -8,6 +8,20 @@ interface CacheEntry<T> {
 @Injectable()
 export class TtlCacheService implements OnApplicationShutdown {
   private readonly store = new Map<string, CacheEntry<unknown>>();
+  private readonly inflight = new Map<string, Promise<unknown>>();
+  private readonly cleanupTimer: ReturnType<typeof setInterval> | undefined;
+
+  constructor(
+    private readonly maxSize = 1000,
+    cleanupIntervalMs?: number,
+  ) {
+    if (cleanupIntervalMs != null && cleanupIntervalMs > 0) {
+      this.cleanupTimer = setInterval(() => {
+        this.cleanupExpired();
+        this.evictIfNeeded();
+      }, cleanupIntervalMs);
+    }
+  }
 
   async getOrSet<T>(
     key: string,
@@ -19,9 +33,23 @@ export class TtlCacheService implements OnApplicationShutdown {
       return cached;
     }
 
-    const value = await factory();
-    this.set(key, value, ttlMs);
-    return value;
+    const existing = this.inflight.get(key);
+    if (existing) {
+      return (await existing) as T;
+    }
+
+    const promise = (async () => {
+      try {
+        const value = await factory();
+        this.set(key, value, ttlMs);
+        return value;
+      } finally {
+        this.inflight.delete(key);
+      }
+    })();
+
+    this.inflight.set(key, promise);
+    return promise;
   }
 
   get<T>(key: string): T | undefined {
@@ -35,6 +63,7 @@ export class TtlCacheService implements OnApplicationShutdown {
       return undefined;
     }
 
+    this.touchKey(key);
     return entry.value as T;
   }
 
@@ -43,13 +72,45 @@ export class TtlCacheService implements OnApplicationShutdown {
       value,
       expiresAt: Date.now() + ttlMs,
     });
+    this.evictIfNeeded();
   }
 
   clear(): void {
     this.store.clear();
+    this.inflight.clear();
   }
 
   onApplicationShutdown(): void {
+    if (this.cleanupTimer != null) {
+      clearInterval(this.cleanupTimer);
+    }
     this.clear();
+  }
+
+  private touchKey(key: string): void {
+    const entry = this.store.get(key);
+    if (entry != null) {
+      this.store.delete(key);
+      this.store.set(key, entry);
+    }
+  }
+
+  private evictIfNeeded(): void {
+    while (this.store.size > this.maxSize) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey == null) {
+        break;
+      }
+      this.store.delete(oldestKey);
+    }
+  }
+
+  private cleanupExpired(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.store) {
+      if (entry.expiresAt <= now) {
+        this.store.delete(key);
+      }
+    }
   }
 }

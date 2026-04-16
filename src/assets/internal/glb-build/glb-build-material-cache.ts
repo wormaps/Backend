@@ -13,7 +13,8 @@ export function installMaterialCache(
   ).bind(doc);
   const cache = new Map<string, unknown>();
   (doc as Record<string, unknown>).createMaterial = (name: string) => {
-    const cached = cache.get(name);
+    const stableKey = buildStableCacheKey(sceneId, name);
+    const cached = cache.get(stableKey);
     if (cached) {
       stats.hits += 1;
       return cached;
@@ -23,9 +24,9 @@ export function installMaterialCache(
     applyMaterialExtras(material, {
       sceneId,
       materialName: name,
-      materialCacheKey: name,
+      materialCacheKey: stableKey,
     });
-    cache.set(name, material);
+    cache.set(stableKey, material);
     return material;
   };
 }
@@ -63,4 +64,29 @@ export function applyExtras(
       ) => void
     )(extras);
   }
+}
+
+function buildStableCacheKey(sceneId: string, name: string): string {
+  // Shell pattern: building-shell-${materialClass}-${hexOrBucket}
+  const shellMatch = name.match(/^building-shell-([a-z]+)-(.+)$/);
+  if (shellMatch) {
+    return `${sceneId}::building-shell::${shellMatch[1]}::${shellMatch[2]}`;
+  }
+  // Panel pattern: building-panel-${tone}-${hex}
+  const panelMatch = name.match(/^building-panel-([a-z]+)-(.+)$/);
+  if (panelMatch) {
+    const hexPrefix = panelMatch[2].replace('#', '').slice(0, 3).toLowerCase();
+    return `${sceneId}::building-panel::${panelMatch[1]}::${hexPrefix}`;
+  }
+  // Billboard pattern: billboard-${tone}-${hex}
+  const billboardMatch = name.match(/^billboard-([a-z]+)-(.+)$/);
+  if (billboardMatch) {
+    const hexPrefix = billboardMatch[2]
+      .replace('#', '')
+      .slice(0, 3)
+      .toLowerCase();
+    return `${sceneId}::billboard::${billboardMatch[1]}::${hexPrefix}`;
+  }
+  // Default: sceneId + name
+  return `${sceneId}::${name}`;
 }
