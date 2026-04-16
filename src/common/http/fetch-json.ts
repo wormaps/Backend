@@ -88,7 +88,6 @@ export async function fetchJsonWithEnvelope<T>(
       detail: {
         provider: options.provider,
         upstreamStatus: response.status,
-        upstreamBody: data ?? text,
         upstreamEnvelope: envelope,
       },
       status: HttpStatus.BAD_GATEWAY,
@@ -142,7 +141,7 @@ function buildEnvelope(
     },
     response: {
       status,
-      body,
+      body: status >= 200 && status < 300 ? body : null,
     },
     error: errorReason
       ? {
@@ -178,19 +177,22 @@ function sanitizeHeaders(
     : headers instanceof Headers
       ? [...headers.entries()]
       : Object.entries(headers);
-  const sanitized = entries.reduce<Record<string, string>>((acc, [key, value]) => {
-    const lower = key.toLowerCase();
-    if (
-      lower.includes('authorization') ||
-      lower.includes('api-key') ||
-      lower.includes('x-goog-api-key')
-    ) {
-      acc[key] = '[redacted]';
-    } else {
-      acc[key] = String(value);
-    }
-    return acc;
-  }, {});
+  const sanitized = entries.reduce<Record<string, string>>(
+    (acc, [key, value]) => {
+      const lower = key.toLowerCase();
+      if (
+        lower.includes('authorization') ||
+        lower.includes('api-key') ||
+        lower.includes('x-goog-api-key')
+      ) {
+        acc[key] = '[redacted]';
+      } else {
+        acc[key] = String(value);
+      }
+      return acc;
+    },
+    {},
+  );
 
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
@@ -206,7 +208,10 @@ function sanitizeBody(body: BodyInit | null | undefined): unknown {
   if (body instanceof URLSearchParams) {
     const values = Object.fromEntries(body.entries());
     for (const key of Object.keys(values)) {
-      if (key.toLowerCase().includes('key') || key.toLowerCase().includes('token')) {
+      if (
+        key.toLowerCase().includes('key') ||
+        key.toLowerCase().includes('token')
+      ) {
         values[key] = '[redacted]';
       }
     }

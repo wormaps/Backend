@@ -44,13 +44,18 @@ export class TomTomTrafficClient {
     let lastError: unknown;
     for (const host of this.resolveHosts(point)) {
       try {
+        const apiKeyHeader = {
+          'X-TomTom-Api-Key': apiKey,
+        };
         return await fetchJson<TomTomFlowSegmentResponse>(
           {
             provider: 'TomTom Traffic Flow Segment',
             url:
               `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
-              `?key=${encodeURIComponent(apiKey)}` +
-              `&point=${point.lat},${point.lng}`,
+              `?point=${point.lat},${point.lng}`,
+            init: {
+              headers: apiKeyHeader,
+            },
           },
           this.fetcher,
         );
@@ -82,13 +87,18 @@ export class TomTomTrafficClient {
     let lastError: unknown;
     for (const host of this.resolveHosts(point)) {
       try {
+        const apiKeyHeader = {
+          'X-TomTom-Api-Key': apiKey,
+        };
         const response = await fetchJsonWithEnvelope<TomTomFlowSegmentResponse>(
           {
             provider: 'TomTom Traffic Flow Segment',
             url:
               `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
-              `?key=${encodeURIComponent(apiKey)}` +
-              `&point=${point.lat},${point.lng}`,
+              `?point=${point.lat},${point.lng}`,
+            init: {
+              headers: apiKeyHeader,
+            },
           },
           this.fetcher,
         );

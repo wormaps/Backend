@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 
 interface CacheEntry<T> {
   expiresAt: number;
@@ -6,7 +6,7 @@ interface CacheEntry<T> {
 }
 
 @Injectable()
-export class TtlCacheService {
+export class TtlCacheService implements OnApplicationShutdown {
   private readonly store = new Map<string, CacheEntry<unknown>>();
 
   async getOrSet<T>(
@@ -47,5 +47,9 @@ export class TtlCacheService {
 
   clear(): void {
     this.store.clear();
+  }
+
+  onApplicationShutdown(): void {
+    this.clear();
   }
 }

@@ -6,6 +6,7 @@ import type {
 import { fetchJsonWithEnvelope } from '../../../common/http/fetch-json';
 import type { AppLoggerService } from '../../../common/logging/app-logger.service';
 import type { GeoBounds } from '../../types/place.types';
+import { parseAndValidateExternalUrl } from '../../../common/http/external-url-validation.util';
 import { buildQuery } from './overpass.query';
 import type {
   OverpassBatchContext,
@@ -26,7 +27,12 @@ export async function fetchScopeResponse(
     defaultEndpoints: string[];
   },
 ): Promise<OverpassResponse> {
-  const traced = await fetchScopeResponseWithTrace(bounds, scope, context, deps);
+  const traced = await fetchScopeResponseWithTrace(
+    bounds,
+    scope,
+    context,
+    deps,
+  );
   return traced.response;
 }
 
@@ -41,7 +47,10 @@ export async function fetchScopeResponseWithTrace(
     fallbackBoundScales: number[];
     defaultEndpoints: string[];
   },
-): Promise<{ response: OverpassResponse; upstreamEnvelopes: FetchJsonEnvelope[] }> {
+): Promise<{
+  response: OverpassResponse;
+  upstreamEnvelopes: FetchJsonEnvelope[];
+}> {
   let lastError: unknown;
 
   for (const scale of deps.fallbackBoundScales) {
@@ -104,8 +113,20 @@ function resolveEndpoints(defaultEndpoints: string[]): string[] {
   const configured = process.env.OVERPASS_API_URLS?.split(',')
     .map((value) => value.trim())
     .filter(Boolean);
+  const candidates =
+    configured && configured.length > 0 ? configured : defaultEndpoints;
 
-  return configured && configured.length > 0 ? configured : defaultEndpoints;
+  const validated = candidates
+    .map((value) =>
+      parseAndValidateExternalUrl(value, {
+        requireHttps: true,
+        blockPrivateNetwork: true,
+      }),
+    )
+    .filter((value): value is URL => value !== null)
+    .map((value) => value.toString());
+
+  return validated.length > 0 ? validated : defaultEndpoints;
 }
 
 function scaleBounds(bounds: GeoBounds, ratio: number): GeoBounds {

@@ -52,7 +52,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return {
         code: exception.code,
         message: this.extractMessage(exception),
-        detail: exception.detail,
+        detail: sanitizeErrorDetail(exception.detail),
       };
     }
 
@@ -69,7 +69,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
             typeof serialized.message === 'string'
               ? serialized.message
               : exception.message || '요청을 처리할 수 없습니다.',
-          detail: serialized.detail ?? null,
+          detail: sanitizeErrorDetail(serialized.detail ?? null),
         };
       }
 
@@ -104,4 +104,25 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     return exception.message;
   }
+}
+
+function sanitizeErrorDetail(detail: unknown): unknown {
+  if (!detail || typeof detail !== 'object') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail.map((value) => sanitizeErrorDetail(value));
+  }
+
+  const source = detail as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key === 'upstreamEnvelope' || key === 'upstreamBody') {
+      continue;
+    }
+    sanitized[key] = sanitizeErrorDetail(value);
+  }
+
+  return sanitized;
 }

@@ -77,11 +77,7 @@ export class MapillaryClient {
   }
 
   getAuthorizationUrl(): string | null {
-    return (
-      process.env.MAPILLARY_AUTHORIZATION_URL?.trim() ??
-      process.env.MAPILLARY_AUYHORIZATION_URL?.trim() ??
-      null
-    );
+    return process.env.MAPILLARY_AUTHORIZATION_URL?.trim() ?? null;
   }
 
   async getNearbyImages(

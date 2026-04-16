@@ -1,12 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { ResponsePayload } from '../common/http/api-response.interceptor';
+import { Public } from '../common/http/public.decorator';
 import { ApiSuccessEnvelope } from '../docs/decorators';
 import { HealthDataDto } from '../docs/health';
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
+  @Public()
   @Get()
   @ApiOperation({ summary: '헬스 체크' })
   @ApiSuccessEnvelope({ model: HealthDataDto })

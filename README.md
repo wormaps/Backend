@@ -53,8 +53,8 @@ bun run test:e2e
 bun run scene:shibuya
 ```
 
-- smoke는 기본적으로 fresh build를 강제합니다.
-- `SCENE_DATA_DIR`를 지정하지 않으면 임시 디렉터리를 만들어 stale asset 재사용을 피합니다.
+- smoke는 기본적으로 `data/scene` 디렉터리를 사용합니다.
+- `SCENE_FORCE_REGENERATE`가 `false`가 아니면 재생성을 시도합니다.
 
 ## 주요 산출물
 
@@ -126,7 +126,9 @@ src/docs/
 - `TOMTOM_API_KEY`
 - `MAPILLARY_ACCESS_TOKEN`
 - `MAPILLARY_AUTHORIZATION_URL`
-- `MAPILLARY_AUYHORIZATION_URL`
+- `MAPILLARY_IMAGE_ALLOWED_HOSTS`
 - `OVERPASS_API_URLS`
+- `CORS_ALLOWED_ORIGINS`
+- `INTERNAL_API_KEY`
 
-`MAPILLARY_AUTHORIZATION_URL`과 `MAPILLARY_AUYHORIZATION_URL`은 둘 다 지원하지만, 올바른 이름은 `MAPILLARY_AUTHORIZATION_URL`입니다.
+`INTERNAL_API_KEY`가 설정되면 `health`를 제외한 API 엔드포인트는 `x-api-key`(또는 `Authorization: Bearer <key>`) 검증을 통과해야 합니다.

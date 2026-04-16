@@ -16,11 +16,11 @@
 
 #### 0.1 환경 설정 검증
 
-- [ ] `.env.example` 파일 생성 (현재 `.env`만 존재, `.env.example` 없음)
-- [ ] `.gitignore`에서 `.env` 추적 확인 (현재는 무시되어 있으나 워킹트리에 존재)
-- [ ] `README.md`와 코드 간 drift 수정 (smoke 디렉토리 설명 불일치)
-- [ ] `OVERPASS_API_URL` → `OVERPASS_API_URLS` 변수명 통일
-- [ ] `MAPILLARY_AUYHORIZATION_URL` 오타 수정 → `MAPILLARY_AUTHORIZATION_URL`
+- [x] `.env.example` 파일 생성 (현재 `.env`만 존재, `.env.example` 없음)
+- [x] `.gitignore`에서 `.env` 추적 확인 (현재는 무시되어 있으나 워킹트리에 존재)
+- [x] `README.md`와 코드 간 drift 수정 (smoke 디렉토리 설명 불일치)
+- [x] `OVERPASS_API_URL` → `OVERPASS_API_URLS` 변수명 통일
+- [x] `MAPILLARY_AUYHORIZATION_URL` 오타 수정 → `MAPILLARY_AUTHORIZATION_URL`
 
 **참조 파일**:
 
@@ -32,9 +32,9 @@
 
 #### 0.2 테스트 환경 정비
 
-- [ ] 테스트 실행 환경 확인 (`bun test`)
-- [ ] 실패하는 테스트 사전 식별
-- [ ] 테스트 커버리지 기준선 측정
+- [x] 테스트 실행 환경 확인 (`bun test`)
+- [x] 실패하는 테스트 사전 식별
+- [x] 테스트 커버리지 기준선 측정
 
 **참조 파일**:
 
@@ -53,10 +53,10 @@
 
 #### 작업
 
-- [ ] `helmet` 패키지 설치 및 적용
-- [ ] CORS 설정 추가 (허용 origin 화이트리스트)
-- [ ] rate limiting 추가 (기본 100req/min)
-- [ ] API 키 검증 미들웨어 추가
+- [x] `helmet` 패키지 설치 및 적용
+- [x] CORS 설정 추가 (허용 origin 화이트리스트)
+- [x] rate limiting 추가 (기본 100req/min)
+- [x] API 키 검증 미들웨어 추가
 
 **참조 파일**:
 
@@ -67,9 +67,9 @@
 
 #### 1.2 API 키 노출 방지
 
-- [ ] TomTom API 키를 쿼리스트링에서 헤더로 이동 (현재 `?key=`로 전송)
-- [ ] `fetch-json.ts`에서 업스트림 응답 body가 에러 응답에 포함되지 않도록 수정
-- [ ] `ApiExceptionFilter`에서 `detail.upstreamEnvelope` 외부 응답에서 제외
+- [x] TomTom API 키를 쿼리스트링에서 헤더로 이동 (현재 `?key=`로 전송)
+- [x] `fetch-json.ts`에서 업스트림 응답 body가 에러 응답에 포함되지 않도록 수정
+- [x] `ApiExceptionFilter`에서 `detail.upstreamEnvelope` 외부 응답에서 제외
 
 **참조 파일**:
 
@@ -83,9 +83,9 @@
 
 #### 작업
 
-- [ ] `image.thumbnailUrl` fetch 시 URL host 화이트리스트 추가
-- [ ] `OVERPASS_API_URLS` env 검증 (HTTPS만 허용, 프라이빗 IP 차단)
-- [ ] 외부 URL fetch 전 scheme/host 검증 유틸리티 생성
+- [x] `image.thumbnailUrl` fetch 시 URL host 화이트리스트 추가
+- [x] `OVERPASS_API_URLS` env 검증 (HTTPS만 허용, 프라이빗 IP 차단)
+- [x] 외부 URL fetch 전 scheme/host 검증 유틸리티 생성
 
 **참조 파일**:
 
@@ -98,10 +98,10 @@
 
 #### 작업
 
-- [ ] `@nestjs/config` 패키지 설치
-- [ ] `ConfigModule.forRoot()` 추가 (전역 설정)
-- [ ] 환경 변수 스키마 검증 추가 (Joi 또는 Zod)
-- [ ] 필수 환경 변수 누락 시 부팅 실패 처리
+- [x] `@nestjs/config` 패키지 설치
+- [x] `ConfigModule.forRoot()` 추가 (전역 설정)
+- [x] 환경 변수 스키마 검증 추가 (Joi 또는 Zod)
+- [x] 필수 환경 변수 누락 시 부팅 실패 처리
 
 **검증 대상 환경 변수**:
 
@@ -123,10 +123,10 @@
 
 #### 작업
 
-- [ ] `app.enableShutdownHooks()` 추가
-- [ ] `SceneGenerationService`에 `OnApplicationShutdown` 구현
-- [ ] 큐 드레인 로직 추가 (SIGTERM 시 진행 중인 작업 완료 대기)
-- [ ] `TtlCacheService`에 cleanup 메서드 추가
+- [x] `app.enableShutdownHooks()` 추가
+- [x] `SceneGenerationService`에 `OnApplicationShutdown` 구현
+- [x] 큐 드레인 로직 추가 (SIGTERM 시 진행 중인 작업 완료 대기)
+- [x] `TtlCacheService`에 cleanup 메서드 추가
 
 **참조 파일**:
 
@@ -140,11 +140,11 @@
 
 #### 작업
 
-- [ ] `bun audit` 실행 및 결과 분석
-- [ ] `lodash` 업데이트 또는 제거 (high/moderate 취약점)
-- [ ] `path-to-regexp` 업데이트 (high/moderate 취약점)
-- [ ] `picomatch` 업데이트 (moderate/high 취약점)
-- [ ] `@types/bun: "latest"`를 특정 버전으로 고정
+- [x] `bun audit` 실행 및 결과 분석
+- [x] `lodash` 업데이트 또는 제거 (high/moderate 취약점)
+- [x] `path-to-regexp` 업데이트 (high/moderate 취약점)
+- [x] `picomatch` 업데이트 (moderate/high 취약점)
+- [x] `@types/bun: "latest"`를 특정 버전으로 고정
 
 **참조 파일**:
 

@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
-import { inflateSync } from 'node:zlib';
 import { PNG } from 'pngjs';
 import jpeg from 'jpeg-js';
-import type { Coordinate } from '../../../places/types/place.types';
 import type { MapillaryImage } from '../../../places/clients/mapillary.client';
+import { parseAndValidateExternalUrl } from '../../../common/http/external-url-validation.util';
 
 export async function getImageAverageColorHex(
   image: MapillaryImage,
@@ -12,8 +11,18 @@ export async function getImageAverageColorHex(
     return fallbackColorFromImageMeta(image);
   }
 
+  const validatedUrl = parseAndValidateExternalUrl(image.thumbnailUrl, {
+    requireHttps: true,
+    blockPrivateNetwork: true,
+    allowedHosts: resolveThumbnailAllowedHosts(),
+    allowSubdomains: true,
+  });
+  if (!validatedUrl) {
+    return fallbackColorFromImageMeta(image);
+  }
+
   try {
-    const response = await fetch(image.thumbnailUrl);
+    const response = await fetch(validatedUrl);
     if (!response.ok) {
       return fallbackColorFromImageMeta(image);
     }
@@ -23,6 +32,17 @@ export async function getImageAverageColorHex(
   } catch {
     return fallbackColorFromImageMeta(image);
   }
+}
+
+function resolveThumbnailAllowedHosts(): string[] {
+  const configured = process.env.MAPILLARY_IMAGE_ALLOWED_HOSTS?.split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (configured && configured.length > 0) {
+    return configured;
+  }
+
+  return ['mapillary.com', 'mapillaryusercontent.com'];
 }
 
 function decodeAverageHex(bytes: Uint8Array): string | null {

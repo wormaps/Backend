@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ERROR_CODES } from '../../../common/constants/error-codes';
@@ -23,10 +23,12 @@ import type {
 } from '../../types/scene.types';
 
 @Injectable()
-export class SceneGenerationService {
+export class SceneGenerationService implements OnApplicationShutdown {
   private readonly maxGenerationAttempts = 2;
   private readonly generationQueue: string[] = [];
   private isProcessingQueue = false;
+  private isShuttingDown = false;
+  private currentProcessingSceneId: string | null = null;
 
   constructor(
     private readonly sceneRepository: SceneRepository,
@@ -44,6 +46,17 @@ export class SceneGenerationService {
     scale: SceneScale,
     options: SceneCreateOptions = {},
   ): Promise<SceneEntity> {
+    if (this.isShuttingDown) {
+      throw new AppException({
+        code: ERROR_CODES.SERVER_SHUTTING_DOWN,
+        message: '서버 종료 중에는 Scene 생성을 시작할 수 없습니다.',
+        detail: {
+          reason: 'SERVER_SHUTTING_DOWN',
+        },
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+      });
+    }
+
     const requestKey = this.buildRequestKey(query, scale);
     if (!options.forceRegenerate) {
       const existing = await this.sceneRepository.findByRequestKey(requestKey);
@@ -119,6 +132,9 @@ export class SceneGenerationService {
   }
 
   private enqueueGeneration(sceneId: string): void {
+    if (this.isShuttingDown) {
+      return;
+    }
     this.generationQueue.push(sceneId);
     void this.processQueue();
   }
@@ -135,11 +151,56 @@ export class SceneGenerationService {
         if (!sceneId) {
           continue;
         }
+        this.currentProcessingSceneId = sceneId;
         await this.processGeneration(sceneId);
+        this.currentProcessingSceneId = null;
       }
     } finally {
+      this.currentProcessingSceneId = null;
       this.isProcessingQueue = false;
     }
+  }
+
+  async onApplicationShutdown(): Promise<void> {
+    this.isShuttingDown = true;
+
+    await Promise.race([
+      this.waitForIdle(),
+      new Promise((resolve) => setTimeout(resolve, 30000)),
+    ]);
+
+    const pending = new Set<string>(this.generationQueue);
+    if (this.currentProcessingSceneId) {
+      pending.add(this.currentProcessingSceneId);
+    }
+
+    await Promise.all(
+      [...pending].map((sceneId) => this.failSceneIfUnfinished(sceneId)),
+    );
+  }
+
+  private async failSceneIfUnfinished(sceneId: string): Promise<void> {
+    await this.sceneRepository.update(sceneId, (current) => {
+      if (
+        current.scene.status === 'READY' ||
+        current.scene.status === 'FAILED'
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        scene: {
+          ...current.scene,
+          status: 'FAILED',
+          failureReason:
+            current.scene.failureReason ??
+            'Server shutdown interrupted scene generation.',
+          failureCategory: current.scene.failureCategory ?? 'GENERATION_ERROR',
+          updatedAt: new Date().toISOString(),
+        },
+      };
+    });
   }
 
   private async processGeneration(sceneId: string): Promise<void> {
