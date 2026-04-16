@@ -2,6 +2,8 @@ import { AppLoggerService } from '../../common/logging/app-logger.service';
 import { OverpassClient } from './overpass.client';
 import { ExternalPlaceDetail } from '../types/external-place.types';
 import { polygonSignedArea } from '../utils/geo.utils';
+import { AppException } from '../../common/errors/app.exception';
+import { ERROR_CODES } from '../../common/constants/error-codes';
 
 describe('OverpassClient', () => {
   const logger = {
@@ -404,5 +406,114 @@ describe('OverpassClient', () => {
         (call) => call[0] === 'overpass.scope.degraded',
       ),
     ).toBe(true);
+  });
+
+  describe('error scenarios', () => {
+    // Overpass retry logic: 2 endpoints × 2 attempts × 3 bound scales = 12 calls for core scope
+    const CORE_RETRY_COUNT = 12;
+
+    it('should throw AppException on 429 rate limit response after exhausting retries', async () => {
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve('Too Many Requests'),
+      });
+
+      const client = new OverpassClient(logger).withFetcher(
+        fetcher as typeof fetch,
+      );
+
+      try {
+        await client.buildPlacePackage(place);
+        throw new Error('Expected AppException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+        expect(fetcher).toHaveBeenCalledTimes(CORE_RETRY_COUNT);
+      }
+    });
+
+    it('should throw AppException on 500 server error after exhausting retries', async () => {
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal Server Error'),
+      });
+
+      const client = new OverpassClient(logger).withFetcher(
+        fetcher as typeof fetch,
+      );
+
+      try {
+        await client.buildPlacePackage(place);
+        throw new Error('Expected AppException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+        expect(fetcher).toHaveBeenCalledTimes(CORE_RETRY_COUNT);
+      }
+    });
+
+    it('should throw AppException on network error after exhausting retries', async () => {
+      const fetcher = jest
+        .fn()
+        .mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:443'));
+
+      const client = new OverpassClient(logger).withFetcher(
+        fetcher as typeof fetch,
+      );
+
+      try {
+        await client.buildPlacePackage(place);
+        throw new Error('Expected AppException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect(fetcher).toHaveBeenCalledTimes(CORE_RETRY_COUNT);
+      }
+    });
+
+    it('should throw AppException on timeout after exhausting retries', async () => {
+      const fetcher = jest
+        .fn()
+        .mockRejectedValue(new Error('The operation timed out.'));
+
+      const client = new OverpassClient(logger).withFetcher(
+        fetcher as typeof fetch,
+      );
+
+      try {
+        await client.buildPlacePackage(place);
+        throw new Error('Expected AppException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect(fetcher).toHaveBeenCalledTimes(CORE_RETRY_COUNT);
+      }
+    });
+
+    it('should throw AppException on malformed response after exhausting retries', async () => {
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('not valid json {{{'),
+      });
+
+      const client = new OverpassClient(logger).withFetcher(
+        fetcher as typeof fetch,
+      );
+
+      try {
+        await client.buildPlacePackage(place);
+        throw new Error('Expected AppException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+        expect(fetcher).toHaveBeenCalledTimes(CORE_RETRY_COUNT);
+      }
+    });
   });
 });

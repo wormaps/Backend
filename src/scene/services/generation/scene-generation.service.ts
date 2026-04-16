@@ -27,6 +27,14 @@ export class SceneGenerationService implements OnApplicationShutdown {
   private readonly maxGenerationAttempts = 2;
   private readonly generationQueue: string[] = [];
   private readonly queuedSceneIds = new Set<string>();
+  private readonly recentFailures: Array<{
+    sceneId: string;
+    attempts: number;
+    status: 'FAILED';
+    failureCategory: SceneFailureCategory;
+    failureReason: string;
+    updatedAt: string;
+  }> = [];
   private isProcessingQueue = false;
   private isShuttingDown = false;
   private currentProcessingSceneId: string | null = null;
@@ -128,6 +136,33 @@ export class SceneGenerationService implements OnApplicationShutdown {
     }
   }
 
+  getQueueDebugSnapshot(): {
+    isProcessingQueue: boolean;
+    isShuttingDown: boolean;
+    currentProcessingSceneId: string | null;
+    queuedSceneIds: string[];
+    queueDepth: number;
+  } {
+    return {
+      isProcessingQueue: this.isProcessingQueue,
+      isShuttingDown: this.isShuttingDown,
+      currentProcessingSceneId: this.currentProcessingSceneId,
+      queuedSceneIds: [...this.queuedSceneIds],
+      queueDepth: this.generationQueue.length,
+    };
+  }
+
+  getRecentFailures(limit = 10): Array<{
+    sceneId: string;
+    attempts: number;
+    status: 'FAILED';
+    failureCategory: SceneFailureCategory;
+    failureReason: string;
+    updatedAt: string;
+  }> {
+    return this.recentFailures.slice(0, Math.max(1, limit));
+  }
+
   private buildRequestKey(query: string, scale: SceneScale): string {
     return `${query.trim().toLowerCase()}::${scale}`;
   }
@@ -188,7 +223,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
   }
 
   private async failSceneIfUnfinished(sceneId: string): Promise<void> {
-    await this.sceneRepository.update(sceneId, (current) => {
+    const updated = await this.sceneRepository.update(sceneId, (current) => {
       if (
         current.scene.status === 'READY' ||
         current.scene.status === 'FAILED'
@@ -209,6 +244,20 @@ export class SceneGenerationService implements OnApplicationShutdown {
         },
       };
     });
+
+    if (
+      updated?.scene.status === 'FAILED' &&
+      updated.scene.failureReason &&
+      updated.scene.failureCategory
+    ) {
+      this.recordFailure({
+        sceneId,
+        attempts: updated.attempts,
+        failureCategory: updated.scene.failureCategory,
+        failureReason: updated.scene.failureReason,
+        updatedAt: updated.scene.updatedAt,
+      });
+    }
   }
 
   private async processGeneration(sceneId: string): Promise<void> {
@@ -387,6 +436,13 @@ export class SceneGenerationService implements OnApplicationShutdown {
             thresholds: qualityGate.thresholds,
           },
         });
+        this.recordFailure({
+          sceneId,
+          attempts: storedScene.attempts + 1,
+          failureCategory: 'QUALITY_GATE_REJECTED',
+          failureReason: this.buildQualityFailureReason(qualityGate),
+          updatedAt: new Date().toISOString(),
+        });
       }
     } catch (error) {
       this.appLoggerService.error('scene.generation.failed', {
@@ -413,7 +469,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
 
     if (attempts < this.maxGenerationAttempts) {
       if (failureCategory === 'QUALITY_GATE_REJECTED') {
-        await this.sceneRepository.update(sceneId, (current) => ({
+        const updated = await this.sceneRepository.update(sceneId, (current) => ({
           ...current,
           attempts,
           scene: {
@@ -425,6 +481,15 @@ export class SceneGenerationService implements OnApplicationShutdown {
             updatedAt: new Date().toISOString(),
           },
         }));
+        if (updated?.scene.failureReason && updated.scene.failureCategory) {
+          this.recordFailure({
+            sceneId,
+            attempts,
+            failureCategory: updated.scene.failureCategory,
+            failureReason: updated.scene.failureReason,
+            updatedAt: updated.scene.updatedAt,
+          });
+        }
         this.appLoggerService.warn('scene.quality_gate.non_retry', {
           requestId: storedScene.requestId ?? null,
           sceneId,
@@ -484,6 +549,13 @@ export class SceneGenerationService implements OnApplicationShutdown {
       failureReason,
       failureCategory,
     });
+    this.recordFailure({
+      sceneId,
+      attempts,
+      failureCategory,
+      failureReason,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   private resolveQualityGateFromError(
@@ -513,6 +585,26 @@ export class SceneGenerationService implements OnApplicationShutdown {
       return 'Quality gate rejected this scene.';
     }
     return `Quality gate rejected this scene: ${reasonCodes.join(', ')}`;
+  }
+
+  private recordFailure(entry: {
+    sceneId: string;
+    attempts: number;
+    failureCategory: SceneFailureCategory;
+    failureReason: string;
+    updatedAt: string;
+  }): void {
+    this.recentFailures.unshift({
+      sceneId: entry.sceneId,
+      attempts: entry.attempts,
+      status: 'FAILED',
+      failureCategory: entry.failureCategory,
+      failureReason: entry.failureReason,
+      updatedAt: entry.updatedAt,
+    });
+    if (this.recentFailures.length > 20) {
+      this.recentFailures.length = 20;
+    }
   }
 
   private async getStoredScene(sceneId: string): Promise<StoredScene> {

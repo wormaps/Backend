@@ -10,6 +10,8 @@ export class TtlCacheService implements OnApplicationShutdown {
   private readonly store = new Map<string, CacheEntry<unknown>>();
   private readonly inflight = new Map<string, Promise<unknown>>();
   private readonly cleanupTimer: ReturnType<typeof setInterval> | undefined;
+  private hits = 0;
+  private misses = 0;
 
   constructor(
     private readonly maxSize = 1000,
@@ -55,14 +57,17 @@ export class TtlCacheService implements OnApplicationShutdown {
   get<T>(key: string): T | undefined {
     const entry = this.store.get(key);
     if (!entry) {
+      this.misses += 1;
       return undefined;
     }
 
     if (entry.expiresAt <= Date.now()) {
       this.store.delete(key);
+      this.misses += 1;
       return undefined;
     }
 
+    this.hits += 1;
     this.touchKey(key);
     return entry.value as T;
   }
@@ -73,6 +78,15 @@ export class TtlCacheService implements OnApplicationShutdown {
       expiresAt: Date.now() + ttlMs,
     });
     this.evictIfNeeded();
+  }
+
+  getStats(): { hits: number; misses: number; size: number; maxSize: number } {
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      size: this.store.size,
+      maxSize: this.maxSize,
+    };
   }
 
   clear(): void {

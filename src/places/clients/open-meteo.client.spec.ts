@@ -1,5 +1,7 @@
 import { OpenMeteoClient } from './open-meteo.client';
 import { ExternalPlaceDetail } from '../types/external-place.types';
+import { AppException } from '../../common/errors/app.exception';
+import { ERROR_CODES } from '../../common/constants/error-codes';
 
 describe('OpenMeteoClient', () => {
   afterEach(() => {
@@ -87,5 +89,120 @@ describe('OpenMeteoClient', () => {
     expect(observation?.source).toBe('OPEN_METEO_CURRENT');
     expect(observation?.temperatureCelsius).toBe(17.4);
     expect(observation?.resolvedWeather).toBe('CLEAR');
+  });
+
+  describe('error scenarios', () => {
+    const place: ExternalPlaceDetail = {
+      provider: 'GOOGLE_PLACES',
+      placeId: 'abc123',
+      displayName: 'Test',
+      formattedAddress: null,
+      location: { lat: 37.4979, lng: 127.0276 },
+      primaryType: null,
+      types: [],
+      googleMapsUri: null,
+      viewport: null,
+      utcOffsetMinutes: null,
+    };
+
+    it('should throw AppException on 429 rate limit response', async () => {
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve('Too Many Requests'),
+      });
+      const client = new OpenMeteoClient().withFetcher(fetcher as typeof fetch);
+
+      await expect(
+        client.getHistoricalObservation(place, '2026-04-04', 'NIGHT'),
+      ).rejects.toThrow(AppException);
+      try {
+        await client.getHistoricalObservation(place, '2026-04-04', 'NIGHT');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+      }
+    });
+
+    it('should throw AppException on 500 server error', async () => {
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal Server Error'),
+      });
+      const client = new OpenMeteoClient().withFetcher(fetcher as typeof fetch);
+
+      await expect(
+        client.getHistoricalObservation(place, '2026-04-04', 'NIGHT'),
+      ).rejects.toThrow(AppException);
+      try {
+        await client.getHistoricalObservation(place, '2026-04-04', 'NIGHT');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+      }
+    });
+
+    it('should throw AppException on network error', async () => {
+      const fetcher = jest
+        .fn()
+        .mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:443'));
+      const client = new OpenMeteoClient().withFetcher(fetcher as typeof fetch);
+
+      await expect(
+        client.getHistoricalObservation(place, '2026-04-04', 'NIGHT'),
+      ).rejects.toThrow(AppException);
+      try {
+        await client.getHistoricalObservation(place, '2026-04-04', 'NIGHT');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+      }
+    });
+
+    it('should throw AppException on timeout', async () => {
+      const fetcher = jest
+        .fn()
+        .mockRejectedValue(new Error('The operation timed out.'));
+      const client = new OpenMeteoClient().withFetcher(fetcher as typeof fetch);
+
+      await expect(
+        client.getHistoricalObservation(place, '2026-04-04', 'NIGHT'),
+      ).rejects.toThrow(AppException);
+      try {
+        await client.getHistoricalObservation(place, '2026-04-04', 'NIGHT');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+      }
+    });
+
+    it('should throw AppException on malformed response', async () => {
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('not valid json {{{'),
+      });
+      const client = new OpenMeteoClient().withFetcher(fetcher as typeof fetch);
+
+      await expect(
+        client.getHistoricalObservation(place, '2026-04-04', 'NIGHT'),
+      ).rejects.toThrow(AppException);
+      try {
+        await client.getHistoricalObservation(place, '2026-04-04', 'NIGHT');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).code).toBe(
+          ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        );
+      }
+    });
   });
 });

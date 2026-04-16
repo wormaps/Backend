@@ -157,6 +157,38 @@ export interface SceneTrafficResponse {
   failedSegmentCount: number;
 }
 
+export interface SceneQueueDebugResponse {
+  isProcessingQueue: boolean;
+  isShuttingDown: boolean;
+  currentProcessingSceneId: string | null;
+  queuedSceneIds: string[];
+  queueDepth: number;
+}
+
+export interface SceneCacheDebugResponse {
+  hits: number;
+  misses: number;
+  size: number;
+  maxSize: number;
+}
+
+export interface SceneFailureDebugEntry {
+  sceneId: string;
+  attempts: number;
+  status: 'FAILED';
+  failureCategory: SceneEntity['failureCategory'];
+  failureReason: string | null;
+  updatedAt: string;
+}
+
+export interface SceneDiagnosticsResponse {
+  sceneId: string;
+  diagnosticsLogPath: string;
+  lineCount: number;
+  truncated: boolean;
+  lines: string[];
+}
+
 export interface SceneWeatherResponse {
   updatedAt: string;
   weatherCode: number | null;

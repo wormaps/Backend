@@ -53,6 +53,9 @@ import { SceneService } from './scene.service';
 import { getSceneDataDir } from './storage/scene-storage.utils';
 import {
   BootstrapResponse,
+  SceneCacheDebugResponse,
+  SceneDiagnosticsResponse,
+  SceneFailureDebugEntry,
   MidQaReport,
   SceneDetail,
   SceneEntity,
@@ -60,6 +63,7 @@ import {
   SceneMeta,
   ScenePlacesResponse,
   SCENE_SCALE_VALUES,
+  SceneQueueDebugResponse,
   SceneStateResponse,
   SceneTrafficResponse,
   TWIN_ENTITY_KIND_VALUES,
@@ -115,6 +119,68 @@ export class SceneController {
           curatedAssetPayload,
         },
       ),
+    };
+  }
+
+  @Get('debug/queue')
+  @ApiOperation({ summary: 'Scene queue debug 정보 조회' })
+  getQueueDebug(): ResponsePayload<{
+    queue: SceneQueueDebugResponse;
+    cache: SceneCacheDebugResponse;
+  }> {
+    return {
+      message: 'Scene queue debug 정보 조회에 성공했습니다.',
+      data: {
+        queue: this.sceneService.getQueueDebugSnapshot(),
+        cache: this.sceneService.getCacheDebugSnapshot(),
+      },
+    };
+  }
+
+  @Get('debug/failures')
+  @ApiOperation({ summary: '최근 Scene 실패 이력 조회' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    example: 10,
+  })
+  getRecentFailures(
+    @Query('limit') rawLimit?: string,
+  ): ResponsePayload<{ failures: SceneFailureDebugEntry[] }> {
+    const parsed = Number(rawLimit ?? '10');
+    const limit = Number.isFinite(parsed)
+      ? Math.max(1, Math.min(50, parsed))
+      : 10;
+
+    return {
+      message: '최근 Scene 실패 이력 조회에 성공했습니다.',
+      data: {
+        failures: this.sceneService.getRecentFailures(limit),
+      },
+    };
+  }
+
+  @Get(':sceneId/diagnostics')
+  @ApiOperation({ summary: 'Scene diagnostics 로그 조회' })
+  @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    example: 200,
+  })
+  async getDiagnostics(
+    @Param('sceneId') sceneId: string,
+    @Query('limit') rawLimit?: string,
+  ): Promise<ResponsePayload<SceneDiagnosticsResponse>> {
+    const validatedSceneId = validatePlaceId(sceneId);
+    const parsed = Number(rawLimit ?? '200');
+    const limit = Number.isFinite(parsed)
+      ? Math.max(1, Math.min(500, parsed))
+      : 200;
+
+    return {
+      message: 'Scene diagnostics 로그 조회에 성공했습니다.',
+      data: await this.sceneService.getDiagnosticsLog(validatedSceneId, limit),
     };
   }
 
