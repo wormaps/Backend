@@ -126,8 +126,6 @@ export function registerBuildingGroupNodes(
     applyExtras(node, {
       sceneId: sceneMeta.sceneId,
       semanticCategory: 'building',
-      dccCollection: 'Buildings',
-      blenderCollection: 'Buildings',
       isGroupNode: true,
       objectId: building.objectId,
       selectionLod: building.lodLevel,
@@ -135,7 +133,6 @@ export function registerBuildingGroupNodes(
       osmWayId: building.osmWayId,
       buildingUsage: building.usage,
       pivotLocal: pivot,
-      suggestedPivotPolicy: 'footprint_centroid',
       twinEntityId: createTwinEntityId(sceneMeta.sceneId, building.objectId),
       twinComponentIds: [
         createTwinComponentId(

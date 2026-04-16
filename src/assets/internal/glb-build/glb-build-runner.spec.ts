@@ -307,25 +307,24 @@ describe('GlbBuildRunner modularized', () => {
     const root = scene.children[0];
     const group = root.children[0];
     const node = group.children[0];
-    const mesh = doc.meshes[0];
     const primitive = doc.primitives[0];
 
     expect(root.extras.blenderCollection).toBe('Scene');
     expect(group.extras.dccCollection).toBe('Transport');
     expect(node.extras.semanticCategory).toBe('transport');
-    expect(mesh.extras.semanticMetadataCoverage).toBe('PARTIAL');
-    expect(mesh.extras.selectionLod).toBe('MEDIUM');
-    expect(mesh.extras.loadTier).toBe('medium');
-    expect(mesh.extras.progressiveOrder).toBe(7);
-    expect(mesh.extras.instanceGroupKey).toBe('transport:road-base');
-    expect(primitive.extras.sourceObjectIds).toEqual(['road-1', 'road-2']);
+    expect(node.extras.semanticMetadataCoverage).toBe('PARTIAL');
+    expect(node.extras.selectionLod).toBe('MEDIUM');
+    expect(node.extras.loadTier).toBe('medium');
+    expect(node.extras.progressiveOrder).toBe(7);
+    expect(node.extras.instanceGroupKey).toBe('transport:road-base');
+    expect(primitive.extras.sourceObjectIds).toBeUndefined();
     expect((node.extras.twinEntityIds as string[]).length).toBe(2);
     expect(
       (node.extras.twinEntityIds as string[])[0]?.startsWith('entity-'),
     ).toBe(true);
-    expect((mesh.extras.sourceSnapshotIds as string[]).length).toBe(2);
+    expect((node.extras.sourceSnapshotIds as string[]).length).toBe(2);
     expect(
-      (mesh.extras.sourceSnapshotIds as string[])[0]?.startsWith('snapshot-'),
+      (node.extras.sourceSnapshotIds as string[])[0]?.startsWith('snapshot-'),
     ).toBe(true);
     expect(node.extras.meshName).toBe('road_base');
   });
@@ -457,9 +456,7 @@ describe('GlbBuildRunner modularized', () => {
     expect(lodHighGroup?.extras.selectionLod).toBe('HIGH');
     expect(buildingNode?.extras.objectId).toBe('building-1');
     expect(buildingNode?.extras.selectionLod).toBe('HIGH');
-    expect(buildingNode?.extras.suggestedPivotPolicy).toBe(
-      'footprint_centroid',
-    );
+    expect(buildingNode?.extras.suggestedPivotPolicy).toBeUndefined();
     expect((buildingNode?.extras.pivotLocal as { y: number }).y).toBe(0.12);
     expect(
       String(buildingNode?.extras.twinEntityId).startsWith('entity-'),

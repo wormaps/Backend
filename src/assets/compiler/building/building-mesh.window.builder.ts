@@ -96,8 +96,8 @@ interface WindowConfig {
   groundFloorRule: 'none' | 'sparse' | 'full';
 }
 
-const MAX_WINDOW_TRIANGLES = 900_000;
-const WINDOW_TRIANGLES_PER_EMIT_ESTIMATE = 8;
+const MAX_WINDOW_TRIANGLES = 420_000;
+const WINDOW_TRIANGLES_PER_EMIT_ESTIMATE = 2;
 
 type WindowArchetype =
   | 'apartment'
@@ -117,13 +117,13 @@ function resolveWindowConfig(
 
   const floorHeight = 3.6;
   const rawFloorCount = Math.max(2, Math.floor(height / floorHeight));
-  const floorLimit = lodLevel === 'LOW' ? 6 : lodLevel === 'MEDIUM' ? 12 : 18;
+  const floorLimit = lodLevel === 'LOW' ? 4 : lodLevel === 'MEDIUM' ? 6 : 9;
   const floorCount = Math.min(rawFloorCount, floorLimit);
 
   const baseConfig: WindowConfig = {
     archetype,
     floorCount,
-    windowsPerFloor: 4,
+    windowsPerFloor: 3,
     windowWidth: 1.2,
     windowHeight: 1.8,
     windowDepth: 0.15,
@@ -142,7 +142,7 @@ function resolveWindowConfig(
     case 'office':
       return {
         ...baseConfig,
-        windowsPerFloor: density === 'dense' ? 6 : density === 'medium' ? 5 : 4,
+        windowsPerFloor: density === 'dense' ? 4 : density === 'medium' ? 4 : 3,
         windowWidth: density === 'dense' ? 1.5 : 1.4,
         windowHeight: 2.1,
         windowDepth: density === 'dense' ? 0.17 : 0.16,
@@ -154,7 +154,7 @@ function resolveWindowConfig(
     case 'apartment':
       return {
         ...baseConfig,
-        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
+        windowsPerFloor: density === 'dense' ? 3 : density === 'medium' ? 3 : 2,
         windowWidth: density === 'dense' ? 1.08 : 0.98,
         windowHeight: density === 'dense' ? 1.5 : 1.42,
         pattern: 'grid',
@@ -166,8 +166,8 @@ function resolveWindowConfig(
     case 'retail':
       return {
         ...baseConfig,
-        floorCount: Math.max(1, Math.min(4, Math.floor(floorCount * 0.45))),
-        windowsPerFloor: density === 'dense' ? 4 : density === 'medium' ? 3 : 2,
+        floorCount: Math.max(1, Math.min(3, Math.floor(floorCount * 0.4))),
+        windowsPerFloor: density === 'dense' ? 3 : density === 'medium' ? 2 : 1,
         windowWidth: 1.95,
         windowHeight: density === 'dense' ? 1.38 : 1.26,
         sillDepth: 0.14,
@@ -181,7 +181,7 @@ function resolveWindowConfig(
     case 'hotel':
       return {
         ...baseConfig,
-        windowsPerFloor: density === 'dense' ? 7 : density === 'medium' ? 6 : 5,
+        windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
         windowWidth: density === 'dense' ? 1.16 : 1.1,
         windowHeight: 1.6,
         windowDepth: 0.16,
@@ -195,8 +195,8 @@ function resolveWindowConfig(
     case 'industrial':
       return {
         ...baseConfig,
-        floorCount: Math.max(1, Math.min(4, Math.floor(floorCount * 0.5))),
-        windowsPerFloor: density === 'dense' ? 4 : density === 'medium' ? 3 : 2,
+        floorCount: Math.max(1, Math.min(3, Math.floor(floorCount * 0.4))),
+        windowsPerFloor: density === 'dense' ? 3 : density === 'medium' ? 2 : 1,
         windowWidth: 2.4,
         windowHeight: density === 'dense' ? 1.22 : 1.12,
         windowDepth: 0.14,
@@ -371,7 +371,6 @@ function pushWindowGrid(
         floorY + floorSpec.yOffset,
         floorSpec.windowWidth * sizeScale,
         floorSpec.windowHeight * sizeScale,
-        config.windowDepth,
         config.frameWidth,
         config.sillDepth,
       );
@@ -516,7 +515,6 @@ function pushWindowFrame(
   floorY: number,
   windowWidth: number,
   windowHeight: number,
-  windowDepth: number,
   frameWidth: number,
   sillDepth: number,
 ): void {
@@ -541,8 +539,6 @@ function pushWindowFrame(
   const frontRightX = rightX + frame.normal[0] * frontOffset;
   const frontRightZ = rightZ + frame.normal[2] * frontOffset;
 
-  const frameDepth = Math.max(0.05, Math.min(windowDepth, 0.12));
-
   const y0 = floorY;
   const y1 = floorY + windowHeight;
 
@@ -554,90 +550,6 @@ function pushWindowFrame(
     [frontLeftX, y1, frontLeftZ],
   );
 
-  const frameHalfWidth = frameWidth / 2;
-  pushWindowFrameEdge(
-    geometry,
-    frame,
-    leftX,
-    leftZ,
-    y0,
-    y1,
-    frameDepth,
-    frameHalfWidth,
-  );
-  pushWindowFrameEdge(
-    geometry,
-    frame,
-    rightX,
-    rightZ,
-    y0,
-    y1,
-    frameDepth,
-    frameHalfWidth,
-  );
-  pushWindowSill(geometry, frame, centerX, centerZ, y0, windowWidth, sillDepth);
-}
-
-function pushWindowFrameEdge(
-  geometry: GeometryBuffers,
-  frame: FacadeFrame,
-  x: number,
-  z: number,
-  y0: number,
-  y1: number,
-  depth: number,
-  halfWidth: number,
-): void {
-  const frontX = x + frame.normal[0] * 0.02;
-  const frontZ = z + frame.normal[2] * 0.02;
-  const backX = x - frame.normal[0] * depth;
-  const backZ = z - frame.normal[2] * depth;
-
-  pushQuad(
-    geometry,
-    [
-      frontX - frame.normal[0] * halfWidth,
-      y0,
-      frontZ - frame.normal[2] * halfWidth,
-    ],
-    [
-      backX - frame.normal[0] * halfWidth,
-      y0,
-      backZ - frame.normal[2] * halfWidth,
-    ],
-    [
-      backX - frame.normal[0] * halfWidth,
-      y1,
-      backZ - frame.normal[2] * halfWidth,
-    ],
-    [
-      frontX - frame.normal[0] * halfWidth,
-      y1,
-      frontZ - frame.normal[2] * halfWidth,
-    ],
-  );
-}
-
-function pushWindowSill(
-  geometry: GeometryBuffers,
-  frame: FacadeFrame,
-  centerX: number,
-  centerZ: number,
-  y: number,
-  windowWidth: number,
-  sillDepth: number,
-): void {
-  const sillHeight = 0.06;
-  const sillWidth = windowWidth + 0.1;
-  const halfWidth = sillWidth / 2;
-
-  const frontX = centerX + frame.normal[0] * sillDepth;
-  const frontZ = centerZ + frame.normal[2] * sillDepth;
-  pushQuad(
-    geometry,
-    [frontX - halfWidth, y - sillHeight, frontZ - halfWidth * 0.3],
-    [frontX + halfWidth, y - sillHeight, frontZ + halfWidth * 0.3],
-    [frontX + halfWidth, y - sillHeight * 0.4, frontZ + halfWidth * 0.3],
-    [frontX - halfWidth, y - sillHeight * 0.4, frontZ - halfWidth * 0.3],
-  );
+  void frameWidth;
+  void sillDepth;
 }

@@ -59,10 +59,10 @@ export function resolveWindowTriangleBudgetForSelection(
 ): BuildingWindowGeometryOptions {
   const maxWindowTriangles =
     selectedBuildingCount > 1000
-      ? 780_000
+      ? 320_000
       : selectedBuildingCount > 700
-        ? 840_000
-        : 900_000;
+        ? 360_000
+        : 420_000;
   return { maxWindowTriangles };
 }
 

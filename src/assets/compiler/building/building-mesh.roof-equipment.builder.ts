@@ -145,13 +145,13 @@ function resolveRoofEquipmentLodScale(
   isHeroBuilding: boolean,
 ): number {
   if (isHeroBuilding) {
-    return 1;
+    return lodLevel === 'LOW' ? 0.85 : 1;
   }
   if (lodLevel === 'LOW') {
-    return 0.35;
+    return 0.25;
   }
   if (lodLevel === 'MEDIUM') {
-    return 0.65;
+    return 0.5;
   }
   return 1;
 }

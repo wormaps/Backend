@@ -238,7 +238,7 @@ describe('building-mesh.builder', () => {
     const triangleCount = windows.indices.length / 3;
 
     expect(triangleCount).toBeGreaterThan(0);
-    expect(triangleCount).toBeLessThanOrEqual(920000);
+    expect(triangleCount).toBeLessThanOrEqual(420000);
   });
 
   it('honors maxWindowTriangles option for explicit window budget', () => {

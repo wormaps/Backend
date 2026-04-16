@@ -169,50 +169,52 @@ export function addMeshNode(
     )
     .setMaterial(material);
 
-  const semanticExtras = {
+  const semanticCategory =
+    trace.semanticCategory ?? resolveSemanticCategory(name);
+  const semanticMetadataCoverage =
+    trace.semanticCoverage ??
+    resolveSemanticCoverage(trace.sourceCount, trace.selectedCount);
+  const sourceObjectIds = (trace.sourceObjectIds ?? []).slice(0, 256);
+  const nodeExtras = {
     sceneId: scene.name ?? undefined,
     meshName: name,
     sourceCount: trace.sourceCount ?? 0,
     selectedCount: trace.selectedCount ?? 0,
-    sourceObjectIds: (trace.sourceObjectIds ?? []).slice(0, 256),
     selectionLod: trace.selectionLod,
     loadTier: trace.loadTier,
     progressiveOrder: trace.progressiveOrder,
     prototypeKey: trace.prototypeKey ?? trace.instanceGroupKey,
     instanceGroupKey: trace.instanceGroupKey,
-    semanticCategory: trace.semanticCategory ?? resolveSemanticCategory(name),
-    semanticMetadataCoverage:
-      trace.semanticCoverage ??
-      resolveSemanticCoverage(trace.sourceCount, trace.selectedCount),
+    semanticCategory,
+    semanticMetadataCoverage,
+    sourceObjectIds,
     twinEntityIds: resolveTwinEntityIds(
       scene.name ?? '',
       name,
-      trace.semanticCategory ?? resolveSemanticCategory(name),
+      semanticCategory,
       trace.sourceObjectIds ?? [],
     ),
     twinComponentIds: resolveTwinComponentIds(
       scene.name ?? '',
       name,
-      trace.semanticCategory ?? resolveSemanticCategory(name),
+      semanticCategory,
       trace.sourceObjectIds ?? [],
     ),
     sourceSnapshotIds: resolveSourceSnapshotIds(
       scene.name ?? '',
       name,
-      trace.semanticCategory ?? resolveSemanticCategory(name),
+      semanticCategory,
     ),
   };
-  applyExtras(primitive, semanticExtras);
-  applyExtras(mesh, semanticExtras);
 
   mesh.addPrimitive(primitive);
   const node = doc.createNode(name).setMesh(mesh);
-  applyExtras(node, semanticExtras);
+  applyExtras(node, nodeExtras);
   const parent = resolveMeshParent(
     doc,
     scene,
-    semanticExtras.semanticCategory as string,
-    semanticExtras.sourceObjectIds as string[],
+    semanticCategory,
+    sourceObjectIds,
     semanticGroupNodes,
   );
   parent.addChild(node);
