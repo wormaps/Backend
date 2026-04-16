@@ -39,9 +39,14 @@ export class ApiResponseInterceptor<T> implements NestInterceptor<
     const http = context.switchToHttp();
     const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();
+    const requestUrl = request.originalUrl ?? request.url ?? '';
+    if (requestUrl.includes('/metrics')) {
+      return next.handle() as Observable<SuccessEnvelope<T>>;
+    }
     const requestContext = ensureRequestContext(request);
 
     response.setHeader(REQUEST_ID_HEADER, requestContext.requestId);
+    response.setHeader('x-trace-id', requestContext.traceId);
 
     return next.handle().pipe(
       map((payload) => ({

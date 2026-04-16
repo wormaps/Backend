@@ -25,6 +25,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const error = this.resolveError(exception, status);
 
     response.setHeader(REQUEST_ID_HEADER, requestContext.requestId);
+    response.setHeader('x-trace-id', requestContext.traceId);
     response.status(status).json({
       ok: false,
       status,

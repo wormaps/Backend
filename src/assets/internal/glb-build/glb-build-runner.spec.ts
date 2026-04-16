@@ -597,7 +597,6 @@ describe('GlbBuildRunner modularized', () => {
         quantizeColor: 8,
         quantizeGeneric: 12,
         cleanup: false,
-        pattern: expect.any(RegExp),
       }),
     );
     expect(transform).toHaveBeenCalledWith(

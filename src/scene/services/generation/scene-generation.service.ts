@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/errors/app.exception';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
+import { appMetrics } from '../../../common/metrics/metrics.instance';
 import { isFiniteCoordinate } from '../../../places/utils/geo.utils';
 import { SceneGenerationPipelineService } from '../../pipeline/scene-generation-pipeline.service';
 import { SceneRepository } from '../../storage/scene.repository';
@@ -163,6 +164,21 @@ export class SceneGenerationService implements OnApplicationShutdown {
     return this.recentFailures.slice(0, Math.max(1, limit));
   }
 
+  private recordQueueMetrics(): void {
+    appMetrics.setGauge(
+      'scene_queue_depth',
+      this.generationQueue.length,
+      {},
+      'Current scene generation queue depth.',
+    );
+    appMetrics.setGauge(
+      'scene_queue_processing',
+      this.isProcessingQueue ? 1 : 0,
+      {},
+      'Whether the scene generation queue is currently processing.',
+    );
+  }
+
   private buildRequestKey(query: string, scale: SceneScale): string {
     return `${query.trim().toLowerCase()}::${scale}`;
   }
@@ -178,6 +194,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
 
     this.queuedSceneIds.add(sceneId);
     this.generationQueue.push(sceneId);
+    this.recordQueueMetrics();
     void this.processQueue();
   }
 
@@ -195,12 +212,15 @@ export class SceneGenerationService implements OnApplicationShutdown {
         }
         this.queuedSceneIds.delete(sceneId);
         this.currentProcessingSceneId = sceneId;
+        this.recordQueueMetrics();
         await this.processGeneration(sceneId);
         this.currentProcessingSceneId = null;
+        this.recordQueueMetrics();
       }
     } finally {
       this.currentProcessingSceneId = null;
       this.isProcessingQueue = false;
+      this.recordQueueMetrics();
     }
   }
 
@@ -267,6 +287,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
       sceneId,
       source: storedScene.generationSource ?? 'api',
     };
+    const startedAt = Date.now();
     try {
       const result = await this.sceneGenerationPipelineService.execute({
         sceneId,
@@ -282,6 +303,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
           result.place,
           result.meta.generatedAt.slice(0, 10),
           'DAY',
+          storedScene.requestId ?? null,
         );
       const weatherSnapshot = {
         updatedAt: new Date().toISOString(),
@@ -298,6 +320,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
             objectId: road.objectId,
             center: road.center,
           })),
+          storedScene.requestId ?? null,
         );
       const trafficSnapshot = {
         updatedAt: new Date().toISOString(),
@@ -412,6 +435,18 @@ export class SceneGenerationService implements OnApplicationShutdown {
         },
       }));
       if (qualityPass) {
+        appMetrics.incrementCounter(
+          'scene_generation_total',
+          1,
+          { outcome: 'success' },
+          'Total scene generation results by outcome.',
+        );
+        appMetrics.observeDuration(
+          'scene_generation_duration_ms',
+          Date.now() - startedAt,
+          { outcome: 'success' },
+          'Scene generation duration in milliseconds.',
+        );
         this.appLoggerService.info('scene.ready', {
           ...logContext,
           step: 'complete',
@@ -443,6 +478,18 @@ export class SceneGenerationService implements OnApplicationShutdown {
           failureReason: this.buildQualityFailureReason(qualityGate),
           updatedAt: new Date().toISOString(),
         });
+        appMetrics.incrementCounter(
+          'scene_generation_total',
+          1,
+          { outcome: 'failure' },
+          'Total scene generation results by outcome.',
+        );
+        appMetrics.observeDuration(
+          'scene_generation_duration_ms',
+          Date.now() - startedAt,
+          { outcome: 'failure' },
+          'Scene generation duration in milliseconds.',
+        );
       }
     } catch (error) {
       this.appLoggerService.error('scene.generation.failed', {
@@ -451,6 +498,18 @@ export class SceneGenerationService implements OnApplicationShutdown {
         error,
       });
       await this.handleGenerationFailure(sceneId, storedScene, error);
+      appMetrics.incrementCounter(
+        'scene_generation_total',
+        1,
+        { outcome: 'failure' },
+        'Total scene generation results by outcome.',
+      );
+      appMetrics.observeDuration(
+        'scene_generation_duration_ms',
+        Date.now() - startedAt,
+        { outcome: 'failure' },
+        'Scene generation duration in milliseconds.',
+      );
     }
   }
 
@@ -605,6 +664,12 @@ export class SceneGenerationService implements OnApplicationShutdown {
     if (this.recentFailures.length > 20) {
       this.recentFailures.length = 20;
     }
+    appMetrics.incrementCounter(
+      'scene_failures_total',
+      1,
+      { failureCategory: entry.failureCategory },
+      'Total recorded scene failures by category.',
+    );
   }
 
   private async getStoredScene(sceneId: string): Promise<StoredScene> {

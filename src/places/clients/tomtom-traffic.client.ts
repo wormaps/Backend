@@ -28,6 +28,7 @@ export class TomTomTrafficClient {
 
   async getFlowSegment(
     point: Coordinate,
+    requestId?: string | null,
   ): Promise<TomTomFlowSegmentResponse | null> {
     const apiKey = process.env.TOMTOM_API_KEY;
     if (!apiKey) {
@@ -56,6 +57,7 @@ export class TomTomTrafficClient {
             init: {
               headers: apiKeyHeader,
             },
+            requestId,
           },
           this.fetcher,
         );
@@ -67,7 +69,10 @@ export class TomTomTrafficClient {
     throw lastError;
   }
 
-  async getFlowSegmentWithEnvelope(point: Coordinate): Promise<{
+  async getFlowSegmentWithEnvelope(
+    point: Coordinate,
+    requestId?: string | null,
+  ): Promise<{
     data: TomTomFlowSegmentResponse | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
@@ -99,6 +104,7 @@ export class TomTomTrafficClient {
             init: {
               headers: apiKeyHeader,
             },
+            requestId,
           },
           this.fetcher,
         );

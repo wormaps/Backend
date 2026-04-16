@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TtlCacheService } from './ttl-cache.service';
+import { MetricsModule } from '../common/metrics/metrics.module';
 
 @Module({
+  imports: [MetricsModule],
   providers: [
     {
       provide: TtlCacheService,

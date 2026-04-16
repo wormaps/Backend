@@ -189,6 +189,7 @@ async function fetchOverpassResponse(
               body: `data=${encodeURIComponent(query)}`,
             },
             timeoutMs: 40000,
+            requestId: context.requestId,
           },
           deps.fetcher,
         );

@@ -1,12 +1,14 @@
 import { HttpStatus } from '@nestjs/common';
 import { ERROR_CODES } from '../constants/error-codes';
 import { AppException } from '../errors/app.exception';
+import { appMetrics } from '../metrics/metrics.instance';
 
 export interface FetchJsonOptions {
   url: string;
   init?: RequestInit;
   provider: string;
   timeoutMs?: number;
+  requestId?: string | null;
 }
 
 export interface FetchJsonEnvelope {
@@ -44,10 +46,16 @@ export async function fetchJsonWithEnvelope<T>(
 ): Promise<{ data: T; envelope: FetchJsonEnvelope }> {
   let response: Response;
   const requestedAt = new Date().toISOString();
+  const startedAt = Date.now();
 
   try {
+    const headers = new Headers(options.init?.headers);
+    if (options.requestId) {
+      headers.set('x-request-id', options.requestId);
+    }
     response = await fetcher(options.url, {
       ...options.init,
+      headers,
       signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
     });
   } catch (error) {
@@ -59,6 +67,7 @@ export async function fetchJsonWithEnvelope<T>(
       null,
       error instanceof Error ? error.message : 'unknown',
     );
+    recordExternalApiMetrics(options.provider, 'failure', Date.now() - startedAt);
     throw new AppException({
       code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
       message: `${options.provider} 요청에 실패했습니다.`,
@@ -82,6 +91,12 @@ export async function fetchJsonWithEnvelope<T>(
   );
 
   if (!response.ok) {
+    recordExternalApiMetrics(
+      options.provider,
+      'failure',
+      Date.now() - startedAt,
+      response.status,
+    );
     throw new AppException({
       code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
       message: `${options.provider} 응답이 비정상입니다.`,
@@ -95,6 +110,12 @@ export async function fetchJsonWithEnvelope<T>(
   }
 
   if (data === null) {
+    recordExternalApiMetrics(
+      options.provider,
+      'failure',
+      Date.now() - startedAt,
+      response.status,
+    );
     throw new AppException({
       code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
       message: `${options.provider} 응답을 해석할 수 없습니다.`,
@@ -107,10 +128,37 @@ export async function fetchJsonWithEnvelope<T>(
     });
   }
 
+  recordExternalApiMetrics(
+    options.provider,
+    'success',
+    Date.now() - startedAt,
+    response.status,
+  );
   return {
     data: data as T,
     envelope,
   };
+}
+
+function recordExternalApiMetrics(
+  provider: string,
+  outcome: 'success' | 'failure',
+  durationMs: number,
+  status?: number,
+): void {
+  const statusClass = status ? `${Math.floor(status / 100)}xx` : 'error';
+  appMetrics.incrementCounter(
+    'external_api_requests_total',
+    1,
+    { provider, outcome, statusClass },
+    'External API request count by provider, outcome, and status class.',
+  );
+  appMetrics.observeDuration(
+    'external_api_request_duration_ms',
+    durationMs,
+    { provider, outcome },
+    'External API request duration in milliseconds.',
+  );
 }
 
 function tryParseJson(value: string): unknown {

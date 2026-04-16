@@ -49,6 +49,7 @@ export class SceneGenerationPipelineService {
     const resolvedPlace = await this.scenePlaceResolutionStep.execute(
       storedScene.query,
       storedScene.scale,
+      logContext.requestId,
     );
     this.appLoggerService.info('scene.google_search.completed', {
       ...logContext,
@@ -91,6 +92,7 @@ export class SceneGenerationPipelineService {
       resolvedPlace.place,
       resolvedPlace.bounds,
       placePackage.placePackage,
+      logContext.requestId,
     );
     this.appLoggerService.info('scene.mapillary.completed', {
       ...logContext,

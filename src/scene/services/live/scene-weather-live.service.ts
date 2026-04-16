@@ -48,6 +48,7 @@ export class SceneWeatherLiveService {
           storedScene.place,
           date,
           query.timeOfDay,
+          storedScene.requestId ?? null,
         );
         const observation = observationResult.observation;
 
@@ -79,6 +80,7 @@ export class SceneWeatherLiveService {
     place: ExternalPlaceDetail,
     date: string,
     timeOfDay: SceneWeatherQuery['timeOfDay'],
+    requestId?: string | null,
   ): Promise<{
     observation: WeatherObservation | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
@@ -88,6 +90,7 @@ export class SceneWeatherLiveService {
         place,
         date,
         timeOfDay,
+        requestId,
       );
     return {
       observation: observationResult.observation,

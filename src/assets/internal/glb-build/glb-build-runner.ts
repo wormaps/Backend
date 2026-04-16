@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
+import { appMetrics } from '../../../common/metrics/metrics.instance';
 import {
   createEnhancedSceneMaterials,
   MaterialTuningOptions,
@@ -129,11 +130,6 @@ const GLB_QUANTIZE_OPTIONS: Record<string, unknown> = {
   quantizeColor: 8,
   quantizeGeneric: 12,
   cleanup: false,
-  // POSITION and NORMAL are excluded from quantization because gltf-validator
-  // reports errors on quantized POSITION/NORMAL accessors when unnormalized
-  // morph targets or mesh geometry conflicts are present. Re-enable only after
-  // geometry correction pipeline ensures clean topological data.
-  pattern: /^(?!POSITION$|NORMAL$)/,
 };
 
 const GLB_INSTANCE_OPTIONS: Record<string, unknown> = {
@@ -228,10 +224,12 @@ export class GlbBuildRunner {
     const triangulate = earcutModule.default;
     const { Accessor, Document, NodeIO } = gltf;
     const doc = new Document();
+    const materialTuning = this.resolveMaterialTuning(contract);
     installMaterialCache(
       doc as unknown as Record<string, unknown>,
       contract.sceneId,
       this.materialCacheStats,
+      buildMaterialTuningSignature(materialTuning),
     );
     const buffer = doc.createBuffer('scene-buffer');
     const scene = doc.createScene(contract.sceneId);
@@ -261,7 +259,6 @@ export class GlbBuildRunner {
       contract.fidelityPlan?.targetMode,
       contract.fidelityPlan?.currentMode,
     );
-    const materialTuning = this.resolveMaterialTuning(contract);
     const variationProfile = this.resolveVariationProfile(contract);
     const facadeMaterialProfile = this.resolveFacadeMaterialProfile(contract);
     const materials = createEnhancedSceneMaterials(
@@ -442,6 +439,18 @@ export class GlbBuildRunner {
       validatorModule,
     );
     await writeFile(outputPath, glbBinary);
+    appMetrics.observeDuration(
+      'glb_build_duration_ms',
+      Date.now() - buildStartedAt,
+      { outcome: 'success' },
+      'GLB build duration in milliseconds.',
+    );
+    appMetrics.setGauge(
+      'glb_build_bytes',
+      glbBinary.byteLength,
+      {},
+      'Latest GLB binary size in bytes.',
+    );
 
     const comparisonReport = buildSceneModeComparisonReport(
       adaptiveMeta,
@@ -1046,4 +1055,54 @@ export class GlbBuildRunner {
 
 function clampRange(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function buildMaterialTuningSignature(
+  tuningOptions: MaterialTuningOptions,
+): string {
+  const normalized = {
+    shellLuminanceCap: tuningOptions.shellLuminanceCap,
+    panelLuminanceCap: tuningOptions.panelLuminanceCap,
+    billboardLuminanceCap: tuningOptions.billboardLuminanceCap,
+    emissiveBoost: tuningOptions.emissiveBoost,
+    roadRoughnessScale: tuningOptions.roadRoughnessScale,
+    wetRoadBoost: tuningOptions.wetRoadBoost,
+    overlayDepthBias: tuningOptions.overlayDepthBias,
+    weakEvidenceRatio: tuningOptions.weakEvidenceRatio,
+    enableTexturePath: tuningOptions.enableTexturePath,
+    inferenceReasonCodes: [...(tuningOptions.inferenceReasonCodes ?? [])].sort(),
+    textureSlots: normalizeTextureSlots(tuningOptions.textureSlots),
+  };
+
+  return JSON.stringify(normalized);
+}
+
+function normalizeTextureSlots(
+  textureSlots: MaterialTuningOptions['textureSlots'],
+): Record<string, unknown> {
+  if (!textureSlots) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(textureSlots)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([slot, value]) => [
+        slot,
+        value
+          ? {
+              uri: value.uri,
+              mimeType: value.mimeType ?? null,
+              sampler: value.sampler
+                ? {
+                    magFilter: value.sampler.magFilter ?? null,
+                    minFilter: value.sampler.minFilter ?? null,
+                    wrapS: value.sampler.wrapS ?? null,
+                    wrapT: value.sampler.wrapT ?? null,
+                  }
+                : null,
+            }
+          : null,
+      ]),
+  );
 }

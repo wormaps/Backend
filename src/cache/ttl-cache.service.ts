@@ -1,4 +1,5 @@
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { appMetrics } from '../common/metrics/metrics.instance';
 
 interface CacheEntry<T> {
   expiresAt: number;
@@ -58,16 +59,19 @@ export class TtlCacheService implements OnApplicationShutdown {
     const entry = this.store.get(key);
     if (!entry) {
       this.misses += 1;
+      this.recordMetrics();
       return undefined;
     }
 
     if (entry.expiresAt <= Date.now()) {
       this.store.delete(key);
       this.misses += 1;
+      this.recordMetrics();
       return undefined;
     }
 
     this.hits += 1;
+    this.recordMetrics();
     this.touchKey(key);
     return entry.value as T;
   }
@@ -78,6 +82,7 @@ export class TtlCacheService implements OnApplicationShutdown {
       expiresAt: Date.now() + ttlMs,
     });
     this.evictIfNeeded();
+    this.recordMetrics();
   }
 
   getStats(): { hits: number; misses: number; size: number; maxSize: number } {
@@ -92,6 +97,7 @@ export class TtlCacheService implements OnApplicationShutdown {
   clear(): void {
     this.store.clear();
     this.inflight.clear();
+    this.recordMetrics();
   }
 
   onApplicationShutdown(): void {
@@ -126,5 +132,33 @@ export class TtlCacheService implements OnApplicationShutdown {
         this.store.delete(key);
       }
     }
+    this.recordMetrics();
+  }
+
+  private recordMetrics(): void {
+    appMetrics.setGauge(
+      'cache_hits_total',
+      this.hits,
+      {},
+      'Total cache hit count.',
+    );
+    appMetrics.setGauge(
+      'cache_misses_total',
+      this.misses,
+      {},
+      'Total cache miss count.',
+    );
+    appMetrics.setGauge(
+      'cache_entries',
+      this.store.size,
+      {},
+      'Current number of cache entries.',
+    );
+    appMetrics.setGauge(
+      'cache_max_entries',
+      this.maxSize,
+      {},
+      'Maximum number of cache entries.',
+    );
   }
 }

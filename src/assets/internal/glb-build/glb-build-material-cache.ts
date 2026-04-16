@@ -7,13 +7,14 @@ export function installMaterialCache(
   doc: Record<string, unknown>,
   sceneId: string,
   stats: MaterialCacheStats,
+  tuningSignature = 'default',
 ): void {
   const originalCreateMaterial = (
     doc.createMaterial as (name: string) => unknown
   ).bind(doc);
   const cache = new Map<string, unknown>();
   (doc as Record<string, unknown>).createMaterial = (name: string) => {
-    const stableKey = buildStableCacheKey(sceneId, name);
+    const stableKey = buildMaterialCacheKey(sceneId, tuningSignature, name);
     const cached = cache.get(stableKey);
     if (cached) {
       stats.hits += 1;
@@ -66,17 +67,21 @@ export function applyExtras(
   }
 }
 
-function buildStableCacheKey(sceneId: string, name: string): string {
+export function buildMaterialCacheKey(
+  sceneId: string,
+  tuningSignature: string,
+  name: string,
+): string {
   // Shell pattern: building-shell-${materialClass}-${hexOrBucket}
   const shellMatch = name.match(/^building-shell-([a-z]+)-(.+)$/);
   if (shellMatch) {
-    return `${sceneId}::building-shell::${shellMatch[1]}::${shellMatch[2]}`;
+    return `${sceneId}::${tuningSignature}::building-shell::${shellMatch[1]}::${shellMatch[2]}`;
   }
   // Panel pattern: building-panel-${tone}-${hex}
   const panelMatch = name.match(/^building-panel-([a-z]+)-(.+)$/);
   if (panelMatch) {
     const hexPrefix = panelMatch[2].replace('#', '').slice(0, 3).toLowerCase();
-    return `${sceneId}::building-panel::${panelMatch[1]}::${hexPrefix}`;
+    return `${sceneId}::${tuningSignature}::building-panel::${panelMatch[1]}::${hexPrefix}`;
   }
   // Billboard pattern: billboard-${tone}-${hex}
   const billboardMatch = name.match(/^billboard-([a-z]+)-(.+)$/);
@@ -85,8 +90,8 @@ function buildStableCacheKey(sceneId: string, name: string): string {
       .replace('#', '')
       .slice(0, 3)
       .toLowerCase();
-    return `${sceneId}::billboard::${billboardMatch[1]}::${hexPrefix}`;
+    return `${sceneId}::${tuningSignature}::billboard::${billboardMatch[1]}::${hexPrefix}`;
   }
   // Default: sceneId + name
-  return `${sceneId}::${name}`;
+  return `${sceneId}::${tuningSignature}::${name}`;
 }

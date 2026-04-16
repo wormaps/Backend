@@ -16,6 +16,7 @@ export class SceneVisualRulesStep {
     place: ExternalPlaceDetail,
     bounds: GeoBounds,
     placePackage: PlacePackage,
+    requestId?: string | null,
   ): Promise<{
     detail: SceneDetail;
     metaPatch: Pick<
@@ -29,6 +30,7 @@ export class SceneVisualRulesStep {
       place,
       bounds,
       placePackage,
+      requestId,
     );
   }
 }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '../cache/cache.module';
+import { MetricsModule } from '../common/metrics/metrics.module';
 import { PlacesModule } from '../places/places.module';
 import { GlbBuilderService } from '../assets/glb-builder.service';
 import { GlbBuildRunner } from '../assets/internal/glb-build';
@@ -43,7 +44,7 @@ import {
 import { SceneRepository } from './storage/scene.repository';
 
 @Module({
-  imports: [PlacesModule, CacheModule],
+  imports: [PlacesModule, CacheModule, MetricsModule],
   controllers: [SceneController],
   providers: [
     GlbBuilderService,

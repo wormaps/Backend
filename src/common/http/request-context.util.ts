@@ -14,11 +14,13 @@ export function ensureRequestContext(request: Request): RequestContext {
   }
 
   const headerRequestId = request.header(REQUEST_ID_HEADER);
+  const requestId =
+    headerRequestId && headerRequestId.trim().length > 0
+      ? headerRequestId
+      : `req_${randomUUID()}`;
   const context: RequestContext = {
-    requestId:
-      headerRequestId && headerRequestId.trim().length > 0
-        ? headerRequestId
-        : `req_${randomUUID()}`,
+    requestId,
+    traceId: requestId,
     timestamp: new Date().toISOString(),
   };
 

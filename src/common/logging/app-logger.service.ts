@@ -5,6 +5,7 @@ type LogLevel = 'info' | 'warn' | 'error';
 
 export interface LogContext {
   requestId?: string | null;
+  traceId?: string | null;
   sceneId?: string;
   provider?: string;
   step?: string;
@@ -32,9 +33,10 @@ export class AppLoggerService {
 
   fromRequest(
     context: RequestContext | null | undefined,
-  ): Pick<LogContext, 'requestId'> {
+  ): Pick<LogContext, 'requestId' | 'traceId'> {
     return {
       requestId: context?.requestId ?? null,
+      traceId: context?.traceId ?? context?.requestId ?? null,
     };
   }
 

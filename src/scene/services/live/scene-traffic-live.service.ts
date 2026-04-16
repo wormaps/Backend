@@ -37,6 +37,7 @@ export class SceneTrafficLiveService {
             objectId: road.objectId,
             center: road.center,
           })),
+          storedScene.requestId ?? null,
         );
         const normalizedSegments = sampled.segments;
         const upstreamEnvelopes = sampled.upstreamEnvelopes;
@@ -80,6 +81,7 @@ export class SceneTrafficLiveService {
 
   async sampleTrafficByRoads(
     roads: Array<{ objectId: string; center: Coordinate }>,
+    requestId?: string | null,
   ): Promise<{
     segments: TrafficSegment[];
     failedSegmentCount: number;
@@ -92,6 +94,7 @@ export class SceneTrafficLiveService {
           const response =
             await this.tomTomTrafficClient.getFlowSegmentWithEnvelope(
               road.center,
+              requestId,
             );
           return {
             segment: mapTrafficSegment(

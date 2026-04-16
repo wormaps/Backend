@@ -46,14 +46,16 @@ export class GooglePlacesClient {
   async searchText(
     query: string,
     limit: number,
+    requestId?: string | null,
   ): Promise<ExternalPlaceSearchItem[]> {
-    const result = await this.searchTextWithEnvelope(query, limit);
+    const result = await this.searchTextWithEnvelope(query, limit, requestId);
     return result.items;
   }
 
   async searchTextWithEnvelope(
     query: string,
     limit: number,
+    requestId?: string | null,
   ): Promise<{
     items: ExternalPlaceSearchItem[];
     envelope: FetchJsonEnvelope;
@@ -77,6 +79,7 @@ export class GooglePlacesClient {
             languageCode: 'en',
           }),
         },
+        requestId,
       },
       this.fetcher,
     );
@@ -92,12 +95,21 @@ export class GooglePlacesClient {
     };
   }
 
-  async getPlaceDetail(googlePlaceId: string): Promise<ExternalPlaceDetail> {
-    const result = await this.getPlaceDetailWithEnvelope(googlePlaceId);
+  async getPlaceDetail(
+    googlePlaceId: string,
+    requestId?: string | null,
+  ): Promise<ExternalPlaceDetail> {
+    const result = await this.getPlaceDetailWithEnvelope(
+      googlePlaceId,
+      requestId,
+    );
     return result.place;
   }
 
-  async getPlaceDetailWithEnvelope(googlePlaceId: string): Promise<{
+  async getPlaceDetailWithEnvelope(
+    googlePlaceId: string,
+    requestId?: string | null,
+  ): Promise<{
     place: ExternalPlaceDetail;
     envelope: FetchJsonEnvelope;
   }> {
@@ -115,6 +127,7 @@ export class GooglePlacesClient {
               'id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,viewport,utcOffsetMinutes',
           },
         },
+        requestId,
       },
       this.fetcher,
     );

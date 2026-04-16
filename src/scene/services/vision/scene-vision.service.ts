@@ -38,6 +38,7 @@ export class SceneVisionService {
     place: ExternalPlaceDetail,
     bounds: GeoBounds,
     placePackage: PlacePackage,
+    requestId?: string | null,
   ): Promise<SceneVisionResult> {
     let mapillaryImages = [] as Awaited<
       ReturnType<MapillaryClient['getNearbyImages']>
@@ -65,13 +66,18 @@ export class SceneVisionService {
     if (this.mapillaryClient.isConfigured()) {
       try {
         const featureResult =
-          await this.mapillaryClient.getMapFeaturesWithEnvelope(bounds);
+          await this.mapillaryClient.getMapFeaturesWithEnvelope(
+            bounds,
+            100,
+            requestId,
+          );
         mapillaryFeatures = featureResult.features;
         const imageFetch =
           await this.mapillaryClient.getNearbyImagesWithDiagnostics(bounds, {
             featureAnchors: mapillaryFeatures.map(
               (feature) => feature.location,
             ),
+            requestId,
           });
         mapillaryImages = imageFetch.images;
         mapillaryImageStrategy = imageFetch.diagnostics.strategy;

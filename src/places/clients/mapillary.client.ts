@@ -83,10 +83,12 @@ export class MapillaryClient {
   async getNearbyImages(
     bounds: GeoBounds,
     limit = 60,
+    requestId?: string | null,
   ): Promise<MapillaryImage[]> {
     const result = await this.getNearbyImagesWithDiagnostics(bounds, {
       limit,
       featureAnchors: [],
+      requestId,
     });
     return result.images;
   }
@@ -96,6 +98,7 @@ export class MapillaryClient {
     input?: {
       limit?: number;
       featureAnchors?: Coordinate[];
+      requestId?: string | null;
     },
   ): Promise<{
     images: MapillaryImage[];
@@ -123,7 +126,11 @@ export class MapillaryClient {
 
     for (let index = 0; index < bboxCandidates.length; index += 1) {
       const candidate = bboxCandidates[index];
-      const bboxResult = await this.fetchImagesByBbox(candidate, limit);
+      const bboxResult = await this.fetchImagesByBbox(
+        candidate,
+        limit,
+        input?.requestId,
+      );
       const images = bboxResult.images;
       upstreamEnvelopes.push(...bboxResult.upstreamEnvelopes);
       diagnostics.attempts.push({
@@ -143,6 +150,7 @@ export class MapillaryClient {
       const nearbyResult = await this.fetchImagesByPoint(
         anchor,
         Math.min(limit, 160),
+        input?.requestId,
       );
       const nearby = nearbyResult.images;
       upstreamEnvelopes.push(...nearbyResult.upstreamEnvelopes);
@@ -175,14 +183,20 @@ export class MapillaryClient {
   async getMapFeatures(
     bounds: GeoBounds,
     limit = 100,
+    requestId?: string | null,
   ): Promise<MapillaryFeature[]> {
-    const result = await this.getMapFeaturesWithEnvelope(bounds, limit);
+    const result = await this.getMapFeaturesWithEnvelope(
+      bounds,
+      limit,
+      requestId,
+    );
     return result.features;
   }
 
   async getMapFeaturesWithEnvelope(
     bounds: GeoBounds,
     limit = 100,
+    requestId?: string | null,
   ): Promise<{
     features: MapillaryFeature[];
     upstreamEnvelopes: FetchJsonEnvelope[];
@@ -203,6 +217,7 @@ export class MapillaryClient {
         provider: 'Mapillary Features API',
         url: `${this.baseUrl}/map_features?access_token=${encodeURIComponent(token ?? '')}&bbox=${bbox}&fields=id,value,object_value,geometry,images&limit=${Math.max(1, Math.min(2000, limit))}`,
         timeoutMs: 15000,
+        requestId,
       },
       this.fetcher,
     );
@@ -240,6 +255,7 @@ export class MapillaryClient {
   private async fetchImagesByBbox(
     bounds: GeoBounds,
     limit: number,
+    requestId?: string | null,
   ): Promise<{
     images: MapillaryImage[];
     upstreamEnvelopes: FetchJsonEnvelope[];
@@ -253,6 +269,7 @@ export class MapillaryClient {
         provider: 'Mapillary Images API',
         url: `${this.baseUrl}/images?access_token=${encodeURIComponent(token ?? '')}&bbox=${bbox}&fields=id,captured_at,compass_angle,computed_geometry,sequence,thumb_1024_url&limit=${Math.max(1, Math.min(2000, limit))}`,
         timeoutMs: 15000,
+        requestId,
       },
       this.fetcher,
     );
@@ -268,6 +285,7 @@ export class MapillaryClient {
   private async fetchImagesByPoint(
     anchor: Coordinate,
     limit: number,
+    requestId?: string | null,
   ): Promise<{
     images: MapillaryImage[];
     upstreamEnvelopes: FetchJsonEnvelope[];
@@ -280,6 +298,7 @@ export class MapillaryClient {
         provider: 'Mapillary Images API',
         url: `${this.baseUrl}/images?access_token=${encodeURIComponent(token ?? '')}&lat=${anchor.lat}&lng=${anchor.lng}&radius=25&fields=id,captured_at,compass_angle,computed_geometry,sequence,thumb_1024_url&limit=${Math.max(1, Math.min(2000, limit))}`,
         timeoutMs: 15000,
+        requestId,
       },
       this.fetcher,
     );

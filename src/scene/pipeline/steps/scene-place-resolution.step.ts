@@ -10,8 +10,16 @@ import type { ResolvedScenePlace } from '../scene-generation-pipeline.types';
 export class ScenePlaceResolutionStep {
   constructor(private readonly googlePlacesClient: GooglePlacesClient) {}
 
-  async execute(query: string, scale: SceneScale): Promise<ResolvedScenePlace> {
-    const search = await this.googlePlacesClient.searchTextWithEnvelope(query, 1);
+  async execute(
+    query: string,
+    scale: SceneScale,
+    requestId?: string | null,
+  ): Promise<ResolvedScenePlace> {
+    const search = await this.googlePlacesClient.searchTextWithEnvelope(
+      query,
+      1,
+      requestId,
+    );
     const selected = search.items[0];
     if (!selected) {
       throw new AppException({
@@ -24,6 +32,7 @@ export class ScenePlaceResolutionStep {
 
     const detail = await this.googlePlacesClient.getPlaceDetailWithEnvelope(
       selected.placeId,
+      requestId,
     );
     const place = detail.place;
     const radiusM = this.resolveRadius(scale);

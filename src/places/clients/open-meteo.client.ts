@@ -40,6 +40,7 @@ export class OpenMeteoClient {
     place: ExternalPlaceDetail,
     date: string,
     timeOfDay: TimeOfDay,
+    requestId?: string | null,
   ): Promise<WeatherObservation | null> {
     const response = await fetchJson<OpenMeteoResponse>(
       {
@@ -50,6 +51,7 @@ export class OpenMeteoClient {
           `&start_date=${date}&end_date=${date}` +
           '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
           '&timezone=auto',
+        requestId,
       },
       this.fetcher,
     );
@@ -91,37 +93,48 @@ export class OpenMeteoClient {
     place: ExternalPlaceDetail,
     date: string,
     timeOfDay: TimeOfDay,
+    requestId?: string | null,
   ): Promise<WeatherObservation | null> {
     if (this.isTodayForPlace(place, date)) {
-      const current = await this.getCurrentObservation(place);
+      const current = await this.getCurrentObservation(place, requestId);
       if (current) {
         return current;
       }
     }
 
-    return this.getHistoricalObservation(place, date, timeOfDay);
+    return this.getHistoricalObservation(place, date, timeOfDay, requestId);
   }
 
   async getObservationWithEnvelope(
     place: ExternalPlaceDetail,
     date: string,
     timeOfDay: TimeOfDay,
+    requestId?: string | null,
   ): Promise<{
     observation: WeatherObservation | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
     if (this.isTodayForPlace(place, date)) {
-      const current = await this.getCurrentObservationWithEnvelope(place);
+      const current = await this.getCurrentObservationWithEnvelope(
+        place,
+        requestId,
+      );
       if (current.observation) {
         return current;
       }
     }
 
-    return this.getHistoricalObservationWithEnvelope(place, date, timeOfDay);
+    return this.getHistoricalObservationWithEnvelope(
+      place,
+      date,
+      timeOfDay,
+      requestId,
+    );
   }
 
   async getCurrentObservation(
     place: ExternalPlaceDetail,
+    requestId?: string | null,
   ): Promise<WeatherObservation | null> {
     const response = await fetchJson<OpenMeteoResponse>(
       {
@@ -131,6 +144,7 @@ export class OpenMeteoClient {
           `&longitude=${place.location.lng}` +
           '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
           '&timezone=auto',
+        requestId,
       },
       this.fetcher,
     );
@@ -163,7 +177,10 @@ export class OpenMeteoClient {
     };
   }
 
-  async getCurrentObservationWithEnvelope(place: ExternalPlaceDetail): Promise<{
+  async getCurrentObservationWithEnvelope(
+    place: ExternalPlaceDetail,
+    requestId?: string | null,
+  ): Promise<{
     observation: WeatherObservation | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
@@ -175,6 +192,7 @@ export class OpenMeteoClient {
           `&longitude=${place.location.lng}` +
           '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
           '&timezone=auto',
+        requestId,
       },
       this.fetcher,
     );
@@ -217,6 +235,7 @@ export class OpenMeteoClient {
     place: ExternalPlaceDetail,
     date: string,
     timeOfDay: TimeOfDay,
+    requestId?: string | null,
   ): Promise<{
     observation: WeatherObservation | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
@@ -230,6 +249,7 @@ export class OpenMeteoClient {
           `&start_date=${date}&end_date=${date}` +
           '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
           '&timezone=auto',
+        requestId,
       },
       this.fetcher,
     );
