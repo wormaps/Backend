@@ -2,9 +2,18 @@ import { mkdir } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
+import { GlbBuilderService } from '../src/assets/glb-builder.service';
+import { GooglePlacesClient } from '../src/places/clients/google-places.client';
+import { MapillaryClient } from '../src/places/clients/mapillary.client';
+import { OpenMeteoClient } from '../src/places/clients/open-meteo.client';
+import { OverpassClient } from '../src/places/clients/overpass.client';
+import { TomTomTrafficClient } from '../src/places/clients/tomtom-traffic.client';
+import { placeDetail, placePackage } from '../src/scene/scene.service.spec.fixture';
 import { SceneService } from '../src/scene/scene.service';
 import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
 import type { SceneScale } from '../src/scene/types/scene.types';
+
+type BenchmarkMode = 'stubbed' | 'live';
 
 interface BenchmarkSample {
   sceneId: string;
@@ -17,6 +26,7 @@ interface BenchmarkSample {
 }
 
 async function main() {
+  const mode = parseBenchmarkMode(process.env.SCENE_BENCH_MODE?.trim() || 'stubbed');
   const query = process.env.SCENE_BENCH_QUERY?.trim() || 'Seoul City Hall';
   const scale = parseSceneScale(process.env.SCENE_BENCH_SCALE?.trim() || 'MEDIUM');
   const iterations = parsePositiveInteger(
@@ -31,23 +41,42 @@ async function main() {
   const sceneDataDir = getSceneDataDir();
   await mkdir(sceneDataDir, { recursive: true });
 
-  const moduleRef = await Test.createTestingModule({
+  const moduleBuilder = Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  });
 
+  if (mode === 'stubbed') {
+    moduleBuilder
+      .overrideProvider(GooglePlacesClient)
+      .useValue(createGooglePlacesStub())
+      .overrideProvider(OverpassClient)
+      .useValue(createOverpassStub())
+      .overrideProvider(MapillaryClient)
+      .useValue(createMapillaryStub())
+      .overrideProvider(OpenMeteoClient)
+      .useValue(createOpenMeteoStub())
+      .overrideProvider(TomTomTrafficClient)
+      .useValue(createTomTomTrafficStub());
+  }
+
+  const moduleRef = await moduleBuilder.compile();
   const sceneService = moduleRef.get(SceneService);
+  const glbBuilderService = moduleRef.get(GlbBuilderService);
   const samples: BenchmarkSample[] = [];
 
   console.log(
     JSON.stringify(
       {
+        mode,
         query,
         scale,
         iterations,
         concurrency,
         sceneDataDir,
         note:
-          'This benchmark uses the live application wiring. Configure external APIs before running it.',
+          mode === 'live'
+            ? 'Live mode uses external APIs and may fail if credentials or network are unavailable.'
+            : 'Stubbed mode uses fixed fixtures to measure the internal generation path.',
       },
       null,
       2,
@@ -109,10 +138,14 @@ async function main() {
   }
 
   const summary = {
+    mode,
     query,
     scale,
     iterations,
     concurrency,
+    glbBuilder: {
+      provider: glbBuilderService.constructor.name,
+    },
     samples,
     aggregate: {
       createSceneMs: aggregate(samples.map((sample) => sample.createSceneMs)),
@@ -124,6 +157,14 @@ async function main() {
   };
 
   console.log(JSON.stringify(summary, null, 2));
+}
+
+function parseBenchmarkMode(input: string): BenchmarkMode {
+  const normalized = input.toLowerCase();
+  if (normalized === 'live' || normalized === 'stubbed') {
+    return normalized;
+  }
+  throw new Error('Invalid SCENE_BENCH_MODE. Expected live or stubbed.');
 }
 
 function parseSceneScale(input: string): SceneScale {
@@ -161,6 +202,88 @@ function aggregate(values: number[]): {
     min: Number(min.toFixed(2)),
     max: Number(max.toFixed(2)),
     avg: Number(avg.toFixed(2)),
+  };
+}
+
+function createGooglePlacesStub() {
+  const envelope = {
+    provider: 'Google Places',
+    requestedAt: new Date().toISOString(),
+    receivedAt: new Date().toISOString(),
+    url: 'stub://google-places',
+    method: 'POST',
+    request: {},
+    response: { status: 200, body: {} },
+  };
+  return {
+    searchText: async () => [placeDetail],
+    getPlaceDetail: async () => placeDetail,
+    searchTextWithEnvelope: async () => ({
+      items: [placeDetail],
+      envelope,
+    }),
+    getPlaceDetailWithEnvelope: async () => ({
+      place: placeDetail,
+      envelope,
+    }),
+  };
+}
+
+function createOverpassStub() {
+  const upstreamEnvelope = {
+    provider: 'Overpass',
+    requestedAt: new Date().toISOString(),
+    receivedAt: new Date().toISOString(),
+    url: 'stub://overpass',
+    method: 'POST',
+    request: {},
+    response: { status: 200, body: {} },
+  };
+  return {
+    buildPlacePackage: async () => placePackage,
+    buildPlacePackageWithTrace: async () => ({
+      placePackage,
+      upstreamEnvelopes: [upstreamEnvelope],
+    }),
+  };
+}
+
+function createMapillaryStub() {
+  return {
+    isConfigured: () => false,
+    getMapFeaturesWithEnvelope: async () => ({
+      features: [],
+      upstreamEnvelopes: [],
+    }),
+    getNearbyImagesWithDiagnostics: async () => ({
+      images: [],
+      diagnostics: {
+        strategy: 'none',
+        attempts: [],
+      },
+      upstreamEnvelopes: [],
+    }),
+  };
+}
+
+function createOpenMeteoStub() {
+  return {
+    getObservation: async () => null,
+    getHistoricalObservation: async () => null,
+    getObservationWithEnvelope: async () => ({
+      observation: null,
+      upstreamEnvelopes: [],
+    }),
+  };
+}
+
+function createTomTomTrafficStub() {
+  return {
+    getFlowSegment: async () => null,
+    getFlowSegmentWithEnvelope: async () => ({
+      data: null,
+      upstreamEnvelopes: [],
+    }),
   };
 }
 

@@ -67,11 +67,23 @@ export class AppLoggerService {
 
     const error = context.error;
     if (error instanceof Error) {
+      const enrichedError = error as Error & {
+        code?: unknown;
+        detail?: unknown;
+        status?: unknown;
+      };
       return {
         ...context,
         error: {
           name: error.name,
           message: error.message,
+          ...(enrichedError.code !== undefined ? { code: enrichedError.code } : {}),
+          ...(enrichedError.status !== undefined
+            ? { status: enrichedError.status }
+            : {}),
+          ...(enrichedError.detail !== undefined
+            ? { detail: enrichedError.detail }
+            : {}),
         },
       };
     }

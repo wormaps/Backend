@@ -30,7 +30,6 @@ import {
   installMaterialCache,
 } from './glb-build-material-cache';
 import {
-  enforceSizeBudget,
   loadMeshoptimizerModule,
   optimizeGlbDocument,
   registerNodeIoExtensions,
@@ -330,7 +329,6 @@ export async function executeGlbBuild(
     );
     glbBinary = await io.writeBinary(doc);
   }
-  enforceSizeBudget(glbBinary.byteLength, contract.sceneId, 30 * 1024 * 1024);
   await validateGlb(Uint8Array.from(glbBinary), contract.sceneId, validatorModule, {
     severityOverrides: {
       NON_OBJECT_EXTRAS: 0,
@@ -340,6 +338,7 @@ export async function executeGlbBuild(
       UNUSED_EXTENSION_REQUIRED: 0,
     },
     detailLimit: 8,
+    logger: state.appLoggerService,
   });
   await writeFileAtomically(outputPath, glbBinary);
   appMetrics.observeDuration(

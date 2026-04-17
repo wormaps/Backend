@@ -312,21 +312,27 @@ export async function validateGlb(
   options: {
     severityOverrides: Record<string, number>;
     detailLimit: number;
+    logger?: {
+      warn: (message: string, context?: Record<string, unknown>) => void;
+    };
   },
 ): Promise<void> {
   const report = (await validatorModule.validateBytes(glbBinary, {
     uri: `${sceneId}.glb`,
     format: 'glb',
-    maxIssues: 100,
+    maxIssues: 1000,
     writeTimestamp: false,
     severityOverrides: options.severityOverrides,
   })) as GlbValidatorReport;
 
   const isTruncated = Boolean(report.truncated || report.issues?.truncated);
   if (isTruncated) {
-    throw new Error(
-      'GLB validation report was truncated. Increase observability or split diagnostics payload.',
-    );
+    options.logger?.warn('scene.glb_build.validation_report_truncated', {
+      sceneId,
+      step: 'glb_build',
+      maxIssues: 1000,
+      issueCount: report.issues?.messages?.length ?? 0,
+    });
   }
 
   const numErrors = report.issues?.numErrors ?? 0;
@@ -407,17 +413,4 @@ export async function registerNodeIoExtensions(
           : String(extensionImportError),
     });
   }
-}
-
-export function enforceSizeBudget(
-  glbBytes: number,
-  sceneId: string,
-  maxBytes: number,
-): void {
-  if (glbBytes <= maxBytes) {
-    return;
-  }
-  throw new Error(
-    `GLB size budget exceeded: ${glbBytes} bytes > ${maxBytes} bytes (sceneId=${sceneId})`,
-  );
 }

@@ -19,6 +19,7 @@
     "test:cov": "bun test --coverage test",
     "bench:scene": "bun run scripts/scene-benchmark.ts",
     "scene:shibuya": "bun run scripts/run-shibuya-scene.ts",
+    "scene:akihabara": "bun run scripts/run-akihabara-scene.ts",
     "scene:qa-table": "bun run scripts/build-scene-qa-table.ts",
     "audit:mvp": "node -r ts-node/register/transpile-only scripts/run-be-mvp-audit.ts"
   },

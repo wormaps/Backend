@@ -787,10 +787,16 @@ GLB 결과물 품질 향상 및 빌드 성능 최적화
 
 #### 작업
 
-- [ ] 씬 생성 latency 측정
-- [ ] GLB 빌드 시간 측정
-- [ ] 메모리 사용량 측정
-- [ ] 동시 요청 처리 능력 측정
+- [x] 씬 생성 latency 측정
+- [x] GLB 빌드 시간 측정
+- [x] 메모리 사용량 측정
+- [x] 동시 요청 처리 능력 측정
+
+#### 측정 메모
+
+- stubbed mode 벤치마크 수행 완료
+- live mode는 Google Places 요청 실패로 현재 환경에서 완료되지 않음
+- 결과는 [`docs/scene-validation-and-benchmark.md`](/Users/user/wormapb/docs/scene-validation-and-benchmark.md)에 기록
 
 **성공 기준**:
 

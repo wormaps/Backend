@@ -52,3 +52,50 @@ SCENE_BENCH_QUERY="Seoul City Hall" SCENE_BENCH_ITERATIONS=3 bun run bench:scene
 - Phase 6.2는 벤치 실행 진입점을 제공하는 단계다.
 - 실제 목표치 충족 여부는 운영 환경에서 별도 측정 결과로 판단한다.
 - Phase 6.3는 이 문서와 README의 검증 섹션을 기준으로 삼는다.
+
+## 5. 현재 측정 결과
+
+### Stubbed mode
+
+- Query: `Seoul City Hall`
+- Scale: `MEDIUM`
+- Iterations: `1`
+- Concurrency: `2`
+
+Observed values:
+
+- `createSceneMs`: `8.78ms`
+- `waitForIdleMs`: `147.72ms`
+- `totalMs`: `156.50ms`
+- `rssMb`: `218.25MB`
+- `heapUsedMb`: `30.94MB`
+- concurrent batch `totalMs`: `71.54ms`
+- concurrent batch `uniqueSceneIds`: `1`
+
+### Live mode
+
+- 현재 로컬 환경에서는 Google Places 요청 실패로 live benchmark가 완료되지 않았다.
+- 따라서 위 수치는 stubbed mode 기준이며, 운영 환경 live 재측정이 필요하다.
+
+## 6. Akihabara run
+
+### Generation
+
+- Script: [`scripts/run-akihabara-scene.ts`](/Users/user/wormapb/scripts/run-akihabara-scene.ts)
+- Result: `FAILED`
+- Failure reason: `Google Places Text Search 요청에 실패했습니다.`
+
+### Benchmark
+
+- Mode: `stubbed`
+- Query: `Akihabara, Tokyo`
+- Iterations: `1`
+- Concurrency: `1`
+
+Observed values:
+
+- `createSceneMs`: `7.93ms`
+- `waitForIdleMs`: `170.19ms`
+- `totalMs`: `178.12ms`
+- `rssMb`: `216.59MB`
+- `heapUsedMb`: `30.95MB`
