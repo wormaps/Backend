@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
-import { SceneFacadeVisionService } from './scene-facade-vision.service';
+import { SceneFacadeAtmosphereService } from './scene-facade-atmosphere.service';
 
 @Injectable()
 export class SceneAtmosphereRecomputeService {
   constructor(
-    private readonly sceneFacadeVisionService: SceneFacadeVisionService,
+    private readonly sceneFacadeAtmosphereService: SceneFacadeAtmosphereService,
   ) {}
 
   recompute(
@@ -13,9 +13,9 @@ export class SceneAtmosphereRecomputeService {
     detail: SceneDetail,
   ): { meta: SceneMeta; detail: SceneDetail } {
     const refreshed =
-      this.sceneFacadeVisionService.refreshAtmosphereProfiles(detail);
+      this.sceneFacadeAtmosphereService.refreshAtmosphereProfiles(detail);
     const materialClasses =
-      this.sceneFacadeVisionService.summarizeMaterialClasses(
+      this.sceneFacadeAtmosphereService.summarizeMaterialClasses(
         detail.facadeHints,
       );
 

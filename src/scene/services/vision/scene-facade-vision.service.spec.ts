@@ -2,11 +2,13 @@ import { SceneFacadeVisionService } from './scene-facade-vision.service';
 import type { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import type { PlacePackage } from '../../../places/types/place.types';
 import { BuildingStyleResolverService } from './building-style-resolver.service';
+import { SceneFacadeAtmosphereService } from './scene-facade-atmosphere.service';
 
 describe('SceneFacadeVisionService', () => {
   const service = new SceneFacadeVisionService(
     new BuildingStyleResolverService(),
   );
+  const atmosphereService = new SceneFacadeAtmosphereService();
 
   const place: ExternalPlaceDetail = {
     provider: 'GOOGLE_PLACES',
@@ -178,6 +180,22 @@ describe('SceneFacadeVisionService', () => {
     }
   });
 
+  it('summarizes facade atmosphere diagnostics', async () => {
+    const hints = await service.buildFacadeHints(place, placePackage, [], []);
+    const diagnostics = atmosphereService.summarizeFacadeContextDiagnostics(
+      hints,
+      placePackage,
+    );
+    const districts =
+      atmosphereService.buildDistrictAtmosphereProfiles(hints);
+    const sceneWide =
+      atmosphereService.resolveSceneWideAtmosphereProfile(districts);
+
+    expect(diagnostics.weakEvidenceCount).toBeGreaterThanOrEqual(0);
+    expect(districts.length).toBeGreaterThanOrEqual(0);
+    expect(sceneWide).toBeDefined();
+  });
+
   it('does not mark weakEvidence when explicit color exists without mapillary data', async () => {
     const hints = await service.buildFacadeHints(
       place,
@@ -282,7 +300,7 @@ describe('SceneFacadeVisionService', () => {
 
   it('summarizes facade context diagnostics for logging', async () => {
     const hints = await service.buildFacadeHints(place, placePackage, [], []);
-    const diagnostics = service.summarizeFacadeContextDiagnostics(
+    const diagnostics = atmosphereService.summarizeFacadeContextDiagnostics(
       hints,
       placePackage,
     );
@@ -305,7 +323,7 @@ describe('SceneFacadeVisionService', () => {
 
   it('preserves district confidence and uses it for district aggregation', async () => {
     const hints = await service.buildFacadeHints(place, placePackage, [], []);
-    const districts = service.buildDistrictAtmosphereProfiles(hints);
+    const districts = atmosphereService.buildDistrictAtmosphereProfiles(hints);
 
     expect(
       hints.every((hint) => typeof hint.districtConfidence === 'number'),

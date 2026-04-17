@@ -6,6 +6,7 @@ import { PlacePackage } from '../../../places/types/place.types';
 import { AppException } from '../../../common/errors/app.exception';
 import { SceneRoadVisionService } from './scene-road-vision.service';
 import { SceneFacadeVisionService } from './scene-facade-vision.service';
+import { SceneFacadeAtmosphereService } from './scene-facade-atmosphere.service';
 import { SceneGeometryDiagnosticsService } from './scene-geometry-diagnostics.service';
 import { SceneSignageVisionService } from './scene-signage-vision.service';
 import { BuildingStyleResolverService } from './building-style-resolver.service';
@@ -147,6 +148,7 @@ describe('SceneVisionService', () => {
       mapillaryClient,
       new SceneRoadVisionService(),
       new SceneFacadeVisionService(new BuildingStyleResolverService()),
+      new SceneFacadeAtmosphereService(),
       new SceneGeometryDiagnosticsService(),
       new SceneSignageVisionService(),
     );

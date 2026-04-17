@@ -1,11 +1,10 @@
 import type { SceneDetail, SceneMeta } from '../../types/scene.types';
 import { SceneAtmosphereRecomputeService } from './scene-atmosphere-recompute.service';
-import { SceneFacadeVisionService } from './scene-facade-vision.service';
-import { BuildingStyleResolverService } from './building-style-resolver.service';
+import { SceneFacadeAtmosphereService } from './scene-facade-atmosphere.service';
 
 describe('SceneAtmosphereRecomputeService', () => {
   const service = new SceneAtmosphereRecomputeService(
-    new SceneFacadeVisionService(new BuildingStyleResolverService()),
+    new SceneFacadeAtmosphereService(),
   );
 
   const meta: SceneMeta = {

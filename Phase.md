@@ -684,11 +684,11 @@ GLB 결과물 품질 향상 및 빌드 성능 최적화
 
 #### 작업
 
-- [ ] 기능별 서브모듈 분리
-  - [ ] `SceneVisionModule` (시각 데이터 수집)
-  - [ ] `SceneGenerationModule` (생성 파이프라인)
-  - [ ] `SceneLiveModule` (실시간 데이터)
-  - [ ] `SceneStorageModule` (저장소)
+- [x] 기능별 서브모듈 분리
+  - [x] `SceneVisionModule` (시각 데이터 수집)
+  - [x] `SceneGenerationModule` (생성 파이프라인)
+  - [x] `SceneLiveModule` (실시간 데이터)
+  - [x] `SceneStorageModule` (저장소)
 
 **참조 파일**:
 

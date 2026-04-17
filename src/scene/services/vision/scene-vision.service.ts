@@ -10,9 +10,11 @@ import {
   SceneVegetationDetail,
 } from '../../types/scene.types';
 import { SceneFacadeVisionService } from './scene-facade-vision.service';
+import { SceneFacadeAtmosphereService } from './scene-facade-atmosphere.service';
 import { SceneGeometryDiagnosticsService } from './scene-geometry-diagnostics.service';
 import { SceneRoadVisionService } from './scene-road-vision.service';
 import { SceneSignageVisionService } from './scene-signage-vision.service';
+import { buildSceneVisionResult } from './scene-vision-result.builder';
 
 interface SceneVisionResult {
   detail: SceneDetail;
@@ -29,6 +31,7 @@ export class SceneVisionService {
     private readonly mapillaryClient: MapillaryClient,
     private readonly sceneRoadVisionService: SceneRoadVisionService,
     private readonly sceneFacadeVisionService: SceneFacadeVisionService,
+    private readonly sceneFacadeAtmosphereService: SceneFacadeAtmosphereService,
     private readonly sceneGeometryDiagnosticsService: SceneGeometryDiagnosticsService,
     private readonly sceneSignageVisionService: SceneSignageVisionService,
   ) {}
@@ -214,110 +217,50 @@ export class SceneVisionService {
     );
 
     const materialClasses =
-      this.sceneFacadeVisionService.summarizeMaterialClasses(facadeHints);
+      this.sceneFacadeAtmosphereService.summarizeMaterialClasses(facadeHints);
     const facadeContextDiagnostics =
-      this.sceneFacadeVisionService.summarizeFacadeContextDiagnostics(
+      this.sceneFacadeAtmosphereService.summarizeFacadeContextDiagnostics(
         facadeHints,
         placePackage,
       );
     const districtAtmosphereProfiles =
-      this.sceneFacadeVisionService.buildDistrictAtmosphereProfiles(
+      this.sceneFacadeAtmosphereService.buildDistrictAtmosphereProfiles(
         facadeHints,
       );
     const sceneWideAtmosphereProfile =
-      this.sceneFacadeVisionService.resolveSceneWideAtmosphereProfile(
+      this.sceneFacadeAtmosphereService.resolveSceneWideAtmosphereProfile(
         districtAtmosphereProfiles,
       );
     const landmarkAnchors = this.sceneSignageVisionService.buildLandmarkAnchors(
       placePackage,
       crossings,
     );
-    const detail: SceneDetail = {
+    return buildSceneVisionResult({
       sceneId,
-      placeId: place.placeId,
-      generatedAt: new Date().toISOString(),
+      place,
+      placePackage,
       detailStatus,
+      mapillaryUsed,
+      mapillaryImageStrategy,
+      mapillaryImageAttempts,
+      mapillaryImages,
+      mapillaryFeatures,
       crossings,
       roadMarkings,
+      roadDecals,
+      intersectionProfiles,
       streetFurniture,
       vegetation,
-      landCovers: placePackage.landCovers,
-      linearFeatures: placePackage.linearFeatures,
       facadeHints,
-      signageClusters,
-      intersectionProfiles,
-      roadDecals,
       geometryDiagnostics,
+      signageClusters,
+      materialClasses,
       facadeContextDiagnostics,
       districtAtmosphereProfiles,
       sceneWideAtmosphereProfile,
-      placeReadabilityDiagnostics: {
-        heroBuildingCount: 0,
-        heroIntersectionCount: new Set(
-          roadDecals
-            .filter((decal) => decal.priority === 'hero')
-            .map((decal) => decal.intersectionId ?? decal.objectId),
-        ).size,
-        scrambleStripeCount: roadDecals.reduce(
-          (total, decal) => total + (decal.stripeSet?.stripeCount ?? 0),
-          0,
-        ),
-        billboardPlaneCount: 0,
-        canopyCount: 0,
-        roofUnitCount: 0,
-        emissiveZoneCount: 0,
-        streetFurnitureRowCount: 0,
-      },
-      annotationsApplied: [],
-      provenance: {
-        mapillaryUsed,
-        mapillaryImageCount: mapillaryImages.length,
-        mapillaryFeatureCount: mapillaryFeatures.length,
-        mapillaryImageStrategy,
-        mapillaryImageAttempts,
-        osmTagCoverage: {
-          coloredBuildings: placePackage.buildings.filter(
-            (building) => building.facadeColor || building.roofColor,
-          ).length,
-          materialBuildings: placePackage.buildings.filter(
-            (building) => building.facadeMaterial || building.roofMaterial,
-          ).length,
-          crossings: crossings.length,
-          streetFurniture: streetFurniture.length,
-          vegetation: vegetation.length,
-        },
-        overrideCount: 0,
-      },
-    };
-
-    return {
-      detail,
-      metaPatch: {
-        detailStatus,
-        visualCoverage: {
-          structure: 1,
-          streetDetail: clampCoverage(
-            0.2 +
-              crossings.length * 0.01 +
-              streetFurniture.length * 0.003 +
-              roadMarkings.length * 0.002,
-          ),
-          landmark: clampCoverage(
-            0.2 + landmarkAnchors.length * 0.12 + signageClusters.length * 0.04,
-          ),
-          signage: clampCoverage(
-            0.1 +
-              signageClusters.length * 0.06 +
-              facadeHints.filter((hint) => hint.signageDensity !== 'low')
-                .length *
-                0.02,
-          ),
-        },
-        materialClasses,
-        landmarkAnchors,
-      },
+      landmarkAnchors,
       providerTrace,
-    };
+    });
   }
 }
 
@@ -349,8 +292,4 @@ function extractUpstreamEnvelopes(
     }
   }
   return [];
-}
-
-function clampCoverage(value: number): number {
-  return Math.max(0, Math.min(1, Number(value.toFixed(2))));
 }
