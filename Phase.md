@@ -661,10 +661,10 @@ GLB 결과물 품질 향상 및 빌드 성능 최적화
 
 #### 분해 대상 (우선순위)
 
-1. [ ] `glb-build-runner.ts` (1,044줄) → 빌드 실행 / 최적화 / 검증 분리
-2. [ ] `scene-geometry-correction.step.ts` (890줄) → 겹침 감지 / 보정 / 검증 분리
-3. [ ] `glb-material-factory.scene.ts` (878줄) → 재질 생성 / 텍스처 / 캐시 분리
-4. [ ] `scene-facade-vision.service.ts` (808줄) → 이미지 분석 / 색상 추출 / 힌트 생성 분리
+1. [x] `glb-build-runner.ts` (1,044줄) → 빌드 실행 / 최적화 / 검증 분리
+2. [x] `scene-geometry-correction.step.ts` (890줄) → 겹침 감지 / 보정 / 검증 분리
+3. [x] `glb-material-factory.scene.ts` (878줄) → 재질 생성 / 텍스처 / 캐시 분리
+4. [x] `scene-facade-vision.service.ts` (808줄) → 이미지 분석 / 색상 추출 / 힌트 생성 분리
 
 **참조 파일**:
 
