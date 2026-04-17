@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { access } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/errors/app.exception';
@@ -22,10 +23,17 @@ import type {
   SceneScale,
   StoredScene,
 } from '../../types/scene.types';
+import {
+  getSceneGenerationQueuePath,
+  releaseSceneGenerationLock,
+  tryAcquireSceneGenerationLock,
+  writeSceneGenerationQueueSnapshot,
+} from '../../storage/scene-storage.utils';
 
 @Injectable()
 export class SceneGenerationService implements OnApplicationShutdown {
   private readonly maxGenerationAttempts = 2;
+  private readonly generationLockOwnerId = randomUUID();
   private readonly generationQueue: string[] = [];
   private readonly queuedSceneIds = new Set<string>();
   private readonly recentFailures: Array<{
@@ -177,6 +185,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
       {},
       'Whether the scene generation queue is currently processing.',
     );
+    void this.persistQueueSnapshot();
   }
 
   private buildRequestKey(query: string, scale: SceneScale): string {
@@ -211,11 +220,32 @@ export class SceneGenerationService implements OnApplicationShutdown {
           continue;
         }
         this.queuedSceneIds.delete(sceneId);
+        const lockAcquired = await tryAcquireSceneGenerationLock(
+          sceneId,
+          this.generationLockOwnerId,
+        );
+        if (!lockAcquired) {
+          this.appLoggerService.warn('scene.generation.lock_skipped', {
+            sceneId,
+            ownerId: this.generationLockOwnerId,
+            step: 'queue',
+          });
+          this.recordQueueMetrics();
+          continue;
+        }
+
         this.currentProcessingSceneId = sceneId;
         this.recordQueueMetrics();
-        await this.processGeneration(sceneId);
-        this.currentProcessingSceneId = null;
-        this.recordQueueMetrics();
+        try {
+          await this.processGeneration(sceneId);
+        } finally {
+          this.currentProcessingSceneId = null;
+          await releaseSceneGenerationLock(
+            sceneId,
+            this.generationLockOwnerId,
+          );
+          this.recordQueueMetrics();
+        }
       }
     } finally {
       this.currentProcessingSceneId = null;
@@ -240,6 +270,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
     await Promise.all(
       [...pending].map((sceneId) => this.failSceneIfUnfinished(sceneId)),
     );
+    await this.persistQueueSnapshot();
   }
 
   private async failSceneIfUnfinished(sceneId: string): Promise<void> {
@@ -670,6 +701,26 @@ export class SceneGenerationService implements OnApplicationShutdown {
       { failureCategory: entry.failureCategory },
       'Total recorded scene failures by category.',
     );
+  }
+
+  private async persistQueueSnapshot(): Promise<void> {
+    try {
+      await writeSceneGenerationQueueSnapshot({
+        ownerId: this.generationLockOwnerId,
+        updatedAt: new Date().toISOString(),
+        isProcessingQueue: this.isProcessingQueue,
+        isShuttingDown: this.isShuttingDown,
+        currentProcessingSceneId: this.currentProcessingSceneId,
+        queuedSceneIds: [...this.queuedSceneIds],
+        queueDepth: this.generationQueue.length,
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.queue.snapshot_failed', {
+        ownerId: this.generationLockOwnerId,
+        sceneGenerationQueuePath: getSceneGenerationQueuePath(),
+        error,
+      });
+    }
   }
 
   private async getStoredScene(sceneId: string): Promise<StoredScene> {

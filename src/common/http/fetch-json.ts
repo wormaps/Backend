@@ -9,6 +9,7 @@ export interface FetchJsonOptions {
   provider: string;
   timeoutMs?: number;
   requestId?: string | null;
+  retryCount?: number;
 }
 
 export interface FetchJsonEnvelope {
@@ -44,41 +45,59 @@ export async function fetchJsonWithEnvelope<T>(
   options: FetchJsonOptions,
   fetcher: FetchLike = fetch,
 ): Promise<{ data: T; envelope: FetchJsonEnvelope }> {
-  let response: Response;
   const requestedAt = new Date().toISOString();
   const startedAt = Date.now();
+  const maxRetries = Math.max(0, options.retryCount ?? 2);
+  let lastResponse: Response | null = null;
+  let attempt = 0;
 
-  try {
-    const headers = new Headers(options.init?.headers);
-    if (options.requestId) {
-      headers.set('x-request-id', options.requestId);
+  while (true) {
+    attempt += 1;
+    try {
+      const headers = new Headers(options.init?.headers);
+      if (options.requestId) {
+        headers.set('x-request-id', options.requestId);
+      }
+      lastResponse = await fetcher(options.url, {
+        ...options.init,
+        headers,
+        signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
+      });
+    } catch (error) {
+      const envelope = buildEnvelope(
+        options,
+        requestedAt,
+        new Date().toISOString(),
+        0,
+        null,
+        error instanceof Error ? error.message : 'unknown',
+      );
+      recordExternalApiMetrics(
+        options.provider,
+        'failure',
+        Date.now() - startedAt,
+      );
+      throw new AppException({
+        code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
+        message: `${options.provider} 요청에 실패했습니다.`,
+        detail: {
+          provider: options.provider,
+          reason: error instanceof Error ? error.message : 'unknown',
+          upstreamEnvelope: envelope,
+        },
+        status: HttpStatus.BAD_GATEWAY,
+      });
     }
-    response = await fetcher(options.url, {
-      ...options.init,
-      headers,
-      signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
-    });
-  } catch (error) {
-    const envelope = buildEnvelope(
-      options,
-      requestedAt,
-      new Date().toISOString(),
-      0,
-      null,
-      error instanceof Error ? error.message : 'unknown',
-    );
-    recordExternalApiMetrics(options.provider, 'failure', Date.now() - startedAt);
-    throw new AppException({
-      code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
-      message: `${options.provider} 요청에 실패했습니다.`,
-      detail: {
-        provider: options.provider,
-        reason: error instanceof Error ? error.message : 'unknown',
-        upstreamEnvelope: envelope,
-      },
-      status: HttpStatus.BAD_GATEWAY,
-    });
+
+    if (lastResponse.status !== 429 || attempt > maxRetries) {
+      break;
+    }
+
+    const retryAfterMs = resolveRetryAfterMs(lastResponse.headers.get('retry-after'));
+    await sleep(Math.max(0, retryAfterMs ?? 0) || 2 ** (attempt - 1) * 250);
   }
+
+  const response = lastResponse as Response;
 
   const text = await response.text();
   const data = text.length > 0 ? tryParseJson(text) : null;
@@ -138,6 +157,24 @@ export async function fetchJsonWithEnvelope<T>(
     data: data as T,
     envelope,
   };
+}
+
+function resolveRetryAfterMs(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) {
+    return seconds * 1000;
+  }
+
+  const dateMs = Date.parse(value);
+  if (Number.isFinite(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+
+  return null;
 }
 
 function recordExternalApiMetrics(
@@ -266,4 +303,11 @@ function sanitizeBody(body: BodyInit | null | undefined): unknown {
     return values;
   }
   return '[non-serializable-body]';
+}
+
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

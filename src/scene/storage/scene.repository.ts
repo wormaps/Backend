@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { StoredScene } from '../types/scene.types';
-import { getSceneDataDir } from './scene-storage.utils';
+import { getSceneDataDir, writeFileAtomically } from './scene-storage.utils';
 
 @Injectable()
 export class SceneRepository {
@@ -23,15 +23,17 @@ export class SceneRepository {
       this.requestIndex.set(requestKey, scene.scene.sceneId);
       this.touchRequestKey(requestKey);
       this.evictOldestRequestKeyIfNeeded();
-      await this.persistIndex();
     }
 
-    await writeFile(
+    await writeFileAtomically(
       this.buildScenePath(scene.scene.sceneId),
       JSON.stringify(scene, null, 2),
       'utf8',
     );
     await this.persistArtifacts(scene);
+    if (requestKey) {
+      await this.persistIndex();
+    }
 
     return scene;
   }
@@ -132,7 +134,7 @@ export class SceneRepository {
   }
 
   private async persistIndex(): Promise<void> {
-    await writeFile(
+    await writeFileAtomically(
       this.indexPath,
       JSON.stringify(Object.fromEntries(this.requestIndex), null, 2),
       'utf8',
@@ -141,7 +143,7 @@ export class SceneRepository {
 
   private async persistArtifacts(scene: StoredScene): Promise<void> {
     if (scene.meta) {
-      await writeFile(
+      await writeFileAtomically(
         this.buildMetaPath(scene.scene.sceneId),
         JSON.stringify(scene.meta, null, 2),
         'utf8',
@@ -151,7 +153,7 @@ export class SceneRepository {
     }
 
     if (scene.detail) {
-      await writeFile(
+      await writeFileAtomically(
         this.buildDetailPath(scene.scene.sceneId),
         JSON.stringify(scene.detail, null, 2),
         'utf8',
@@ -161,7 +163,7 @@ export class SceneRepository {
     }
 
     if (scene.twin) {
-      await writeFile(
+      await writeFileAtomically(
         this.buildTwinPath(scene.scene.sceneId),
         JSON.stringify(scene.twin, null, 2),
         'utf8',
@@ -171,7 +173,7 @@ export class SceneRepository {
     }
 
     if (scene.validation) {
-      await writeFile(
+      await writeFileAtomically(
         this.buildValidationPath(scene.scene.sceneId),
         JSON.stringify(scene.validation, null, 2),
         'utf8',
@@ -181,7 +183,7 @@ export class SceneRepository {
     }
 
     if (scene.qa) {
-      await writeFile(
+      await writeFileAtomically(
         this.buildQaPath(scene.scene.sceneId),
         JSON.stringify(scene.qa, null, 2),
         'utf8',

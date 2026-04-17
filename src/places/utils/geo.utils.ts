@@ -14,9 +14,21 @@ export function normalizeCoordinate(input: LatLngLike): Coordinate | null {
     return null;
   }
 
+  const normalizedLat = Number(lat);
+  const normalizedLng = Number(lng);
+
+  if (
+    normalizedLat < -90 ||
+    normalizedLat > 90 ||
+    normalizedLng < -180 ||
+    normalizedLng > 180
+  ) {
+    return null;
+  }
+
   return {
-    lat: Number(lat),
-    lng: Number(lng),
+    lat: normalizedLat,
+    lng: normalizedLng,
   };
 }
 

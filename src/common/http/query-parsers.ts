@@ -30,13 +30,14 @@ export function parseOptionalEnum<T extends string>(
 }
 
 export function validatePlaceId(placeId: string): string {
-  if (!/^[a-z0-9-]+$/.test(placeId)) {
+  if (!/^[a-z0-9-]+$/.test(placeId) || placeId.length > 256) {
     throw new AppException({
       code: ERROR_CODES.INVALID_PLACE_ID,
       message: 'placeId 형식이 올바르지 않습니다.',
       detail: {
         field: 'placeId',
         received: placeId,
+        maxLength: 256,
       },
       status: HttpStatus.BAD_REQUEST,
     });
@@ -45,14 +46,32 @@ export function validatePlaceId(placeId: string): string {
   return placeId;
 }
 
+export function validateSceneId(sceneId: string): string {
+  if (!/^[a-z0-9-]+$/.test(sceneId) || sceneId.length > 64) {
+    throw new AppException({
+      code: ERROR_CODES.INVALID_SCENE_ID,
+      message: 'sceneId 형식이 올바르지 않습니다.',
+      detail: {
+        field: 'sceneId',
+        received: sceneId,
+        maxLength: 64,
+      },
+      status: HttpStatus.BAD_REQUEST,
+    });
+  }
+
+  return sceneId;
+}
+
 export function validateGooglePlaceId(placeId: string): string {
-  if (!/^[A-Za-z0-9_-]+$/.test(placeId)) {
+  if (!/^[A-Za-z0-9_-]+$/.test(placeId) || placeId.length > 256) {
     throw new AppException({
       code: ERROR_CODES.INVALID_PLACE_ID,
       message: 'googlePlaceId 형식이 올바르지 않습니다.',
       detail: {
         field: 'googlePlaceId',
         received: placeId,
+        maxLength: 256,
       },
       status: HttpStatus.BAD_REQUEST,
     });
@@ -124,4 +143,34 @@ export function parseOptionalIsoDate(
   }
 
   return value;
+}
+
+export function validateLatLngRange(lat: number, lng: number): void {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new AppException({
+      code: ERROR_CODES.INVALID_REQUEST,
+      message: '좌표 값이 올바르지 않습니다.',
+      detail: {
+        field: 'lat,lng',
+        received: { lat, lng },
+      },
+      status: HttpStatus.BAD_REQUEST,
+    });
+  }
+
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new AppException({
+      code: ERROR_CODES.INVALID_REQUEST,
+      message: '좌표 범위가 올바르지 않습니다.',
+      detail: {
+        field: 'lat,lng',
+        received: { lat, lng },
+        allowedRange: {
+          lat: '-90..90',
+          lng: '-180..180',
+        },
+      },
+      status: HttpStatus.BAD_REQUEST,
+    });
+  }
 }

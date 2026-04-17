@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { appMetrics } from '../../../common/metrics/metrics.instance';
@@ -10,6 +10,7 @@ import {
 import {
   appendSceneDiagnosticsLog,
   getSceneDataDir,
+  writeFileAtomically,
 } from '../../../scene/storage/scene-storage.utils';
 import {
   SceneAssetProfileService,
@@ -438,7 +439,7 @@ export class GlbBuildRunner {
       contract.sceneId,
       validatorModule,
     );
-    await writeFile(outputPath, glbBinary);
+    await writeFileAtomically(outputPath, glbBinary);
     appMetrics.observeDuration(
       'glb_build_duration_ms',
       Date.now() - buildStartedAt,
@@ -525,7 +526,7 @@ export class GlbBuildRunner {
       'mode_comparison',
       comparisonReport as unknown as Record<string, unknown>,
     );
-    await writeFile(
+    await writeFileAtomically(
       join(getSceneDataDir(), `${contract.sceneId}.mode-comparison.json`),
       JSON.stringify(comparisonReport, null, 2),
       'utf8',

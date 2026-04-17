@@ -1,7 +1,13 @@
 jest.mock('node:fs/promises', () => ({
   access: jest.fn().mockResolvedValue(undefined),
+  open: jest.fn().mockResolvedValue({
+    writeFile: jest.fn().mockResolvedValue(undefined),
+    close: jest.fn().mockResolvedValue(undefined),
+  }),
   mkdir: jest.fn().mockResolvedValue(undefined),
+  rename: jest.fn().mockResolvedValue(undefined),
   readFile: jest.fn(),
+  stat: jest.fn().mockRejectedValue(new Error('not found')),
   rm: jest.fn().mockResolvedValue(undefined),
   unlink: jest.fn().mockResolvedValue(undefined),
   writeFile: jest.fn().mockResolvedValue(undefined),

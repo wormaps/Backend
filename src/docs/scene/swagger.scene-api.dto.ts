@@ -1,4 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  Length,
+  ValidateNested,
+} from 'class-validator';
 import { ExternalPlaceDetailDto } from '../places/swagger.places.dto';
 import {
   DensityMetricDto,
@@ -23,8 +37,67 @@ import {
   SceneStateResponseDto,
 } from './swagger.scene-state.dto';
 
+class CuratedLandmarkDto {
+  @ApiProperty({ example: 'lm-1' })
+  @IsString()
+  @Length(1, 64)
+  id!: string;
+
+  @ApiProperty({ example: 'Landmark 1' })
+  @IsString()
+  @Length(1, 128)
+  name!: string;
+}
+
+class CuratedFacadeOverrideDto {
+  @ApiProperty({ example: 'building-1' })
+  @IsString()
+  @Length(1, 128)
+  objectId!: string;
+
+  @ApiProperty({ example: ['#ff7755'] })
+  @IsArray()
+  @IsString({ each: true })
+  palette!: string[];
+}
+
+class CuratedSignageOverrideDto {
+  @ApiProperty({ example: 'sign-1' })
+  @IsString()
+  @Length(1, 128)
+  objectId!: string;
+
+  @ApiProperty({ example: 3 })
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  panelCount!: number;
+}
+
+class CuratedAssetPayloadDto {
+  @ApiProperty({ type: [CuratedLandmarkDto], required: false })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CuratedLandmarkDto)
+  landmarks?: CuratedLandmarkDto[];
+
+  @ApiProperty({ type: [CuratedFacadeOverrideDto], required: false })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CuratedFacadeOverrideDto)
+  facadeOverrides?: CuratedFacadeOverrideDto[];
+
+  @ApiProperty({ type: [CuratedSignageOverrideDto], required: false })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CuratedSignageOverrideDto)
+  signageOverrides?: CuratedSignageOverrideDto[];
+}
+
 export class CreateSceneRequestDto {
   @ApiProperty({ example: 'Seoul City Hall' })
+  @IsString()
+  @Length(1, 200)
   query!: string;
 
   @ApiProperty({
@@ -32,6 +105,8 @@ export class CreateSceneRequestDto {
     enum: ['SMALL', 'MEDIUM', 'LARGE'],
     example: 'MEDIUM',
   })
+  @IsOptional()
+  @IsIn(['SMALL', 'MEDIUM', 'LARGE'])
   scale?: string;
 
   @ApiProperty({
@@ -40,6 +115,8 @@ export class CreateSceneRequestDto {
     description:
       'true이면 동일 query/scale의 READY scene이 있어도 재사용하지 않습니다.',
   })
+  @IsOptional()
+  @IsBoolean()
   forceRegenerate?: boolean;
 
   @ApiProperty({
@@ -55,11 +132,10 @@ export class CreateSceneRequestDto {
     description:
       'Optional curated asset payload used by scene fidelity planner.',
   })
-  curatedAssetPayload?: {
-    landmarks?: Array<{ id: string; name: string }>;
-    facadeOverrides?: Array<{ objectId: string; palette: string[] }>;
-    signageOverrides?: Array<{ objectId: string; panelCount: number }>;
-  };
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CuratedAssetPayloadDto)
+  curatedAssetPayload?: CuratedAssetPayloadDto;
 }
 
 export class SceneEntityDto {

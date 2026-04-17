@@ -25,7 +25,7 @@ import {
   parseOptionalEnum,
   parseOptionalIsoDate,
   parseRequiredQuery,
-  validatePlaceId,
+  validateSceneId,
 } from '../common/http/query-parsers';
 import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/decorators';
 import {
@@ -44,7 +44,6 @@ import {
   ValidationReportDto,
   SceneWeatherResponseDto,
 } from '../docs/scene';
-import type { StoredSceneCuratedAssetPayload } from './types/scene.types';
 import {
   TIME_OF_DAY_VALUES,
   WEATHER_VALUES,
@@ -90,22 +89,17 @@ export class SceneController {
   })
   async createScene(
     @Req() request: Request,
-    @Body('query') query?: string,
-    @Body('scale') rawScale?: string,
-    @Body('forceRegenerate') rawForceRegenerate?: boolean | string,
-    @Body('curatedAssetPayload')
-    curatedAssetPayload?: StoredSceneCuratedAssetPayload,
+    @Body() body: CreateSceneRequestDto,
   ): Promise<ResponsePayload<SceneEntity>> {
-    const validatedQuery = parseRequiredQuery(query, 'query');
+    const validatedQuery = parseRequiredQuery(body.query, 'query');
     const scale = parseOptionalEnum(
-      rawScale,
+      body.scale,
       SCENE_SCALE_VALUES,
       ERROR_CODES.INVALID_SCENE_SCALE,
       'scale',
     );
     const requestContext = ensureRequestContext(request);
-    const forceRegenerate =
-      rawForceRegenerate === true || rawForceRegenerate === 'true';
+    const forceRegenerate = body.forceRegenerate === true;
 
     return {
       message: 'Scene 생성에 성공했습니다.',
@@ -116,7 +110,7 @@ export class SceneController {
           forceRegenerate,
           requestId: requestContext.requestId,
           source: 'api',
-          curatedAssetPayload,
+          curatedAssetPayload: body.curatedAssetPayload,
         },
       ),
     };
@@ -172,7 +166,7 @@ export class SceneController {
     @Param('sceneId') sceneId: string,
     @Query('limit') rawLimit?: string,
   ): Promise<ResponsePayload<SceneDiagnosticsResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
     const parsed = Number(rawLimit ?? '200');
     const limit = Number.isFinite(parsed)
       ? Math.max(1, Math.min(500, parsed))
@@ -191,7 +185,7 @@ export class SceneController {
   getScene(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<SceneEntity>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getScene(validatedSceneId).then((data) => ({
       message: 'Scene 기본 정보 조회에 성공했습니다.',
@@ -206,7 +200,7 @@ export class SceneController {
     @Param('sceneId') sceneId: string,
     @Res() response: Response,
   ): Promise<void> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
     await this.sceneService.getBootstrap(validatedSceneId);
     response.sendFile(join(getSceneDataDir(), `${validatedSceneId}.glb`));
   }
@@ -218,7 +212,7 @@ export class SceneController {
   getSceneMeta(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<SceneMeta>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getSceneMeta(validatedSceneId).then((data) => ({
       message: 'Scene meta 조회에 성공했습니다.',
@@ -233,7 +227,7 @@ export class SceneController {
   getBootstrap(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<BootstrapResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getBootstrap(validatedSceneId).then((data) => ({
       message: 'Scene bootstrap 조회에 성공했습니다.',
@@ -248,7 +242,7 @@ export class SceneController {
   getDetail(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<SceneDetail>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getSceneDetail(validatedSceneId).then((data) => ({
       message: 'Scene detail 조회에 성공했습니다.',
@@ -263,7 +257,7 @@ export class SceneController {
   getTwin(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<SceneTwinGraph>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getSceneTwin(validatedSceneId).then((data) => ({
       message: 'Scene twin graph 조회에 성공했습니다.',
@@ -278,7 +272,7 @@ export class SceneController {
   getValidation(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<ValidationReport>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService
       .getValidationReport(validatedSceneId)
@@ -295,7 +289,7 @@ export class SceneController {
   getEvidence(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<TwinEvidence[]>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService
       .getSceneEvidence(validatedSceneId)
@@ -312,7 +306,7 @@ export class SceneController {
   getQa(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<MidQaReport>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getMidQaReport(validatedSceneId).then((data) => ({
       message: 'Scene 중간 QA report 조회에 성공했습니다.',
@@ -327,7 +321,7 @@ export class SceneController {
   getPlaces(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<ScenePlacesResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return this.sceneService.getPlaces(validatedSceneId).then((data) => ({
       message: 'Scene places overlay 조회에 성공했습니다.',
@@ -351,7 +345,7 @@ export class SceneController {
     @Query('date') rawDate?: string,
     @Query('timeOfDay') rawTimeOfDay?: string,
   ): Promise<ResponsePayload<SceneWeatherResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
     const timeOfDay = parseOptionalEnum(
       rawTimeOfDay,
       TIME_OF_DAY_VALUES,
@@ -387,7 +381,7 @@ export class SceneController {
     @Query('timeOfDay') rawTimeOfDay?: string,
     @Query('weather') rawWeather?: string,
   ): Promise<ResponsePayload<SceneStateResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
     const timeOfDay = parseOptionalEnum(
       rawTimeOfDay,
       TIME_OF_DAY_VALUES,
@@ -434,7 +428,7 @@ export class SceneController {
     @Query('kind') rawKind?: string,
     @Query('objectId') rawObjectId?: string,
   ): Promise<ResponsePayload<SceneEntityStateResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
     const timeOfDay = parseOptionalEnum(
       rawTimeOfDay,
       TIME_OF_DAY_VALUES,
@@ -474,7 +468,7 @@ export class SceneController {
   async getTraffic(
     @Param('sceneId') sceneId: string,
   ): Promise<ResponsePayload<SceneTrafficResponse>> {
-    const validatedSceneId = validatePlaceId(sceneId);
+    const validatedSceneId = validateSceneId(sceneId);
 
     return {
       message: 'Scene traffic 조회에 성공했습니다.',
