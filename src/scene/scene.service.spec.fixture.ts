@@ -1,6 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
+import { vi } from 'bun:test';
 import { TtlCacheService } from '../cache/ttl-cache.service';
 import { GlbBuilderService } from '../assets/glb-builder.service';
 import { AppLoggerService } from '../common/logging/app-logger.service';
@@ -43,7 +44,10 @@ import {
   SceneWeatherLiveService,
   SceneVisionService,
 } from './services';
+import { SceneFacadeAtmosphereService } from './services/vision/scene-facade-atmosphere.service';
 import { SceneRepository } from './storage/scene.repository';
+
+type MockedFunction<T extends (...args: any[]) => any> = ReturnType<typeof vi.fn>;
 
 export const placeDetail: ExternalPlaceDetail = {
   provider: 'GOOGLE_PLACES',
@@ -147,57 +151,53 @@ export interface SceneSpecContext {
   repository: SceneRepository;
   ttlCacheService: TtlCacheService;
   glbBuilderService: {
-    build: jest.MockedFunction<GlbBuilderService['build']>;
+    build: MockedFunction<GlbBuilderService['build']>;
   };
   googlePlacesClient: {
-    searchText: jest.MockedFunction<GooglePlacesClient['searchText']>;
-    getPlaceDetail: jest.MockedFunction<GooglePlacesClient['getPlaceDetail']>;
-    searchTextWithEnvelope: jest.MockedFunction<
+    searchText: MockedFunction<GooglePlacesClient['searchText']>;
+    getPlaceDetail: MockedFunction<GooglePlacesClient['getPlaceDetail']>;
+    searchTextWithEnvelope: MockedFunction<
       GooglePlacesClient['searchTextWithEnvelope']
     >;
-    getPlaceDetailWithEnvelope: jest.MockedFunction<
+    getPlaceDetailWithEnvelope: MockedFunction<
       GooglePlacesClient['getPlaceDetailWithEnvelope']
     >;
   };
   overpassClient: {
-    buildPlacePackage: jest.MockedFunction<OverpassClient['buildPlacePackage']>;
-    buildPlacePackageWithTrace: jest.MockedFunction<
+    buildPlacePackage: MockedFunction<OverpassClient['buildPlacePackage']>;
+    buildPlacePackageWithTrace: MockedFunction<
       OverpassClient['buildPlacePackageWithTrace']
     >;
   };
   openMeteoClient: {
-    getObservation: jest.MockedFunction<OpenMeteoClient['getObservation']>;
-    getHistoricalObservation: jest.MockedFunction<
+    getObservation: MockedFunction<OpenMeteoClient['getObservation']>;
+    getHistoricalObservation: MockedFunction<
       OpenMeteoClient['getHistoricalObservation']
     >;
-    getObservationWithEnvelope: jest.MockedFunction<
+    getObservationWithEnvelope: MockedFunction<
       OpenMeteoClient['getObservationWithEnvelope']
     >;
   };
   tomTomTrafficClient: {
-    getFlowSegment: jest.MockedFunction<TomTomTrafficClient['getFlowSegment']>;
-    getFlowSegmentWithEnvelope: jest.MockedFunction<
+    getFlowSegment: MockedFunction<TomTomTrafficClient['getFlowSegment']>;
+    getFlowSegmentWithEnvelope: MockedFunction<
       TomTomTrafficClient['getFlowSegmentWithEnvelope']
     >;
   };
   sceneVisionService: {
-    buildSceneVision: jest.MockedFunction<
-      SceneVisionService['buildSceneVision']
-    >;
+    buildSceneVision: MockedFunction<SceneVisionService['buildSceneVision']>;
   };
   sceneHeroOverrideService: {
-    applyOverrides: jest.MockedFunction<
-      SceneHeroOverrideService['applyOverrides']
-    >;
+    applyOverrides: MockedFunction<SceneHeroOverrideService['applyOverrides']>;
   };
   qualityGateService: {
-    evaluate: jest.MockedFunction<SceneQualityGateService['evaluate']>;
+    evaluate: MockedFunction<SceneQualityGateService['evaluate']>;
   };
   appLoggerService: {
-    info: jest.MockedFunction<AppLoggerService['info']>;
-    warn: jest.MockedFunction<AppLoggerService['warn']>;
-    error: jest.MockedFunction<AppLoggerService['error']>;
-    fromRequest: jest.MockedFunction<AppLoggerService['fromRequest']>;
+    info: MockedFunction<AppLoggerService['info']>;
+    warn: MockedFunction<AppLoggerService['warn']>;
+    error: MockedFunction<AppLoggerService['error']>;
+    fromRequest: MockedFunction<AppLoggerService['fromRequest']>;
   };
 }
 
@@ -245,56 +245,57 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       {
         provide: GlbBuilderService,
         useValue: {
-          build: jest.fn().mockResolvedValue('/tmp/scene.glb'),
+          build: vi.fn().mockResolvedValue('/tmp/scene.glb'),
         },
       },
       {
         provide: GooglePlacesClient,
         useValue: {
-          searchText: jest.fn(),
-          getPlaceDetail: jest.fn(),
-          searchTextWithEnvelope: jest.fn(),
-          getPlaceDetailWithEnvelope: jest.fn(),
+          searchText: vi.fn(),
+          getPlaceDetail: vi.fn(),
+          searchTextWithEnvelope: vi.fn(),
+          getPlaceDetailWithEnvelope: vi.fn(),
         },
       },
       {
         provide: OverpassClient,
         useValue: {
-          buildPlacePackage: jest.fn(),
-          buildPlacePackageWithTrace: jest.fn(),
+          buildPlacePackage: vi.fn(),
+          buildPlacePackageWithTrace: vi.fn(),
         },
       },
       {
         provide: OpenMeteoClient,
         useValue: {
-          getObservation: jest.fn(),
-          getHistoricalObservation: jest.fn(),
-          getObservationWithEnvelope: jest.fn(),
+          getObservation: vi.fn(),
+          getHistoricalObservation: vi.fn(),
+          getObservationWithEnvelope: vi.fn(),
         },
       },
       {
         provide: TomTomTrafficClient,
         useValue: {
-          getFlowSegment: jest.fn(),
-          getFlowSegmentWithEnvelope: jest.fn(),
+          getFlowSegment: vi.fn(),
+          getFlowSegmentWithEnvelope: vi.fn(),
         },
       },
       {
         provide: SceneVisionService,
         useValue: {
-          buildSceneVision: jest.fn(),
+          buildSceneVision: vi.fn(),
         },
       },
+      SceneFacadeAtmosphereService,
       {
         provide: SceneHeroOverrideService,
         useValue: {
-          applyOverrides: jest.fn(),
+          applyOverrides: vi.fn(),
         },
       },
       {
         provide: SceneQualityGateService,
         useValue: {
-          evaluate: jest.fn().mockResolvedValue({
+          evaluate: vi.fn().mockResolvedValue({
             version: 'qg.v1',
             state: 'PASS',
             reasonCodes: [],
@@ -343,16 +344,16 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       {
         provide: MapillaryClient,
         useValue: {
-          isConfigured: jest.fn().mockReturnValue(false),
+          isConfigured: vi.fn().mockReturnValue(false),
         },
       },
       {
         provide: AppLoggerService,
         useValue: {
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-          fromRequest: jest.fn(),
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          fromRequest: vi.fn(),
         },
       },
     ],

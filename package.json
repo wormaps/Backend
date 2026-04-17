@@ -14,11 +14,9 @@
     "start:prod": "node dist/main",
     "type-check": "tsc --noEmit",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "bun test test",
+    "test:watch": "bun test --watch test",
+    "test:cov": "bun test --coverage test",
     "scene:shibuya": "bun run scripts/run-shibuya-scene.ts",
     "scene:qa-table": "bun run scripts/build-scene-qa-table.ts",
     "audit:mvp": "node -r ts-node/register/transpile-only scripts/run-be-mvp-audit.ts"
@@ -51,41 +49,21 @@
     "@nestjs/cli": "^11.0.21",
     "@nestjs/schematics": "^11.0.10",
     "@nestjs/testing": "^11.1.19",
+    "@types/bun": "latest",
     "@types/express": "^5.0.6",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.12.2",
     "@types/supertest": "^7.2.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "globals": "^17.5.0",
-    "jest": "^30.3.0",
     "prettier": "^3.8.3",
     "source-map-support": "^0.5.21",
     "supertest": "^7.2.2",
-    "ts-jest": "^29.4.9",
     "ts-loader": "^9.5.7",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.2",
-    "@types/bun": "latest"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "typescript-eslint": "^8.58.2"
   }
 }
