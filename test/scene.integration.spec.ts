@@ -263,6 +263,43 @@ describe('Phase 6 scene integration', () => {
     );
   });
 
+  it('continues generation when Mapillary is unavailable', async () => {
+    await cleanupSceneSpecContext(context);
+    context = await createSceneSpecContext({ realSceneVision: true });
+    const target = context!;
+    seedHappyPathMocks(target);
+    target.mapillaryClient.isConfigured.mockReturnValue(true);
+    target.mapillaryClient.getMapFeaturesWithEnvelope.mockRejectedValue(
+      new Error('mapillary unavailable'),
+    );
+    target.mapillaryClient.getNearbyImagesWithDiagnostics.mockResolvedValue({
+      images: [],
+      diagnostics: {
+        strategy: 'none',
+        attempts: [],
+      },
+      upstreamEnvelopes: [],
+    });
+
+    const scene = await target.generationService.createScene(
+      'Mapillary Failure Place',
+      'MEDIUM',
+    );
+    await target.generationService.waitForIdle();
+    const readScene = await target.readService.getScene(scene.sceneId);
+    const bootstrap = await target.readService.getBootstrap(scene.sceneId);
+
+    expect(readScene.status).toBe('READY');
+    expect(bootstrap.detailStatus).toBe('PARTIAL');
+    expect(bootstrap.glbSources.mapillary).toBe(false);
+    expect(target.mapillaryClient.getMapFeaturesWithEnvelope).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      target.mapillaryClient.getNearbyImagesWithDiagnostics,
+    ).not.toHaveBeenCalled();
+  });
+
   it('fails when GLB build keeps failing', async () => {
     const target = context!;
     seedHappyPathMocks(target);

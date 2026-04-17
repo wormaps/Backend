@@ -32,6 +32,7 @@ import {
   SceneFacadeVisionService,
   SceneFidelityPlannerService,
   SceneGenerationService,
+  SceneGeometryDiagnosticsService,
   SceneMidQaService,
   SceneQualityGateService,
   SceneHeroOverrideService,
@@ -39,9 +40,11 @@ import {
   SceneReadService,
   SceneStateLiveService,
   SceneTerrainProfileService,
+  SceneRoadVisionService,
   SceneTrafficLiveService,
   SceneTwinBuilderService,
   SceneWeatherLiveService,
+  SceneSignageVisionService,
   SceneVisionService,
 } from './services';
 import { SceneFacadeAtmosphereService } from './services/vision/scene-facade-atmosphere.service';
@@ -153,6 +156,15 @@ export interface SceneSpecContext {
   glbBuilderService: {
     build: MockedFunction<GlbBuilderService['build']>;
   };
+  mapillaryClient: {
+    isConfigured: MockedFunction<MapillaryClient['isConfigured']>;
+    getMapFeaturesWithEnvelope: MockedFunction<
+      MapillaryClient['getMapFeaturesWithEnvelope']
+    >;
+    getNearbyImagesWithDiagnostics: MockedFunction<
+      MapillaryClient['getNearbyImagesWithDiagnostics']
+    >;
+  };
   googlePlacesClient: {
     searchText: MockedFunction<GooglePlacesClient['searchText']>;
     getPlaceDetail: MockedFunction<GooglePlacesClient['getPlaceDetail']>;
@@ -201,7 +213,9 @@ export interface SceneSpecContext {
   };
 }
 
-export async function createSceneSpecContext(): Promise<SceneSpecContext> {
+export async function createSceneSpecContext(options?: {
+  realSceneVision?: boolean;
+}): Promise<SceneSpecContext> {
   const testSceneDataDir = join(process.cwd(), 'data', 'scene', '.spec-temp');
   await rm(testSceneDataDir, { recursive: true, force: true });
   await mkdir(testSceneDataDir, { recursive: true });
@@ -219,6 +233,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneFidelityPlannerService,
       SceneQualityGateService,
       SceneGenerationPipelineService,
+      SceneGeometryDiagnosticsService,
       ScenePlaceResolutionStep,
       ScenePlacePackageStep,
       SceneVisualRulesStep,
@@ -235,6 +250,8 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
       SceneLiveDataService,
       SceneMidQaService,
       SceneTerrainProfileService,
+      SceneRoadVisionService,
+      SceneSignageVisionService,
       SceneTwinBuilderService,
       SceneRepository,
       {
@@ -279,12 +296,16 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
           getFlowSegmentWithEnvelope: vi.fn(),
         },
       },
-      {
-        provide: SceneVisionService,
-        useValue: {
-          buildSceneVision: vi.fn(),
-        },
-      },
+      ...(options?.realSceneVision
+        ? [SceneVisionService]
+        : [
+            {
+              provide: SceneVisionService,
+              useValue: {
+                buildSceneVision: vi.fn(),
+              },
+            },
+          ]),
       SceneFacadeAtmosphereService,
       {
         provide: SceneHeroOverrideService,
@@ -345,6 +366,8 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
         provide: MapillaryClient,
         useValue: {
           isConfigured: vi.fn().mockReturnValue(false),
+          getMapFeaturesWithEnvelope: vi.fn(),
+          getNearbyImagesWithDiagnostics: vi.fn(),
         },
       },
       {
@@ -368,6 +391,9 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
   const glbBuilderService = module.get(
     GlbBuilderService,
   ) as SceneSpecContext['glbBuilderService'];
+  const mapillaryClient = module.get(
+    MapillaryClient,
+  ) as SceneSpecContext['mapillaryClient'];
   const googlePlacesClient = module.get(
     GooglePlacesClient,
   ) as SceneSpecContext['googlePlacesClient'];
@@ -396,54 +422,56 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
   await repository.clear();
   ttlCacheService.clear();
 
-  sceneVisionService.buildSceneVision.mockResolvedValue({
-    detail: {
-      sceneId: 'scene-seoul-city-hall',
-      placeId: placeDetail.placeId,
-      generatedAt: '2026-04-04T00:00:00Z',
-      detailStatus: 'OSM_ONLY',
-      crossings: [],
-      roadMarkings: [],
-      streetFurniture: [],
-      vegetation: [],
-      landCovers: [],
-      linearFeatures: [],
-      facadeHints: [],
-      signageClusters: [],
-      staticAtmosphere: {
-        preset: 'DAY_CLEAR',
-        emissiveBoost: 1,
-        roadRoughnessScale: 1,
-        wetRoadBoost: 0,
-      },
-      annotationsApplied: [],
-      provenance: {
-        mapillaryUsed: false,
-        mapillaryImageCount: 0,
-        mapillaryFeatureCount: 0,
-        osmTagCoverage: {
-          coloredBuildings: 0,
-          materialBuildings: 0,
-          crossings: 0,
-          streetFurniture: 0,
-          vegetation: 0,
+  if (!options?.realSceneVision) {
+    sceneVisionService.buildSceneVision.mockResolvedValue({
+      detail: {
+        sceneId: 'scene-seoul-city-hall',
+        placeId: placeDetail.placeId,
+        generatedAt: '2026-04-04T00:00:00Z',
+        detailStatus: 'OSM_ONLY',
+        crossings: [],
+        roadMarkings: [],
+        streetFurniture: [],
+        vegetation: [],
+        landCovers: [],
+        linearFeatures: [],
+        facadeHints: [],
+        signageClusters: [],
+        staticAtmosphere: {
+          preset: 'DAY_CLEAR',
+          emissiveBoost: 1,
+          roadRoughnessScale: 1,
+          wetRoadBoost: 0,
         },
-        overrideCount: 0,
+        annotationsApplied: [],
+        provenance: {
+          mapillaryUsed: false,
+          mapillaryImageCount: 0,
+          mapillaryFeatureCount: 0,
+          osmTagCoverage: {
+            coloredBuildings: 0,
+            materialBuildings: 0,
+            crossings: 0,
+            streetFurniture: 0,
+            vegetation: 0,
+          },
+          overrideCount: 0,
+        },
       },
-    },
-    metaPatch: {
-      detailStatus: 'OSM_ONLY',
-      visualCoverage: {
-        structure: 1,
-        streetDetail: 0.2,
-        landmark: 0.2,
-        signage: 0.1,
+      metaPatch: {
+        detailStatus: 'OSM_ONLY',
+        visualCoverage: {
+          structure: 1,
+          streetDetail: 0.2,
+          landmark: 0.2,
+          signage: 0.1,
+        },
+        materialClasses: [],
+        landmarkAnchors: [],
       },
-      materialClasses: [],
-      landmarkAnchors: [],
-    },
-    providerTrace: null,
-  });
+      providerTrace: null,
+    });
+  }
   sceneHeroOverrideService.applyOverrides.mockImplementation(
     (_place, meta, detail) => ({
       meta,
@@ -484,6 +512,7 @@ export async function createSceneSpecContext(): Promise<SceneSpecContext> {
     repository,
     ttlCacheService,
     glbBuilderService,
+    mapillaryClient,
     googlePlacesClient,
     overpassClient,
     openMeteoClient,

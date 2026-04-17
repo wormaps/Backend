@@ -17,6 +17,7 @@
     "test": "bun test test",
     "test:watch": "bun test --watch test",
     "test:cov": "bun test --coverage test",
+    "bench:scene": "bun run scripts/scene-benchmark.ts",
     "scene:shibuya": "bun run scripts/run-shibuya-scene.ts",
     "scene:qa-table": "bun run scripts/build-scene-qa-table.ts",
     "audit:mvp": "node -r ts-node/register/transpile-only scripts/run-be-mvp-audit.ts"
@@ -47,7 +48,7 @@
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.39.4",
     "@nestjs/cli": "^11.0.21",
-    "@nestjs/schematics": "^11.0.10",
+    "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.19",
     "@types/bun": "latest",
     "@types/express": "^5.0.6",
@@ -63,7 +64,7 @@
     "ts-loader": "^9.5.7",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2"
   }
 }

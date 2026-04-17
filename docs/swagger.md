@@ -16,6 +16,8 @@ http://localhost:3000/docs-json
 ## 현재 문서화된 범위
 
 - `GET /api/health`
+- `GET /api/health/liveness`
+- `GET /api/health/readiness`
 - `GET /api/places`
 - `GET /api/places/search`
 - `GET /api/places/{placeId}`
@@ -34,6 +36,15 @@ http://localhost:3000/docs-json
 - `GET /api/scenes/{sceneId}/traffic`
 - `GET /api/scenes/{sceneId}/weather`
 - `GET /api/scenes/{sceneId}/places`
+- `GET /api/scenes/debug/queue`
+- `GET /api/scenes/debug/failures`
+- `GET /api/scenes/{sceneId}/diagnostics`
+
+## 운영 메트릭
+
+- `GET /api/metrics`
+- Prometheus 스타일 텍스트 응답을 반환합니다.
+- 운영용 경로이므로 일반 JSON envelope 대상이 아닙니다.
 
 ## 문서 원칙
 

@@ -41,11 +41,12 @@ http://localhost:3000/docs
 ```bash
 bun run type-check
 bun test
-bun run test:e2e
+bun run bench:scene
 ```
 
-- 유닛 테스트는 `src/**/*.spec.ts` 에 co-located로 둡니다.
-- e2e 테스트는 `test/` 폴더에 둡니다.
+- 테스트 코드는 `test/` 폴더에 둡니다.
+- `src/` 내부에는 테스트를 두지 않습니다.
+- 벤치마크는 `bun run bench:scene` 으로 실행합니다.
 
 시부야 smoke:
 
@@ -89,6 +90,14 @@ bun run scene:shibuya
 
 - 대형 파일 분해(500 LOC 기준) 결과 및 모듈 책임:
   - `docs/oversized-file-modularization-notes.md`
+- 아키텍처 개요:
+  - `docs/architecture.md`
+- 배포 가이드:
+  - `docs/deployment-guide.md`
+- 운영 매뉴얼:
+  - `docs/operations-manual.md`
+- 검증 및 벤치마크 운영 기준:
+  - `docs/scene-validation-and-benchmark.md`
 
 ## 폴더 구조 원칙 (Domain Root Minimal)
 
