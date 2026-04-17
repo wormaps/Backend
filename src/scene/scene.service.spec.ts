@@ -397,6 +397,51 @@ describe('Scene Services', () => {
     expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(1);
   });
 
+  it('deduplicates concurrent createScene calls for the same query', async () => {
+    const { generationService, googlePlacesClient, overpassClient } = context!;
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
+
+    const [first, second] = await Promise.all([
+      generationService.createScene('Seoul City Hall', 'MEDIUM'),
+      generationService.createScene('Seoul City Hall', 'MEDIUM'),
+    ]);
+
+    await generationService.waitForIdle();
+
+    expect(first.sceneId).toBe(second.sceneId);
+    expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(1);
+  });
+
   it('creates a fresh scene when forceRegenerate is enabled', async () => {
     const { generationService, googlePlacesClient, overpassClient } = context!;
     googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
@@ -450,6 +495,134 @@ describe('Scene Services', () => {
     expect(second.status).toBe('PENDING');
     await generationService.waitForIdle();
     expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails scene when Google Places keeps failing', async () => {
+    const { generationService, readService, googlePlacesClient } = context!;
+    googlePlacesClient.searchText.mockRejectedValue(
+      new Error('google places unavailable'),
+    );
+    googlePlacesClient.getPlaceDetail.mockRejectedValue(
+      new Error('google places unavailable'),
+    );
+    googlePlacesClient.searchTextWithEnvelope.mockRejectedValue(
+      new Error('google places unavailable'),
+    );
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockRejectedValue(
+      new Error('google places unavailable'),
+    );
+
+    const scene = await generationService.createScene(
+      'Google Failure Place',
+      'MEDIUM',
+    );
+    await generationService.waitForIdle();
+    const failed = await readService.getScene(scene.sceneId);
+
+    expect(failed.status).toBe('FAILED');
+    expect(failed.failureCategory).toBe('GENERATION_ERROR');
+    expect(googlePlacesClient.searchTextWithEnvelope).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails scene when Overpass keeps failing', async () => {
+    const { generationService, readService, googlePlacesClient, overpassClient } =
+      context!;
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    overpassClient.buildPlacePackage.mockRejectedValue(
+      new Error('overpass unavailable'),
+    );
+    overpassClient.buildPlacePackageWithTrace.mockRejectedValue(
+      new Error('overpass unavailable'),
+    );
+
+    const scene = await generationService.createScene(
+      'Overpass Failure Place',
+      'MEDIUM',
+    );
+    await generationService.waitForIdle();
+    const failed = await readService.getScene(scene.sceneId);
+
+    expect(failed.status).toBe('FAILED');
+    expect(failed.failureCategory).toBe('GENERATION_ERROR');
+    expect(overpassClient.buildPlacePackageWithTrace).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails scene when GLB build keeps failing', async () => {
+    const {
+      generationService,
+      readService,
+      googlePlacesClient,
+      overpassClient,
+      glbBuilderService,
+    } = context!;
+    googlePlacesClient.searchText.mockResolvedValue([placeDetail]);
+    googlePlacesClient.getPlaceDetail.mockResolvedValue(placeDetail);
+    googlePlacesClient.searchTextWithEnvelope.mockResolvedValue({
+      items: [placeDetail],
+      envelope: {
+        provider: 'Google Places Text Search',
+        requestedAt: '2026-04-04T00:00:00Z',
+        receivedAt: '2026-04-04T00:00:01Z',
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        method: 'POST',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    googlePlacesClient.getPlaceDetailWithEnvelope.mockResolvedValue({
+      place: placeDetail,
+      envelope: {
+        provider: 'Google Places Place Details',
+        requestedAt: '2026-04-04T00:00:01Z',
+        receivedAt: '2026-04-04T00:00:02Z',
+        url: `https://places.googleapis.com/v1/places/${placeDetail.placeId}`,
+        method: 'GET',
+        request: {},
+        response: { status: 200, body: {} },
+      },
+    });
+    overpassClient.buildPlacePackage.mockResolvedValue(placePackage);
+    overpassClient.buildPlacePackageWithTrace.mockResolvedValue({
+      placePackage,
+      upstreamEnvelopes: [],
+    });
+    glbBuilderService.build.mockRejectedValue(new Error('glb build failed'));
+
+    const scene = await generationService.createScene(
+      'GLB Failure Place',
+      'MEDIUM',
+    );
+    await generationService.waitForIdle();
+    const failed = await readService.getScene(scene.sceneId);
+
+    expect(failed.status).toBe('FAILED');
+    expect(failed.failureCategory).toBe('GENERATION_ERROR');
+    expect(glbBuilderService.build).toHaveBeenCalledTimes(2);
   });
 
   it('persists curatedAssetPayload in stored scene on creation', async () => {

@@ -1,5 +1,7 @@
+import { join } from 'node:path';
 import { describe, expect, it, jest } from '@jest/globals';
 import { SceneController } from './scene.controller';
+import { getSceneDataDir } from './storage/scene-storage.utils';
 import type { SceneService } from './scene.service';
 
 describe('SceneController debug endpoints', () => {
@@ -67,5 +69,24 @@ describe('SceneController debug endpoints', () => {
 
     expect(sceneService.getDiagnosticsLog).toHaveBeenCalledWith('scene-a', 500);
     expect(response.data.lines).toHaveLength(3);
+  });
+
+  it('serves the base GLB asset after validating readiness', async () => {
+    const sceneService = {
+      getBootstrap: jest.fn(async () => undefined as any),
+    } as unknown as Pick<SceneService, 'getBootstrap'>;
+    const controller = new SceneController(sceneService as SceneService);
+    const response = {
+      sendFile: jest.fn(),
+    } as unknown as { sendFile: jest.Mock };
+
+    await controller.getSceneAsset('scene-seoul-city-hall', response as any);
+
+    expect(sceneService.getBootstrap).toHaveBeenCalledWith(
+      'scene-seoul-city-hall',
+    );
+    expect(response.sendFile).toHaveBeenCalledWith(
+      join(getSceneDataDir(), 'scene-seoul-city-hall.glb'),
+    );
   });
 });

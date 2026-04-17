@@ -44,6 +44,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
     failureReason: string;
     updatedAt: string;
   }> = [];
+  private readonly pendingCreateScenes = new Map<string, Promise<SceneEntity>>();
   private isProcessingQueue = false;
   private isShuttingDown = false;
   private currentProcessingSceneId: string | null = null;
@@ -77,66 +78,87 @@ export class SceneGenerationService implements OnApplicationShutdown {
 
     const requestKey = this.buildRequestKey(query, scale);
     if (!options.forceRegenerate) {
-      const existing = await this.sceneRepository.findByRequestKey(requestKey);
-      if (
-        existing &&
-        existing.scene.status !== 'FAILED' &&
-        (await this.isReusableScene(existing))
-      ) {
-        this.appLoggerService.info('scene.reused', {
-          requestId: options.requestId,
-          sceneId: existing.scene.sceneId,
-          source: options.source ?? 'api',
-          step: 'reuse',
-          query,
-          scale,
-        });
-        return existing.scene;
+      const pending = this.pendingCreateScenes.get(requestKey);
+      if (pending) {
+        return pending;
       }
     }
 
-    const sceneId = this.buildSceneId(query, options.forceRegenerate);
-    const createdAt = new Date().toISOString();
-    const scene: SceneEntity = {
-      sceneId,
-      placeId: null,
-      name: query,
-      centerLat: 0,
-      centerLng: 0,
-      radiusM: this.resolveRadius(scale),
-      status: 'PENDING',
-      metaUrl: `/api/scenes/${sceneId}/meta`,
-      assetUrl: null,
-      createdAt,
-      updatedAt: createdAt,
-      failureReason: null,
-    };
+    const createPromise = (async () => {
+      if (!options.forceRegenerate) {
+        const existing = await this.sceneRepository.findByRequestKey(requestKey);
+        if (
+          existing &&
+          existing.scene.status !== 'FAILED' &&
+          (await this.isReusableScene(existing))
+        ) {
+          this.appLoggerService.info('scene.reused', {
+            requestId: options.requestId,
+            sceneId: existing.scene.sceneId,
+            source: options.source ?? 'api',
+            step: 'reuse',
+            query,
+            scale,
+          });
+          return existing.scene;
+        }
+      }
 
-    await this.sceneRepository.save(
-      {
+      const sceneId = this.buildSceneId(query, options.forceRegenerate);
+      const createdAt = new Date().toISOString();
+      const scene: SceneEntity = {
+        sceneId,
+        placeId: null,
+        name: query,
+        centerLat: 0,
+        centerLng: 0,
+        radiusM: this.resolveRadius(scale),
+        status: 'PENDING',
+        metaUrl: `/api/scenes/${sceneId}/meta`,
+        assetUrl: null,
+        createdAt,
+        updatedAt: createdAt,
+        failureReason: null,
+      };
+
+      await this.sceneRepository.save(
+        {
+          requestKey,
+          query,
+          scale,
+          generationSource: options.source ?? 'api',
+          requestId: options.requestId ?? null,
+          curatedAssetPayload: options.curatedAssetPayload,
+          attempts: 0,
+          scene,
+        },
         requestKey,
+      );
+      this.appLoggerService.info('scene.queued', {
+        requestId: options.requestId,
+        sceneId,
+        source: options.source ?? 'api',
+        step: 'queue',
         query,
         scale,
-        generationSource: options.source ?? 'api',
-        requestId: options.requestId ?? null,
-        curatedAssetPayload: options.curatedAssetPayload,
-        attempts: 0,
-        scene,
-      },
-      requestKey,
-    );
-    this.appLoggerService.info('scene.queued', {
-      requestId: options.requestId,
-      sceneId,
-      source: options.source ?? 'api',
-      step: 'queue',
-      query,
-      scale,
-      forceRegenerate: options.forceRegenerate ?? false,
-    });
-    this.enqueueGeneration(sceneId);
+        forceRegenerate: options.forceRegenerate ?? false,
+      });
+      this.enqueueGeneration(sceneId);
 
-    return scene;
+      return scene;
+    })();
+
+    if (!options.forceRegenerate) {
+      this.pendingCreateScenes.set(requestKey, createPromise);
+    }
+
+    try {
+      return await createPromise;
+    } finally {
+      if (this.pendingCreateScenes.get(requestKey) === createPromise) {
+        this.pendingCreateScenes.delete(requestKey);
+      }
+    }
   }
 
   async waitForIdle(): Promise<void> {
