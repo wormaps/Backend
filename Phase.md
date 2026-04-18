@@ -1,982 +1,861 @@
-# WORPAMB 프로젝트 리팩토링 로드맵
+# WORMAPB 디지털 트윈 품질 로드맵
 
-> **작성일**: 2026-04-16
-> **분석 기반**: 전체 코드베이스 심층 분석 (8개 병렬 에이전트 + 직접 조사)
-> **총 발견사항**: 42개 (Critical 16개, High 16개, Medium 10개)
-
----
-
-## Phase 0: 사전 준비 (1일)
-
-### 목표
-
-리팩토링 진행 전 기반 환경 정비
-
-### 작업 목록
-
-#### 0.1 환경 설정 검증
-
-- [x] `.env.example` 파일 생성 (현재 `.env`만 존재, `.env.example` 없음)
-- [x] `.gitignore`에서 `.env` 추적 확인 (현재는 무시되어 있으나 워킹트리에 존재)
-- [x] `README.md`와 코드 간 drift 수정 (smoke 디렉토리 설명 불일치)
-- [x] `OVERPASS_API_URL` → `OVERPASS_API_URLS` 변수명 통일
-- [x] `MAPILLARY_AUYHORIZATION_URL` 오타 수정 → `MAPILLARY_AUTHORIZATION_URL`
-
-**참조 파일**:
-
-- `/Users/user/wormapb/.env`
-- `/Users/user/wormapb/.gitignore`
-- `/Users/user/wormapb/README.md`
-- `/Users/user/wormapb/src/places/clients/overpass/overpass.transport.ts`
-- `/Users/user/wormapb/src/places/clients/mapillary.client.ts`
-
-#### 0.2 테스트 환경 정비
-
-- [x] 테스트 실행 환경 확인 (`bun test`)
-- [x] 실패하는 테스트 사전 식별
-- [x] 테스트 커버리지 기준선 측정
-
-**참조 파일**:
-
-- `/Users/user/wormapb/package.json` (test 스크립트)
-- `/Users/user/wormapb/src/**/*.spec.ts` (35개 파일)
+> **작성일**: 2026-04-18
+> **기반 데이터**: 아키하바라 4개 빌드 diagnostics.log 심층 분석
+> **설계 원칙**: DDD(Domain-Driven Design) — Domain → Application → Infrastructure 계층 분리
+> **테스트 기준**: 각 Phase 완료 조건 = 해당 Domain 신뢰성 테스트 전체 통과
 
 ---
 
-## Phase 1: Critical 보안 및 안정성 (1주일)
+## 용어 정의 (Ubiquitous Language)
 
-### 목표
-
-즉시 수정해야 하는 치명적 보안 취약점 및 시스템 안정성 문제 해결
-
-### 1.1 보안 미들웨어 추가 (Day 1-2)
-
-#### 작업
-
-- [x] `helmet` 패키지 설치 및 적용
-- [x] CORS 설정 추가 (허용 origin 화이트리스트)
-- [x] rate limiting 추가 (기본 100req/min)
-- [x] API 키 검증 미들웨어 추가
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/main.ts` (미들웨어 등록 위치)
-- `/Users/user/wormapb/package.json` (의존성 추가)
-
-**성공 기준**: 외부에서 보안 헤더 확인, CORS 차단 동작, rate limit 초과 시 429 응답
-
-#### 1.2 API 키 노출 방지
-
-- [x] TomTom API 키를 쿼리스트링에서 헤더로 이동 (현재 `?key=`로 전송)
-- [x] `fetch-json.ts`에서 업스트림 응답 body가 에러 응답에 포함되지 않도록 수정
-- [x] `ApiExceptionFilter`에서 `detail.upstreamEnvelope` 외부 응답에서 제외
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/places/clients/tomtom-traffic.client.ts` (Line 32: `apiKey` 사용)
-- `/Users/user/wormapb/src/common/http/fetch-json.ts` (Line 96-139: 엔벨로프 생성)
-- `/Users/user/wormapb/src/common/http/api-exception.filter.ts` (에러 응답 구성)
-
-**성공 기준**: 에러 응답에 업스트림 body 미포함, API 키가 로그에 미노출
-
-### 1.3 SSRF 방어 (Day 2-3)
-
-#### 작업
-
-- [x] `image.thumbnailUrl` fetch 시 URL host 화이트리스트 추가
-- [x] `OVERPASS_API_URLS` env 검증 (HTTPS만 허용, 프라이빗 IP 차단)
-- [x] 외부 URL fetch 전 scheme/host 검증 유틸리티 생성
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/services/vision/scene-facade-image-color.utils.ts` (Line 166: thumbnailUrl fetch)
-- `/Users/user/wormapb/src/places/clients/overpass/overpass.transport.ts` (Line 104-108: 엔드포인트 해석)
-
-**성공 기준**: 프라이빗 IP URL fetch 시 차단, 화이트리스트 외 도메인 차단
-
-### 1.4 ConfigModule 및 환경 변수 검증 (Day 3-4)
-
-#### 작업
-
-- [x] `@nestjs/config` 패키지 설치
-- [x] `ConfigModule.forRoot()` 추가 (전역 설정)
-- [x] 환경 변수 스키마 검증 추가 (Joi 또는 Zod)
-- [x] 필수 환경 변수 누락 시 부팅 실패 처리
-
-**검증 대상 환경 변수**:
-
-- `GOOGLE_API_KEY` (필수)
-- `TOMTOM_API_KEY` (필수)
-- `MAPILLARY_ACCESS_TOKEN` (선택)
-- `OVERPASS_API_URLS` (선택, 기본값 있음)
-- `SCENE_DATA_DIR` (선택, 기본값: `data/scene`)
-- `PORT` (선택, 기본값: 8080)
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/app.module.ts` (모듈 구성)
-- `/Users/user/wormapb/src/main.ts` (부팅 로직)
-
-**성공 기준**: 필수 env 누락 시 부팅 실패 + 명확한 에러 메시지
-
-### 1.5 Graceful Shutdown 추가 (Day 4)
-
-#### 작업
-
-- [x] `app.enableShutdownHooks()` 추가
-- [x] `SceneGenerationService`에 `OnApplicationShutdown` 구현
-- [x] 큐 드레인 로직 추가 (SIGTERM 시 진행 중인 작업 완료 대기)
-- [x] `TtlCacheService`에 cleanup 메서드 추가
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/main.ts` (부팅 로직)
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts` (Line 23-30: 큐)
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts` (캐시 관리)
-
-**성공 기준**: SIGTERM 시 큐 드레인 완료 후 종료, 미완료 씬 FAILED 처리
-
-### 1.6 취약한 의존성 업데이트 (Day 5)
-
-#### 작업
-
-- [x] `bun audit` 실행 및 결과 분석
-- [x] `lodash` 업데이트 또는 제거 (high/moderate 취약점)
-- [x] `path-to-regexp` 업데이트 (high/moderate 취약점)
-- [x] `picomatch` 업데이트 (moderate/high 취약점)
-- [x] `@types/bun: "latest"`를 특정 버전으로 고정
-
-**참조 파일**:
-
-- `/Users/user/wormapb/package.json`
-
-**성공 기준**: `bun audit` 경고 0개
+| 용어 | 정의 |
+|------|------|
+| **SceneId** | 생성된 3D 씬의 고유 식별자 |
+| **PlacePackage** | Overpass에서 수집한 건물·도로·POI 집합 |
+| **FidelityMode** | 씬 품질 수준 (PROCEDURAL_ONLY → LANDMARK_ENRICHED → REALITY_OVERLAY_READY) |
+| **GeometryStrategy** | 건물 외형 생성 전략 (simple_extrude / podium_tower / stepped_tower 등) |
+| **FacadeHint** | Mapillary에서 추출한 건물 외벽 색상·재질 힌트 |
+| **TerrainProfile** | 지형 고도 데이터 (FLAT_PLACEHOLDER / LOCAL_DEM_SAMPLES) |
+| **AtmosphereProfile** | 장소 분위기를 정의하는 재질·조명 묶음 |
+| **BuildingOverlap** | 두 건물 footprint가 물리적으로 겹치는 상태 |
+| **WeakEvidence** | Mapillary 데이터 없이 추론으로만 결정된 재질 |
+| **MVP_SYNTHETIC_RULES** | 실제 API 대신 규칙 기반으로 생성하는 임시 데이터 (제거 대상) |
 
 ---
 
-## Phase 2: 아키텍처 기반 정리 (2주일)
+## 진단 요약 (로그 기반 수치)
 
-### 목표
-
-파이프라인 구조 명확화, 중복 제거, 책임 분리
-
-### 2.1 Fidelity Planning 단일화 (Day 6-7)
-
-#### 현황
-
-- 현재 파이프라인에서 `sceneFidelityPlanStep.execute()`가 2회 호출됨
-- Line 104-112: `fidelity_plan` (초기)
-- Line 139-147: `fidelity_plan_final` (최종)
-- 두 번째 호출이 첫 번째 결과를 기반으로 재계산하므로 중복 실행
-
-#### 작업
-
-- [x] 파이프라인에서 fidelity plan을 1회만 실행하도록 수정
-- [x] `fidelity_plan_final` stage 제거 또는 통합
-- [x] 로그에서 `fidelity_plan`과 `fidelity_plan_final` 구분 제거
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/pipeline/scene-generation-pipeline.service.ts` (Line 104-147)
-- `/Users/user/wormapb/src/scene/pipeline/steps/scene-fidelity-plan.step.ts`
-- `/Users/user/wormapb/src/scene/services/planning/scene-fidelity-planner.service.ts`
-
-**성공 기준**: 파이프라인 로그에 `fidelity_plan`이 1회만 기록
-
-### 2.2 API 호출 중앙화 (Day 7-9)
-
-#### 현황
-
-- Weather API가 generation 중 + /weather + /state + /state/entities에서 중복 호출
-- Traffic API가 generation 중 + /traffic에서 중복 호출
-
-#### 작업
-
-- [x] Generation 시 호출한 weather/traffic 데이터를 씬에 저장
-- [x] 엔드포인트에서 저장된 데이터 우선 반환 (TTL 이내)
-- [x] 필요 시에만 외부 API 재호출
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts` (Line 162-189: 샘플링)
-- `/Users/user/wormapb/src/scene/services/live/scene-weather-live.service.ts`
-- `/Users/user/wormapb/src/scene/services/live/scene-traffic-live.service.ts`
-
-**성공 기준**: 동일 씬 조회 시 외부 API 호출 50% 감소
-
-### 2.3 DI 우회 제거 (Day 9-12)
-
-#### 현황
-
-- 수동 `new` 인스턴스화 42개 발견
-- NestJS DI 라이프사이클 우회
-- 테스트 시 mocking 어려움
-
-#### 작업 (우선순위별)
-
-1. [x] `scene-vision.service.ts` (4개 서비스 `new`)
-2. [x] `scene-hero-override.service.ts` (2개 서비스 `new`)
-3. [x] `scene-quality-gate.service.ts` (`new AppLoggerService()`)
-4. [x] `glb-build-runner.ts` (2개 서비스 `new`)
-5. [x] `scene-asset-profile.step.ts` (2개 서비스 `new`)
-6. [x] 그 외 31개 위치
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/services/vision/scene-vision.service.ts` (Line 28-34)
-- `/Users/user/wormapb/src/scene/services/hero-override/scene-hero-override.service.ts` (Line 10-11)
-- `/Users/user/wormapb/src/scene/services/generation/scene-quality-gate.service.ts` (Line 31)
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-runner.ts` (Line 164, 199)
-
-**성공 기준**: `new [A-Z].*Service(` 패턴 0개 (테스트 제외)
-
-### 2.4 중복 라우트 정리 (Day 12)
-
-#### 현황
-
-- `/scenes/:sceneId`와 `/scenes/:sceneId/status`가 동일 응답 반환
-- `getSceneStatus()`가 단순히 `getScene()`을 호출
-
-#### 작업
-
-- [x] `/scenes/:sceneId/status`를 제거하거나 별도 경량 응답으로 변경
-- [x] 또는 status에 추가 정보 포함 (큐 위치, 예상 완료 시간 등)
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/scene.controller.ts` (Line 121-144)
-
-**성공 기준**: 중복 라우트 제거 또는 명확한 책임 분리
-
-### 2.5 프로토타입 레지스트리 정리 (Day 13)
-
-#### 현황
-
-- `prototypeRegistry.register()`가 어디서도 호출되지 않음
-- `resolve()` 메서드도 미사용
-- 의도된 기능이지만 미작동
-
-#### 작업
-
-- [x] 프로토타입 레지스트리 활용 방안 결정 (활성화 또는 제거)
-- [x] 활성화 시: building 패턴 등록 로직 추가
-- [x] 제거 시: 관련 코드 정리
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-prototype.registry.ts`
-- `/Users/user/wormapb/src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts`
-
-**성공 기준**: 레지스트리가 명확하게 활용되거나 코드에서 제거
-
-### 2.6 큐 중복 제거 (Day 14)
-
-#### 현황
-
-- `generationQueue`가 단순 문자열 배열
-- 같은 `sceneId`가 여러 번 enqueued 가능
-- `isProcessingQueue` 플래그 외 중복 제거 없음
-
-#### 작업
-
-- [x] `generationQueue`를 `Set`으로 변경 또는 중복 체크 로직 추가
-- [x] 동일 sceneId 재요청 시 기존 큐 항목 우선 처리
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts` (Line 23-30)
-
-**성공 기준**: 동일 sceneId 중복 enqueue 방지
+| 항목 | 현재 수치 | 목표 |
+|------|----------|------|
+| 빌드 전체 점수 | 0.55 / 1.0 | 0.80 이상 |
+| placeReadability | **0.00** | 0.60 이상 |
+| buildingOverlapCount | **3,664개** | 50개 이하 |
+| highSeverityOverlap | **2,154개** | 0개 |
+| terrainAnchoredBuildings | **0개** | 전체 건물 |
+| inferenceReasons | 5개 MISSING | 0개 |
+| glb_build 단계 도달률 | 4,004건물 씬에서 **미도달** | 100% |
+| MVP_SYNTHETIC_RULES 사용 중 | weather + traffic **양쪽** | 0개 |
+| Mapillary 활성화율 | **0%** (토큰/커버리지 실패) | 70% 이상 |
 
 ---
 
-## Phase 3: 품질 및 성능 개선 (2주일)
-
-### 목표
-
-GLB 결과물 품질 향상 및 빌드 성능 최적화
-
-### 3.1 재질 캐시 최적화 (Day 15-16)
-
-#### 현황
-
-- 캐시 키가 `name` 문자열뿐
-- `createBuildingShellMaterial()`이 고유 hex 색상으로 캐시 미스 유발
-- 동일 스타일이라도 색상이 약간 다르면 재질 재사용 불가
-
-#### 작업
-
-- [x] 재질 이름에서 hex 값 제거 → 버킷/스타일 기반 키 사용
-- [x] `tuningOptions`를 캐시 키에 포함
-- [x] 동일 스타일 building 간 재질 공유 구현
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-material-cache.ts`
-- `/Users/user/wormapb/src/assets/compiler/materials/glb-material-factory.scene.ts` (Line 266-285)
-
-**성공 기준**: 동일 스타일 building 간 재질 재사용률 80% 이상
-
-### 3.2 그룹 빌딩 활용 (Day 16-17)
-
-#### 현황
-
-- `buildGroupedBuildingShells()`가 계산되지만 `void groupedBuildings;`로 무시
-- 동일 스타일 building을 그룹화하여 재질/기하학 공유 가능
-
-#### 작업
-
-- [x] `groupedBuildings` 결과를 실제 빌딩 생성에 활용
-- [x] 그룹별 대표 building 생성 후 인스턴싱 적용
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts` (Line 37-42)
-
-**성공 기준**: building 메시 수 50% 감소 (인스턴싱 적용)
-
-### 3.3 기하학 정합성 개선 (Day 17-19)
-
-#### 현황
-
-- 패널 오프셋 18cm (벽에서 떨어져 보임)
-- 지붕-쉘 갭 2cm (분리된 시각)
-- 윈도우-바닥 정렬 불일치
-
-#### 작업
-
-- [x] 패널 오프셋 조정 (벽에 밀착 또는 갭 줄이기)
-- [x] 지붕-쉘 갭 제거 (`topHeight + 0.02` 제거)
-- [x] 윈도우 위치를 실제 바닥 높이 기반으로 계산
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.panel.builder.ts` (Line 552: 0.18m 오프셋)
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.roof-surface.builder.ts` (Line 92: 0.02m 갭)
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.window.builder.ts` (Line 24: 3.6m 하드코딩)
-
-**성공 기준**: geometry correction 로그에서 패널/지붕 겹침 0개
-
-### 3.4 GLB 최적화 (Day 19-21)
-
-#### 현황
-
-- Position/Normal 미양자화 (validator 이슈로 비활성화)
-- 텍스처 경로 비활성화
-- GLB 파일 26-29MB
-
-#### 작업
-
-- [x] Position/Normal 양자화 활성화
-- [x] 텍스처 관련 코드 정리 (활성화 또는 명확한 비활성화)
-- [x] `enableTexturePath` 기본값 재설정 결정 (의도적 비활성화로 확인, 주석 명시)
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-runner.ts` (Line 467: 양자화 설정)
-- `/Users/user/wormapb/src/assets/compiler/materials/glb-material-factory.scene.ts` (Line 15: enableTexturePath)
-
-**성공 기준**: GLB 파일 크기 20MB 이하 또는 품질 저하 없이 크기 유지
-
-### 3.5 캐시 스탬피드 방지 (Day 21-22)
-
-#### 현황
-
-- `getOrSet()`에 인플라이트 중복 제거 없음
-- TTL 만료 시 동시 요청이 모두 upstream 호출
-
-#### 작업
-
-- [x] `getOrSet()`에 pending promise 맵 추가
-- [x] 동일 키 동시 요청 시 첫 번째 결과 공유
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts`
-
-**성공 기준**: 캐시 갱신 시 upstream 호출 1회로 제한
-
-### 3.6 캐시 최대 크기 제한 (Day 22-23)
-
-#### 현황
-
-- `TtlCacheService`가 unbounded Map 사용
-- 만료된 항목이 자동 제거되지 않음 (lazy 접근 시만 제거)
-- 장기 실행 시 메모리 누수 가능
-
-#### 작업
-
-- [x] LRU eviction 정책 추가
-- [x] 최대 항목 수 제한 설정
-- [x] 주기적 정리 작업 추가
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts`
-
-**성공 기준**: 캐시 크기 상한 설정 및 만료 항목 자동 정리
-
-### 3.7 SceneRepository eviction (Day 23-24)
-
-#### 현황
-
-- `scenes` Map이 모든 씬을 메모리에 보관
-- `requestIndex` Map도 무한 증가
-- 장기 실행 시 메모리 사용량 지속 증가
-
-#### 작업
-
-- [x] 최근 접근 순서 기반 eviction 추가
-- [x] 최대 씬 수 제한
-- [x] 오래된 씬 자동 아카이브/제거
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/storage/scene.repository.ts`
-
-**성공 기준**: 메모리 사용량 상한 설정
-
----
-
-## Phase 4: 관측성 및 테스트 (2주일)
-
-### 목표
-
-운영 모니터링 강화 및 테스트 커버리지 확대
-
-### 4.1 메트릭 추가 (Day 25-27)
-
-#### 작업
-
-- [x] Prometheus 또는 OpenTelemetry 연동
-- [x] API 호출 latency 메트릭 (외부 API별)
-- [x] 큐 depth 메트릭
-- [x] 캐시 hit/miss 메트릭
-- [x] GLB 빌드 시간/크기 메트릭
-- [x] 성공/실패율 메트릭
-
-**측정 대상**:
-
-- Google Places API 호출 latency
-- Overpass API 호출 latency
-- Mapillary API 호출 latency
-- OpenMeteo API 호출 latency
-- TomTom API 호출 latency
-- GLB 빌드 시간
-- 큐 대기 시간
-- 캐시 hit율
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/common/http/fetch-json.ts` (timestamp 측정 지점)
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts` (큐 관리)
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts` (캐시 관리)
-
-**성공 기준**: Grafana 대시보드에서 주요 메트릭 실시간 확인 가능
-
-### 4.2 트레이싱 강화 (Day 27-28)
-
-#### 작업
-
-- [x] `x-request-id` 생성/전파 미들웨어 추가 (이미 존재하나 강화)
-- [x] 외부 API 호출에 requestId 포함
-- [x] 파이프라인 단계별 traceId 전파
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/common/http/request-context.util.ts`
-- `/Users/user/wormapb/src/common/logging/app-logger.service.ts`
-
-**성공 기준**: requestId로 전체 요청 추적 가능
-
-### 4.3 Health Check 개선 (Day 28-29)
-
-#### 현황
-
-- `/health`가 uptime만 반환
-- 외부 의존성 검증 없음
-- Readiness/Liveness 미분리
-
-#### 작업
-
-- [x] Liveness probe 추가 (프로세스 상태)
-- [x] Readiness probe 추가 (외부 의존성 검증)
-- [x] 각 외부 API 연결 상태 검증
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/health/health.controller.ts`
-
-**성공 기준**: Readiness probe가 외부 API 연결 실패 시 503 반환
-
-### 4.4 운영 디버그 엔드포인트 (Day 29-30)
-
-#### 작업
-
-- [x] 큐 상태 조회 엔드포인트 추가
-- [x] 캐시 통계 엔드포인트 추가
-- [x] 최근 실패 이력 조회 엔드포인트 추가
-- [x] 씬 diagnostics 로그 조회 엔드포인트 추가
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/scene.controller.ts` (새 엔드포인트 추가)
-
-**성공 기준**: 운영 중 내부 상태 실시간 확인 가능
-
-### 4.5 테스트 커버리지 확대 - 캐시 (Day 30-32)
-
-#### 현황
-
-- `TtlCacheService`에 대한 테스트 없음
-- 캐시 스탬피드, eviction, TTL 동작 미검증
-
-#### 작업
-
-- [x] `ttl-cache.service.spec.ts` 생성
-- [x] 기본 get/set 동작 테스트
-- [x] TTL 만료 동작 테스트
-- [x] 동시 접근 동작 테스트
-- [x] 최대 크기 제한 동작 테스트 (구현 후)
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts`
-
-**성공 기준**: 캐시 관련 테스트 10개 이상
-
-### 4.6 테스트 커버리지 확대 - 외부 API (Day 32-34)
-
-#### 현황
-
-- Google Places, OpenMeteo, TomTom, Mapillary 클라이언트에 대한 에러 시나리오 테스트 부족
-- API 실패, rate limiting, timeout 케이스 미검증
-
-#### 작업
-
-- [x] 각 클라이언트에 에러 시나리오 테스트 추가
-  - [x] 429 Rate Limit 응답
-  - [x] 500 서버 에러
-  - [x] Timeout
-  - [x] 네트워크 오류
-- [x] 실패 시 재시도 동작 검증
-- [x] 부분 실패 시 graceful degradation 검증
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/places/clients/google-places.client.ts`
-- `/Users/user/wormapb/src/places/clients/open-meteo.client.ts`
-- `/Users/user/wormapb/src/places/clients/tomtom-traffic.client.ts`
-- `/Users/user/wormapb/src/places/clients/mapillary.client.ts`
-
-**성공 기준**: 각 클라이언트에 에러 시나리오 테스트 5개 이상
-
-### 4.7 테스트 커버리지 확대 - 핵심 서비스 (Day 34-37)
-
-#### 현황
-
-- `SceneGenerationService`, `SceneReadService`, `SceneLiveDataService` 등 핵심 서비스 미테스트
-- 큐 처리, 재시도, 상태 전이 로직 미검증
-
-#### 작업
-
-- [x] `SceneGenerationService` 큐 처리 테스트
-  - [x] 정상 생성 흐름
-  - [x] 큐 중복 방지
-  - [x] 실패 시 재시도
-  - [x] 최대 시도 후 FAILED 처리
-- [x] `SceneReadService` 조회 테스트
-  - [x] READY 씬 조회
-  - [x] PENDING 씬 조회
-  - [x] 존재하지 않는 씬 조회
-- [x] `SceneLiveDataService` 데이터 결합 테스트
-  - [x] 정상 데이터 결합
-  - [x] 부분 데이터 결합
-  - [x] 캐시 활용 검증
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts`
-- `/Users/user/wormapb/src/scene/services/read/scene-read.service.ts`
-- `/Users/user/wormapb/src/scene/services/live/scene-live-data.service.ts`
-
-**성공 기준**: 핵심 서비스별 테스트 10개 이상
-
----
-
-## Phase 5: 최적화 및 확장성 (3주일)
-
-### 목표
-
-성능 최적화 및 수평 확장 지원
-
-### 5.1 큐 분산 처리 (Day 38-42)
-
-#### 현황
-
-- 인메모리 큐로 인스턴스 간 공유 불가
-- 수평 확장 시 중복 처리 가능
-
-#### 작업
-
-- [x] Redis 또는 BullMQ 기반 큐 도입 검토
-- [x] 분산 락 구현 (동일 sceneId 중복 방지)
-- [x] 큐 상태 외부 저장소 연동
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts`
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts` (Redis 캐시로 전환 검토)
-
-**성공 기준**: 여러 인스턴스에서 동작 시 중복 처리 방지
-
-### 5.2 파일 쓰기 원자성 (Day 42-44)
-
-#### 현황
-
-- GLB 파일 직접 쓰기 (crash 시 손상 가능)
-- JSON 파일 직접 쓰기 (부분 쓰기 가능)
-- 로그 append (interleaving 가능)
-
-#### 작업
-
-- [x] 임시 파일 + rename 패턴 적용
-- [x] JSON 파일 쓰기 원자성 보장
-- [x] 로그 파일 롤링 구현
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-runner.ts` (Line 754: writeFile)
-- `/Users/user/wormapb/src/scene/storage/scene.repository.ts` (파일 쓰기)
-- `/Users/user/wormapb/src/scene/storage/scene-storage.utils.ts` (로그 append)
-
-**성공 기준**: 쓰기 중 crash 시 이전 상태 유지
-
-### 5.3 대형 파일 분해 (Day 44-48)
-
-#### 현황
-
-- 500줄 이상 파일 14개
-- 책임 과밀로 변경 영향 범위 예측 어려움
-
-#### 분해 대상 (우선순위)
-
-1. [x] `glb-build-runner.ts` (1,044줄) → 빌드 실행 / 최적화 / 검증 분리
-2. [x] `scene-geometry-correction.step.ts` (890줄) → 겹침 감지 / 보정 / 검증 분리
-3. [x] `glb-material-factory.scene.ts` (878줄) → 재질 생성 / 텍스처 / 캐시 분리
-4. [x] `scene-facade-vision.service.ts` (808줄) → 이미지 분석 / 색상 추출 / 힌트 생성 분리
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-runner.ts`
-- `/Users/user/wormapb/src/scene/pipeline/steps/scene-geometry-correction.step.ts`
-- `/Users/user/wormapb/src/assets/compiler/materials/glb-material-factory.scene.ts`
-- `/Users/user/wormapb/src/scene/services/vision/scene-facade-vision.service.ts`
-
-**성공 기준**: 각 파일 300줄 이하
-
-### 5.4 모듈 분리 (Day 48-50)
-
-#### 현황
-
-- `scene.module.ts`에 37개 프로바이더
-- 하나의 모듈에 너무 많은 책임
-
-#### 작업
-
-- [x] 기능별 서브모듈 분리
-  - [x] `SceneVisionModule` (시각 데이터 수집)
-  - [x] `SceneGenerationModule` (생성 파이프라인)
-  - [x] `SceneLiveModule` (실시간 데이터)
-  - [x] `SceneStorageModule` (저장소)
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/scene.module.ts`
-
-**성공 기준**: 각 서브모듈 10개 이하 프로바이더
-
-### 5.5 입력 검증 강화 (Day 50-52)
-
-#### 현황
-
-- `sceneId`, `placeId`에 길이 제한 없음
-- 좌표 범위 검증 없음
-- `class-validator` 미사용
-
-#### 작업
-
-- [x] `class-validator` 패키지 설치
-- [x] DTO에 검증 데코레이터 추가
-- [x] 길이 제한 추가 (sceneId: 64자, placeId: 256자)
-- [x] 좌표 범위 검증 (lat: -90~90, lng: -180~180)
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/scene.controller.ts` (@Param, @Query)
-- `/Users/user/wormapb/src/common/http/query-parsers.ts`
-
-**성공 기준**: 잘못된 입력 시 400 응답 + 명확한 에러 메시지
-
-### 5.6 레이트리밋 처리 (Day 52-53)
-
-#### 현황
-
-- 429 에러가 일반적인 `EXTERNAL_API_REQUEST_FAILED`으로 변환
-- 재시도 정책 없음 (Overpass/TomTom만 예외)
-
-#### 작업
-
-- [x] 429 응답 시 자동 재시도 (exponential backoff)
-- [x] Retry-After 헤더 준수
-- [x] 각 클라이언트에 재시도 정책 적용
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/common/http/fetch-json.ts` (에러 처리)
-- `/Users/user/wormapb/src/places/clients/overpass/overpass.transport.ts` (재시도 패턴 참고)
-
-**성공 기준**: 429 응답 시 자동 복구
-
-### 5.7 로그 로테이션 (Day 53-54)
-
-#### 현황
-
-- diagnostics 로그가 무한 증가
-- 로테이션 미구현
-- 장기 실행 시 디스크 사용량 증가
-
-#### 작업
-
-- [x] 로그 파일 크기 제한 설정
-- [x] 로테이션 정책 구현 (일별 또는 크기 기반)
-- [x] 오래된 로그 자동 정리
-
-**참조 파일**:
-
-- `/Users/user/wormapb/src/scene/storage/scene-storage.utils.ts`
-
-**성공 기준**: 로그 파일 크기 상한 설정 및 자동 정리
-
----
-
-## Phase 6: 검증 및 안정화 (1주일)
-
-### 목표
-
-모든 변경사항 통합 검증 및 안정성 확보
-
-### 6.1 통합 테스트 (Day 55-57)
-
-#### 작업
-
-- [x] 엔드투엔드 시나리오 테스트
-  - [x] 씬 생성 → 조회 → GLB 다운로드
-  - [x] 동일 씬 재생성
-  - [x] 실패 → 재시도 → 성공
-  - [x] 동시 요청 처리
-- [x] 외부 API 실패 시나리오
-  - [x] Google Places 실패
-  - [x] Overpass 실패
-  - [x] Mapillary 실패
-  - [x] GLB 빌드 실패
-
-**성공 기준**: 모든 통합 테스트 통과
-
-### 6.2 성능 벤치마크 (Day 57-58)
-
-#### 작업
-
-- [x] 씬 생성 latency 측정
-- [x] GLB 빌드 시간 측정
-- [x] 메모리 사용량 측정
-- [x] 동시 요청 처리 능력 측정
-
-#### 측정 메모
-
-- stubbed mode 벤치마크 수행 완료
-- live mode는 Google Places 요청 실패로 현재 환경에서 완료되지 않음
-- 결과는 [`docs/scene-validation-and-benchmark.md`](/Users/user/wormapb/docs/scene-validation-and-benchmark.md)에 기록
-
-**성공 기준**:
-
-- 씬 생성 latency < 60초 (현재 ~72초)
-- GLB 빌드 시간 < 30초 (현재 ~66초)
-- 메모리 사용량 < 2GB
-
-### 6.3 문서화 (Day 58-59)
-
-#### 작업
-
-- [x] API 문서 업데이트
-- [x] 아키텍처 문서 작성
-- [x] 배포 가이드 작성
-- [x] 운영 매뉴얼 작성
-
-**성공 기준**: 문서 완성 및 팀 공유
-
-### 6.4 최종 검증 (Day 60)
-
-#### 작업
-
-- [ ] 전체 테스트 스위트 실행
-- [ ] 보안 스캔 실행
-- [ ] 성능 테스트 실행
-- [ ] 코드 리뷰 완료
-
-**성공 기준**: 모든 검증 통과
-
----
-
-## 부록 A: 발견된 파일 위치 참조
-
-### 파이프라인 및 중복
-
-- `/Users/user/wormapb/src/scene/pipeline/scene-generation-pipeline.service.ts`
-- `/Users/user/wormapb/src/scene/services/generation/scene-generation.service.ts`
-- `/Users/user/wormapb/src/scene/pipeline/steps/scene-fidelity-plan.step.ts`
-- `/Users/user/wormapb/src/scene/services/planning/scene-fidelity-planner.service.ts`
-
-### GLB 품질
-
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-runner.ts`
-- `/Users/user/wormapb/src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts`
-- `/Users/user/wormapb/src/assets/compiler/materials/glb-material-factory.scene.ts`
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-material-cache.ts`
-- `/Users/user/wormapb/src/assets/internal/glb-build/glb-build-prototype.registry.ts`
-
-### 기하학
-
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.panel.builder.ts`
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.roof-surface.builder.ts`
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.window.builder.ts`
-- `/Users/user/wormapb/src/assets/compiler/building/building-mesh.shell.builder.ts`
-
-### DI 및 아키텍처
-
-- `/Users/user/wormapb/src/scene/scene.module.ts`
-- `/Users/user/wormapb/src/scene/services/vision/scene-vision.service.ts`
-- `/Users/user/wormapb/src/scene/services/hero-override/scene-hero-override.service.ts`
-- `/Users/user/wormapb/src/scene/services/generation/scene-quality-gate.service.ts`
-
-### 보안 및 설정
-
-- `/Users/user/wormapb/src/common/http/fetch-json.ts`
-- `/Users/user/wormapb/src/common/http/api-exception.filter.ts`
-- `/Users/user/wormapb/src/common/http/api-response.interceptor.ts`
-- `/Users/user/wormapb/src/places/clients/google-places.client.ts`
-- `/Users/user/wormapb/src/places/clients/tomtom-traffic.client.ts`
-- `/Users/user/wormapb/src/places/clients/mapillary.client.ts`
-- `/Users/user/wormapb/src/places/clients/overpass/overpass.transport.ts`
-- `/Users/user/wormapb/.env`
-- `/Users/user/wormapb/.gitignore`
-- `/Users/user/wormapb/README.md`
-
-### 상태 및 캐시
-
-- `/Users/user/wormapb/src/cache/ttl-cache.service.ts`
-- `/Users/user/wormapb/src/scene/storage/scene.repository.ts`
-- `/Users/user/wormapb/src/scene/services/live/scene-weather-live.service.ts`
-- `/Users/user/wormapb/src/scene/services/live/scene-traffic-live.service.ts`
-- `/Users/user/wormapb/src/scene/services/live/scene-state-live.service.ts`
-
-### 모니터링 및 테스트
-
-- `/Users/user/wormapb/src/common/logging/app-logger.service.ts`
-- `/Users/user/wormapb/src/health/health.controller.ts`
-- `/Users/user/wormapb/src/main.ts`
-- `/Users/user/wormapb/package.json`
-
-### 로그 파일
-
-- `/Users/user/wormapb/data/scene/*.diagnostics.log`
-
----
-
-## 부록 B: 메트릭 기준선
-
-### 현재 상태 (측정 필요)
-
-- 씬 생성 latency: ~72초
-- GLB 빌드 시간: ~66초
-- GLB 파일 크기: 26-29MB
-- building 겹침: 2,419개
-- 메모리 사용량: 미측정
-
-### 목표 상태
-
-- 씬 생성 latency: < 60초
-- GLB 빌드 시간: < 30초
-- GLB 파일 크기: < 20MB
-- building 겹침: < 100개
-- 메모리 사용량: < 2GB
-
----
-
-## 부록 C: 위험 평가
-
-### 높은 위험
-
-- Phase 2 DI 우회 제거 (42개 위치 수정, 광범위한 영향)
-- Phase 3 재질 캐시 최적화 (렌더링 품질 영향 가능)
-- Phase 5 큐 분산 처리 (아키텍처 변경)
-
-### 중간 위험
-
-- Phase 1 보안 미들웨어 추가 (기존 동작 영향 가능)
-- Phase 4 메트릭 추가 (성능 오버헤드)
-
-### 낮은 위험
-
-- Phase 0 환경 설정 정비
-- Phase 6 문서화
-
----
-
-## 부록 D: 의존성 관계
+## 계층 구조 (DDD)
 
 ```
-Phase 0 (사전 준비)
-    ↓
-Phase 1 (보안/안정성) ← 필수 선행
-    ↓
-Phase 2 (아키텍처) ← Phase 1 완료 후
-    ↓
-Phase 3 (품질/성능) ← Phase 2 완료 후
-    ↓
-Phase 4 (관측성/테스트) ← Phase 2 완료 후 (병렬 가능)
-    ↓
-Phase 5 (최적화/확장) ← Phase 3, 4 완료 후
-    ↓
-Phase 6 (검증/안정화) ← 모든 Phase 완료 후
+Domain Layer          — 불변 규칙, 값 객체, 엔티티
+  └── Scene           Building, Road, TerrainProfile, FacadeHint
+  └── Place           PlacePackage, Coordinate, OsmElement
+  └── Material        MaterialClass, AtmosphereProfile, FidelityMode
+
+Application Layer     — 유스케이스, 파이프라인 조합
+  └── SceneGeneration FidelityPlanner, GeometryCorrection, GlbBuild
+  └── DataCollection  OverpassQuery, MapillaryVision, TerrainFusion
+  └── LiveState       WeatherState, TrafficState
+
+Infrastructure Layer  — 외부 시스템 어댑터
+  └── OsmAdapter      OverpassClient
+  └── VisionAdapter   MapillaryClient
+  └── PlaceAdapter    GooglePlacesClient
+  └── TerrainAdapter  DemProvider (Open-Elevation / SRTM)
+  └── TrafficAdapter  TomTomClient (실제 API)
+  └── WeatherAdapter  OpenMeteoClient (실제 API)
 ```
 
 ---
 
-## 부록 E: 의사결정 기록
+---
 
-### 결정된 사항
+# Phase 7: MVP 합성 규칙 완전 제거
 
-1. ConfigModule 도입 (@nestjs/config)
-2. Graceful shutdown 추가
-3. 보안 미들웨어 도입 (helmet, CORS, rate limiting)
-4. DI 우회 제거
+> **우선순위**: 최고 — 실제 데이터 없이는 이후 모든 품질 개선이 의미 없음
+> **소요**: 3일
+> **DDD 계층**: Infrastructure Layer 교체 + Application Layer 연결
 
-### 결정 필요 사항
+### 배경
 
-1. 큐 분산 처리 방식 (Redis vs BullMQ vs 기타)
-2. 메트릭 도구 (Prometheus vs OpenTelemetry vs 기타)
-3. 텍스처 경로 활성화 여부
-4. 프로토타입 레지스트리 활용 여부
+현재 날씨·교통 데이터가 `MVP_SYNTHETIC_RULES`라는 규칙 기반 가짜 데이터로 제공됨.
+OpenMeteo·TomTom 클라이언트는 **이미 구현**되어 있으나 파이프라인에 연결되지 않음.
+라이브 상태(`/state`, `/weather`, `/traffic`)가 실제와 무관한 값을 반환 중.
 
-### 보류 사항
+### 7.1 Infrastructure: WeatherAdapter 실제 연결 (Day 1)
 
-1. 수평 확장 전략
-2. CDN 연동
-3. 다중 리전 배포
+**변경 대상**:
+- [`src/places/services/snapshot/place-snapshot.service.ts:58`](src/places/services/snapshot/place-snapshot.service.ts)
+- [`src/scene/services/live/scene-state-live.service.ts:91`](src/scene/services/live/scene-state-live.service.ts)
+
+**작업**:
+- [ ] `MVP_SYNTHETIC_RULES` provider 분기 제거
+- [ ] `OpenMeteoClient.getCurrentWeather(lat, lng)` 직접 호출로 대체
+- [ ] 실패 시 fallback: `UNKNOWN` 날씨 상태 반환 (합성 데이터 아님)
+- [ ] `provider` 필드값 `'OPEN_METEO'`로 확정
+
+**도메인 규칙**: WeatherState는 실제 측정값이거나 `UNKNOWN`이어야 함. 합성값은 허용하지 않음.
+
+### 7.2 Infrastructure: TrafficAdapter 실제 연결 (Day 1)
+
+**변경 대상**:
+- [`src/places/services/snapshot/place-snapshot.service.ts`](src/places/services/snapshot/place-snapshot.service.ts)
+- [`src/scene/services/live/scene-state-live.service.ts`](src/scene/services/live/scene-state-live.service.ts)
+
+**작업**:
+- [ ] `MVP_SYNTHETIC_RULES` traffic 분기 제거
+- [ ] `TomTomTrafficClient.getTrafficDensity(bbox)` 호출로 대체
+- [ ] TomTom API 키 없을 때 `UNAVAILABLE` 상태 반환
+- [ ] `provider` 필드값 `'TOMTOM'`으로 확정
+
+### 7.3 Domain: SyntheticProvider 타입 제거 (Day 2)
+
+**변경 대상**:
+- [`src/scene/types/scene-api.types.ts`](src/scene/types/scene-api.types.ts)
+- [`src/scene/types/scene-domain.types.ts`](src/scene/types/scene-domain.types.ts)
+- [`src/docs/scene/swagger.scene-state.dto.ts`](src/docs/scene/swagger.scene-state.dto.ts)
+
+**작업**:
+- [ ] `provider: 'MVP_SYNTHETIC_RULES'` 타입 유니온에서 제거
+- [ ] `provider` 허용값: `'OPEN_METEO' | 'TOMTOM' | 'UNKNOWN' | 'UNAVAILABLE'`
+- [ ] Swagger 문서 갱신
+
+### 7.4 Application: TerrainProfile FLAT_PLACEHOLDER 경고 활성화 (Day 2)
+
+**변경 대상**: [`src/scene/services/spatial/scene-terrain-profile.service.ts:95`](src/scene/services/spatial/scene-terrain-profile.service.ts)
+
+**작업**:
+- [ ] `FLAT_PLACEHOLDER` 반환 시 `WARN` 레벨 로그 기록 (현재 주석만 있음)
+- [ ] diagnostics.log에 `terrain_profile` 스테이지 추가하여 모드 기록
+- [ ] 이후 Phase에서 실제 DEM 연동까지 명시적으로 추적 가능하게 함
 
 ---
 
-**문서 버전**: 1.0
-**최종 수정**: 2026-04-16
-**담당자**: Sisyphus
+### Phase 7 테스트 (신뢰성 기준: 외부 API 없이 100% 통과)
+
+**파일**: `src/places/services/snapshot/place-snapshot.service.spec.ts`
+**파일**: `src/scene/services/live/scene-state-live.service.spec.ts`
+
+```
+[WeatherState Domain]
+  ✓ OpenMeteo 응답 → WeatherState 변환 정확성
+  ✓ OpenMeteo 실패(500) → provider='UNKNOWN', 합성값 없음
+  ✓ OpenMeteo timeout → provider='UNKNOWN', 합성값 없음
+  ✓ provider 필드가 'MVP_SYNTHETIC_RULES'를 포함하지 않음
+
+[TrafficState Domain]
+  ✓ TomTom 응답 → TrafficState 변환 정확성
+  ✓ TomTom API 키 없음 → provider='UNAVAILABLE'
+  ✓ TomTom 실패 → provider='UNAVAILABLE', 합성값 없음
+  ✓ provider 필드가 'MVP_SYNTHETIC_RULES'를 포함하지 않음
+
+[TerrainProfile Application]
+  ✓ terrain 파일 없음 → mode='FLAT_PLACEHOLDER' + WARN 로그
+  ✓ terrain 파일 있음 → mode='LOCAL_DEM_SAMPLES' + 고도값 반환
+  ✓ diagnostics.log에 terrain_profile 스테이지 기록됨
+```
+
+**완료 조건**: `grep -r "MVP_SYNTHETIC_RULES" src/` 결과 = 0개
+
+---
+
+---
+
+# Phase 8: OSM 건물 중복 제거 (BuildingOverlap 3,664 → 50 이하)
+
+> **소요**: 5일
+> **DDD 계층**: Domain (Building 엔티티) + Infrastructure (OsmAdapter)
+
+### 배경
+
+`mo2c2pdu` 로그:
+```
+buildingOverlapCount: 3,664
+totalOverlapAreaM2:   240,310㎡
+highSeverityOverlap:  2,154개
+```
+
+원인: OSM에서 동일 건물이 `way`(단순 다각형)와 `relation`(복합 다각형) **두 형태로 동시 등록**됨.
+현재 [`overpass.partitions.ts`](src/places/clients/overpass/overpass.partitions.ts)는 `id` 기반 중복 제거만 수행.
+같은 건물이 서로 다른 id로 등록되면 중복을 못 잡음.
+
+또한 4,004개 건물 씬에서 **glb_build 단계 미도달** — 빌드 파이프라인이 중복 임계 초과 시 중단되거나 메모리 OOM 발생.
+
+### 8.1 Domain: BuildingFootprint 값 객체 정의
+
+**파일**: `src/places/domain/building-footprint.value-object.ts` (신규)
+
+**작업**:
+- [ ] `BuildingFootprintVo` 값 객체 정의
+  - `outerRing: Coordinate[]`
+  - `centroid(): Coordinate`
+  - `boundingBox(): BBox`
+  - `overlapRatio(other: BuildingFootprintVo): number` (IoU 계산)
+  - `isSameFootprint(other: BuildingFootprintVo, toleranceM: number): boolean`
+- [ ] 두 footprint가 중심점 거리 3m 이내 + IoU 0.85 이상이면 동일 건물로 판정
+
+### 8.2 Infrastructure: OsmAdapter 중복 제거 강화
+
+**변경 대상**: [`src/places/clients/overpass/overpass.partitions.ts`](src/places/clients/overpass/overpass.partitions.ts)
+
+**작업**:
+- [ ] `id` 기반 중복 제거 → **footprint IoU 기반 중복 제거**로 교체
+- [ ] way와 relation이 같은 건물을 가리키면 relation 우선 채택 (더 정확)
+- [ ] `deduplicatedCount`, `mergedWayRelationCount`를 partitions 결과에 포함
+
+**알고리즘**:
+```
+1. 모든 building way + relation을 footprint 기준 정렬
+2. 공간 인덱스(간단한 grid) 구성
+3. 각 way에 대해 인접 relation 탐색
+4. IoU >= 0.85 && centroid 거리 <= 3m → way 제거, relation 유지
+5. relation 없는 way는 그대로 유지
+```
+
+### 8.3 Application: GeometryCorrection 임계값 재조정
+
+**변경 대상**: [`src/scene/pipeline/steps/scene-geometry-correction.step.ts`](src/scene/pipeline/steps/scene-geometry-correction.step.ts)
+
+**작업**:
+- [ ] 현재 `collisionRiskCount >= X` 초과 시 파이프라인 중단 로직 확인 및 임계값 문서화
+- [ ] **중복 제거 후** 재검사하도록 순서 변경
+- [ ] `correctedCount`가 총 건물 수의 50% 초과 시 WARN + 계속 진행 (중단 아님)
+- [ ] high severity overlap만 파이프라인 중단 트리거로 유지
+
+### 8.4 Application: 대규모 씬 GLB 빌드 안정화
+
+**변경 대상**: [`src/assets/internal/glb-build/glb-build-runner.pipeline.ts`](src/assets/internal/glb-build/glb-build-runner.pipeline.ts)
+
+**작업**:
+- [ ] 4,000개 이상 건물 씬에서 glb_build 미도달 원인 규명 (로그 추가)
+- [ ] 청크 단위 처리: 건물을 500개씩 나눠 메시 생성 후 병합
+- [ ] 메모리 사용량 모니터링: 빌드 시작/완료 시 `process.memoryUsage()` 기록
+- [ ] 타임아웃 설정 명시화 (현재 불명확)
+
+---
+
+### Phase 8 테스트 (신뢰성 기준: 실제 OSM 데이터 픽스처 기반)
+
+**파일**: `src/places/domain/building-footprint.value-object.spec.ts`
+**파일**: `src/places/clients/overpass/overpass.partitions.spec.ts`
+
+```
+[BuildingFootprint Domain]
+  ✓ centroid 계산 정확성 (사각형, 오각형, L형)
+  ✓ IoU 0.0 — 완전히 분리된 두 footprint
+  ✓ IoU 1.0 — 완전히 동일한 두 footprint
+  ✓ IoU 0.92 — 동일 건물 판정 (임계값 0.85 초과)
+  ✓ IoU 0.60 — 다른 건물 판정 (임계값 미달)
+  ✓ 중심점 5m 이내 + IoU 0.9 → isSameFootprint=true
+  ✓ 중심점 10m + IoU 0.9 → isSameFootprint=false
+
+[OsmPartitions Infrastructure]
+  ✓ way + relation 동일 건물 → relation 1개만 남음
+  ✓ 완전히 다른 위치의 way + relation → 2개 모두 유지
+  ✓ way만 있는 건물 → way 그대로 유지
+  ✓ 실제 아키하바라 픽스처: buildingOverlapCount < 50
+
+[GeometryCorrection Application]
+  ✓ high severity 0개 → glb_build 진행
+  ✓ high severity 100개 → 파이프라인 중단 + 명확한 에러
+  ✓ buildingCount=4004 → 메모리 2GB 이하로 처리 완료
+  ✓ glb_build 스테이지가 diagnostics.log에 기록됨
+```
+
+**완료 조건**:
+- 아키하바라 픽스처 기준 `buildingOverlapCount < 50`
+- 4,004건물 씬에서 `glb_build` 스테이지 도달
+
+---
+
+---
+
+# Phase 9: 지형 고도(DEM) 자동 수집 연동
+
+> **소요**: 4일
+> **DDD 계층**: Domain (TerrainProfile) + Infrastructure (DemAdapter 신규)
+
+### 배경
+
+모든 빌드에서 `terrainAnchoredBuildingCount: 0`, `averageTerrainOffsetM: 0`.
+지면이 완전 평탄(FLAT_PLACEHOLDER)하고 색상이 회색 단일 재질.
+DEM 파일을 수동으로 `data/terrain/{sceneId}.terrain.json`에 넣어야만 동작함.
+
+### 9.1 Domain: TerrainProfile 값 객체 강화
+
+**변경 대상**: [`src/scene/services/spatial/scene-terrain-profile.service.ts`](src/scene/services/spatial/scene-terrain-profile.service.ts)
+
+**작업**:
+- [ ] `TerrainSample` 타입에 `source: 'OPEN_ELEVATION' | 'SRTM' | 'MANUAL' | 'FLAT'` 추가
+- [ ] `interpolateElevation(lat, lng): number` 메서드 도메인 수준 정의
+- [ ] 샘플이 3개 미만이면 FLAT으로 fallback (현재는 파일 없을 때만 fallback)
+
+### 9.2 Infrastructure: DemAdapter 구현 (Open-Elevation API)
+
+**파일**: `src/scene/infrastructure/terrain/open-elevation.adapter.ts` (신규)
+
+**작업**:
+- [ ] `IDemPort` 인터페이스 정의 (Port 패턴)
+  ```typescript
+  interface IDemPort {
+    fetchElevations(points: Coordinate[]): Promise<TerrainSample[]>
+  }
+  ```
+- [ ] `OpenElevationAdapter` 구현
+  - 씬 bbox를 8×8 그리드 포인트로 분할해서 요청
+  - 실패 시 FLAT fallback (에러 전파 금지)
+- [ ] 환경변수 `OPEN_ELEVATION_URL` 추가 (기본값: 공개 API)
+
+### 9.3 Application: TerrainFusion 파이프라인 스텝 신규
+
+**파일**: `src/scene/pipeline/steps/scene-terrain-fusion.step.ts` (신규)
+
+**작업**:
+- [ ] `ScenePlacePackageStep` 완료 후 실행되도록 파이프라인에 삽입
+- [ ] 순서: 로컬 terrain 파일 확인 → 없으면 DemAdapter 호출 → TerrainProfile 저장
+- [ ] `data/terrain/{sceneId}.terrain.json` 자동 생성 (다음 빌드에서 재사용)
+- [ ] diagnostics.log에 `terrain_fusion` 스테이지 기록
+
+### 9.4 Domain: 지면 재질 분기 (색상 회색 → 실제 표면)
+
+**변경 대상**: [`src/assets/compiler/road/road-mesh.builder.ts`](src/assets/compiler/road/road-mesh.builder.ts)
+
+**작업**:
+- [ ] `landCoverType` 기반 지면 재질 분기
+  - `paved` → 아스팔트 (dark gray, roughness 0.9)
+  - `grass` → 초지 (green, roughness 1.0)
+  - `water` → 수면 (blue, metallic 0.1, roughness 0.0)
+  - `sand` / default → 모래/토양 (tan, roughness 1.0)
+- [ ] OSM `landuse=` 태그 매핑 테이블 정의
+
+---
+
+### Phase 9 테스트
+
+**파일**: `src/scene/infrastructure/terrain/open-elevation.adapter.spec.ts`
+**파일**: `src/scene/pipeline/steps/scene-terrain-fusion.step.spec.ts`
+
+```
+[DemAdapter Infrastructure]
+  ✓ 8×8=64포인트 요청 → 64개 TerrainSample 반환
+  ✓ API 실패(500) → 빈 배열 반환 (에러 미전파)
+  ✓ API timeout → 빈 배열 반환
+  ✓ 반환값에 source='OPEN_ELEVATION' 포함
+
+[TerrainProfile Domain]
+  ✓ 4개 샘플 보간 — 중간 좌표 고도 정확성
+  ✓ 샘플 2개 이하 → FLAT fallback
+  ✓ 고도 범위 외 값(음수, >9000m) → clamp 처리
+
+[TerrainFusion Application]
+  ✓ 로컬 파일 없음 → DemAdapter 호출 → 파일 생성
+  ✓ 로컬 파일 있음 → DemAdapter 미호출
+  ✓ DemAdapter 실패 → FLAT_PLACEHOLDER로 계속 진행
+  ✓ 생성된 씬의 terrainAnchoredBuildingCount > 0
+  ✓ diagnostics.log에 terrain_fusion 스테이지 기록
+
+[지면 재질 Domain]
+  ✓ landCoverType='grass' → roughness=1.0, green 계열
+  ✓ landCoverType='water' → metallic=0.1, roughness=0.0
+  ✓ landCoverType='paved' → dark gray, roughness=0.9
+```
+
+**완료 조건**:
+- 새 빌드에서 `terrainAnchoredBuildingCount > 0`
+- 지면이 단일 회색이 아닌 landcover 기반 재질
+
+---
+
+---
+
+# Phase 10: Mapillary Fallback 재질 — 아키하바라/시부야 특성 반영
+
+> **소요**: 4일
+> **DDD 계층**: Domain (MaterialClass, AtmosphereProfile) + Application (FacadeAtmosphere)
+
+### 배경
+
+모든 빌드의 `inferenceReasonCodes`:
+```
+MISSING_MAPILLARY_IMAGES
+MISSING_MAPILLARY_FEATURES
+MISSING_FACADE_COLOR
+MISSING_FACADE_MATERIAL
+MISSING_ROOF_SHAPE
+```
+
+Mapillary가 없으면 `sceneWideAtmosphereProfile`이 `glass_cool_light + luxury_warm`(기본값)으로 설정됨.
+아키하바라: 간판 밀집 + 콘크리트/철골 + 전자상가 특성 → 현재 분위기와 완전히 다름.
+`weakEvidenceRatio`가 높아도 동일 프로필 적용 — 장소 구분 불가.
+
+### 10.1 Domain: PlaceCharacter 값 객체 정의
+
+**파일**: `src/scene/domain/place-character.value-object.ts` (신규)
+
+**작업**:
+- [ ] `PlaceCharacter` 정의
+  ```typescript
+  type PlaceCharacter = {
+    districtType: 'ELECTRONICS_DISTRICT' | 'SHOPPING_SCRAMBLE' |
+                  'OFFICE_DISTRICT' | 'RESIDENTIAL' | 'TRANSIT_HUB' | 'GENERIC'
+    signageDensity: 'DENSE' | 'MODERATE' | 'SPARSE'
+    buildingEra: 'MODERN_POST2000' | 'SHOWA_1960_80' | 'MIXED'
+    facadeComplexity: 'HIGH' | 'MEDIUM' | 'LOW'
+  }
+  ```
+- [ ] Google Places `types[]` + OSM `landuse/amenity` 태그 → `PlaceCharacter` 매핑 로직
+
+### 10.2 Domain: 장소별 기본 AtmosphereProfile 정의
+
+**변경 대상**: [`src/scene/utils/scene-static-atmosphere.utils.ts`](src/scene/utils/scene-static-atmosphere.utils.ts)
+
+**작업**:
+- [ ] `districtType` 기반 기본 프로필 테이블 추가
+  ```
+  ELECTRONICS_DISTRICT →
+    facade: concrete+metal, signDensity: DENSE,
+    emissiveBoost: 1.8, windowType: tinted,
+    roofEquipment: HIGH, lightingStyle: neon_warm
+
+  SHOPPING_SCRAMBLE →
+    facade: glass+concrete mix, signDensity: DENSE,
+    emissiveBoost: 2.0, windowType: curtain_wall,
+    lightingStyle: commercial_bright
+
+  TRANSIT_HUB →
+    facade: concrete, signDensity: MODERATE,
+    emissiveBoost: 1.2, windowType: clear,
+    lightingStyle: functional_cool
+  ```
+- [ ] Mapillary 없을 때 이 테이블에서 fallback 선택 (현재 단일 기본값 대체)
+
+### 10.3 Application: WeakEvidence 처리 분기
+
+**변경 대상**: [`src/scene/services/vision/scene-atmosphere-district.utils.ts`](src/scene/services/vision/scene-atmosphere-district.utils.ts)
+
+**작업**:
+- [ ] `evidenceStrength='weak'` 건물에 PlaceCharacter 기반 프로필 우선 적용
+- [ ] `weakEvidenceRatio > 0.8` 이면 `sceneWideAtmosphereProfile`을 PlaceCharacter로 완전 교체
+- [ ] 건물별 프로필을 district 평균 대신 **개별 OSM 태그 기반**으로 세분화
+  - `shop=electronics` → ELECTRONICS 재질
+  - `building=retail` → RETAIL 재질
+  - `amenity=restaurant` → RESTAURANT 재질
+
+### 10.4 Application: MaterialTuning inferenceReason 로깅 강화
+
+**변경 대상**: [`src/assets/internal/glb-build/glb-build-material-tuning.utils.ts`](src/assets/internal/glb-build/glb-build-material-tuning.utils.ts)
+
+**작업**:
+- [ ] 각 `MISSING_*` reason에 대해 어떤 fallback이 선택됐는지 기록
+- [ ] `resolvedFallbackSource: 'PLACE_CHARACTER' | 'DISTRICT_TYPE' | 'STATIC_DEFAULT'` 추가
+- [ ] diagnostics.log `materialTuning` 스테이지에 fallback 소스 포함
+
+---
+
+### Phase 10 테스트
+
+**파일**: `src/scene/domain/place-character.value-object.spec.ts`
+**파일**: `src/scene/utils/scene-static-atmosphere.utils.spec.ts`
+
+```
+[PlaceCharacter Domain]
+  ✓ Google Places type='electronics_store' → districtType='ELECTRONICS_DISTRICT'
+  ✓ Google Places type='tourist_attraction' + OSM 'crossing' → SHOPPING_SCRAMBLE
+  ✓ OSM landuse='commercial' → signageDensity='MODERATE'
+  ✓ OSM shop='electronics' 밀도 높음 → signageDensity='DENSE'
+
+[AtmosphereProfile Domain]
+  ✓ ELECTRONICS_DISTRICT → emissiveBoost >= 1.5
+  ✓ ELECTRONICS_DISTRICT → facadeFamily != 'glass_cool_light' (기본값과 달라야 함)
+  ✓ SHOPPING_SCRAMBLE → signDensity='DENSE'
+  ✓ GENERIC → 기존 기본값 유지
+
+[FacadeAtmosphere Application — Mapillary 없는 시나리오]
+  ✓ weakEvidenceRatio=1.0 + ELECTRONICS_DISTRICT → neon_warm 프로필 적용
+  ✓ weakEvidenceRatio=0.3 + Mapillary 있음 → Mapillary 데이터 우선
+  ✓ inferenceReasonCodes에 MISSING_MAPILLARY_IMAGES 있어도 fallback 소스 기록됨
+  ✓ resolvedFallbackSource != 'STATIC_DEFAULT'
+
+[MaterialDiversity]
+  ✓ 아키하바라 씬 materialCounts — 'concrete' 단일이 아닌 2종 이상
+  ✓ districtMaterialDiversity >= 3
+```
+
+**완료 조건**:
+- 아키하바라 빌드에서 `resolvedFallbackSource='PLACE_CHARACTER'`
+- `materialCounts`에 concrete 외 최소 2종 이상
+
+---
+
+---
+
+# Phase 11: PlaceReadability 개선 — 거리 요소 복원
+
+> **소요**: 5일
+> **DDD 계층**: Domain (StreetElement) + Application (AssetProfile, GlbBuild)
+
+### 배경
+
+모든 빌드에서 `placeReadability: 0.0`.
+diagnostics.log의 `meshNodes`에서 다음이 전부 `skipped: true, skippedReason: 'missing_source'`:
+- `crosswalk_overlay`, `junction_overlay`
+- `sidewalk`, `sidewalk_edges`
+- `traffic_lights`, `street_lights`, `sign_poles`
+- `trees_variation`, `bushes`, `flower_beds`
+- `landcover_parks`, `landcover_water`, `landcover_plazas`
+- `linear_railways`, `linear_bridges`, `linear_waterways`
+
+이는 Overpass 쿼리에서 이 데이터들이 실제로 수집되지 않거나, 수집해도 AssetProfile에서 drop됨을 의미.
+
+### 11.1 Infrastructure: Overpass 쿼리 완성도 검증
+
+**변경 대상**: [`src/places/clients/overpass/overpass.query.ts`](src/places/clients/overpass/overpass.query.ts)
+
+**작업**:
+- [ ] 쿼리 실행 후 각 카테고리별 반환 수 로깅
+- [ ] 누락 태그 추가:
+  - `highway=crossing` (횡단보도)
+  - `highway=footway` (보도)
+  - `highway=traffic_signals` (신호등)
+  - `highway=street_lamp` (가로등)
+  - `natural=tree` (가로수)
+  - `leisure=park` (공원)
+  - `waterway=river|stream` (수로)
+  - `railway=rail|subway` (철도)
+
+### 11.2 Application: AssetProfile 선택 기준 완화
+
+**변경 대상**: [`src/scene/pipeline/steps/scene-asset-profile.step.ts`](src/scene/pipeline/steps/scene-asset-profile.step.ts)
+
+**작업**:
+- [ ] `missing_source`로 skip되는 메시 노드의 원인 추적 로직 추가
+- [ ] 소스가 있는데도 skip되는 경우 vs. 소스 자체가 없는 경우 구분 로깅
+- [ ] `MEDIUM` preset에서 `trafficLightCount`, `streetLightCount` 기본값 상향
+  - 현재: budget에는 있으나 selected=0
+  - 변경: PlacePackage에 데이터 있으면 selected > 0 보장
+
+### 11.3 Domain: CrosswalkCompleteness 계산 수정
+
+**작업**:
+- [ ] `crosswalkCompleteness: 0` 원인 추적 — Overpass 쿼리 vs. 메시 생성 중 어디서 누락
+- [ ] 횡단보도 수 > 0 이면 `crosswalk_overlay` 메시 생성 보장
+- [ ] `junction_overlay` — 교차로 노드 좌표 있으면 생성
+
+### 11.4 Domain: 건물 GeometryStrategy 선택 로직 강화
+
+**변경 대상**: [`src/assets/compiler/building/building-mesh.shell.builder.ts`](src/assets/compiler/building/building-mesh.shell.builder.ts)
+
+**작업**:
+- [ ] `resolveBuildingGeometryStrategy()` OSM 태그 반영 강화
+  ```
+  building:levels >= 15 → stepped_tower 또는 podium_tower
+  building=retail + ground floor → podium_tower
+  building=house + roof:shape=gabled → gable_lowrise
+  holes.length > 0 → courtyard_block
+  없으면 → simple_extrude (fallback, not default)
+  ```
+- [ ] `fallback_massing` 사용률을 diagnostics에 기록
+
+---
+
+### Phase 11 테스트
+
+**파일**: `src/places/clients/overpass/overpass.query.spec.ts`
+**파일**: `src/scene/pipeline/steps/scene-asset-profile.step.spec.ts`
+**파일**: `src/assets/compiler/building/building-mesh.shell.builder.spec.ts`
+
+```
+[Overpass Query Infrastructure]
+  ✓ 아키하바라 bbox → highway=crossing 태그 반환
+  ✓ 아키하바라 bbox → natural=tree 반환
+  ✓ 아키하바라 bbox → highway=street_lamp 반환
+  ✓ 쿼리 결과 카테고리별 수 로깅됨
+
+[AssetProfile Application]
+  ✓ crossing 소스 있음 → crosswalk_overlay 메시 skipped=false
+  ✓ tree 소스 있음 → trees_variation 메시 skipped=false
+  ✓ 소스 없음 → skipped=true + skippedReason='missing_source'
+  ✓ 소스 있으나 skip → skippedReason='budget_exceeded' 또는 'lod_filtered'
+
+[GeometryStrategy Domain]
+  ✓ levels=20 → strategy != 'simple_extrude' (stepped_tower 또는 podium_tower)
+  ✓ levels=3 + shop → strategy='podium_tower' 또는 'simple_extrude'
+  ✓ holes > 0 → strategy='courtyard_block'
+  ✓ fallbackMassingRate < 0.3
+
+[PlaceReadability Score]
+  ✓ crossing + tree + streetLight 있는 씬 → placeReadability > 0.3
+  ✓ 아무것도 없는 씬 → placeReadability = 0 (기존 동작 보존)
+```
+
+**완료 조건**:
+- 아키하바라 씬에서 `placeReadability > 0.30`
+- `crosswalk_overlay` 또는 `trees_variation` 중 1개 이상 `skipped=false`
+
+---
+
+---
+
+# Phase 12: Material 중복·Z-Fighting 제거
+
+> **소요**: 3일
+> **DDD 계층**: Domain (Material) + Application (GlbBuild)
+
+### 배경
+
+- 건물 footprint 중복 → 동일 좌표에 두 shell → GPU Z-fighting → 멀리서 깨짐
+- Phase 8에서 footprint 중복 제거 후에도 재질 레벨의 중복 여전히 존재
+- `glb-build-material-cache.ts`의 캐시 키가 hex 색상 포함 → 비슷한 색상도 별도 재질
+
+### 12.1 Domain: MaterialKey 정규화
+
+**변경 대상**: [`src/assets/internal/glb-build/glb-build-material-cache.ts`](src/assets/internal/glb-build/glb-build-material-cache.ts)
+
+**작업**:
+- [ ] 재질 캐시 키에서 정확한 hex 제거 → 색상 **버킷** 기반 키 사용
+  ```
+  밝기(0-255)를 16단위로 반올림 + hue를 30도 단위로 반올림
+  예: #6d6a64 → bucket:gray-medium
+  예: #2a3f8e → bucket:blue-dark
+  ```
+- [ ] 같은 버킷 + 같은 material class → 재질 공유
+- [ ] `materialReuseRate`를 diagnostics에 기록
+
+### 12.2 Application: Shell depth bias 일관성 보장
+
+**작업**:
+- [ ] panel mesh가 shell mesh보다 항상 0.02m 앞에 위치하도록 강제
+- [ ] window mesh가 panel mesh보다 0.01m 앞에 위치하도록 강제
+- [ ] 동일 sceneId에서 material instance 수 측정 → 재사용 가능 material 식별
+
+### 12.3 Application: Grouped Building Shell 인스턴싱 활성화
+
+**변경 대상**: [`src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts`](src/assets/internal/glb-build/stages/glb-build-building-hero.stage.ts)
+
+**작업**:
+- [ ] `buildGroupedBuildingShells()` 결과가 `void groupedBuildings`로 무시되는 문제 수정
+- [ ] 그룹 키가 같은 건물들 → `EXT_mesh_gpu_instancing` 적용
+- [ ] 인스턴싱 적용 전후 triangle 수 비교 로깅
+
+---
+
+### Phase 12 테스트
+
+**파일**: `src/assets/internal/glb-build/glb-build-material-cache.spec.ts`
+
+```
+[MaterialCache Domain]
+  ✓ #6d6a64와 #6e6b65 → 같은 버킷 → 재질 1개만 생성
+  ✓ #6d6a64와 #2a3f8e → 다른 버킷 → 재질 2개 생성
+  ✓ concrete + gray-medium 버킷 → 10개 건물 → 재질 인스턴스 1개
+  ✓ materialReuseRate diagnostics에 기록됨
+
+[DepthBias Application]
+  ✓ shell Y=0, panel Y=0.02, window Y=0.03 (상대 offset 순서 보장)
+  ✓ 동일 footprint 두 shell → 후처리에서 1개만 남음 (Phase 8 연동)
+
+[Instancing Application]
+  ✓ groupedBuildings 실제 적용됨 (void 아님)
+  ✓ 동일 그룹키 5개 건물 → EXT_mesh_gpu_instancing 1개로 축소
+  ✓ triangle 수 감소율 >= 60%
+```
+
+**완료 조건**:
+- `materialReuseRate >= 0.70`
+- 멀리서 볼 때 Z-fighting 없음 (수동 확인)
+
+---
+
+---
+
+# Phase 13: 건물 높이·형태 정확도 개선
+
+> **소요**: 4일
+> **DDD 계층**: Domain (BuildingHeight, RoofShape) + Infrastructure (OsmAdapter)
+
+### 배경
+
+OSM `height=` 태그 없는 건물이 대부분 `building:levels × 3.2m`로 추정.
+일본 건물 표준 층고는 3.5m — 현재보다 과소 추정됨.
+아키하바라 고층 빌딩 상당수가 OSM에 높이 데이터 없음 → 10m짜리 박스로 생성.
+
+### 13.1 Domain: BuildingHeight 추정 로직 강화
+
+**파일**: `src/places/domain/building-height.estimator.ts` (신규)
+
+**작업**:
+- [ ] OSM 태그 기반 높이 추정 계층 구조:
+  ```
+  1순위: height= 태그 (미터 직접)
+  2순위: building:levels= × 3.5m (일본 건물 층고 기준)
+  3순위: 주변 건물 중앙값 높이 (같은 building:type 클러스터)
+  4순위: building type 기반 기본값:
+         skyscraper=80m, commercial=12m, residential=9m, house=5m
+  ```
+- [ ] `estimationConfidence: 'EXACT' | 'LEVELS_BASED' | 'CONTEXT_MEDIAN' | 'TYPE_DEFAULT'` 필드 추가
+- [ ] 일본 건물 층고 = 3.5m (현재 3.2m → 수정)
+
+### 13.2 Infrastructure: 주변 건물 높이 컨텍스트 활용
+
+**변경 대상**: [`src/places/clients/overpass/overpass.mapper.ts`](src/places/clients/overpass/overpass.mapper.ts)
+
+**작업**:
+- [ ] `PlacePackage` 내 건물들의 높이 중앙값 계산
+- [ ] `height=` 태그 없는 건물에 같은 `building:type` 클러스터의 중앙값 적용
+- [ ] `estimationConfidence` 필드를 `BuildingMeta`에 추가
+
+### 13.3 Domain: RoofShape 태그 매핑
+
+**변경 대상**: [`src/assets/compiler/building/building-mesh.roof-surface.builder.ts`](src/assets/compiler/building/building-mesh.roof-surface.builder.ts)
+
+**작업**:
+- [ ] `roof:shape=` OSM 태그 → GeometryStrategy 연동
+  ```
+  flat      → flat roof
+  gabled    → gable_lowrise
+  hipped    → hipped 지붕 (신규)
+  pyramidal → 피라미드 (신규)
+  없음      → height >= 30m 이면 flat, 미만이면 flat (데이터 없으면 flat)
+  ```
+- [ ] 지붕-벽 갭 0.02m 제거 (`topHeight + 0.02` → `topHeight`)
+
+---
+
+### Phase 13 테스트
+
+**파일**: `src/places/domain/building-height.estimator.spec.ts`
+
+```
+[BuildingHeight Domain]
+  ✓ height='45' → 45m, confidence='EXACT'
+  ✓ building:levels='10' → 35m (10×3.5), confidence='LEVELS_BASED'
+  ✓ 태그 없음 + 주변 중앙값 20m → 20m, confidence='CONTEXT_MEDIAN'
+  ✓ 태그 없음 + 주변 없음 + building=commercial → 12m, confidence='TYPE_DEFAULT'
+  ✓ 층고 3.5m 적용 (3.2m 아님)
+  ✓ confidence='TYPE_DEFAULT' 비율 < 30% (아키하바라 픽스처 기준)
+
+[RoofShape Domain]
+  ✓ roof:shape=gabled → gable 처리 포함
+  ✓ roof:shape=flat → flat roof
+  ✓ 태그 없음 → flat roof
+  ✓ 지붕-벽 갭 = 0 (0.02m gap 없음)
+
+[HeightEstimation 통합]
+  ✓ 아키하바라 픽스처 전체 건물 평균 높이 > 8m
+  ✓ estimationConfidence='TYPE_DEFAULT' 비율 < 0.3
+```
+
+**완료 조건**:
+- `estimationConfidence='TYPE_DEFAULT'` 비율 < 30%
+- 아키하바라 평균 건물 높이 > 8m
+
+---
+
+---
+
+# Phase 14: 전체 통합 검증 및 점수 기준 달성
+
+> **소요**: 3일
+> **목표**: Phase 7~13 모든 개선 통합 후 실제 빌드 점수 측정
+
+### 14.1 통합 빌드 테스트
+
+**작업**:
+- [ ] 아키하바라 씬 재생성 (Phase 7~13 모두 적용 후)
+- [ ] 시부야 스크램블 씬 재생성
+- [ ] diagnostics.log 전 스테이지 도달 확인
+- [ ] GLB 파일 3D viewer로 수동 검증
+
+### 14.2 점수 기준 달성 확인
+
+| 지표 | Phase 7~13 전 | 목표 | 측정 방법 |
+|------|--------------|------|---------|
+| 전체 점수 | 0.55 | **0.80** | diagnostics.log `overall` |
+| placeReadability | 0.00 | **0.60** | diagnostics.log |
+| buildingOverlapCount | 3,664 | **< 50** | diagnostics.log |
+| terrainAnchoredBuildings | 0 | **> 0** | diagnostics.log |
+| materialReuseRate | 미측정 | **> 0.70** | diagnostics.log |
+| glb_build 도달률 | 4004건물 씬 미도달 | **100%** | 로그 스테이지 확인 |
+| fallbackMassingRate | 미측정 | **< 0.30** | diagnostics.log |
+| GLB 파일 크기 | 43MB | **< 25MB** | 파일 크기 |
+
+### 14.3 Regression 테스트 스위트
+
+**파일**: `src/__tests__/integration/scene-full-build.spec.ts`
+
+```
+[Full Build Integration — 아키하바라 픽스처]
+  ✓ 파이프라인 전 스테이지 순서대로 완료
+  ✓ glb_build 스테이지 도달 (4000건물 씬 포함)
+  ✓ overall score > 0.75
+  ✓ placeReadability > 0.30
+  ✓ buildingOverlapCount < 100
+  ✓ MVP_SYNTHETIC_RULES provider 미사용
+  ✓ terrain_fusion 스테이지 기록됨
+  ✓ materialReuseRate 기록됨
+  ✓ GLB 파일 생성됨 + 유효한 GLTF 포맷
+
+[Full Build Integration — 시부야 스크램블 픽스처]
+  ✓ hero override 적용됨 (heroOverrideRate > 0)
+  ✓ crosswalk_overlay 메시 생성됨
+  ✓ overall score > 0.75
+
+[Regression — 기존 동작 보존]
+  ✓ READY 씬 조회 → 200
+  ✓ GLB 다운로드 → 유효한 바이너리
+  ✓ /twin 엔드포인트 → 정상 응답
+  ✓ /weather → provider != 'MVP_SYNTHETIC_RULES'
+  ✓ /traffic → provider != 'MVP_SYNTHETIC_RULES'
+```
+
+---
+
+---
+
+## Phase 의존성 그래프
+
+```
+Phase 7 (MVP 제거)           ← 최우선, 독립 실행 가능
+    ↓
+Phase 8 (OSM 중복 제거)      ← Phase 7 완료 후 (데이터 신뢰성 기반)
+   ↙              ↘
+Phase 9 (DEM 지형)    Phase 10 (재질 Fallback) ← Phase 8과 병렬 가능
+   ↘              ↙
+Phase 11 (PlaceReadability)  ← Phase 9, 10 완료 후
+Phase 12 (Z-Fighting)        ← Phase 8 완료 후 (병렬 가능)
+    ↓
+Phase 13 (건물 높이·형태)    ← Phase 11 완료 후
+    ↓
+Phase 14 (통합 검증)         ← 모든 Phase 완료 후
+```
+
+---
+
+## 테스트 전략 원칙
+
+### 신뢰성 기준 (우선순위 순)
+
+1. **외부 API 픽스처 기반** — 실제 아키하바라/시부야 OSM 응답을 `.fixture.json`으로 저장. 네트워크 없이 100% 재현 가능해야 함.
+2. **Domain 값 객체 순수 단위 테스트** — FootprintVo, PlaceCharacter, BuildingHeight는 외부 의존 없이 순수 함수로 테스트.
+3. **파이프라인 스텝 단위 테스트** — 각 Step을 단독으로 실행하고 Input → Output 검증.
+4. **통합 테스트** — 전체 파이프라인을 픽스처로 실행. 외부 API 미호출.
+5. **수동 3D 확인** — GLB를 glTF viewer로 시각적 검증. 자동화 불가 항목.
+
+### 금지 패턴
+
+- Domain 객체를 mock으로 대체 금지 — 실제 인스턴스 사용
+- 외부 API URL 하드코딩 테스트 금지 — 픽스처 또는 환경변수
+- `sleep()`으로 비동기 대기 금지 — Promise 직접 await
+
+---
+
+## 기존 Phase 0~6 이월 항목
+
+> Phase 0~6은 이전 버전 기준으로 대부분 완료.
+> 아래 항목만 미완료 상태로 이월:
+
+- [ ] **6.4** 전체 테스트 스위트 실행 (Phase 7~14 완료 후 재실행)
+- [ ] **3.2** 그룹 빌딩 활용 → **Phase 12에서 통합 처리**
+- [ ] **3.3** 기하학 정합성 지붕 갭 → **Phase 13에서 처리**
+
+---
+
+**문서 버전**: 2.0
+**최종 수정**: 2026-04-18
+**기반 데이터**: `data/scene/*.diagnostics.log` 4개 파일 분석
