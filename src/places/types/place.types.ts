@@ -151,6 +151,8 @@ export interface PlacePackage {
   linearFeatures: LinearFeatureData[];
   diagnostics?: {
     droppedBuildings: number;
+    deduplicatedBuildings?: number;
+    mergedWayRelationBuildings?: number;
     droppedRoads: number;
     droppedWalkways: number;
     droppedPois: number;
@@ -204,12 +206,9 @@ export interface SceneSnapshot {
     vehicleAnimationRate: number;
   };
   sourceDetail?: {
-    provider:
-      | 'MVP_SYNTHETIC_RULES'
-      | 'OPEN_METEO_CURRENT'
-      | 'OPEN_METEO_HISTORICAL';
-    date?: string;
-    localTime?: string;
+    provider: 'OPEN_METEO' | 'UNKNOWN';
+    date?: string | null;
+    localTime?: string | null;
   };
 }
 

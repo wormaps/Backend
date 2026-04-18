@@ -149,6 +149,8 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
     linearFeatures: [],
     diagnostics: {
       droppedBuildings: 0,
+      deduplicatedBuildings: 0,
+      mergedWayRelationBuildings: 0,
       droppedRoads: 0,
       droppedWalkways: 0,
       droppedPois: 0,
@@ -240,6 +242,8 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
     linearFeatures: [],
     diagnostics: {
       droppedBuildings: 0,
+      deduplicatedBuildings: 0,
+      mergedWayRelationBuildings: 0,
       droppedRoads: 0,
       droppedWalkways: 0,
       droppedPois: 0,
@@ -331,6 +335,8 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
     linearFeatures: [],
     diagnostics: {
       droppedBuildings: 0,
+      deduplicatedBuildings: 0,
+      mergedWayRelationBuildings: 0,
       droppedRoads: 0,
       droppedWalkways: 0,
       droppedPois: 0,
@@ -422,6 +428,8 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
     linearFeatures: [],
     diagnostics: {
       droppedBuildings: 0,
+      deduplicatedBuildings: 0,
+      mergedWayRelationBuildings: 0,
       droppedRoads: 0,
       droppedWalkways: 0,
       droppedPois: 0,

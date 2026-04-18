@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  ExternalSceneSnapshotResponse,
-  ExternalPlaceDetail,
-} from '../../types/external-place.types';
+import type { ExternalSceneSnapshotResponse } from '../../types/external-place.types';
 import { SceneSnapshot, TimeOfDay, WeatherType } from '../../types/place.types';
 import { OpenMeteoClient } from '../../clients/open-meteo.client';
 import { GooglePlacesClient } from '../../clients/google-places.client';
@@ -36,10 +33,19 @@ export class PlaceSnapshotService {
     date: string,
   ): Promise<ExternalSceneSnapshotResponse> {
     const place = await this.googlePlacesClient.getPlaceDetail(googlePlaceId);
-    const weatherObservation =
-      weather === undefined
-        ? await this.openMeteoClient.getObservation(place, date, timeOfDay)
-        : null;
+    let weatherObservation: ExternalSceneSnapshotResponse['weatherObservation'] =
+      null;
+    if (weather === undefined) {
+      try {
+        weatherObservation = await this.openMeteoClient.getObservation(
+          place,
+          date,
+          timeOfDay,
+        );
+      } catch {
+        weatherObservation = null;
+      }
+    }
 
     const resolvedWeather =
       weather ?? weatherObservation?.resolvedWeather ?? 'CLEAR';
@@ -50,12 +56,12 @@ export class PlaceSnapshotService {
     );
     snapshot.sourceDetail = weatherObservation
       ? {
-          provider: weatherObservation.source,
+          provider: 'OPEN_METEO',
           date: weatherObservation.date,
           localTime: weatherObservation.localTime,
         }
       : {
-          provider: 'MVP_SYNTHETIC_RULES',
+          provider: 'UNKNOWN',
         };
 
     return {

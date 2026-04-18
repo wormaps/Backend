@@ -313,6 +313,8 @@ export interface SceneMeta {
   };
   diagnostics: {
     droppedBuildings: number;
+    deduplicatedBuildings?: number;
+    mergedWayRelationBuildings?: number;
     droppedRoads: number;
     droppedWalkways: number;
     droppedPois: number;

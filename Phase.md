@@ -85,10 +85,10 @@ OpenMeteo·TomTom 클라이언트는 **이미 구현**되어 있으나 파이프
 - [`src/scene/services/live/scene-state-live.service.ts:91`](src/scene/services/live/scene-state-live.service.ts)
 
 **작업**:
-- [ ] `MVP_SYNTHETIC_RULES` provider 분기 제거
-- [ ] `OpenMeteoClient.getCurrentWeather(lat, lng)` 직접 호출로 대체
-- [ ] 실패 시 fallback: `UNKNOWN` 날씨 상태 반환 (합성 데이터 아님)
-- [ ] `provider` 필드값 `'OPEN_METEO'`로 확정
+- [x] `MVP_SYNTHETIC_RULES` provider 분기 제거
+- [x] `OpenMeteoClient.getCurrentWeather(lat, lng)` 직접 호출로 대체
+- [x] 실패 시 fallback: `UNKNOWN` 날씨 상태 반환 (합성 데이터 아님)
+- [x] `provider` 필드값 `'OPEN_METEO'`로 확정
 
 **도메인 규칙**: WeatherState는 실제 측정값이거나 `UNKNOWN`이어야 함. 합성값은 허용하지 않음.
 

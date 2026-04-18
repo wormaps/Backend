@@ -18,6 +18,20 @@ import type {
 import { SceneReadService } from '../read/scene-read.service';
 import type { StoredScene } from '../../types/scene.types';
 
+type SceneWeatherSnapshot = {
+  provider: 'OPEN_METEO';
+  date: string;
+  localTime: string;
+  resolvedWeather: SceneStateResponse['weather'];
+};
+
+type SceneWeatherObservation = {
+  source: 'OPEN_METEO';
+  date: string;
+  localTime: string;
+  resolvedWeather: SceneStateResponse['weather'];
+};
+
 @Injectable()
 export class SceneStateLiveService {
   private readonly ttlMs = 10 * 60 * 1000;
@@ -43,16 +57,12 @@ export class SceneStateLiveService {
           query.weather === undefined
             ? this.readFreshWeatherSnapshot(storedScene, date, query.timeOfDay)
             : null;
-        const weatherObservation =
-          query.weather === undefined
-            ? snapshotWeather
-              ? null
-              : await this.openMeteoClient.getObservation(
-                  storedScene.place,
-                  date,
-                  query.timeOfDay,
-                )
-            : null;
+        const weatherObservation = await this.resolveWeatherObservation(
+          query,
+          snapshotWeather,
+          storedScene.place,
+          date,
+        );
         const resolvedWeather =
           query.weather ??
           snapshotWeather?.resolvedWeather ??
@@ -83,12 +93,12 @@ export class SceneStateLiveService {
               }
             : snapshotWeather
               ? {
-                  provider: snapshotWeather.provider,
+                  provider: 'OPEN_METEO',
                   date: snapshotWeather.date,
                   localTime: snapshotWeather.localTime,
                 }
               : {
-                  provider: 'MVP_SYNTHETIC_RULES',
+                  provider: 'UNKNOWN',
                 },
         };
       },
@@ -122,16 +132,12 @@ export class SceneStateLiveService {
           query.weather === undefined
             ? this.readFreshWeatherSnapshot(storedScene, date, query.timeOfDay)
             : null;
-        const weatherObservation =
-          query.weather === undefined
-            ? snapshotWeather
-              ? null
-              : await this.openMeteoClient.getObservation(
-                  storedScene.place,
-                  date,
-                  query.timeOfDay,
-                )
-            : null;
+        const weatherObservation = await this.resolveWeatherObservation(
+          query,
+          snapshotWeather,
+          storedScene.place,
+          date,
+        );
         const resolvedWeather =
           query.weather ??
           snapshotWeather?.resolvedWeather ??
@@ -165,6 +171,36 @@ export class SceneStateLiveService {
     );
   }
 
+  private async resolveWeatherObservation(
+    query: SceneStateQuery,
+    snapshotWeather: SceneWeatherSnapshot | null,
+    place: NonNullable<StoredScene['place']>,
+    date: string,
+  ): Promise<SceneWeatherObservation | null> {
+    if (query.weather !== undefined || snapshotWeather) {
+      return null;
+    }
+
+    try {
+      const observation = await this.openMeteoClient.getObservation(
+        place,
+        date,
+        query.timeOfDay,
+      );
+      if (!observation) {
+        return null;
+      }
+      return {
+        source: 'OPEN_METEO',
+        date: observation.date,
+        localTime: observation.localTime,
+        resolvedWeather: observation.resolvedWeather,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private buildCacheKey(sceneId: string, query: SceneStateQuery): string {
     return `scene-state:${sceneId}:${query.date ?? 'AUTO'}:${query.timeOfDay}:${query.weather ?? 'AUTO'}`;
   }
@@ -180,12 +216,7 @@ export class SceneStateLiveService {
     storedScene: StoredScene,
     date: string,
     timeOfDay: SceneStateQuery['timeOfDay'],
-  ): {
-    provider: 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL';
-    date: string;
-    localTime: string;
-    resolvedWeather: SceneStateResponse['weather'];
-  } | null {
+  ): SceneWeatherSnapshot | null {
     const snapshot = storedScene.latestWeatherSnapshot;
     if (!snapshot) {
       return null;
@@ -211,7 +242,7 @@ export class SceneStateLiveService {
     }
 
     return {
-      provider: snapshot.provider,
+      provider: 'OPEN_METEO',
       date: snapshot.date,
       localTime: snapshot.localTime,
       resolvedWeather: snapshot.resolvedWeather,

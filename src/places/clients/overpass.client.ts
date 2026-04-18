@@ -202,6 +202,8 @@ export class OverpassClient {
             partitioned.buildingWays.length +
             partitioned.buildingRelations.length -
             buildings.length,
+          deduplicatedBuildings: partitioned.deduplicatedCount,
+          mergedWayRelationBuildings: partitioned.mergedWayRelationCount,
           droppedRoads: partitioned.roadWays.length - roads.length,
           droppedWalkways: partitioned.walkwayWays.length - walkways.length,
           droppedPois: partitioned.poiNodes.length - pois.length,

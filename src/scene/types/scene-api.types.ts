@@ -103,12 +103,9 @@ export interface SceneStateResponse {
     vehicleAnimationRate: number;
   };
   sourceDetail?: {
-    provider:
-      | 'MVP_SYNTHETIC_RULES'
-      | 'OPEN_METEO_CURRENT'
-      | 'OPEN_METEO_HISTORICAL';
-    date?: string;
-    localTime?: string;
+    provider: 'OPEN_METEO' | 'UNKNOWN';
+    date?: string | null;
+    localTime?: string | null;
   };
 }
 

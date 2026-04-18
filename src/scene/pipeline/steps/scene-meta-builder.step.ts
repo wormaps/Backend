@@ -115,6 +115,8 @@ export class SceneMetaBuilderStep {
       },
       diagnostics: placePackage.diagnostics ?? {
         droppedBuildings: 0,
+        deduplicatedBuildings: 0,
+        mergedWayRelationBuildings: 0,
         droppedRoads: 0,
         droppedWalkways: 0,
         droppedPois: 0,

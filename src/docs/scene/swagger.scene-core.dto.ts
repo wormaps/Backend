@@ -47,11 +47,7 @@ export class PlaybackDto {
 
 export class SourceDetailDto {
   @ApiProperty({
-    enum: [
-      'MVP_SYNTHETIC_RULES',
-      'OPEN_METEO_CURRENT',
-      'OPEN_METEO_HISTORICAL',
-    ],
+    enum: ['OPEN_METEO', 'UNKNOWN'],
   })
   provider!: string;
 

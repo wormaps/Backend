@@ -1,8 +1,11 @@
 import type { OverpassElement, OverpassResponse } from './overpass.types';
+import { isSameBuildingFootprint } from '../../domain/building-footprint.value-object';
 
 export interface PartitionedOverpassElements {
   buildingRelations: OverpassElement[];
   buildingWays: OverpassElement[];
+  deduplicatedCount: number;
+  mergedWayRelationCount: number;
   roadWays: OverpassElement[];
   walkwayWays: OverpassElement[];
   crossingWays: OverpassElement[];
@@ -36,13 +39,27 @@ export function collectDedupedElements(
 export function partitionOverpassElements(
   elements: OverpassElement[],
 ): PartitionedOverpassElements {
-  const buildingRelations = elements.filter(
+  const rawBuildingRelations = elements.filter(
     (element) =>
       element.type === 'relation' &&
       element.tags?.building &&
       element.tags?.type === 'multipolygon' &&
       element.members?.length,
   );
+  const rawBuildingWays = elements.filter(
+    (element) =>
+      element.type === 'way' &&
+      element.tags?.building &&
+      element.geometry?.length,
+  );
+
+  const {
+    buildingRelations,
+    buildingWays,
+    deduplicatedCount,
+    mergedWayRelationCount,
+  } = dedupeBuildingElements(rawBuildingRelations, rawBuildingWays);
+
   const relationMemberWayIds = new Set(
     buildingRelations.flatMap((relation) =>
       (relation.members ?? [])
@@ -51,12 +68,8 @@ export function partitionOverpassElements(
     ),
   );
 
-  const buildingWays = elements.filter(
-    (element) =>
-      element.type === 'way' &&
-      element.tags?.building &&
-      !relationMemberWayIds.has(element.id) &&
-      element.geometry?.length,
+  const buildingWaysWithoutMembers = buildingWays.filter(
+    (element) => !relationMemberWayIds.has(element.id),
   );
   const roadWays = elements.filter(
     (element) =>
@@ -129,7 +142,9 @@ export function partitionOverpassElements(
 
   return {
     buildingRelations,
-    buildingWays,
+    buildingWays: buildingWaysWithoutMembers,
+    deduplicatedCount,
+    mergedWayRelationCount,
     roadWays,
     walkwayWays,
     crossingWays,
@@ -139,4 +154,144 @@ export function partitionOverpassElements(
     landCoverWays,
     linearFeatureWays,
   };
+}
+
+function dedupeBuildingElements(
+  buildingRelations: OverpassElement[],
+  buildingWays: OverpassElement[],
+): {
+  buildingRelations: OverpassElement[];
+  buildingWays: OverpassElement[];
+  deduplicatedCount: number;
+  mergedWayRelationCount: number;
+} {
+  const keptRelations = dedupeRelationsByFootprint(buildingRelations);
+  const dedupedWays: OverpassElement[] = [];
+  let mergedWayRelationCount = 0;
+
+  for (const way of buildingWays) {
+    const wayRing = mapRingFromWayGeometry(way);
+    if (wayRing.length < 3) {
+      dedupedWays.push(way);
+      continue;
+    }
+
+    const hasEquivalentRelation = keptRelations.some((relation) => {
+      const relationRing = mapPrimaryOuterRingFromRelation(relation);
+      if (relationRing.length < 3) {
+        return false;
+      }
+      return isSameBuildingFootprint(wayRing, relationRing, 3);
+    });
+
+    if (hasEquivalentRelation) {
+      mergedWayRelationCount += 1;
+      continue;
+    }
+    dedupedWays.push(way);
+  }
+
+  const deduplicatedCount =
+    buildingRelations.length + buildingWays.length -
+    (keptRelations.length + dedupedWays.length);
+
+  return {
+    buildingRelations: keptRelations,
+    buildingWays: dedupedWays,
+    deduplicatedCount,
+    mergedWayRelationCount,
+  };
+}
+
+function dedupeRelationsByFootprint(
+  relations: OverpassElement[],
+): OverpassElement[] {
+  const kept: OverpassElement[] = [];
+  for (const relation of relations) {
+    const ring = mapPrimaryOuterRingFromRelation(relation);
+    if (ring.length < 3) {
+      kept.push(relation);
+      continue;
+    }
+
+    const duplicate = kept.some((candidate) => {
+      const candidateRing = mapPrimaryOuterRingFromRelation(candidate);
+      if (candidateRing.length < 3) {
+        return false;
+      }
+      return isSameBuildingFootprint(ring, candidateRing, 3);
+    });
+
+    if (!duplicate) {
+      kept.push(relation);
+    }
+  }
+  return kept;
+}
+
+function mapRingFromWayGeometry(element: OverpassElement): Array<{
+  lat: number;
+  lng: number;
+}> {
+  const ring = (element.geometry ?? [])
+    .map((point) => ({ lat: Number(point.lat), lng: Number(point.lon) }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+  return normalizeRing(ring);
+}
+
+function mapPrimaryOuterRingFromRelation(element: OverpassElement): Array<{
+  lat: number;
+  lng: number;
+}> {
+  const outerMembers = (element.members ?? [])
+    .filter((member) => member.type === 'way')
+    .filter((member) => (member.role ?? 'outer') === 'outer')
+    .map((member) =>
+      (member.geometry ?? [])
+        .map((point) => ({ lat: Number(point.lat), lng: Number(point.lon) }))
+        .filter(
+          (point) => Number.isFinite(point.lat) && Number.isFinite(point.lng),
+        ),
+    )
+    .filter((segment) => segment.length >= 3)
+    .map((segment) => normalizeRing(segment));
+
+  if (outerMembers.length === 0) {
+    return [];
+  }
+
+  return [...outerMembers].sort(
+    (left, right) => Math.abs(resolveSignedArea(right)) - Math.abs(resolveSignedArea(left)),
+  )[0];
+}
+
+function normalizeRing(
+  ring: Array<{ lat: number; lng: number }>,
+): Array<{ lat: number; lng: number }> {
+  const deduped = ring.filter((point, index) => {
+    const previous = ring[index - 1];
+    return !previous || previous.lat !== point.lat || previous.lng !== point.lng;
+  });
+  if (deduped.length > 2) {
+    const first = deduped[0];
+    const last = deduped[deduped.length - 1];
+    if (first.lat === last.lat && first.lng === last.lng) {
+      deduped.pop();
+    }
+  }
+  return deduped;
+}
+
+function resolveSignedArea(ring: Array<{ lat: number; lng: number }>): number {
+  if (ring.length < 3) {
+    return 0;
+  }
+
+  let area = 0;
+  for (let i = 0; i < ring.length; i += 1) {
+    const current = ring[i];
+    const next = ring[(i + 1) % ring.length];
+    area += current.lng * next.lat - next.lng * current.lat;
+  }
+  return area / 2;
 }

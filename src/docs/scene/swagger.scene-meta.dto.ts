@@ -167,6 +167,12 @@ export class SceneMetaDiagnosticsDto {
   @ApiProperty({ example: 2 })
   droppedBuildings!: number;
 
+  @ApiProperty({ required: false, example: 12 })
+  deduplicatedBuildings?: number;
+
+  @ApiProperty({ required: false, example: 8 })
+  mergedWayRelationBuildings?: number;
+
   @ApiProperty({ example: 1 })
   droppedRoads!: number;
 
