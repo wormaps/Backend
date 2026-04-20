@@ -240,6 +240,16 @@ export interface SceneRoadDecal {
   stripeSet?: SceneRoadStripeSet;
 }
 
+export interface OverlapMitigationOutcome {
+  objectId: string;
+  strategy: string;
+  overlapAreaM2: number;
+  severity: 'low' | 'medium' | 'high';
+  groundOffsetAppliedM: number;
+  heightStaggerAppliedM: number;
+  lateralSeparationAppliedM: number;
+}
+
 export interface SceneGeometryDiagnostic {
   objectId: string;
   strategy: GeometryStrategy;
@@ -261,6 +271,12 @@ export interface SceneGeometryDiagnostic {
   averageTerrainOffsetM?: number;
   maxTerrainOffsetM?: number;
   transportTerrainCoverageRatio?: number;
+  overlapMitigationOutcomes?: OverlapMitigationOutcome[];
+  totalOverlapAreaM2?: number;
+  highSeverityOverlapCount?: number;
+  mediumSeverityOverlapCount?: number;
+  lowSeverityOverlapCount?: number;
+  correctedCount?: number;
 }
 
 export interface SceneAssetCounts {

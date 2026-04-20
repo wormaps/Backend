@@ -13,6 +13,14 @@ import { GooglePlacesClient } from '../src/places/clients/google-places.client';
 import { OpenMeteoClient } from '../src/places/clients/open-meteo.client';
 import { SceneStateLiveService } from '../src/scene/services/live/scene-state-live.service';
 import { SceneReadService } from '../src/scene/services/read/scene-read.service';
+import type { AppLoggerService } from '../src/common/logging/app-logger.service';
+
+const mockLogger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+} as unknown as AppLoggerService;
 import { TtlCacheService } from '../src/cache/ttl-cache.service';
 import type { ExternalPlaceDetail } from '../src/places/types/external-place.types';
 
@@ -53,6 +61,7 @@ describe('Phase 7.1 weather provider fallback', () => {
       new SnapshotBuilderService(),
       googlePlacesClient as unknown as GooglePlacesClient,
       openMeteoClient as unknown as OpenMeteoClient,
+      mockLogger,
     );
   });
 

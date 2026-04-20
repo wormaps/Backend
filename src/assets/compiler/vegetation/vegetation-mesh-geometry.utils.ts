@@ -1,19 +1,7 @@
-import type { Coordinate } from '../../../places/types/place.types';
 import type { GeometryBuffers, Vec3 } from '../road/road-mesh.builder';
-
-export function toLocalPoint(origin: Coordinate, point: Coordinate): Vec3 {
-  const metersPerLat = 111_320;
-  const metersPerLng = 111_320 * Math.cos((origin.lat * Math.PI) / 180);
-  return [
-    (point.lng - origin.lng) * metersPerLng,
-    0,
-    -(point.lat - origin.lat) * metersPerLat,
-  ];
-}
-
-export function isFiniteVec3(point: Vec3): boolean {
-  return point.every((value) => Number.isFinite(value));
-}
+import { isFiniteVec3 } from '../../../common/geo/coordinate-transform.utils';
+export { isFiniteVec3, toLocalPoint } from '../../../common/geo/coordinate-transform.utils';
+export { pushBox } from '../geometry/primitives/box.utils';
 
 export function pushTriangle(
   geometry: GeometryBuffers,
@@ -40,17 +28,6 @@ export function pushQuad(
 ): void {
   pushTriangle(geometry, a, b, c);
   pushTriangle(geometry, a, c, d);
-}
-
-export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
-  const [x0, y0, z0] = min;
-  const [x1, y1, z1] = max;
-  pushQuad(geometry, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
-  pushQuad(geometry, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]);
-  pushQuad(geometry, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]);
-  pushQuad(geometry, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]);
-  pushQuad(geometry, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]);
-  pushQuad(geometry, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
 }
 
 export function pushCylinder(

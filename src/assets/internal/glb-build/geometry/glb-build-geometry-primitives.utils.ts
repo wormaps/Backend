@@ -1,5 +1,12 @@
 import type { Coordinate } from '../../../../places/types/place.types';
 import type { GeometryBuffers, Vec3 } from '../../../compiler/road';
+import {
+  isFiniteVec3 as sharedIsFiniteVec3,
+  normalizeLocalRing as sharedNormalizeLocalRing,
+  samePointXZ as sharedSamePointXZ,
+  toLocalPoint as sharedToLocalPoint,
+  toLocalRing as sharedToLocalRing,
+} from '../../../../common/geo/coordinate-transform.utils';
 
 type Vec2 = { x: number; z: number };
 
@@ -11,17 +18,13 @@ export function createEmptyGeometry(): GeometryBuffers {
   };
 }
 
-export function isFiniteVec3(point: Vec3): boolean {
-  return point.every((value) => Number.isFinite(value));
-}
+export const isFiniteVec3 = sharedIsFiniteVec3;
 
 export function isFiniteVec2(point: [number, number]): boolean {
   return point.every((value) => Number.isFinite(value));
 }
 
-export function samePointXZ(a: Vec3, b: Vec3): boolean {
-  return Math.abs(a[0] - b[0]) <= 1e-6 && Math.abs(a[2] - b[2]) <= 1e-6;
-}
+export const samePointXZ = sharedSamePointXZ;
 
 export function computeNormal(a: Vec3, b: Vec3, c: Vec3): Vec3 | null {
   if (![a, b, c].every((point) => isFiniteVec3(point))) {
@@ -121,13 +124,7 @@ export function computePathNormal(
   return [-tangent.z, tangent.x];
 }
 
-export function toLocalPoint(origin: Coordinate, point: Coordinate): Vec3 {
-  const metersPerLat = 111_320;
-  const metersPerLng = 111_320 * Math.cos((origin.lat * Math.PI) / 180);
-  const x = (point.lng - origin.lng) * metersPerLng;
-  const z = -(point.lat - origin.lat) * metersPerLat;
-  return [x, 0, z];
-}
+export const toLocalPoint = sharedToLocalPoint;
 
 export function pushPathStrips(
   origin: Coordinate,
@@ -180,24 +177,7 @@ export function pushPathStrips(
   }
 }
 
-export function toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
-  const deduped = points.filter((point, index) => {
-    const prev = points[index - 1];
-    return !prev || prev.lat !== point.lat || prev.lng !== point.lng;
-  });
-  const normalized = [...deduped];
-  if (normalized.length > 1) {
-    const first = normalized[0];
-    const last = normalized[normalized.length - 1];
-    if (first.lat === last.lat && first.lng === last.lng) {
-      normalized.pop();
-    }
-  }
-
-  return normalized
-    .map((point) => toLocalPoint(origin, point))
-    .filter((point) => isFiniteVec3(point));
-}
+export const toLocalRing = sharedToLocalRing;
 
 export function signedAreaXZ(points: Vec3[]): number {
   if (points.length < 3) {
@@ -214,29 +194,7 @@ export function signedAreaXZ(points: Vec3[]): number {
   return area / 2;
 }
 
-export function normalizeLocalRing(
-  ring: Vec3[],
-  direction: 'CW' | 'CCW',
-): Vec3[] {
-  if (ring.length < 3) {
-    return ring;
-  }
-
-  const area = signedAreaXZ(ring);
-  if (Math.abs(area) <= 1e-6) {
-    return ring;
-  }
-
-  const isClockwise = area < 0;
-  if (
-    (direction === 'CW' && isClockwise) ||
-    (direction === 'CCW' && !isClockwise)
-  ) {
-    return ring;
-  }
-
-  return [...ring].reverse();
-}
+export const normalizeLocalRing = sharedNormalizeLocalRing;
 
 export function triangulateRings(
   outerRing: Vec3[],
@@ -313,6 +271,9 @@ export function pushRingWallsBetween(
 }
 
 export function averagePoint(points: Vec3[]): Vec3 {
+  if (points.length === 0) {
+    return [0, 0, 0];
+  }
   const total = points.reduce(
     (acc, point) =>
       [acc[0] + point[0], acc[1] + point[1], acc[2] + point[2]] as Vec3,

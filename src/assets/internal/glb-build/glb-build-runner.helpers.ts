@@ -155,16 +155,16 @@ export async function optimizeGlbDocument(
     ];
   }
 
+  const transformSteps = supportsInstance
+    ? ['prune', 'dedup', 'instance']
+    : ['prune', 'dedup'];
+  if (supportsSimplify) {
+    transformSteps.push('simplify');
+  }
+  transformSteps.push('weld', 'quantize');
+
   try {
     await transformableDoc.transform(...transforms);
-
-    const transformSteps = supportsInstance
-      ? ['prune', 'dedup', 'instance']
-      : ['prune', 'dedup'];
-    if (supportsSimplify) {
-      transformSteps.push('simplify');
-    }
-    transformSteps.push('weld', 'quantize');
 
     logger.info('scene.glb_build.optimize', {
       sceneId,
@@ -176,126 +176,12 @@ export async function optimizeGlbDocument(
       reason: controls?.reason,
     });
   } catch (error) {
-    if (supportsInstance) {
-      try {
-        const fallbackTransforms = supportsSimplify
-          ? [...baseTransforms, simplifyTransform, ...tailTransforms]
-          : [...baseTransforms, ...tailTransforms];
-        await transformableDoc.transform(...fallbackTransforms);
-        const fallbackTransformSteps = supportsSimplify
-          ? ['prune', 'dedup', 'simplify', 'weld', 'quantize']
-          : ['prune', 'dedup', 'weld', 'quantize'];
-        logger.info('scene.glb_build.optimize', {
-          sceneId,
-          step: 'glb_build',
-          transforms: fallbackTransformSteps,
-          simplify: supportsSimplify ? effectiveSimplifyConfig.options : undefined,
-          quantize: options.quantizeOptions,
-          fallbackFromInstance: true,
-        });
-        logger.warn('scene.glb_build.optimize_instance_skipped', {
-          sceneId,
-          step: 'glb_build',
-          reason: error instanceof Error ? error.message : String(error),
-          fallbackTransforms: fallbackTransformSteps,
-        });
-        return;
-      } catch (fallbackError) {
-        if (supportsSimplify) {
-          try {
-            await transformableDoc.transform(...baseTransforms, ...tailTransforms);
-            logger.info('scene.glb_build.optimize', {
-              sceneId,
-              step: 'glb_build',
-              transforms: ['prune', 'dedup', 'weld', 'quantize'],
-              quantize: options.quantizeOptions,
-              fallbackFromInstanceAndSimplify: true,
-            });
-            logger.warn('scene.glb_build.optimize_simplify_skipped', {
-              sceneId,
-              step: 'glb_build',
-              reason:
-                fallbackError instanceof Error
-                  ? fallbackError.message
-                  : String(fallbackError),
-              fallbackTransforms: ['prune', 'dedup', 'weld', 'quantize'],
-              triggeredBy: 'instance_fallback',
-            });
-            logger.warn('scene.glb_build.optimize_instance_skipped', {
-              sceneId,
-              step: 'glb_build',
-              reason: error instanceof Error ? error.message : String(error),
-              fallbackTransforms: ['prune', 'dedup', 'weld', 'quantize'],
-              triggeredBy: 'simplify_fallback',
-            });
-            return;
-          } catch (baseFallbackError) {
-            logger.warn('scene.glb_build.optimize_skipped', {
-              sceneId,
-              step: 'glb_build',
-              reason:
-                baseFallbackError instanceof Error
-                  ? baseFallbackError.message
-                  : String(baseFallbackError),
-              initialReason: error instanceof Error ? error.message : String(error),
-            });
-            return;
-          }
-        }
-
-        logger.warn('scene.glb_build.optimize_skipped', {
-          sceneId,
-          step: 'glb_build',
-          reason:
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : String(fallbackError),
-          initialReason: error instanceof Error ? error.message : String(error),
-        });
-        return;
-      }
-    }
-
-    if (supportsSimplify) {
-      try {
-        await transformableDoc.transform(...baseTransforms, ...tailTransforms);
-        logger.info('scene.glb_build.optimize', {
-          sceneId,
-          step: 'glb_build',
-          transforms: supportsInstance
-            ? ['prune', 'dedup', 'instance', 'weld', 'quantize']
-            : ['prune', 'dedup', 'weld', 'quantize'],
-          instance: supportsInstance ? options.instanceOptions : undefined,
-          quantize: options.quantizeOptions,
-          fallbackFromSimplify: true,
-        });
-        logger.warn('scene.glb_build.optimize_simplify_skipped', {
-          sceneId,
-          step: 'glb_build',
-          reason: error instanceof Error ? error.message : String(error),
-          fallbackTransforms: supportsInstance
-            ? ['prune', 'dedup', 'instance', 'weld', 'quantize']
-            : ['prune', 'dedup', 'weld', 'quantize'],
-        });
-        return;
-      } catch (fallbackError) {
-        logger.warn('scene.glb_build.optimize_skipped', {
-          sceneId,
-          step: 'glb_build',
-          reason:
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : String(fallbackError),
-          initialReason: error instanceof Error ? error.message : String(error),
-        });
-        return;
-      }
-    }
-
-    logger.warn('scene.glb_build.optimize_skipped', {
+    logger.warn('scene.glb_build.optimization.failed', {
       sceneId,
       step: 'glb_build',
-      reason: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error),
+      attemptedTransforms: transformSteps,
+      fallback: 'original_document_preserved',
     });
   }
 }

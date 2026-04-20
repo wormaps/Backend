@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { averageCoordinate } from '../../../common/geo/coordinate-utils.utils';
+import { distanceMeters } from '../../../common/geo/distance.utils';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { midpoint } from '../../../places/utils/geo.utils';
 import {
@@ -630,38 +632,6 @@ function resolveLongestEdgeIndex(ring: { lat: number; lng: number }[]): number {
     }
   }
   return longestIndex;
-}
-
-function averageCoordinate(
-  points: { lat: number; lng: number }[],
-): { lat: number; lng: number } | null {
-  if (points.length === 0) {
-    return null;
-  }
-
-  const total = points.reduce(
-    (acc, point) => ({
-      lat: acc.lat + point.lat,
-      lng: acc.lng + point.lng,
-    }),
-    { lat: 0, lng: 0 },
-  );
-
-  return {
-    lat: total.lat / points.length,
-    lng: total.lng / points.length,
-  };
-}
-
-function distanceMeters(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const avgLatRad = ((a.lat + b.lat) / 2) * (Math.PI / 180);
-  const metersPerLng = 111_320 * Math.cos(avgLatRad);
-  const dx = (a.lng - b.lng) * metersPerLng;
-  const dy = (a.lat - b.lat) * 111_320;
-  return Math.hypot(dx, dy);
 }
 
 function clampCoverage(value: number): number {

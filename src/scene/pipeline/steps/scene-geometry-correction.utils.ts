@@ -1,4 +1,7 @@
 import type { SceneMeta } from '../../types/scene.types';
+import { distanceMeters } from '../../../common/geo/distance.utils';
+import { averageCoordinate } from '../../../common/geo/coordinate-utils.utils';
+export { averageCoordinate, distanceMeters };
 
 const TERRAIN_RELIEF_SCALE = 0.5;
 
@@ -100,27 +103,6 @@ export function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-export function averageCoordinate(
-  points: Array<{ lat: number; lng: number }>,
-): { lat: number; lng: number } | null {
-  if (points.length === 0) {
-    return null;
-  }
-
-  const sum = points.reduce(
-    (acc, point) => ({
-      lat: acc.lat + point.lat,
-      lng: acc.lng + point.lng,
-    }),
-    { lat: 0, lng: 0 },
-  );
-
-  return {
-    lat: sum.lat / points.length,
-    lng: sum.lng / points.length,
-  };
-}
-
 export function distanceToPathMeters(
   point: { lat: number; lng: number },
   path: Array<{ lat: number; lng: number }>,
@@ -145,7 +127,7 @@ export function distanceToPathMeters(
   return minDistance;
 }
 
-export function distanceToSegmentMeters(
+function distanceToSegmentMeters(
   point: { lat: number; lng: number },
   start: { lat: number; lng: number },
   end: { lat: number; lng: number },
@@ -172,19 +154,6 @@ export function distanceToSegmentMeters(
   const cx = ax + vx * t;
   const cy = ay + vy * t;
   return Math.hypot(px - cx, py - cy);
-}
-
-export function distanceMeters(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const metersPerLat = 111_320;
-  const metersPerLng =
-    111_320 * Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
-  return Math.hypot(
-    (a.lat - b.lat) * metersPerLat,
-    (a.lng - b.lng) * metersPerLng,
-  );
 }
 
 export function normalizeRingVertexCount(count: number): number {

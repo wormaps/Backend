@@ -16,6 +16,12 @@ import {
   type OverlapMitigationOutcome,
 } from './scene-geometry-correction.logic';
 
+function createGeometryDiagnostic(
+  details: SceneGeometryDiagnostic,
+): SceneGeometryDiagnostic {
+  return { ...details };
+}
+
 @Injectable()
 export class SceneGeometryCorrectionStep {
   execute(meta: SceneMeta, detail: SceneDetail): GeometryCorrectionResult {
@@ -172,7 +178,7 @@ export class SceneGeometryCorrectionStep {
           mediumSeverityOverlapCount,
           lowSeverityOverlapCount,
           correctedCount,
-        } as unknown as SceneGeometryDiagnostic,
+        },
       ],
     };
 

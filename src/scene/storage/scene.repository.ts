@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { StoredScene } from '../types/scene.types';
 import { getSceneDataDir, writeFileAtomically } from './scene-storage.utils';
+import { AppLoggerService } from '../../common/logging/app-logger.service';
 
 @Injectable()
 export class SceneRepository {
@@ -12,6 +13,8 @@ export class SceneRepository {
   private readonly indexPath = join(this.baseDir, 'index.json');
   private readonly maxInMemoryScenes = 256;
   private readonly maxRequestIndexEntries = 1024;
+
+  constructor(private readonly appLoggerService: AppLoggerService) {}
 
   async save(scene: StoredScene, requestKey?: string): Promise<StoredScene> {
     await mkdir(this.baseDir, { recursive: true });
@@ -65,7 +68,11 @@ export class SceneRepository {
       this.touchScene(sceneId);
       this.evictOldestSceneIfNeeded();
       return parsed;
-    } catch {
+    } catch (error) {
+      this.appLoggerService.warn('scene.repository.read-failed', {
+        sceneId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return undefined;
     }
   }
@@ -90,7 +97,10 @@ export class SceneRepository {
       this.touchRequestKey(requestKey);
       this.evictOldestRequestKeyIfNeeded();
       return this.findById(sceneId);
-    } catch {
+    } catch (error) {
+      this.appLoggerService.warn('scene.repository.index-read-failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return undefined;
     }
   }

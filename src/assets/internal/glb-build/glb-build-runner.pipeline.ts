@@ -232,6 +232,7 @@ export async function executeGlbBuild(
       state.currentMeshDiagnostics,
       state.triangleBudget,
       state.semanticGroupNodes,
+      state.appLoggerService,
     );
   };
 
@@ -408,6 +409,11 @@ export async function executeGlbBuild(
     },
     detailLimit: 8,
     logger: state.appLoggerService,
+  });
+  state.appLoggerService.info('scene.glb_build.validation_passed', {
+    sceneId: contract.sceneId,
+    step: 'glb_build',
+    glbBytes: glbBinary.byteLength,
   });
   await writeFileAtomically(outputPath, glbBinary);
   appMetrics.observeDuration(

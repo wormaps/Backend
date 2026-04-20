@@ -1,6 +1,7 @@
 import type { Coordinate } from '../../../places/types/place.types';
 import type { TerrainSample } from '../../types/scene.types';
 import type { IDemPort } from './dem.port';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
 
 const DEFAULT_OPEN_ELEVATION_URL = 'https://api.open-elevation.com/api/v1/lookup';
 
@@ -8,7 +9,10 @@ export class OpenElevationAdapter implements IDemPort {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
 
-  constructor(options?: { baseUrl?: string; timeoutMs?: number }) {
+  constructor(
+    private readonly appLoggerService: AppLoggerService,
+    options?: { baseUrl?: string; timeoutMs?: number },
+  ) {
     this.baseUrl =
       options?.baseUrl?.trim() ||
       process.env.OPEN_ELEVATION_URL?.trim() ||
@@ -55,12 +59,17 @@ export class OpenElevationAdapter implements IDemPort {
         }
         samples.push({
           location: { lat: point.lat, lng: point.lng },
-          heightMeters: result.elevation as number,
+          heightMeters: Number(result.elevation),
           source: 'OPEN_ELEVATION',
         });
       }
       return samples;
-    } catch {
+    } catch (error) {
+      this.appLoggerService.error('terrain.open-elevation.fetch-failed', {
+        url: this.baseUrl,
+        pointCount: points.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }

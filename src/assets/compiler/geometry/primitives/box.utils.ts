@@ -1,8 +1,17 @@
-import type { GeometryBuffers, Vec3 } from '../road/road-mesh.builder';
-import { isFiniteVec3 } from './building-mesh-utils';
-export { pushBox } from '../geometry/primitives/box.utils';
+import type { GeometryBuffers, Vec3 } from '../../road/road-mesh.types';
 
-export function pushQuad(
+export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
+  const [x0, y0, z0] = min;
+  const [x1, y1, z1] = max;
+  pushQuad(geometry, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
+  pushQuad(geometry, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]);
+  pushQuad(geometry, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]);
+  pushQuad(geometry, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]);
+  pushQuad(geometry, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]);
+  pushQuad(geometry, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+}
+
+function pushQuad(
   geometry: GeometryBuffers,
   a: Vec3,
   b: Vec3,
@@ -13,7 +22,7 @@ export function pushQuad(
   pushTriangle(geometry, a, c, d);
 }
 
-export function pushTriangle(
+function pushTriangle(
   geometry: GeometryBuffers,
   a: Vec3,
   b: Vec3,
@@ -30,10 +39,6 @@ export function pushTriangle(
 }
 
 function computeNormal(a: Vec3, b: Vec3, c: Vec3): Vec3 | null {
-  if (![a, b, c].every((point) => isFiniteVec3(point))) {
-    return null;
-  }
-
   const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
   const ac: Vec3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
   const cross: Vec3 = [
@@ -45,6 +50,5 @@ function computeNormal(a: Vec3, b: Vec3, c: Vec3): Vec3 | null {
   if (!Number.isFinite(length) || length <= 1e-6) {
     return null;
   }
-
   return [cross[0] / length, cross[1] / length, cross[2] / length];
 }

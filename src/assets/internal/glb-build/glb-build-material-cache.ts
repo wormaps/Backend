@@ -168,6 +168,9 @@ function normalizeColorToBucket(colorPart: string): string {
  */
 function quantizeHexToBucket(hex: string): string {
   const normalized = hex.replace('#', '');
+  if (!/^[0-9a-fA-F]{3,6}$/.test(normalized)) {
+    return hex;
+  }
   if (normalized.length < 3) {
     return normalized;
   }

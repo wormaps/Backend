@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { averageCoordinate } from '../../../common/geo/coordinate-utils.utils';
 import { Coordinate } from '../../../places/types/place.types';
 import { midpoint } from '../../../places/utils/geo.utils';
 import {
@@ -554,25 +555,6 @@ export class SceneAssetProfileService {
       ),
     };
   }
-}
-
-function averageCoordinate(points: Coordinate[]): Coordinate | null {
-  if (points.length === 0) {
-    return null;
-  }
-
-  const total = points.reduce(
-    (acc, point) => ({
-      lat: acc.lat + point.lat,
-      lng: acc.lng + point.lng,
-    }),
-    { lat: 0, lng: 0 },
-  );
-
-  return {
-    lat: total.lat / points.length,
-    lng: total.lng / points.length,
-  };
 }
 
 function uniqueCoordinates(points: Coordinate[]): Coordinate[] {

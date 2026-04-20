@@ -6,6 +6,7 @@ import { GooglePlacesClient } from '../../clients/google-places.client';
 import { SnapshotBuilderService } from '../../snapshot/snapshot-builder.service';
 import { toRegistryLikePlace } from '../../utils/place-registry.utils';
 import { PlaceCatalogService } from '../catalog/place-catalog.service';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
 
 @Injectable()
 export class PlaceSnapshotService {
@@ -14,6 +15,7 @@ export class PlaceSnapshotService {
     private readonly snapshotBuilderService: SnapshotBuilderService,
     private readonly googlePlacesClient: GooglePlacesClient,
     private readonly openMeteoClient: OpenMeteoClient,
+    private readonly appLoggerService: AppLoggerService,
   ) {}
 
   getSceneSnapshot(
@@ -42,7 +44,11 @@ export class PlaceSnapshotService {
           date,
           timeOfDay,
         );
-      } catch {
+      } catch (error) {
+        this.appLoggerService.warn('place-snapshot.weather.fetch-failed', {
+          placeId: place.placeId,
+          error: error instanceof Error ? error.message : String(error),
+        });
         weatherObservation = null;
       }
     }

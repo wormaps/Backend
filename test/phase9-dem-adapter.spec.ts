@@ -1,6 +1,14 @@
 import { describe, expect, it, vi, afterEach } from 'bun:test';
 import { OpenElevationAdapter } from '../src/scene/infrastructure/terrain/open-elevation.adapter';
 import type { Coordinate } from '../src/places/types/place.types';
+import type { AppLoggerService } from '../src/common/logging/app-logger.service';
+
+const mockLogger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+} as unknown as AppLoggerService;
 
 describe('Phase 9.2 DemAdapter Infrastructure', () => {
   afterEach(() => {
@@ -19,7 +27,7 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
       elevation: 40 + Math.random() * 10,
     }));
 
-    const adapter = new OpenElevationAdapter({
+    const adapter = new OpenElevationAdapter(mockLogger, {
       baseUrl: 'https://mock-open-elevation.test/api/v1/lookup',
       timeoutMs: 5000,
     });
@@ -41,7 +49,7 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
   it('returns empty array on API 500 error', async () => {
     const points: Coordinate[] = [{ lat: 35.6, lng: 139.7 }];
 
-    const adapter = new OpenElevationAdapter({
+    const adapter = new OpenElevationAdapter(mockLogger, {
       baseUrl: 'https://mock-open-elevation.test/api/v1/lookup',
       timeoutMs: 5000,
     });
@@ -58,7 +66,7 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
   it('returns empty array on timeout', async () => {
     const points: Coordinate[] = [{ lat: 35.6, lng: 139.7 }];
 
-    const adapter = new OpenElevationAdapter({
+    const adapter = new OpenElevationAdapter(mockLogger, {
       baseUrl: 'https://mock-open-elevation.test/api/v1/lookup',
       timeoutMs: 10,
     });
@@ -81,7 +89,7 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
   it('returns empty array on network error', async () => {
     const points: Coordinate[] = [{ lat: 35.6, lng: 139.7 }];
 
-    const adapter = new OpenElevationAdapter({
+    const adapter = new OpenElevationAdapter(mockLogger, {
       baseUrl: 'https://mock-open-elevation.test/api/v1/lookup',
       timeoutMs: 5000,
     });
@@ -95,7 +103,7 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
   });
 
   it('returns empty array for empty input', async () => {
-    const adapter = new OpenElevationAdapter();
+    const adapter = new OpenElevationAdapter(mockLogger);
     const samples = await adapter.fetchElevations([]);
     expect(samples).toEqual([]);
   });
@@ -106,7 +114,7 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
       { lat: 35.601, lng: 139.701 },
     ];
 
-    const adapter = new OpenElevationAdapter({
+    const adapter = new OpenElevationAdapter(mockLogger, {
       baseUrl: 'https://mock-open-elevation.test/api/v1/lookup',
       timeoutMs: 5000,
     });

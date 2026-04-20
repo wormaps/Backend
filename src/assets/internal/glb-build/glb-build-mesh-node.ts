@@ -74,6 +74,7 @@ export function addMeshNode(
   currentMeshDiagnostics: MeshNodeDiagnostic[],
   triangleBudget: TriangleBudgetState,
   semanticGroupNodes: Map<string, GltfNode>,
+  logger?: { warn: (message: string, context?: Record<string, unknown>) => void },
 ): void {
   if (!isGeometryValid(geometry)) {
     currentMeshDiagnostics.push({
@@ -88,7 +89,15 @@ export function addMeshNode(
     return;
   }
 
-  const triangleCount = geometry.indices.length / 3;
+  // Safety net: floor triangle count when indices are not divisible by 3.
+  const indicesLength = geometry.indices.length;
+  if (indicesLength % 3 !== 0) {
+    logger?.warn('glb-build.indices.not-divisible-by-3', {
+      meshName: name,
+      indicesLength,
+    });
+  }
+  const triangleCount = Math.floor(indicesLength / 3);
   const isProtected = isBudgetProtectedMesh(name, triangleBudget);
   if (!isProtected) {
     const nonProtectedBudget = Math.max(
@@ -137,7 +146,7 @@ export function addMeshNode(
   currentMeshDiagnostics.push({
     name,
     vertices: geometry.positions.length / 3,
-    triangles: geometry.indices.length / 3,
+    triangles: triangleCount,
     skipped: false,
     sourceCount: trace.sourceCount,
     selectedCount: trace.selectedCount,
@@ -145,6 +154,25 @@ export function addMeshNode(
   });
 
   const mesh = doc.createMesh(name);
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxZ = -Infinity;
+  for (let i = 0; i < geometry.positions.length; i += 3) {
+    const x = geometry.positions[i];
+    const y = geometry.positions[i + 1];
+    const z = geometry.positions[i + 2];
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    if (z > maxZ) maxZ = z;
+  }
+
   const primitive = doc
     .createPrimitive()
     .setAttribute(
@@ -152,7 +180,9 @@ export function addMeshNode(
       doc
         .createAccessor(`${name}-positions`, buffer)
         .setArray(new Float32Array(geometry.positions))
-        .setType(AccessorRef.Type.VEC3),
+        .setType(AccessorRef.Type.VEC3)
+        .setMin([minX, minY, minZ])
+        .setMax([maxX, maxY, maxZ]),
     )
     .setAttribute(
       'NORMAL',

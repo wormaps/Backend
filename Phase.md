@@ -696,6 +696,13 @@ glTF 스펙 준수, 메모리 안정, Triangle budget 정확
 
 ### 작업 항목
 
+- [X] 6.1 Accessor min/max 추가
+- [X] 6.2 Triangle budget 계산 수정
+- [X] 6.3 GLB Validation → Write 이전
+- [X] 6.4 Mesh Optimization 부분 변환 상태 방지
+- [X] 6.5 Material 캐시 bucket 충돌 수정
+- [X] 6.6 Division by Zero 방지
+
 #### 6.1 Accessor min/max 추가
 **파일**: `src/assets/internal/glb-build/glb-build-mesh-node.ts:152-170`
 
@@ -807,6 +814,13 @@ const treeRatio = selected.treeClusterCount > 0
 
 ### 작업 항목
 
+- [X] 7.1 `as unknown as` 제거
+- [X] 7.2 `as any` 제거
+- [X] 7.3 Overpass mapper 타입 단언 제거
+- [X] 7.4 Open Elevation 어댑터 에러 로깅
+- [X] 7.5 Weather/Trafetch 에러 로깅
+- [X] 7.6 Scene Repository 에러 로깅
+
 #### 7.1 `as unknown as` 제거
 **파일**: `src/scene/pipeline/steps/scene-geometry-correction.step.ts:175`
 
@@ -914,6 +928,11 @@ catch (error) {
 DRY 위반 6개 패턴 해결
 
 ### 작업 항목
+
+- [X] 8.1 공통 좌표 변환 Utility
+- [X] 8.2 공통 `averageCoordinate` Utility
+- [X] 8.3 공통 `distanceMeters` Utility
+- [X] 8.4 공통 `pushBox` Geometry Primitive
 
 #### 8.1 공통 좌표 변환 Utility
 **신규 파일**: `src/common/geo/coordinate-transform.utils.ts`

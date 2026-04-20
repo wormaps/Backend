@@ -1,5 +1,5 @@
-import type { Coordinate } from '../../../places/types/place.types';
 import type { GeometryBuffers, Vec3 } from '../road/road-mesh.builder';
+export { isFiniteVec3, toLocalPoint } from '../../../common/geo/coordinate-transform.utils';
 
 export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
   const baseIndex = geometry.positions.length / 3;
@@ -28,7 +28,6 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
     { normal: [1, 0, 0], indices: [1, 5, 6, 2] },
   ];
 
-  // Accumulate face normals per vertex, then normalize
   const vertexNormals: Vec3[] = [
     [0, 0, 0],
     [0, 0, 0],
@@ -50,7 +49,6 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
     }
   }
 
-  // Normalize averaged normals
   for (let i = 0; i < 8; i += 1) {
     const count = vertexNormalCounts[i];
     let normal: Vec3;
@@ -192,24 +190,6 @@ export function pushTaperedCylinder(
     geometry.indices.push(current, next, next + 1);
     geometry.indices.push(current, next + 1, current + 1);
   }
-}
-
-export function toLocalPoint(origin: Coordinate, point: Coordinate): Vec3 {
-  const metersPerLat = 111_320;
-  const metersPerLng = 111_320 * Math.cos((origin.lat * Math.PI) / 180);
-  return [
-    (point.lng - origin.lng) * metersPerLng,
-    0,
-    -(point.lat - origin.lat) * metersPerLat,
-  ];
-}
-
-export function isFiniteVec3(vector: Vec3): boolean {
-  return (
-    Number.isFinite(vector[0]) &&
-    Number.isFinite(vector[1]) &&
-    Number.isFinite(vector[2])
-  );
 }
 
 export function stableVariant(seed: string, modulo: number): number {

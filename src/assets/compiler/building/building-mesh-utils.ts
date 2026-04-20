@@ -1,70 +1,11 @@
-import type { Coordinate } from '../../../places/types/place.types';
 import type { Vec3 } from '../road/road-mesh.builder';
-
-export function toLocalPoint(origin: Coordinate, point: Coordinate): Vec3 {
-  const metersPerLat = 111_320;
-  const metersPerLng = 111_320 * Math.cos((origin.lat * Math.PI) / 180);
-  const x = (point.lng - origin.lng) * metersPerLng;
-  const z = -(point.lat - origin.lat) * metersPerLat;
-  return [x, 0, z];
-}
-
-export function toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
-  const deduped = points.filter((point, index) => {
-    const prev = points[index - 1];
-    return !prev || prev.lat !== point.lat || prev.lng !== point.lng;
-  });
-  const normalized = [...deduped];
-  if (normalized.length > 1) {
-    const first = normalized[0];
-    const last = normalized[normalized.length - 1];
-    if (first.lat === last.lat && first.lng === last.lng) {
-      normalized.pop();
-    }
-  }
-
-  return normalized
-    .map((point) => toLocalPoint(origin, point))
-    .filter((point) => isFiniteVec3(point));
-}
-
-export function normalizeLocalRing(
-  ring: Vec3[],
-  direction: 'CW' | 'CCW',
-): Vec3[] {
-  if (ring.length < 3) {
-    return ring;
-  }
-
-  const signedArea = signedAreaXZ(ring);
-  if (Math.abs(signedArea) <= 1e-6) {
-    return ring;
-  }
-
-  const isClockwise = signedArea < 0;
-  if (
-    (direction === 'CW' && isClockwise) ||
-    (direction === 'CCW' && !isClockwise)
-  ) {
-    return ring;
-  }
-
-  return [...ring].reverse();
-}
-
-export function samePointXZ(left: Vec3, right: Vec3): boolean {
-  return (
-    Math.abs(left[0] - right[0]) <= 1e-6 && Math.abs(left[2] - right[2]) <= 1e-6
-  );
-}
-
-export function isFiniteVec3(vector: Vec3): boolean {
-  return (
-    Number.isFinite(vector[0]) &&
-    Number.isFinite(vector[1]) &&
-    Number.isFinite(vector[2])
-  );
-}
+export {
+  isFiniteVec3,
+  normalizeLocalRing,
+  samePointXZ,
+  toLocalPoint,
+  toLocalRing,
+} from '../../../common/geo/coordinate-transform.utils';
 
 export function averagePoint(points: Vec3[]): Vec3 {
   const total = points.reduce(
@@ -109,14 +50,4 @@ export function hexToRgb(hex: string): [number, number, number] {
     ((value >> 8) & 255) / 255,
     (value & 255) / 255,
   ];
-}
-
-function signedAreaXZ(ring: Vec3[]): number {
-  let area = 0;
-  for (let index = 0; index < ring.length; index += 1) {
-    const current = ring[index];
-    const next = ring[(index + 1) % ring.length];
-    area += current[0] * next[2] - next[0] * current[2];
-  }
-  return area / 2;
 }

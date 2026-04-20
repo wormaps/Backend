@@ -3,6 +3,8 @@ import type {
   PlacePackage,
 } from '../../../places/types/place.types';
 import type { SceneFacadeContextProfile } from '../../types/scene.types';
+import { averageCoordinate as sharedAverageCoordinate } from '../../../common/geo/coordinate-utils.utils';
+import { distanceMeters as sharedDistanceMeters } from '../../../common/geo/distance.utils';
 
 export interface BuildingAnchorContext {
   id: string;
@@ -119,24 +121,7 @@ export function sortCounts(
     );
 }
 
-export function averageCoordinate(points: Coordinate[]): Coordinate | null {
-  if (points.length === 0) {
-    return null;
-  }
-
-  const total = points.reduce(
-    (acc, point) => ({
-      lat: acc.lat + point.lat,
-      lng: acc.lng + point.lng,
-    }),
-    { lat: 0, lng: 0 },
-  );
-
-  return {
-    lat: total.lat / points.length,
-    lng: total.lng / points.length,
-  };
-}
+export const averageCoordinate = sharedAverageCoordinate;
 
 export function densityFromEvidence(
   imageCount: number,
@@ -155,14 +140,7 @@ export function densityFromEvidence(
   return 'low';
 }
 
-export function distanceMeters(a: Coordinate, b: Coordinate): number {
-  const dx =
-    (a.lng - b.lng) *
-    111_320 *
-    Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
-  const dy = (a.lat - b.lat) * 111_320;
-  return Math.hypot(dx, dy);
-}
+export const distanceMeters = sharedDistanceMeters;
 
 function isArterialRoad(roadClass: string): boolean {
   const normalized = roadClass.toLowerCase();

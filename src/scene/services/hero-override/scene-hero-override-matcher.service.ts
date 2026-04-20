@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { averageCoordinate } from '../../../common/geo/coordinate-utils.utils';
 import { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import { Coordinate } from '../../../places/types/place.types';
 import { LandmarkAnnotationManifest, SceneMeta } from '../../types/scene.types';
@@ -132,25 +133,6 @@ export class SceneHeroOverrideMatcherService {
       ? nearest
       : null;
   }
-}
-
-function averageCoordinate(points: Coordinate[]): Coordinate | null {
-  if (points.length === 0) {
-    return null;
-  }
-
-  const total = points.reduce(
-    (acc, point) => ({
-      lat: acc.lat + point.lat,
-      lng: acc.lng + point.lng,
-    }),
-    { lat: 0, lng: 0 },
-  );
-
-  return {
-    lat: total.lat / points.length,
-    lng: total.lng / points.length,
-  };
 }
 
 function squaredDistance(a: Coordinate, b: Coordinate): number {

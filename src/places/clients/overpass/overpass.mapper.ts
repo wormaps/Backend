@@ -40,8 +40,8 @@ export function mapGeometry(
 export function mapPoi(node: OverpassElement): PoiData | null {
   const tags = node.tags ?? {};
   const location = {
-    lat: node.lat as number,
-    lng: node.lon as number,
+    lat: typeof node.lat === 'number' ? node.lat : Number(node.lat),
+    lng: typeof node.lon === 'number' ? node.lon : Number(node.lon),
   };
   if (!isFiniteCoordinate(location)) {
     return null;
@@ -199,8 +199,8 @@ export function mapStreetFurniture(
   node: OverpassElement,
 ): StreetFurnitureData | null {
   const location = {
-    lat: node.lat as number,
-    lng: node.lon as number,
+    lat: typeof node.lat === 'number' ? node.lat : Number(node.lat),
+    lng: typeof node.lon === 'number' ? node.lon : Number(node.lon),
   };
   if (!isFiniteCoordinate(location)) {
     return null;
@@ -229,8 +229,8 @@ export function mapStreetFurniture(
 
 export function mapVegetation(node: OverpassElement): VegetationData | null {
   const location = {
-    lat: node.lat as number,
-    lng: node.lon as number,
+    lat: typeof node.lat === 'number' ? node.lat : Number(node.lat),
+    lng: typeof node.lon === 'number' ? node.lon : Number(node.lon),
   };
   if (!isFiniteCoordinate(location)) {
     return null;
