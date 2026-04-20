@@ -62,6 +62,13 @@ export interface MapillaryImageFetchDiagnostics {
   attempts: MapillaryImageFetchAttempt[];
 }
 
+export interface MapillaryTokenValidationResult {
+  isValid: boolean;
+  hasCoverage: boolean;
+  imageCount: number;
+  checkedAt: string;
+}
+
 @Injectable()
 export class MapillaryClient {
   private fetcher: FetchLike = fetch;
@@ -74,6 +81,81 @@ export class MapillaryClient {
 
   isConfigured(): boolean {
     return Boolean(process.env.MAPILLARY_ACCESS_TOKEN?.trim());
+  }
+
+  async validateToken(): Promise<MapillaryTokenValidationResult> {
+    const token = process.env.MAPILLARY_ACCESS_TOKEN?.trim();
+    if (!token) {
+      return {
+        isValid: false,
+        hasCoverage: false,
+        imageCount: 0,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/images?access_token=${encodeURIComponent(token)}&limit=1`,
+        { signal: AbortSignal.timeout(10000) },
+      );
+
+      // 401/403 = invalid token, 200/404 = valid token (404 just means no data)
+      const isValid = response.ok || response.status === 404;
+
+      let imageCount = 0;
+      let hasCoverage = false;
+      if (response.ok) {
+        try {
+          const data = (await response.json()) as MapillaryListResponse<MapillaryImageRaw>;
+          imageCount = data.data?.length ?? 0;
+          hasCoverage = imageCount > 0;
+        } catch {
+          // JSON parse failure — token may still be valid
+        }
+      }
+
+      return {
+        isValid,
+        hasCoverage,
+        imageCount,
+        checkedAt: new Date().toISOString(),
+      };
+    } catch {
+      return {
+        isValid: false,
+        hasCoverage: false,
+        imageCount: 0,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  async checkCoverage(
+    bounds: GeoBounds,
+  ): Promise<{ hasCoverage: boolean; imageCount: number }> {
+    const token = process.env.MAPILLARY_ACCESS_TOKEN?.trim();
+    if (!token) {
+      return { hasCoverage: false, imageCount: 0 };
+    }
+
+    const bbox = this.buildBbox(bounds);
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/images?access_token=${encodeURIComponent(token)}&bbox=${bbox}&limit=1`,
+        { signal: AbortSignal.timeout(10000) },
+      );
+
+      if (!response.ok) {
+        return { hasCoverage: false, imageCount: 0 };
+      }
+
+      const data = (await response.json()) as MapillaryListResponse<MapillaryImageRaw>;
+      const imageCount = data.data?.length ?? 0;
+      return { hasCoverage: imageCount > 0, imageCount };
+    } catch {
+      return { hasCoverage: false, imageCount: 0 };
+    }
   }
 
   getAuthorizationUrl(): string | null {

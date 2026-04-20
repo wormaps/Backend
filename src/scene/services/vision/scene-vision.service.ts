@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { MapillaryClient } from '../../../places/clients/mapillary.client';
 import { ExternalPlaceDetail } from '../../../places/types/external-place.types';
 import { GeoBounds, PlacePackage } from '../../../places/types/place.types';
@@ -28,6 +29,7 @@ interface SceneVisionResult {
 @Injectable()
 export class SceneVisionService {
   constructor(
+    private readonly appLoggerService: AppLoggerService,
     private readonly mapillaryClient: MapillaryClient,
     private readonly sceneRoadVisionService: SceneRoadVisionService,
     private readonly sceneFacadeVisionService: SceneFacadeVisionService,
@@ -67,6 +69,13 @@ export class SceneVisionService {
     let providerTrace: ProviderTrace | null = null;
 
     if (this.mapillaryClient.isConfigured()) {
+      const coverageCheck = await this.mapillaryClient.checkCoverage(bounds);
+      this.appLoggerService.info('scene.vision.mapillary.coverage', {
+        sceneId,
+        hasCoverage: coverageCheck.hasCoverage,
+        imageCount: coverageCheck.imageCount,
+      });
+
       try {
         const featureResult =
           await this.mapillaryClient.getMapFeaturesWithEnvelope(
@@ -134,6 +143,13 @@ export class SceneVisionService {
           ],
         };
       } catch (error) {
+        this.appLoggerService.error('scene.vision.mapillary.failed', {
+          sceneId,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          fallbackUsed: true,
+        });
+
         const upstreamEnvelopes = extractUpstreamEnvelopes(error);
         detailStatus = 'PARTIAL';
         providerTrace = {

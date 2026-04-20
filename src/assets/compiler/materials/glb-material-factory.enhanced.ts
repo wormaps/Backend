@@ -145,7 +145,9 @@ export function createWindowGlassMaterial(
   const params = getWindowGlassParams(type);
   return doc
     .createMaterial(`window-glass-${type}`)
-    .setBaseColorFactor([...params.baseColor, params.alpha ?? 1])
+    .setBaseColorFactor([...params.baseColor, params.alpha ?? 0.3])
+    .setAlphaMode('BLEND')
+    .setDoubleSided(true)
     .setMetallicFactor(params.metallicFactor)
     .setRoughnessFactor(params.roughnessFactor)
     .setEmissiveFactor(params.emissiveFactor ?? [0, 0, 0]);
@@ -164,41 +166,41 @@ function getWindowGlassParams(type: WindowGlassType): WindowGlassParams {
     case 'clear':
       return {
         baseColor: [0.72, 0.82, 0.92],
-        alpha: 0.75,
-        metallicFactor: 0.08,
-        roughnessFactor: 0.14,
+        alpha: 0.3,
+        metallicFactor: 0.1,
+        roughnessFactor: 0.05,
         emissiveFactor: [0.03, 0.05, 0.08],
       };
     case 'tinted':
       return {
         baseColor: [0.32, 0.42, 0.52],
-        alpha: 0.82,
+        alpha: 0.35,
         metallicFactor: 0.12,
-        roughnessFactor: 0.16,
+        roughnessFactor: 0.05,
         emissiveFactor: [0.02, 0.03, 0.05],
       };
     case 'reflective':
       return {
         baseColor: [0.48, 0.58, 0.68],
-        alpha: 0.88,
+        alpha: 0.4,
         metallicFactor: 0.35,
-        roughnessFactor: 0.08,
+        roughnessFactor: 0.05,
         emissiveFactor: [0.05, 0.08, 0.12],
       };
     case 'curtain_wall':
       return {
         baseColor: [0.38, 0.52, 0.64],
-        alpha: 0.85,
+        alpha: 0.35,
         metallicFactor: 0.28,
-        roughnessFactor: 0.1,
+        roughnessFactor: 0.05,
         emissiveFactor: [0.06, 0.1, 0.14],
       };
     default:
       return {
         baseColor: [0.72, 0.82, 0.92],
-        alpha: 0.75,
-        metallicFactor: 0.08,
-        roughnessFactor: 0.14,
+        alpha: 0.3,
+        metallicFactor: 0.1,
+        roughnessFactor: 0.05,
       };
   }
 }

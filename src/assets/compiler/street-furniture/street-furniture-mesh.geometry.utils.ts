@@ -19,7 +19,7 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
     geometry.positions.push(...v);
   }
 
-  const faceNormals: Array<{ normal: Vec3; indices: number[] }> = [
+  const faces: Array<{ normal: Vec3; indices: number[] }> = [
     { normal: [0, 0, -1], indices: [0, 1, 2, 3] },
     { normal: [0, 0, 1], indices: [4, 7, 6, 5] },
     { normal: [0, -1, 0], indices: [0, 4, 5, 1] },
@@ -28,10 +28,41 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
     { normal: [1, 0, 0], indices: [1, 5, 6, 2] },
   ];
 
+  // Accumulate face normals per vertex, then normalize
+  const vertexNormals: Vec3[] = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+  const vertexNormalCounts = [0, 0, 0, 0, 0, 0, 0, 0];
+
+  for (const face of faces) {
+    for (const vertexIndex of face.indices) {
+      vertexNormals[vertexIndex][0] += face.normal[0];
+      vertexNormals[vertexIndex][1] += face.normal[1];
+      vertexNormals[vertexIndex][2] += face.normal[2];
+      vertexNormalCounts[vertexIndex] += 1;
+    }
+  }
+
+  // Normalize averaged normals
   for (let i = 0; i < 8; i += 1) {
-    const normal = faceNormals.find((f) => f.indices.includes(i))?.normal ?? [
-      0, 1, 0,
-    ];
+    const count = vertexNormalCounts[i];
+    let normal: Vec3;
+    if (count > 0) {
+      const nx = vertexNormals[i][0] / count;
+      const ny = vertexNormals[i][1] / count;
+      const nz = vertexNormals[i][2] / count;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      normal = len > 0 ? [nx / len, ny / len, nz / len] : [0, 1, 0];
+    } else {
+      normal = [0, 1, 0];
+    }
     geometry.normals.push(...normal);
   }
 

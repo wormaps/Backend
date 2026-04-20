@@ -276,6 +276,18 @@ export interface SceneAssetCounts {
   billboardPanelCount: number;
 }
 
+export type EvidenceSource =
+  | 'MAPILLARY_DIRECT'
+  | 'PLACE_CHARACTER_FALLBACK'
+  | 'DISTRICT_TYPE_FALLBACK'
+  | 'STATIC_DEFAULT';
+
+export interface SceneEvidenceProfile {
+  weakEvidenceRatio: number;
+  evidenceSource: EvidenceSource;
+  confidence: number;
+}
+
 export type TerrainSampleSource = 'OPEN_ELEVATION' | 'SRTM' | 'MANUAL' | 'FLAT';
 
 export interface TerrainSample {
@@ -339,6 +351,7 @@ export interface SceneMeta {
     preset: SceneScale;
     budget: SceneAssetCounts;
     selected: SceneAssetCounts;
+    evidenceProfile?: SceneEvidenceProfile;
   };
   structuralCoverage: SceneStructuralCoverage;
   fidelityPlan?: SceneFidelityPlan;

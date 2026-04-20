@@ -235,9 +235,14 @@ describe('Phase 14.1 Full Build Integration — Akihabara Fixture', () => {
       appLoggerService as any,
     );
 
-    const result = await step.execute('phase14-fusion', {
-      northEast: { lat: 35.61, lng: 139.71 },
-      southWest: { lat: 35.59, lng: 139.69 },
+    const result = await step.execute({
+      sceneId: 'phase14-fusion',
+      bounds: {
+        northEast: { lat: 35.61, lng: 139.71 },
+        southWest: { lat: 35.59, lng: 139.69 },
+      },
+      origin: { lat: 35.6, lng: 139.7 },
+      radiusM: 300,
     });
 
     expect(result.terrainProfile.mode).toBe('DEM_FUSED');
@@ -627,9 +632,14 @@ describe('Phase 14 Cross-Phase Integration Signals', () => {
       appLoggerService as any,
     );
 
-    const result = await step.execute('phase14-cross', {
-      northEast: { lat: 35.61, lng: 139.71 },
-      southWest: { lat: 35.59, lng: 139.69 },
+    const result = await step.execute({
+      sceneId: 'phase14-cross',
+      bounds: {
+        northEast: { lat: 35.61, lng: 139.71 },
+        southWest: { lat: 35.59, lng: 139.69 },
+      },
+      origin: { lat: 35.6, lng: 139.7 },
+      radiusM: 300,
     });
 
     expect(result.terrainProfile.mode).toBe('DEM_FUSED');

@@ -81,7 +81,11 @@ export class SceneTwinBuilderService {
     const generatedAt = meta.generatedAt;
     const terrainProfile =
       meta.terrainProfile ??
-      this.sceneTerrainProfileService.resolve(sceneId, meta);
+      this.sceneTerrainProfileService.resolve(sceneId, {
+        bounds: meta.bounds,
+        origin: meta.origin,
+        radiusM: meta.bounds.radiusM,
+      });
 
     const snapshots = buildSourceSnapshots(
       sceneId,

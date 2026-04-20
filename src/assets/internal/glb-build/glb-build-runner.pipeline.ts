@@ -178,6 +178,7 @@ export async function executeGlbBuild(
     state.sceneAssetProfileService.buildSceneMetaWithAssetSelection(
       contract,
       assetSelection,
+      contract,
     );
   const modePolicy = resolveSceneModePolicy(
     contract.fidelityPlan?.targetMode,

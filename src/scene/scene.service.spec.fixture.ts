@@ -160,6 +160,7 @@ export interface SceneSpecContext {
   };
   mapillaryClient: {
     isConfigured: MockedFunction<MapillaryClient['isConfigured']>;
+    checkCoverage: MockedFunction<MapillaryClient['checkCoverage']>;
     getMapFeaturesWithEnvelope: MockedFunction<
       MapillaryClient['getMapFeaturesWithEnvelope']
     >;
@@ -375,6 +376,7 @@ export async function createSceneSpecContext(options?: {
         provide: MapillaryClient,
         useValue: {
           isConfigured: vi.fn().mockReturnValue(false),
+          checkCoverage: vi.fn().mockResolvedValue({ hasCoverage: false, imageCount: 0 }),
           getMapFeaturesWithEnvelope: vi.fn(),
           getNearbyImagesWithDiagnostics: vi.fn(),
         },

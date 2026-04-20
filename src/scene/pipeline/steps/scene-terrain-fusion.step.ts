@@ -6,7 +6,10 @@ import type { GeoBounds } from '../../../places/types/place.types';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { appendSceneDiagnosticsLog } from '../../storage/scene-storage.utils';
 import type { SceneTerrainProfile, TerrainSample } from '../../types/scene.types';
-import { SceneTerrainProfileService } from '../../services/spatial/scene-terrain-profile.service';
+import {
+  SceneTerrainProfileService,
+  type TerrainProfileResolveInput,
+} from '../../services/spatial/scene-terrain-profile.service';
 import { IDemPort } from '../../infrastructure/terrain/dem.port';
 
 const GRID_SIZE = 8;
@@ -14,6 +17,10 @@ const GRID_SIZE = 8;
 export interface TerrainFusionResult {
   terrainProfile: SceneTerrainProfile;
   terrainFilePath: string | null;
+}
+
+export interface TerrainFusionExecuteInput extends TerrainProfileResolveInput {
+  sceneId: string;
 }
 
 @Injectable()
@@ -24,10 +31,8 @@ export class SceneTerrainFusionStep {
     private readonly appLoggerService: AppLoggerService,
   ) {}
 
-  async execute(
-    sceneId: string,
-    bounds: GeoBounds,
-  ): Promise<TerrainFusionResult> {
+  async execute(input: TerrainFusionExecuteInput): Promise<TerrainFusionResult> {
+    const { sceneId, bounds, origin, radiusM } = input;
     const existingPath = this.resolveTerrainPath(sceneId);
 
     if (existingPath && existsSync(existingPath)) {
@@ -38,7 +43,9 @@ export class SceneTerrainFusionStep {
       });
       const profile = this.terrainProfileService.resolve(sceneId, {
         bounds,
-      } as any);
+        origin,
+        radiusM,
+      });
       return { terrainProfile: profile, terrainFilePath: existingPath };
     }
 

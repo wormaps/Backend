@@ -94,7 +94,8 @@ function resolveGroundElevationY(
 ): number {
   const terrainProfile = sceneMeta.terrainProfile;
   if (
-    terrainProfile?.mode === 'LOCAL_DEM_SAMPLES' &&
+    (terrainProfile?.mode === 'LOCAL_DEM_SAMPLES' ||
+      terrainProfile?.mode === 'DEM_FUSED') &&
     terrainProfile.samples.length > 0
   ) {
     return resolveDemSampleRelief(sceneMeta, x, z);
@@ -625,5 +626,5 @@ function resolveDemSampleRelief(
   const relief =
     weighted.reduce((sum, item) => sum + item.deltaHeight * item.weight, 0) /
     totalWeight;
-  return Number(Math.max(-0.45, Math.min(0.45, relief * 0.18)).toFixed(4));
+  return Number(Math.max(-5, Math.min(5, relief)).toFixed(4));
 }

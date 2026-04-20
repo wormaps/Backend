@@ -83,9 +83,14 @@ describe('Phase 9.3 TerrainFusion Application', () => {
       samples,
     });
 
-    const result = await step.execute('phase9-fusion-1', {
-      northEast: { lat: 35.61, lng: 139.71 },
-      southWest: { lat: 35.59, lng: 139.69 },
+    const result = await step.execute({
+      sceneId: 'phase9-fusion-1',
+      bounds: {
+        northEast: { lat: 35.61, lng: 139.71 },
+        southWest: { lat: 35.59, lng: 139.69 },
+      },
+      origin: { lat: 35.6, lng: 139.7 },
+      radiusM: 300,
     });
 
     expect(mocks.demPort.fetchElevations).toHaveBeenCalled();
@@ -95,9 +100,14 @@ describe('Phase 9.3 TerrainFusion Application', () => {
   it('falls back to FLAT_PLACEHOLDER when DemAdapter fails', async () => {
     vi.spyOn(mocks.demPort, 'fetchElevations').mockResolvedValue([]);
 
-    const result = await step.execute('phase9-fusion-2', {
-      northEast: { lat: 35.61, lng: 139.71 },
-      southWest: { lat: 35.59, lng: 139.69 },
+    const result = await step.execute({
+      sceneId: 'phase9-fusion-2',
+      bounds: {
+        northEast: { lat: 35.61, lng: 139.71 },
+        southWest: { lat: 35.59, lng: 139.69 },
+      },
+      origin: { lat: 35.6, lng: 139.7 },
+      radiusM: 300,
     });
 
     expect(result.terrainProfile.mode).toBe('FLAT_PLACEHOLDER');
@@ -112,9 +122,14 @@ describe('Phase 9.3 TerrainFusion Application', () => {
       return [];
     });
 
-    await step.execute('phase9-fusion-3', {
-      northEast: { lat: 35.61, lng: 139.71 },
-      southWest: { lat: 35.59, lng: 139.69 },
+    await step.execute({
+      sceneId: 'phase9-fusion-3',
+      bounds: {
+        northEast: { lat: 35.61, lng: 139.71 },
+        southWest: { lat: 35.59, lng: 139.69 },
+      },
+      origin: { lat: 35.6, lng: 139.7 },
+      radiusM: 300,
     });
 
     expect(capturedPoints).toHaveLength(81);

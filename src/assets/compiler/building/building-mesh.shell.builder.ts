@@ -21,7 +21,8 @@ import {
 
 const MIN_FOUNDATION_DEPTH = 0.4;
 const MAX_FOUNDATION_DEPTH = 1.1;
-const SETBACK_OVERLAP = 0.05;
+/** Podium과 tower setback 사이 겹침 거리 (m). 0이면 join geometry로 연결. */
+const SETBACK_OVERLAP = 0.0;
 const MIN_SETBACK_RING_AREA_M2 = 0.5;
 const FOUNDATION_TERRAIN_SCALE = 0.3;
 const MAX_FOUNDATION_TERRAIN_OFFSET = 0.5;
@@ -73,15 +74,15 @@ export function collectBuildingShellClosureMetrics(
     if (strategy === 'stepped_tower' && setbackLevels > 0) {
       let currentRing = outerRing;
       for (let stage = 0; stage < setbackLevels; stage += 1) {
-        const nextRing = insetRing(currentRing, 0.12 + stage * 0.04);
+        let nextRing = insetRing(currentRing, 0.12 + stage * 0.04);
         if (nextRing.length < 3) {
           metrics.invalidSetbackJoinCount += 1;
-          break;
+          nextRing = [...currentRing];
         }
         const ringArea = computeRingAreaM2(nextRing);
         if (ringArea < MIN_SETBACK_RING_AREA_M2) {
           metrics.invalidSetbackJoinCount += 1;
-          break;
+          nextRing = [...currentRing];
         }
         currentRing = nextRing;
       }
@@ -124,7 +125,7 @@ export function insetRing(points: Vec3[], ratio: number): Vec3[] {
   const center = averagePoint(points);
   return points.map((point) => [
     center[0] + (point[0] - center[0]) * (1 - ratio),
-    0,
+    point[1],
     center[2] + (point[2] - center[2]) * (1 - ratio),
   ]);
 }
@@ -146,10 +147,17 @@ export function pushExtrudedPolygon(
     holes?: number[],
     dimensions?: number,
   ) => number[],
+  buildingId?: string,
 ): void {
   const triangulated = triangulateRings(outerRing, holes, triangulate);
   if (triangulated.length === 0) {
-    // Fallback: generate bounding box to ensure building has some geometry
+    if (buildingId) {
+      console.warn('[building.triangulation.fallback]', {
+        buildingId,
+        ringVertexCount: outerRing.length,
+        holeCount: holes.length,
+      });
+    }
     const bounds = computeBounds(outerRing);
     pushBox(
       geometry,
@@ -193,6 +201,7 @@ function pushBuildingByStrategy(
 ): void {
   const foundationDepth = resolveFoundationDepth(building);
   const baseY = resolveBuildingVerticalBase(building);
+  const buildingId = building.objectId;
 
   if (building.visualRole && building.visualRole !== 'generic') {
     pushHeroBuilding(
@@ -231,6 +240,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + podiumHeight,
         triangulate,
+        buildingId,
       );
       if (lodLevel === 'HIGH') {
         const insetRatio = building.cornerChamfer ? 0.2 : 0.14;
@@ -244,7 +254,16 @@ function pushBuildingByStrategy(
             baseY + podiumHeight - SETBACK_OVERLAP,
             baseY + towerTop,
             triangulate,
+            buildingId,
           );
+          if (SETBACK_OVERLAP === 0) {
+            pushSetbackJoinGeometry(
+              geometry,
+              simplifiedRing,
+              towerRing,
+              baseY + podiumHeight,
+            );
+          }
         }
       }
       break;
@@ -258,6 +277,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + baseTop,
         triangulate,
+        buildingId,
       );
       if (lodLevel === 'HIGH') {
         let currentRing = simplifiedRing;
@@ -265,10 +285,12 @@ function pushBuildingByStrategy(
           2,
           Math.min(3, building.setbackLevels ?? 2),
         );
+        let prevRing = simplifiedRing;
+        let prevTop = baseTop;
         for (let stage = 0; stage < stageCount; stage += 1) {
           currentRing = insetRing(currentRing, 0.12 + stage * 0.04);
           if (currentRing.length < 3) {
-            break;
+            currentRing = [...prevRing];
           }
           const stageMin =
             stage === 0
@@ -287,7 +309,18 @@ function pushBuildingByStrategy(
             baseY + stageMin,
             baseY + stageMax,
             triangulate,
+            buildingId,
           );
+          if (SETBACK_OVERLAP === 0) {
+            pushSetbackJoinGeometry(
+              geometry,
+              prevRing,
+              currentRing,
+              baseY + prevTop,
+            );
+          }
+          prevRing = currentRing;
+          prevTop = stageMax;
         }
       }
       break;
@@ -301,6 +334,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + roofBaseHeight,
         triangulate,
+        buildingId,
       );
       if (lodLevel === 'HIGH') {
         pushGableRoof(
@@ -321,6 +355,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + roofBaseHeight,
         triangulate,
+        buildingId,
       );
       if (lodLevel === 'HIGH') {
         pushHippedRoof(
@@ -341,6 +376,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + roofBaseHeight,
         triangulate,
+        buildingId,
       );
       if (lodLevel === 'HIGH') {
         pushPyramidalRoof(
@@ -360,6 +396,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + height,
         triangulate,
+        buildingId,
       );
       break;
     }
@@ -381,6 +418,7 @@ function pushBuildingByStrategy(
         baseY - foundationDepth,
         baseY + height,
         triangulate,
+        buildingId,
       );
       break;
     }
@@ -401,6 +439,7 @@ function pushHeroBuilding(
 ): void {
   const height = Math.max(6, building.heightMeters);
   const baseY = resolveBuildingVerticalBase(building);
+  const buildingId = building.objectId;
   const baseMass = building.baseMass ?? 'podium_tower';
   const podiumLevels =
     building.podiumSpec?.levels ?? building.podiumLevels ?? 2;
@@ -418,6 +457,7 @@ function pushHeroBuilding(
       baseY - foundationDepth,
       baseY + height,
       triangulate,
+      buildingId,
     );
     return;
   }
@@ -430,6 +470,7 @@ function pushHeroBuilding(
       baseY - foundationDepth,
       baseY + height,
       triangulate,
+      buildingId,
     );
     return;
   }
@@ -441,6 +482,7 @@ function pushHeroBuilding(
     baseY - foundationDepth,
     baseY + podiumHeight,
     triangulate,
+    buildingId,
   );
 
   let currentRing = outerRing;
@@ -448,6 +490,8 @@ function pushHeroBuilding(
     baseMass === 'stepped_tower' || baseMass === 'corner_tower'
       ? Math.max(2, setbacks || 2)
       : 1;
+  let prevRing = outerRing;
+  let prevTop = podiumHeight;
   for (let stage = 0; stage < stageCount; stage += 1) {
     const insetRatio =
       baseMass === 'corner_tower'
@@ -457,7 +501,7 @@ function pushHeroBuilding(
           : 0.12 + stage * 0.04;
     currentRing = insetRing(currentRing, insetRatio);
     if (currentRing.length < 3) {
-      break;
+      currentRing = [...prevRing];
     }
     const stageMin =
       stage === 0
@@ -476,7 +520,18 @@ function pushHeroBuilding(
       baseY + stageMin,
       baseY + stageMax,
       triangulate,
+      buildingId,
     );
+    if (SETBACK_OVERLAP === 0) {
+      pushSetbackJoinGeometry(
+        geometry,
+        prevRing,
+        currentRing,
+        baseY + prevTop,
+      );
+    }
+    prevRing = currentRing;
+    prevTop = stageMax;
   }
 }
 
@@ -567,6 +622,54 @@ function pushRingWallsBetween(
   }
 }
 
+function pushSetbackJoinGeometry(
+  geometry: GeometryBuffers,
+  outerRing: Vec3[],
+  innerRing: Vec3[],
+  joinY: number,
+): void {
+  const len = Math.min(outerRing.length, innerRing.length);
+  if (len < 3) return;
+
+  for (let i = 0; i < len; i += 1) {
+    const p1 = outerRing[i];
+    const p2 = outerRing[(i + 1) % len];
+    const t1 = innerRing[i];
+    const t2 = innerRing[(i + 1) % len];
+    if (!p1 || !p2 || !t1 || !t2) continue;
+
+    const a: Vec3 = [p1[0], joinY, p1[2]];
+    const b: Vec3 = [p2[0], joinY, p2[2]];
+    const c: Vec3 = [t1[0], joinY, t1[2]];
+    const d: Vec3 = [t2[0], joinY, t2[2]];
+
+    pushTriangle(geometry, a, b, c);
+    pushTriangle(geometry, b, d, c);
+  }
+}
+
+function resolveRidgeForIrregularRing(
+  ring: Vec3[],
+  ridgeHeight: number,
+): { ridgeA: Vec3; ridgeB: Vec3; ridgeAlongX: boolean } {
+  const bounds = computeBounds(ring);
+  const centroid = averagePoint(ring);
+  const ridgeAlongX = bounds.width >= bounds.depth;
+  const ridgeLength = Math.max(
+    (ridgeAlongX ? bounds.width : bounds.depth) * 0.6,
+    1.0,
+  );
+
+  const ridgeA: Vec3 = ridgeAlongX
+    ? [centroid[0] - ridgeLength / 2, ridgeHeight, centroid[2]]
+    : [centroid[0], ridgeHeight, centroid[2] - ridgeLength / 2];
+  const ridgeB: Vec3 = ridgeAlongX
+    ? [centroid[0] + ridgeLength / 2, ridgeHeight, centroid[2]]
+    : [centroid[0], ridgeHeight, centroid[2] + ridgeLength / 2];
+
+  return { ridgeA, ridgeB, ridgeAlongX };
+}
+
 function pushGableRoof(
   geometry: GeometryBuffers,
   outerRing: Vec3[],
@@ -574,18 +677,16 @@ function pushGableRoof(
   topHeight: number,
 ): void {
   const bounds = computeBounds(outerRing);
-  const ridgeAlongX = bounds.width >= bounds.depth;
   const ridgeHeight = Math.max(topHeight, roofBaseHeight + 1.1);
-  const ridgeA: Vec3 = ridgeAlongX
-    ? [bounds.minX, ridgeHeight, (bounds.minZ + bounds.maxZ) / 2]
-    : [(bounds.minX + bounds.maxX) / 2, ridgeHeight, bounds.minZ];
-  const ridgeB: Vec3 = ridgeAlongX
-    ? [bounds.maxX, ridgeHeight, (bounds.minZ + bounds.maxZ) / 2]
-    : [(bounds.minX + bounds.maxX) / 2, ridgeHeight, bounds.maxZ];
+  const { ridgeA, ridgeB, ridgeAlongX } = resolveRidgeForIrregularRing(
+    outerRing,
+    ridgeHeight,
+  );
 
   for (let index = 0; index < outerRing.length; index += 1) {
     const current = outerRing[index];
     const next = outerRing[(index + 1) % outerRing.length];
+    if (!current || !next) continue;
     const currentRidge = ridgeAlongX
       ? ([current[0], ridgeHeight, ridgeA[2]] as Vec3)
       : ([ridgeA[0], ridgeHeight, current[2]] as Vec3);
@@ -623,15 +724,17 @@ function pushHippedRoof(
 ): void {
   const bounds = computeBounds(outerRing);
   const ridgeHeight = Math.max(topHeight, roofBaseHeight + 1.1);
-  const ridgeLength = Math.max(bounds.width * 0.3, bounds.depth * 0.3);
+  const { ridgeA, ridgeB } = resolveRidgeForIrregularRing(
+    outerRing,
+    ridgeHeight,
+  );
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-  const ridgeA: Vec3 = [centerX - ridgeLength / 2, ridgeHeight, centerZ];
-  const ridgeB: Vec3 = [centerX + ridgeLength / 2, ridgeHeight, centerZ];
 
   for (let index = 0; index < outerRing.length; index += 1) {
     const current = outerRing[index];
     const next = outerRing[(index + 1) % outerRing.length];
+    if (!current || !next) continue;
     const isNearEnds =
       Math.abs(current[0] - bounds.minX) < 0.1 ||
       Math.abs(current[0] - bounds.maxX) < 0.1;

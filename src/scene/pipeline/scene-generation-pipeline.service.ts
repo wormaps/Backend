@@ -89,10 +89,12 @@ export class SceneGenerationPipelineService {
       poiCount: placePackage.placePackage.pois.length,
     });
 
-    const terrainFusion = await this.sceneTerrainFusionStep.execute(
+    const terrainFusion = await this.sceneTerrainFusionStep.execute({
       sceneId,
-      resolvedPlace.bounds,
-    );
+      bounds: resolvedPlace.bounds,
+      origin: resolvedPlace.place.location,
+      radiusM: resolvedPlace.radiusM,
+    });
 
     const vision = await this.sceneVisualRulesStep.execute(
       sceneId,
@@ -166,8 +168,12 @@ export class SceneGenerationPipelineService {
       overrideCount: mergedWithAtmosphere.detail.annotationsApplied.length,
     });
 
+    const metaWithTerrainProfile = {
+      ...mergedWithAtmosphere.meta,
+      terrainProfile: terrainFusion.terrainProfile,
+    };
     const corrected = this.sceneGeometryCorrectionStep.execute(
-      mergedWithAtmosphere.meta,
+      metaWithTerrainProfile,
       mergedWithAtmosphere.detail,
     );
     const correctedWithTerrain = {

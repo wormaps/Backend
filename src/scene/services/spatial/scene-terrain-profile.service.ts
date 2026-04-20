@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
-import type { SceneMeta, SceneTerrainProfile, TerrainSample } from '../../types/scene.types';
+import type { Coordinate, GeoBounds } from '../../../places/types/place.types';
+import type { SceneTerrainProfile, TerrainSample } from '../../types/scene.types';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { appendSceneDiagnosticsLog } from '../../storage/scene-storage.utils';
 
@@ -17,11 +18,20 @@ interface TerrainProfileFile {
   }>;
 }
 
+export interface TerrainProfileResolveInput {
+  bounds: GeoBounds;
+  origin: Coordinate;
+  radiusM: number;
+}
+
 @Injectable()
 export class SceneTerrainProfileService {
   constructor(private readonly appLoggerService: AppLoggerService) {}
 
-  resolve(sceneId: string, meta: SceneMeta): SceneTerrainProfile {
+  resolve(
+    sceneId: string,
+    input: TerrainProfileResolveInput,
+  ): SceneTerrainProfile {
     const terrainPath = this.resolveTerrainPath(sceneId);
     if (!terrainPath || !existsSync(terrainPath)) {
       const flatProfile = this.buildFlatProfile();
@@ -47,10 +57,10 @@ export class SceneTerrainProfileService {
       }))
       .filter(
         (sample) =>
-          sample.location.lat >= meta.bounds.southWest.lat - 0.01 &&
-          sample.location.lat <= meta.bounds.northEast.lat + 0.01 &&
-          sample.location.lng >= meta.bounds.southWest.lng - 0.01 &&
-          sample.location.lng <= meta.bounds.northEast.lng + 0.01,
+          sample.location.lat >= input.bounds.southWest.lat - 0.01 &&
+          sample.location.lat <= input.bounds.northEast.lat + 0.01 &&
+          sample.location.lng >= input.bounds.southWest.lng - 0.01 &&
+          sample.location.lng <= input.bounds.northEast.lng + 0.01,
       );
 
     if (rawSamples.length < MIN_SAMPLES_FOR_DEM) {

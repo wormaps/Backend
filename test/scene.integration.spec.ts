@@ -269,6 +269,10 @@ describe('Phase 6 scene integration', () => {
     const target = context!;
     seedHappyPathMocks(target);
     target.mapillaryClient.isConfigured.mockReturnValue(true);
+    target.mapillaryClient.checkCoverage.mockResolvedValue({
+      hasCoverage: false,
+      imageCount: 0,
+    });
     target.mapillaryClient.getMapFeaturesWithEnvelope.mockRejectedValue(
       new Error('mapillary unavailable'),
     );

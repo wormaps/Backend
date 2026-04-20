@@ -86,8 +86,7 @@ export function createSceneMaterials(
       .createMaterial('road-marking')
       .setBaseColorFactor([0.96, 0.93, 0.74, 1])
       .setMetallicFactor(0)
-      .setAlphaMode('MASK')
-      .setAlphaCutoff(overlayCutoff)
+      .setAlphaMode('BLEND')
       .setDoubleSided(false)
       .setRoughnessFactor(
         applyWetOverlay(

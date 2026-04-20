@@ -210,6 +210,13 @@ this.appLoggerService.info('overpass.dedup.complete', {
 
 ### 작업 항목
 
+- [X] 2.1 Terrain Profile Resolve 타입 수정
+- [X] 2.2 DEM Sample Relief 감쇠 계수 조정
+- [X] 2.3 건물 Terrain Offset 분배 로직
+- [X] 2.4 도로/Walkway Terrain Offset
+- [X] 2.5 Ground Mesh DEM 연동
+- [X] 2.6 Terrain Anchored Count 메트릭
+
 #### 2.1 Terrain Profile Resolve 타입 수정
 **파일**: `src/scene/pipeline/steps/scene-terrain-fusion.step.ts:38-46`
 
@@ -321,6 +328,12 @@ await appendSceneDiagnosticsLog(sceneId, 'terrain-fusion', {
 건물 외벽/층 분리 현상 제거, CRITICAL_SHELL_CLOSURE 제거
 
 ### 작업 항목
+
+- [X] 3.1 Setback 갭 제거
+- [X] 3.2 insetRing Y좌표 보존
+- [X] 3.3 Triangulation 실패 fallback 개선
+- [X] 3.4 Gable/Hipped Roof 비직사각형 지원
+- [X] 3.5 insetRing 퇴화 처리 개선
 
 #### 3.1 Setback 갭 제거
 **파일**: `src/assets/compiler/building/building-mesh.shell.builder.ts:24`
@@ -464,6 +477,13 @@ if (nextRing.length < 3) {
 
 ### 작업 항목
 
+- [X] 4.1 Window Glass Alpha Mode
+- [X] 4.2 Street Furniture pushBox Normal 수정
+- [X] 4.3 Road Marking Alpha Mode
+- [X] 4.4 hexToRgb 검증
+- [X] 4.5 Material 캐시 크기 제한
+- [X] 4.6 Material Bucket 세분화
+
 #### 4.1 Window Glass Alpha Mode
 **파일**: `src/assets/compiler/materials/glb-material-factory.enhanced.ts:146-152`
 
@@ -583,6 +603,11 @@ const HUE_BUCKETS = 24;         // 12 → 24
 `observedAppearanceRatio: 0.01 → 0.40+`, `mapillaryUsed: false → true`
 
 ### 작업 항목
+
+- [X] 5.1 Mapillary 토큰/커버리지 진단
+- [X] 5.2 Mapillary 커버리지 체크
+- [X] 5.3 Fallback 로깅 개선
+- [X] 5.4 PlaceCharacter fallback 신뢰도 표시
 
 #### 5.1 Mapillary 토큰/커버리지 진단
 **파일**: `src/places/clients/mapillary.client.ts`

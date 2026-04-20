@@ -13,6 +13,8 @@ export interface MaterialReuseDiagnostics {
   instancedBuildingCount: number;
 }
 
+const MAX_MATERIAL_CACHE_SIZE = 500;
+
 export function installMaterialCache(
   doc: Record<string, unknown>,
   sceneId: string,
@@ -37,6 +39,10 @@ export function installMaterialCache(
       materialName: name,
       materialCacheKey: stableKey,
     });
+    if (cache.size >= MAX_MATERIAL_CACHE_SIZE) {
+      const firstKey = cache.keys().next().value;
+      if (firstKey) cache.delete(firstKey);
+    }
     cache.set(stableKey, material);
     return material;
   };
@@ -157,7 +163,7 @@ function normalizeColorToBucket(colorPart: string): string {
 
 /**
  * Quantize a hex color to a 3-character prefix bucket.
- * Brightness is rounded to 16-unit steps, hue to 30-degree steps.
+ * Brightness is rounded to 8-unit steps (32 buckets), hue to 15-degree steps (24 buckets).
  * Returns a short bucket identifier for cache key deduplication.
  */
 function quantizeHexToBucket(hex: string): string {
@@ -177,11 +183,11 @@ function quantizeHexToBucket(hex: string): string {
   const g = parseInt(full.slice(2, 4), 16);
   const b = parseInt(full.slice(4, 6), 16);
 
-  // Brightness bucket (0-255 in 16-unit steps → 0-F)
-  const brightness = Math.round((r * 0.299 + g * 0.587 + b * 0.114) / 16);
-  const brightnessBucket = Math.max(0, Math.min(15, brightness)).toString(16);
+  // Brightness bucket (0-255 in 8-unit steps → 0-1F)
+  const brightness = Math.round((r * 0.299 + g * 0.587 + b * 0.114) / 8);
+  const brightnessBucket = Math.max(0, Math.min(31, brightness)).toString(16);
 
-  // Hue bucket (30-degree steps → 0-B for 12 hue segments)
+  // Hue bucket (15-degree steps → 0-17 for 24 hue segments)
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const delta = max - min;
@@ -196,7 +202,7 @@ function quantizeHexToBucket(hex: string): string {
       hue = ((r - g) / delta + 4) * 60;
     }
     if (hue < 0) hue += 360;
-    hueBucket = Math.round(hue / 30) % 12;
+    hueBucket = Math.round(hue / 15) % 24;
   }
 
   return `${brightnessBucket}${hueBucket.toString(16)}`;
