@@ -23,7 +23,10 @@ import {
 } from './quality-gate/scene-quality-gate-geometry';
 import { resolveSceneQualityGateMeshSummary } from './quality-gate/scene-quality-gate-mesh-summary';
 import { resolveSceneOracleApproval } from './quality-gate/scene-quality-gate-oracle-approval';
-import { resolveSceneQualityGateThresholds } from './quality-gate/scene-quality-gate-thresholds';
+import {
+  resolveSceneQualityGateThresholds,
+  shouldEnforceCriticalGeometryForPhase,
+} from './quality-gate/scene-quality-gate-thresholds';
 
 @Injectable()
 export class SceneQualityGateService {
@@ -35,6 +38,9 @@ export class SceneQualityGateService {
   ): Promise<SceneQualityGateResult> {
     const fidelityPlan = sceneDetail.fidelityPlan ?? sceneMeta.fidelityPlan;
     const thresholds = resolveSceneQualityGateThresholds(fidelityPlan?.phase);
+    const enforceCriticalGeometry = shouldEnforceCriticalGeometryForPhase(
+      fidelityPlan?.phase,
+    );
     const oracleApproval = await resolveSceneOracleApproval({
       sceneId: sceneMeta.sceneId,
       phase: fidelityPlan?.phase,
@@ -83,6 +89,7 @@ export class SceneQualityGateService {
       reasonCodes.push('CRITICAL_INVALID_GEOMETRY');
     }
     if (
+      enforceCriticalGeometry &&
       hasCriticalCollision({
         geometryDiagnostics: sceneDetail.geometryDiagnostics,
         totalBuildingCount: sceneMeta.buildings.length,
@@ -91,6 +98,7 @@ export class SceneQualityGateService {
       reasonCodes.push('CRITICAL_COLLISION_DETECTED');
     }
     if (
+      enforceCriticalGeometry &&
       hasCriticalGroundingGap({
         geometryDiagnostics: sceneDetail.geometryDiagnostics,
         totalBuildingCount: sceneMeta.buildings.length,
@@ -98,13 +106,20 @@ export class SceneQualityGateService {
     ) {
       reasonCodes.push('CRITICAL_GROUNDING_GAP_DETECTED');
     }
-    if (hasCriticalShellClosure(sceneDetail.geometryDiagnostics)) {
+    if (
+      enforceCriticalGeometry &&
+      hasCriticalShellClosure(sceneDetail.geometryDiagnostics)
+    ) {
       reasonCodes.push('CRITICAL_SHELL_CLOSURE_DETECTED');
     }
-    if (hasCriticalRoofWallGap(sceneDetail.geometryDiagnostics)) {
+    if (
+      enforceCriticalGeometry &&
+      hasCriticalRoofWallGap(sceneDetail.geometryDiagnostics)
+    ) {
       reasonCodes.push('CRITICAL_ROOF_WALL_GAP_DETECTED');
     }
     if (
+      enforceCriticalGeometry &&
       sceneMeta.terrainProfile?.hasElevationModel &&
       hasCriticalTerrainTransportAlignment({
         geometryDiagnostics: sceneDetail.geometryDiagnostics,

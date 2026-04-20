@@ -180,9 +180,7 @@ export function addMeshNode(
       doc
         .createAccessor(`${name}-positions`, buffer)
         .setArray(new Float32Array(geometry.positions))
-        .setType(AccessorRef.Type.VEC3)
-        .setMin([minX, minY, minZ])
-        .setMax([maxX, maxY, maxZ]),
+        .setType(AccessorRef.Type.VEC3),
     )
     .setAttribute(
       'NORMAL',

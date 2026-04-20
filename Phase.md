@@ -1182,8 +1182,8 @@ try {
 ```
 
 ### 검증
-- [ ] `grep -rn "void appendSceneDiagnosticsLog" src/` → 0건
-- [ ] 진단 로그 실패 시 경고 로그 확인
+- [X] `grep -rn "void appendSceneDiagnosticsLog" src/` → 0건
+- [X] 진단 로그 실패 시 경고 로그 확인
 
 ---
 
@@ -1355,7 +1355,7 @@ await rm(testTerrainDir, { recursive: true, force: true });
 
 ### 검증
 - [ ] E2E 테스트 5개 이상
-- [ ] `bun test` 전체 통과
+- [X] `bun test` 전체 통과
 - [ ] Mock 의존도 50% 감소
 - [ ] Temp 디렉토리 충돌 0건
 

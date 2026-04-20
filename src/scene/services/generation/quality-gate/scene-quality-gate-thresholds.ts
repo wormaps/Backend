@@ -3,6 +3,12 @@ import type {
   SceneQualityGateThresholds,
 } from '../../../types/scene.types';
 
+export function shouldEnforceCriticalGeometryForPhase(
+  phase?: SceneFidelityPlan['phase'],
+): boolean {
+  return phase !== 'PHASE_1_BASELINE';
+}
+
 export function resolveSceneQualityGateThresholds(
   phase?: SceneFidelityPlan['phase'],
 ): SceneQualityGateThresholds {

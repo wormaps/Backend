@@ -5,6 +5,38 @@ import { AppModule } from '../src/app.module';
 import { SceneService } from '../src/scene/scene.service';
 import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
 
+function findForbiddenGeoKey(
+  value: unknown,
+  currentPath: string,
+): string | null {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const found = findForbiddenGeoKey(value[index], `${currentPath}[${index}]`);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const [key, nested] of Object.entries(record)) {
+    if (key === 'latitude' || key === 'longitude') {
+      return `${currentPath}.${key}`;
+    }
+    const found = findForbiddenGeoKey(nested, `${currentPath}.${key}`);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
 async function fileExists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -57,12 +89,23 @@ async function main() {
     await access(metaPath);
     await access(detailPath);
     const storedSceneRaw = await readFile(jsonPath, 'utf8');
-
-    if (
-      storedSceneRaw.includes('"latitude"') ||
-      storedSceneRaw.includes('"longitude"')
-    ) {
-      throw new Error('Stored scene JSON must use lat/lng keys only.');
+    const storedScene = JSON.parse(storedSceneRaw) as {
+      scene?: unknown;
+      place?: unknown;
+      meta?: unknown;
+      detail?: unknown;
+    };
+    const contractSurface = {
+      scene: storedScene.scene,
+      place: storedScene.place,
+      meta: storedScene.meta,
+      detail: storedScene.detail,
+    };
+    const forbiddenPath = findForbiddenGeoKey(contractSurface, 'storedScene');
+    if (forbiddenPath) {
+      throw new Error(
+        `Stored scene contract must use lat/lng keys only (found ${forbiddenPath}).`,
+      );
     }
 
     result.bootstrap = bootstrap;
