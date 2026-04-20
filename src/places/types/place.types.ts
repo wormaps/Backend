@@ -159,7 +159,9 @@ export interface PlacePackage {
   diagnostics?: {
     droppedBuildings: number;
     deduplicatedBuildings?: number;
+    deduplicatedBuildingsByIoU?: number;
     mergedWayRelationBuildings?: number;
+    mergedWayWayBuildings?: number;
     droppedRoads: number;
     droppedWalkways: number;
     droppedPois: number;

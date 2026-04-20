@@ -128,6 +128,69 @@ describe('partitionOverpassElements', () => {
     expect(result.buildingRelations.length).toBe(1);
     expect(result.buildingWays.length).toBe(0);
     expect(result.deduplicatedCount).toBe(1);
+    expect(result.deduplicatedByIoUCount).toBe(1);
     expect(result.mergedWayRelationCount).toBe(1);
+    expect(result.mergedWayWayCount).toBe(0);
+  });
+
+  it('deduplicates duplicate building ways by IoU', () => {
+    const wayRingA = [
+      { lat: 37.02, lon: 127.02 },
+      { lat: 37.02, lon: 127.021 },
+      { lat: 37.021, lon: 127.021 },
+      { lat: 37.021, lon: 127.02 },
+      { lat: 37.02, lon: 127.02 },
+    ];
+    const wayRingB = [
+      { lat: 37.02001, lon: 127.02001 },
+      { lat: 37.02001, lon: 127.02101 },
+      { lat: 37.02101, lon: 127.02101 },
+      { lat: 37.02101, lon: 127.02001 },
+      { lat: 37.02001, lon: 127.02001 },
+    ];
+
+    const result = partitionOverpassElements([
+      way(400, wayRingA),
+      way(401, wayRingB),
+    ]);
+
+    expect(result.buildingRelations.length).toBe(0);
+    expect(result.buildingWays.length).toBe(1);
+    expect(result.deduplicatedCount).toBe(1);
+    expect(result.deduplicatedByIoUCount).toBe(1);
+    expect(result.mergedWayRelationCount).toBe(0);
+    expect(result.mergedWayWayCount).toBe(1);
+  });
+
+  it('prefers richer relation metadata when duplicate relations overlap', () => {
+    const duplicatedRing = [
+      { lat: 37.04, lon: 127.04 },
+      { lat: 37.04, lon: 127.041 },
+      { lat: 37.041, lon: 127.041 },
+      { lat: 37.041, lon: 127.04 },
+      { lat: 37.04, lon: 127.04 },
+    ];
+
+    const poorRelation = relation(500, duplicatedRing, 999_500);
+    const richRelation: OverpassElement = {
+      ...relation(501, duplicatedRing, 999_501),
+      tags: {
+        building: 'yes',
+        type: 'multipolygon',
+        name: 'landmark-tower',
+        source: 'survey',
+        'building:levels': '21',
+        height: '88',
+      },
+    };
+
+    const result = partitionOverpassElements([poorRelation, richRelation]);
+
+    expect(result.buildingRelations.length).toBe(1);
+    expect(result.buildingRelations[0]?.id).toBe(501);
+    expect(result.deduplicatedCount).toBe(1);
+    expect(result.deduplicatedByIoUCount).toBe(1);
+    expect(result.mergedWayRelationCount).toBe(0);
+    expect(result.mergedWayWayCount).toBe(0);
   });
 });

@@ -22,6 +22,7 @@ import {
 import { fetchScopeResponseWithTrace } from './overpass/overpass.transport';
 import type {
   BuildPlacePackageOptions,
+  OverpassElement,
   OverpassResponse,
   OverpassScope,
 } from './overpass/overpass.types';
@@ -136,7 +137,22 @@ export class OverpassClient {
         linearFeatureWays: partitioned.linearFeatureWays.length,
       },
       deduplicatedCount: partitioned.deduplicatedCount,
+      deduplicatedByIoUCount: partitioned.deduplicatedByIoUCount,
       mergedWayRelationCount: partitioned.mergedWayRelationCount,
+      mergedWayWayCount: partitioned.mergedWayWayCount,
+    });
+
+    this.appLoggerService.info('overpass.dedup.complete', {
+      requestId: options.requestId ?? null,
+      sceneId: options.sceneId,
+      provider: 'overpass',
+      step: 'overpass_partition',
+      totalInput: rawBuildingElementCount(partitioned),
+      afterIoUDedup:
+        partitioned.buildingRelations.length + partitioned.buildingWays.length,
+      removedByIoU: partitioned.deduplicatedByIoUCount,
+      mergedWayRelationCount: partitioned.mergedWayRelationCount,
+      mergedWayWayCount: partitioned.mergedWayWayCount,
     });
 
     const buildings = mapBuildings([
@@ -219,7 +235,9 @@ export class OverpassClient {
             partitioned.buildingRelations.length -
             buildings.length,
           deduplicatedBuildings: partitioned.deduplicatedCount,
+          deduplicatedBuildingsByIoU: partitioned.deduplicatedByIoUCount,
           mergedWayRelationBuildings: partitioned.mergedWayRelationCount,
+          mergedWayWayBuildings: partitioned.mergedWayWayCount,
           droppedRoads: partitioned.roadWays.length - roads.length,
           droppedWalkways: partitioned.walkwayWays.length - walkways.length,
           droppedPois: partitioned.poiNodes.length - pois.length,
@@ -237,4 +255,16 @@ export class OverpassClient {
       upstreamEnvelopes,
     };
   }
+}
+
+function rawBuildingElementCount(partitioned: {
+  buildingRelations: OverpassElement[];
+  buildingWays: OverpassElement[];
+  deduplicatedCount: number;
+}): number {
+  return (
+    partitioned.buildingRelations.length +
+    partitioned.buildingWays.length +
+    partitioned.deduplicatedCount
+  );
 }

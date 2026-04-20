@@ -1,11 +1,26 @@
 import type { OverpassElement, OverpassResponse } from './overpass.types';
 import { BuildingFootprintVo } from '../../domain/building-footprint.value-object';
+import {
+  areBoundsOverlapping,
+  calculateDistanceMeters,
+  calculateFootprintIoU,
+  calculatePolygonAreaM2,
+  resolveFootprintBounds,
+  type FootprintBounds,
+} from '../../utils/footprint-overlap.utils';
+
+const SAME_BUILDING_IOU_THRESHOLD = 0.85;
+const SAME_BUILDING_CENTROID_TOLERANCE_METERS = 3;
+const SPATIAL_INDEX_CELL_SIZE_METERS = 50;
+const SPATIAL_INDEX_NEIGHBOR_RANGE = 1;
 
 export interface PartitionedOverpassElements {
   buildingRelations: OverpassElement[];
   buildingWays: OverpassElement[];
   deduplicatedCount: number;
+  deduplicatedByIoUCount: number;
   mergedWayRelationCount: number;
+  mergedWayWayCount: number;
   roadWays: OverpassElement[];
   walkwayWays: OverpassElement[];
   crossingWays: OverpassElement[];
@@ -57,7 +72,9 @@ export function partitionOverpassElements(
     buildingRelations,
     buildingWays,
     deduplicatedCount,
+    deduplicatedByIoUCount,
     mergedWayRelationCount,
+    mergedWayWayCount,
   } = dedupeBuildingElements(rawBuildingRelations, rawBuildingWays);
 
   const relationMemberWayIds = new Set(
@@ -144,7 +161,9 @@ export function partitionOverpassElements(
     buildingRelations,
     buildingWays: buildingWaysWithoutMembers,
     deduplicatedCount,
+    deduplicatedByIoUCount,
     mergedWayRelationCount,
+    mergedWayWayCount,
     roadWays,
     walkwayWays,
     crossingWays,
@@ -163,39 +182,57 @@ function dedupeBuildingElements(
   buildingRelations: OverpassElement[];
   buildingWays: OverpassElement[];
   deduplicatedCount: number;
+  deduplicatedByIoUCount: number;
   mergedWayRelationCount: number;
+  mergedWayWayCount: number;
 } {
-  const keptRelations = dedupeRelationsByFootprint(buildingRelations);
+  const relationDedupResult = dedupeRelationsByFootprint(buildingRelations);
+  const keptRelations = relationDedupResult.kept;
+  const relationCandidates = mapSpatialCandidates(keptRelations);
+  const relationIndex = buildSpatialIndex(relationCandidates);
   const dedupedWays: OverpassElement[] = [];
+  const wayIndex = createEmptySpatialIndex();
   let mergedWayRelationCount = 0;
-  const relationFootprints = keptRelations
-    .map((relation) => ({ relation, footprint: mapPrimaryOuterFootprintFromRelation(relation) }))
-    .filter(
-      (
-        item,
-      ): item is { relation: OverpassElement; footprint: BuildingFootprintVo } =>
-        item.footprint !== null,
-    )
-    .sort((left, right) => left.footprint.boundingBox().minLat - right.footprint.boundingBox().minLat);
+  let mergedWayWayCount = 0;
 
   for (const way of buildingWays) {
-    const wayFootprint = mapFootprintFromWayGeometry(way);
-    if (!wayFootprint) {
+    const wayCandidate = mapSpatialCandidateFromWay(way);
+    if (!wayCandidate) {
       dedupedWays.push(way);
       continue;
     }
 
-    const hasEquivalentRelation = relationFootprints.some(({ footprint }) =>
-      wayFootprint.isSameFootprint(footprint, 3),
+    const overlappingRelations = getSpatialCandidatesForBounds(
+      relationIndex,
+      wayCandidate.bounds,
+    );
+    const hasEquivalentRelation = overlappingRelations.some((relationCandidate) =>
+      areEquivalentFootprints(wayCandidate, relationCandidate),
     );
 
     if (hasEquivalentRelation) {
       mergedWayRelationCount += 1;
       continue;
     }
+
+    const overlappingWays = getSpatialCandidatesForBounds(
+      wayIndex,
+      wayCandidate.bounds,
+    );
+    const hasEquivalentWay = overlappingWays.some((candidate) =>
+      areEquivalentFootprints(wayCandidate, candidate),
+    );
+    if (hasEquivalentWay) {
+      mergedWayWayCount += 1;
+      continue;
+    }
+
+    addSpatialCandidate(wayIndex, wayCandidate);
     dedupedWays.push(way);
   }
 
+  const deduplicatedByIoUCount =
+    relationDedupResult.removedByIoU + mergedWayRelationCount + mergedWayWayCount;
   const deduplicatedCount =
     buildingRelations.length + buildingWays.length -
     (keptRelations.length + dedupedWays.length);
@@ -204,34 +241,280 @@ function dedupeBuildingElements(
     buildingRelations: keptRelations,
     buildingWays: dedupedWays,
     deduplicatedCount,
+    deduplicatedByIoUCount,
     mergedWayRelationCount,
+    mergedWayWayCount,
   };
 }
 
 function dedupeRelationsByFootprint(
   relations: OverpassElement[],
-): OverpassElement[] {
+): {
+  kept: OverpassElement[];
+  removedByIoU: number;
+} {
+  const candidates = mapSpatialCandidates(relations);
+  const index = createEmptySpatialIndex();
   const kept: OverpassElement[] = [];
+  let removedByIoU = 0;
   for (const relation of relations) {
-    const footprint = mapPrimaryOuterFootprintFromRelation(relation);
-    if (!footprint) {
+    const candidate = candidates.get(relation.id);
+    if (!candidate) {
       kept.push(relation);
       continue;
     }
 
-    const duplicate = kept.some((candidate) => {
-      const candidateFootprint = mapPrimaryOuterFootprintFromRelation(candidate);
-      if (!candidateFootprint) {
-        return false;
-      }
-      return footprint.isSameFootprint(candidateFootprint, 3);
-    });
+    const neighbors = getSpatialCandidatesForBounds(index, candidate.bounds);
+    const duplicate = neighbors.find((neighbor) =>
+      areEquivalentFootprints(candidate, neighbor),
+    );
 
-    if (!duplicate) {
-      kept.push(relation);
+    if (duplicate) {
+      removedByIoU += 1;
+      const preferred = choosePreferredRelation(candidate, duplicate);
+      if (preferred.element.id === duplicate.element.id) {
+        continue;
+      }
+      removeSpatialCandidate(index, duplicate);
+      const duplicateIndex = kept.findIndex(
+        (item) => item.id === duplicate.element.id,
+      );
+      if (duplicateIndex >= 0) {
+        kept.splice(duplicateIndex, 1);
+      }
+    }
+
+    kept.push(relation);
+    addSpatialCandidate(index, candidate);
+  }
+  return {
+    kept,
+    removedByIoU,
+  };
+}
+
+interface SpatialCandidate {
+  element: OverpassElement;
+  footprint: BuildingFootprintVo;
+  bounds: FootprintBounds;
+  centroid: { lat: number; lng: number };
+}
+
+type SpatialIndex = Map<string, SpatialCandidate[]>;
+
+function mapSpatialCandidates(
+  elements: OverpassElement[],
+): Map<number, SpatialCandidate> {
+  const result = new Map<number, SpatialCandidate>();
+
+  for (const element of elements) {
+    const candidate =
+      element.type === 'relation'
+        ? mapSpatialCandidateFromRelation(element)
+        : mapSpatialCandidateFromWay(element);
+    if (!candidate) {
+      continue;
+    }
+    result.set(element.id, candidate);
+  }
+
+  return result;
+}
+
+function mapSpatialCandidateFromWay(
+  element: OverpassElement,
+): SpatialCandidate | null {
+  const footprint = mapFootprintFromWayGeometry(element);
+  if (!footprint) {
+    return null;
+  }
+
+  return {
+    element,
+    footprint,
+    bounds: resolveFootprintBounds(footprint.outerRing),
+    centroid: footprint.centroid(),
+  };
+}
+
+function mapSpatialCandidateFromRelation(
+  element: OverpassElement,
+): SpatialCandidate | null {
+  const footprint = mapPrimaryOuterFootprintFromRelation(element);
+  if (!footprint) {
+    return null;
+  }
+
+  return {
+    element,
+    footprint,
+    bounds: resolveFootprintBounds(footprint.outerRing),
+    centroid: footprint.centroid(),
+  };
+}
+
+function areEquivalentFootprints(
+  left: SpatialCandidate,
+  right: SpatialCandidate,
+): boolean {
+  if (!areBoundsOverlapping(left.bounds, right.bounds)) {
+    return false;
+  }
+
+  const centroidDistance = calculateDistanceMeters(left.centroid, right.centroid);
+  if (centroidDistance > SAME_BUILDING_CENTROID_TOLERANCE_METERS) {
+    return false;
+  }
+
+  const overlap = calculateFootprintIoU(
+    left.footprint.outerRing,
+    right.footprint.outerRing,
+  );
+  return overlap.iou >= SAME_BUILDING_IOU_THRESHOLD;
+}
+
+function choosePreferredRelation(
+  left: SpatialCandidate,
+  right: SpatialCandidate,
+): SpatialCandidate {
+  const leftScore = resolveRelationScore(left.element);
+  const rightScore = resolveRelationScore(right.element);
+  if (leftScore !== rightScore) {
+    return leftScore > rightScore ? left : right;
+  }
+
+  const leftArea = calculateFootprintIoU(
+    left.footprint.outerRing,
+    left.footprint.outerRing,
+  ).intersectionM2;
+  const rightArea = calculatePolygonAreaM2(right.footprint.outerRing);
+
+  const normalizedLeftArea =
+    leftArea > 0 ? leftArea : calculatePolygonAreaM2(left.footprint.outerRing);
+
+  if (normalizedLeftArea !== rightArea) {
+    return normalizedLeftArea > rightArea ? left : right;
+  }
+
+  return left.element.id <= right.element.id ? left : right;
+}
+
+function resolveRelationScore(element: OverpassElement): number {
+  const tags = element.tags ?? {};
+  const levelScore = Number.parseFloat(tags['building:levels'] ?? '0');
+  const heightScore = Number.parseFloat(tags.height ?? '0') / 10;
+  const namedScore = tags.name ? 2 : 0;
+  const sourceScore = tags.source ? 1 : 0;
+  const wikiScore = tags.wikidata || tags.wikipedia ? 1 : 0;
+  return (
+    (Number.isFinite(levelScore) ? levelScore : 0) +
+    (Number.isFinite(heightScore) ? heightScore : 0) +
+    namedScore +
+    sourceScore +
+    wikiScore
+  );
+}
+
+function createEmptySpatialIndex(): SpatialIndex {
+  return new Map<string, SpatialCandidate[]>();
+}
+
+function buildSpatialIndex(candidates: Map<number, SpatialCandidate>): SpatialIndex {
+  const index = createEmptySpatialIndex();
+  for (const candidate of candidates.values()) {
+    addSpatialCandidate(index, candidate);
+  }
+  return index;
+}
+
+function addSpatialCandidate(index: SpatialIndex, candidate: SpatialCandidate): void {
+  const cellKeys = resolveCellKeysFromBounds(candidate.bounds);
+  for (const key of cellKeys) {
+    const bucket = index.get(key);
+    if (!bucket) {
+      index.set(key, [candidate]);
+      continue;
+    }
+    bucket.push(candidate);
+  }
+}
+
+function removeSpatialCandidate(
+  index: SpatialIndex,
+  candidate: SpatialCandidate,
+): void {
+  const cellKeys = resolveCellKeysFromBounds(candidate.bounds);
+  for (const key of cellKeys) {
+    const bucket = index.get(key);
+    if (!bucket) {
+      continue;
+    }
+    const next = bucket.filter((item) => item.element.id !== candidate.element.id);
+    if (next.length === 0) {
+      index.delete(key);
+      continue;
+    }
+    index.set(key, next);
+  }
+}
+
+function getSpatialCandidatesForBounds(
+  index: SpatialIndex,
+  bounds: FootprintBounds,
+): SpatialCandidate[] {
+  const cellKeys = resolveCellKeysFromBounds(bounds);
+  const seen = new Set<number>();
+  const candidates: SpatialCandidate[] = [];
+
+  for (const key of cellKeys) {
+    const bucket = index.get(key);
+    if (!bucket) {
+      continue;
+    }
+    for (const candidate of bucket) {
+      if (seen.has(candidate.element.id)) {
+        continue;
+      }
+      seen.add(candidate.element.id);
+      candidates.push(candidate);
     }
   }
-  return kept;
+
+  return candidates;
+}
+
+function resolveCellKeysFromBounds(bounds: FootprintBounds): string[] {
+  const latStep = SPATIAL_INDEX_CELL_SIZE_METERS / 111_320;
+  const avgLat = (bounds.minLat + bounds.maxLat) / 2;
+  const lngMeters =
+    111_320 * Math.max(0.2, Math.cos((avgLat * Math.PI) / 180));
+  const lngStep = SPATIAL_INDEX_CELL_SIZE_METERS / lngMeters;
+
+  const minLatCell = Math.floor(bounds.minLat / latStep);
+  const maxLatCell = Math.floor(bounds.maxLat / latStep);
+  const minLngCell = Math.floor(bounds.minLng / lngStep);
+  const maxLngCell = Math.floor(bounds.maxLng / lngStep);
+
+  const keys: string[] = [];
+  for (let latCell = minLatCell; latCell <= maxLatCell; latCell += 1) {
+    for (let lngCell = minLngCell; lngCell <= maxLngCell; lngCell += 1) {
+      for (
+        let latOffset = -SPATIAL_INDEX_NEIGHBOR_RANGE;
+        latOffset <= SPATIAL_INDEX_NEIGHBOR_RANGE;
+        latOffset += 1
+      ) {
+        for (
+          let lngOffset = -SPATIAL_INDEX_NEIGHBOR_RANGE;
+          lngOffset <= SPATIAL_INDEX_NEIGHBOR_RANGE;
+          lngOffset += 1
+        ) {
+          keys.push(`${latCell + latOffset}:${lngCell + lngOffset}`);
+        }
+      }
+    }
+  }
+
+  return [...new Set(keys)];
 }
 
 function mapFootprintFromWayGeometry(element: OverpassElement): BuildingFootprintVo | null {
