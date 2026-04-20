@@ -1,3 +1,8 @@
+import {
+  estimateBuildingHeight,
+  type EstimationConfidence,
+} from '../../domain/building-height.estimator';
+
 export function resolveLaneCount(tags?: Record<string, string>): number {
   const lanes = Number.parseInt(tags?.lanes ?? '', 10);
   return Number.isInteger(lanes) && lanes > 0 ? lanes : 2;
@@ -43,18 +48,18 @@ export function resolveWalkwayWidth(tags?: Record<string, string>): number {
   return 3;
 }
 
-export function resolveHeight(tags?: Record<string, string>): number {
-  const height = Number.parseFloat(tags?.height ?? '');
-  if (Number.isFinite(height) && height > 0) {
-    return height;
-  }
+export function resolveHeight(
+  tags?: Record<string, string>,
+  contextMedian?: number,
+): number {
+  return estimateBuildingHeight(tags, contextMedian).heightMeters;
+}
 
-  const levels = Number.parseInt(tags?.['building:levels'] ?? '', 10);
-  if (Number.isInteger(levels) && levels > 0) {
-    return levels * 3.2;
-  }
-
-  return 15;
+export function resolveHeightConfidence(
+  tags?: Record<string, string>,
+  contextMedian?: number,
+): EstimationConfidence {
+  return estimateBuildingHeight(tags, contextMedian).confidence;
 }
 
 export function resolveUsage(

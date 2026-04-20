@@ -312,6 +312,46 @@ function pushBuildingByStrategy(
       }
       break;
     }
+    case 'hipped_lowrise': {
+      const roofBaseHeight = Math.max(3.2, height * 0.72);
+      pushExtrudedPolygon(
+        geometry,
+        simplifiedRing,
+        simplifiedHoles,
+        baseY - foundationDepth,
+        baseY + roofBaseHeight,
+        triangulate,
+      );
+      if (lodLevel === 'HIGH') {
+        pushHippedRoof(
+          geometry,
+          simplifiedRing,
+          baseY + roofBaseHeight,
+          baseY + height,
+        );
+      }
+      break;
+    }
+    case 'pyramidal_lowrise': {
+      const roofBaseHeight = Math.max(3.2, height * 0.72);
+      pushExtrudedPolygon(
+        geometry,
+        simplifiedRing,
+        simplifiedHoles,
+        baseY - foundationDepth,
+        baseY + roofBaseHeight,
+        triangulate,
+      );
+      if (lodLevel === 'HIGH') {
+        pushPyramidalRoof(
+          geometry,
+          simplifiedRing,
+          baseY + roofBaseHeight,
+          baseY + height,
+        );
+      }
+      break;
+    }
     case 'courtyard_block': {
       pushExtrudedPolygon(
         geometry,
@@ -575,6 +615,76 @@ function pushGableRoof(
   );
 }
 
+function pushHippedRoof(
+  geometry: GeometryBuffers,
+  outerRing: Vec3[],
+  roofBaseHeight: number,
+  topHeight: number,
+): void {
+  const bounds = computeBounds(outerRing);
+  const ridgeHeight = Math.max(topHeight, roofBaseHeight + 1.1);
+  const ridgeLength = Math.max(bounds.width * 0.3, bounds.depth * 0.3);
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+  const ridgeA: Vec3 = [centerX - ridgeLength / 2, ridgeHeight, centerZ];
+  const ridgeB: Vec3 = [centerX + ridgeLength / 2, ridgeHeight, centerZ];
+
+  for (let index = 0; index < outerRing.length; index += 1) {
+    const current = outerRing[index];
+    const next = outerRing[(index + 1) % outerRing.length];
+    const isNearEnds =
+      Math.abs(current[0] - bounds.minX) < 0.1 ||
+      Math.abs(current[0] - bounds.maxX) < 0.1;
+    const ridgePoint = isNearEnds
+      ? ([current[0], ridgeHeight, centerZ] as Vec3)
+      : ([
+          current[0] > centerX ? ridgeB[0] : ridgeA[0],
+          ridgeHeight,
+          current[2],
+        ] as Vec3);
+    const nextRidgePoint = isNearEnds
+      ? ([next[0], ridgeHeight, centerZ] as Vec3)
+      : ([
+          next[0] > centerX ? ridgeB[0] : ridgeA[0],
+          ridgeHeight,
+          next[2],
+        ] as Vec3);
+    pushQuad(
+      geometry,
+      [current[0], roofBaseHeight, current[2]],
+      [next[0], roofBaseHeight, next[2]],
+      nextRidgePoint,
+      ridgePoint,
+    );
+  }
+}
+
+function pushPyramidalRoof(
+  geometry: GeometryBuffers,
+  outerRing: Vec3[],
+  roofBaseHeight: number,
+  topHeight: number,
+): void {
+  const bounds = computeBounds(outerRing);
+  const apexHeight = Math.max(topHeight, roofBaseHeight + 1.1);
+  const apex: Vec3 = [
+    (bounds.minX + bounds.maxX) / 2,
+    apexHeight,
+    (bounds.minZ + bounds.maxZ) / 2,
+  ];
+
+  for (let index = 0; index < outerRing.length; index += 1) {
+    const current = outerRing[index];
+    const next = outerRing[(index + 1) % outerRing.length];
+    pushTriangle(
+      geometry,
+      [current[0], roofBaseHeight, current[2]],
+      [next[0], roofBaseHeight, next[2]],
+      apex,
+    );
+  }
+}
+
 function resolveBuildingGeometryStrategy(
   building: SceneMeta['buildings'][number],
   holes: Vec3[][],
@@ -589,7 +699,52 @@ function resolveBuildingGeometryStrategy(
   if (isPolygonTooThin(outerRing)) {
     return 'fallback_massing';
   }
-  return building.geometryStrategy ?? 'simple_extrude';
+
+  const explicit = building.geometryStrategy;
+  if (explicit && explicit !== 'simple_extrude') {
+    return explicit;
+  }
+
+  const osm = building.osmAttributes ?? {};
+  const levels = parseOsmInt(osm['building:levels']) ?? 0;
+  const heightMeters = building.heightMeters ?? 0;
+  const buildingType = osm['building'] ?? '';
+  const roofShape = osm['roof:shape'] ?? '';
+
+  if (levels >= 15 || heightMeters >= 50) {
+    return 'stepped_tower';
+  }
+
+  if (roofShape === 'gabled' || roofShape === 'gable') {
+    return 'gable_lowrise';
+  }
+
+  if (roofShape === 'hipped' || roofShape === 'hip') {
+    return 'hipped_lowrise';
+  }
+
+  if (roofShape === 'pyramidal') {
+    return 'pyramidal_lowrise';
+  }
+
+  if (
+    (buildingType === 'retail' || buildingType === 'commercial') &&
+    levels <= 4
+  ) {
+    return 'podium_tower';
+  }
+
+  if (levels >= 8 || heightMeters >= 28) {
+    return 'podium_tower';
+  }
+
+  return 'simple_extrude';
+}
+
+function parseOsmInt(value: string | undefined): number | null {
+  if (value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function computeRingAreaM2(ring: Vec3[]): number {

@@ -135,6 +135,8 @@ export function addBuildingAndHeroMeshes(
     return 'medium';
   };
 
+  const buildingChunks = chunkBuildings(assetSelection.buildings, 500);
+
   // Grouped shells: same-style buildings merged into one geometry per group
   for (const [groupKey, group] of groupedBuildings) {
     const representativeLod = group.buildings[0]?.lodLevel;
@@ -171,180 +173,182 @@ export function addBuildingAndHeroMeshes(
     );
   }
 
-  for (const building of assetSelection.buildings) {
-    const buildingHints = sceneDetail.facadeHints.filter(
-      (hint) => hint.objectId === building.objectId,
-    );
-    const primaryHint = buildingHints[0];
-    const roofTone = resolveBuildingRoofTone(building);
-
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      `building_roof_surface_${building.objectId}`,
-      createBuildingRoofSurfaceGeometry(
-        sceneMeta.origin,
-        [building],
-        triangulate,
-        roofTone,
-      ),
-      materials.roofSurfaces[roofTone],
-      {
-        sourceCount: 1,
-        selectedCount: 1,
-        selectionLod: building.lodLevel,
-        loadTier: resolveLoadTier(building.lodLevel),
-        progressiveOrder: nextProgressiveOrder(),
-        prototypeKey: `building_roof_surface:${roofTone}`,
-        instanceGroupKey: `building_roof_surface:${roofTone}:${building.lodLevel ?? 'HIGH'}`,
-        semanticCategory: 'building',
-        sourceObjectIds: [building.objectId],
-      },
-    );
-
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      `building_roof_accent_${building.objectId}`,
-      hooks.createBuildingRoofAccentGeometry(
-        sceneMeta.origin,
-        [building],
-        triangulate,
-        roofTone,
-        hooks.staticAtmosphere,
-      ),
-      materials.roofAccents[roofTone],
-      {
-        sourceCount: 1,
-        selectedCount: 1,
-        selectionLod: building.lodLevel,
-        loadTier: resolveLoadTier(building.lodLevel),
-        progressiveOrder: nextProgressiveOrder(),
-        prototypeKey: `building_roof_accent:${roofTone}`,
-        instanceGroupKey: `building_roof_accent:${roofTone}`,
-        semanticCategory: 'building',
-        sourceObjectIds: [building.objectId],
-      },
-    );
-
-    if (primaryHint) {
-      const panelTone = resolveAccentToneFromPalette(
-        primaryHint.panelPalette ?? primaryHint.palette,
+  for (const chunk of buildingChunks) {
+    for (const building of chunk) {
+      const buildingHints = sceneDetail.facadeHints.filter(
+        (hint) => hint.objectId === building.objectId,
       );
-      const panelColor =
-        primaryHint.panelPalette?.[0] ?? primaryHint.palette[0];
-      if (panelColor) {
-        hooks.addMeshNode(
-          ctx.doc,
-          ctx.Accessor,
-          ctx.scene,
-          ctx.buffer,
-          `building_panel_${building.objectId}`,
-          createBuildingPanelsGeometry(
-            sceneMeta.origin,
-            [building],
-            [primaryHint],
-            panelTone,
-          ),
-          createBuildingPanelMaterial(
-            ctx.doc,
-            panelTone,
-            panelColor,
-            hooks.materialTuning,
-            hooks.facadeMaterialProfile,
-          ),
-          {
-            sourceCount: 1,
-            selectedCount: 1,
-            selectionLod: building.lodLevel,
-            loadTier: resolveLoadTier(building.lodLevel),
-            progressiveOrder: nextProgressiveOrder(),
-            prototypeKey: `building_panel:${panelTone}:${panelColor}`,
-            instanceGroupKey: `building_panel:${panelTone}:${panelColor}:${building.lodLevel ?? 'HIGH'}`,
-            semanticCategory: 'building',
-            sourceObjectIds: [building.objectId],
-          },
-        );
-      }
-    }
+      const primaryHint = buildingHints[0];
+      const roofTone = resolveBuildingRoofTone(building);
 
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      `building_window_${building.objectId}`,
-      createBuildingWindowGeometry(
-        sceneMeta.origin,
-        [building],
-        buildingHints,
-        windowBudget,
-      ),
-      materials.windowPrimary ??
-        materials.windowGlassCurtainWall ??
-        materials.windowGlassReflective ??
-        materials.buildingPanels[
-          hooks.resolveWindowMaterialTone(buildingHints)
-        ],
-      {
-        sourceCount: buildingHints.length,
-        selectedCount: 1,
-        selectionLod: building.lodLevel,
-        loadTier: resolveLoadTier(building.lodLevel),
-        progressiveOrder: nextProgressiveOrder(),
-        prototypeKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
-        instanceGroupKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
-        semanticCategory: 'building',
-        sourceObjectIds: [building.objectId],
-      },
-    );
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      `building_entrance_${building.objectId}`,
-      createBuildingEntranceGeometry(sceneMeta.origin, [building]),
-      materials.entrancePrimary ??
-        materials.facadePrimary ??
-        materials.facadeConcreteMid ??
-        materials.buildingPanels.neutral,
-      {
-        sourceCount: 1,
-        selectedCount: 1,
-        selectionLod: building.lodLevel,
-        loadTier: resolveLoadTier(building.lodLevel),
-        progressiveOrder: nextProgressiveOrder(),
-        prototypeKey: 'building_entrance:default',
-        instanceGroupKey: `building_entrance:default:${building.lodLevel ?? 'HIGH'}`,
-        semanticCategory: 'building',
-        sourceObjectIds: [building.objectId],
-      },
-    );
-    hooks.addMeshNode(
-      ctx.doc,
-      ctx.Accessor,
-      ctx.scene,
-      ctx.buffer,
-      `building_roof_equipment_${building.objectId}`,
-      createBuildingRoofEquipmentGeometry(sceneMeta.origin, [building]),
-      materials.roofEquipmentPrimary ?? materials.roofAccents.neutral,
-      {
-        sourceCount: building.roofSpec?.roofUnits ?? 0,
-        selectedCount: building.roofSpec?.roofUnits ?? 0,
-        selectionLod: building.lodLevel,
-        loadTier: resolveLoadTier(building.lodLevel),
-        progressiveOrder: nextProgressiveOrder(),
-        prototypeKey: 'building_roof_equipment:default',
-        instanceGroupKey: `building_roof_equipment:default:${building.lodLevel ?? 'HIGH'}`,
-        semanticCategory: 'building',
-        sourceObjectIds: [building.objectId],
-      },
-    );
+      hooks.addMeshNode(
+        ctx.doc,
+        ctx.Accessor,
+        ctx.scene,
+        ctx.buffer,
+        `building_roof_surface_${building.objectId}`,
+        createBuildingRoofSurfaceGeometry(
+          sceneMeta.origin,
+          [building],
+          triangulate,
+          roofTone,
+        ),
+        materials.roofSurfaces[roofTone],
+        {
+          sourceCount: 1,
+          selectedCount: 1,
+          selectionLod: building.lodLevel,
+          loadTier: resolveLoadTier(building.lodLevel),
+          progressiveOrder: nextProgressiveOrder(),
+          prototypeKey: `building_roof_surface:${roofTone}`,
+          instanceGroupKey: `building_roof_surface:${roofTone}:${building.lodLevel ?? 'HIGH'}`,
+          semanticCategory: 'building',
+          sourceObjectIds: [building.objectId],
+        },
+      );
+
+      hooks.addMeshNode(
+        ctx.doc,
+        ctx.Accessor,
+        ctx.scene,
+        ctx.buffer,
+        `building_roof_accent_${building.objectId}`,
+        hooks.createBuildingRoofAccentGeometry(
+          sceneMeta.origin,
+          [building],
+          triangulate,
+          roofTone,
+          hooks.staticAtmosphere,
+        ),
+        materials.roofAccents[roofTone],
+        {
+          sourceCount: 1,
+          selectedCount: 1,
+          selectionLod: building.lodLevel,
+          loadTier: resolveLoadTier(building.lodLevel),
+          progressiveOrder: nextProgressiveOrder(),
+          prototypeKey: `building_roof_accent:${roofTone}`,
+          instanceGroupKey: `building_roof_accent:${roofTone}`,
+          semanticCategory: 'building',
+          sourceObjectIds: [building.objectId],
+        },
+      );
+
+      if (primaryHint) {
+        const panelTone = resolveAccentToneFromPalette(
+          primaryHint.panelPalette ?? primaryHint.palette,
+        );
+        const panelColor =
+          primaryHint.panelPalette?.[0] ?? primaryHint.palette[0];
+        if (panelColor) {
+          hooks.addMeshNode(
+            ctx.doc,
+            ctx.Accessor,
+            ctx.scene,
+            ctx.buffer,
+            `building_panel_${building.objectId}`,
+            createBuildingPanelsGeometry(
+              sceneMeta.origin,
+              [building],
+              [primaryHint],
+              panelTone,
+            ),
+            createBuildingPanelMaterial(
+              ctx.doc,
+              panelTone,
+              panelColor,
+              hooks.materialTuning,
+              hooks.facadeMaterialProfile,
+            ),
+            {
+              sourceCount: 1,
+              selectedCount: 1,
+              selectionLod: building.lodLevel,
+              loadTier: resolveLoadTier(building.lodLevel),
+              progressiveOrder: nextProgressiveOrder(),
+              prototypeKey: `building_panel:${panelTone}:${panelColor}`,
+              instanceGroupKey: `building_panel:${panelTone}:${panelColor}:${building.lodLevel ?? 'HIGH'}`,
+              semanticCategory: 'building',
+              sourceObjectIds: [building.objectId],
+            },
+          );
+        }
+      }
+
+      hooks.addMeshNode(
+        ctx.doc,
+        ctx.Accessor,
+        ctx.scene,
+        ctx.buffer,
+        `building_window_${building.objectId}`,
+        createBuildingWindowGeometry(
+          sceneMeta.origin,
+          [building],
+          buildingHints,
+          windowBudget,
+        ),
+        materials.windowPrimary ??
+          materials.windowGlassCurtainWall ??
+          materials.windowGlassReflective ??
+          materials.buildingPanels[
+            hooks.resolveWindowMaterialTone(buildingHints)
+          ],
+        {
+          sourceCount: buildingHints.length,
+          selectedCount: 1,
+          selectionLod: building.lodLevel,
+          loadTier: resolveLoadTier(building.lodLevel),
+          progressiveOrder: nextProgressiveOrder(),
+          prototypeKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
+          instanceGroupKey: `building_window:${hooks.resolveWindowMaterialTone(buildingHints)}`,
+          semanticCategory: 'building',
+          sourceObjectIds: [building.objectId],
+        },
+      );
+      hooks.addMeshNode(
+        ctx.doc,
+        ctx.Accessor,
+        ctx.scene,
+        ctx.buffer,
+        `building_entrance_${building.objectId}`,
+        createBuildingEntranceGeometry(sceneMeta.origin, [building]),
+        materials.entrancePrimary ??
+          materials.facadePrimary ??
+          materials.facadeConcreteMid ??
+          materials.buildingPanels.neutral,
+        {
+          sourceCount: 1,
+          selectedCount: 1,
+          selectionLod: building.lodLevel,
+          loadTier: resolveLoadTier(building.lodLevel),
+          progressiveOrder: nextProgressiveOrder(),
+          prototypeKey: 'building_entrance:default',
+          instanceGroupKey: `building_entrance:default:${building.lodLevel ?? 'HIGH'}`,
+          semanticCategory: 'building',
+          sourceObjectIds: [building.objectId],
+        },
+      );
+      hooks.addMeshNode(
+        ctx.doc,
+        ctx.Accessor,
+        ctx.scene,
+        ctx.buffer,
+        `building_roof_equipment_${building.objectId}`,
+        createBuildingRoofEquipmentGeometry(sceneMeta.origin, [building]),
+        materials.roofEquipmentPrimary ?? materials.roofAccents.neutral,
+        {
+          sourceCount: building.roofSpec?.roofUnits ?? 0,
+          selectedCount: building.roofSpec?.roofUnits ?? 0,
+          selectionLod: building.lodLevel,
+          loadTier: resolveLoadTier(building.lodLevel),
+          progressiveOrder: nextProgressiveOrder(),
+          prototypeKey: 'building_roof_equipment:default',
+          instanceGroupKey: `building_roof_equipment:default:${building.lodLevel ?? 'HIGH'}`,
+          semanticCategory: 'building',
+          sourceObjectIds: [building.objectId],
+        },
+      );
+    }
   }
 
   if (hooks.modePolicy.stage.includeEmissiveBillboard) {
@@ -495,6 +499,18 @@ export function addBuildingAndHeroMeshes(
       },
     );
   }
+}
+
+function chunkBuildings<T>(items: T[], chunkSize: number): T[][] {
+  if (items.length === 0) {
+    return [];
+  }
+  const safeChunkSize = Math.max(1, chunkSize);
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += safeChunkSize) {
+    chunks.push(items.slice(index, index + safeChunkSize));
+  }
+  return chunks;
 }
 
 function resolveBuildingRoofTone(

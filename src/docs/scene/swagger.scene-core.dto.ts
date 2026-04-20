@@ -243,6 +243,6 @@ export class WeatherObservationDto {
   @ApiProperty({ enum: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'] })
   resolvedWeather!: string;
 
-  @ApiProperty({ enum: ['OPEN_METEO_HISTORICAL'] })
+  @ApiProperty({ enum: ['OPEN_METEO'] })
   source!: string;
 }

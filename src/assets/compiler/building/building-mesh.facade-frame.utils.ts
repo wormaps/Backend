@@ -3,6 +3,9 @@ import type { GeometryBuffers, Vec3 } from '../road/road-mesh.builder';
 import { averagePoint } from './building-mesh-utils';
 import { pushQuad } from './building-mesh.geometry-primitives';
 
+export const FACADE_FRAME_OFFSET_FROM_SHELL = 0.02;
+export const WINDOW_OFFSET_FROM_PANEL = 0.01;
+
 export interface FacadeFrame {
   a: Vec3;
   b: Vec3;
@@ -64,7 +67,7 @@ export function buildFacadeFrame(
   if (normal[0] * toCentroid[0] + normal[2] * toCentroid[2] > 0) {
     normal = [-normal[0], 0, -normal[2]];
   }
-  const offset = 0.22;
+  const offset = FACADE_FRAME_OFFSET_FROM_SHELL;
   return {
     a: [current[0] + normal[0] * offset, 0, current[2] + normal[2] * offset],
     b: [next[0] + normal[0] * offset, 0, next[2] + normal[2] * offset],

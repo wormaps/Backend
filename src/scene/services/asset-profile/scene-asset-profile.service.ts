@@ -152,18 +152,20 @@ export class SceneAssetProfileService {
       sceneMeta,
     );
     const pois = [...landmarkPois, ...sampledPois];
-    const trafficLights = selectSpatialSample(
-      sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'TRAFFIC_LIGHT',
-      ),
+    const allTrafficLights = sceneDetail.streetFurniture.filter(
+      (item) => item.type === 'TRAFFIC_LIGHT',
+    );
+    const allStreetLights = sceneDetail.streetFurniture.filter(
+      (item) => item.type === 'STREET_LIGHT',
+    );
+    const trafficLights = this.selectWithSourceFloor(
+      allTrafficLights,
       budget.trafficLightCount,
       (item) => item.location,
       sceneMeta,
     );
-    const streetLights = selectSpatialSample(
-      sceneDetail.streetFurniture.filter(
-        (item) => item.type === 'STREET_LIGHT',
-      ),
+    const streetLights = this.selectWithSourceFloor(
+      allStreetLights,
       budget.streetLightCount,
       (item) => item.location,
       sceneMeta,
@@ -449,6 +451,21 @@ export class SceneAssetProfileService {
       getPoint,
       sceneMeta,
     );
+  }
+
+  private selectWithSourceFloor<T>(
+    items: T[],
+    maxCount: number,
+    getPoint: (item: T) => Coordinate,
+    sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
+  ): T[] {
+    if (items.length === 0) {
+      return [];
+    }
+    const minimumFloor = Math.max(1, Math.ceil(maxCount * 0.25));
+    const floorCount = Math.min(items.length, minimumFloor);
+    const effectiveMax = Math.max(maxCount, floorCount);
+    return selectSpatialSample(items, effectiveMax, getPoint, sceneMeta);
   }
 
   private buildStructuralCoverage(

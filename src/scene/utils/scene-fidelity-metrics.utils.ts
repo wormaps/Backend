@@ -111,8 +111,10 @@ export function buildSceneFidelityMetricsReport(
   const landmarkCoverage = sceneMeta.structuralCoverage.heroLandmarkCoverage;
   const crosswalkCompleteness = Number(
     (
-      sceneMeta.assetProfile.selected.crossingCount /
-      Math.max(1, sceneDetail.crossings.length)
+      Math.min(
+        sceneMeta.assetProfile.selected.crossingCount,
+        sceneDetail.crossings.length,
+      ) / Math.max(1, sceneDetail.crossings.length)
     ).toFixed(3),
   );
 

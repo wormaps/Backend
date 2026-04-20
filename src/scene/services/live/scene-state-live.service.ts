@@ -87,7 +87,7 @@ export class SceneStateLiveService {
           playback: snapshot.playback,
           sourceDetail: weatherObservation
             ? {
-                provider: weatherObservation.source,
+                provider: 'OPEN_METEO',
                 date: weatherObservation.date,
                 localTime: weatherObservation.localTime,
               }

@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'bun:test';
+import { hasCriticalCollision } from '../src/scene/services/generation/quality-gate/scene-quality-gate-geometry';
+
+describe('Phase 8 geometry correction quality gate', () => {
+  it('fails on high severity overlap even when road collision is zero', () => {
+    expect(
+      hasCriticalCollision({
+        geometryDiagnostics: [
+          {
+            objectId: '__geometry_correction__',
+            collisionRiskCount: 0,
+            buildingOverlapCount: 12,
+            highSeverityOverlapCount: 1,
+            groundedGapCount: 0,
+            openShellCount: 0,
+            roofWallGapCount: 0,
+            invalidSetbackJoinCount: 0,
+            terrainAnchoredRoadCount: 0,
+            terrainAnchoredWalkwayCount: 0,
+            transportTerrainCoverageRatio: 1,
+          } as any,
+        ],
+        totalBuildingCount: 4004,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not fail when only non-critical overlap remains', () => {
+    expect(
+      hasCriticalCollision({
+        geometryDiagnostics: [
+          {
+            objectId: '__geometry_correction__',
+            collisionRiskCount: 0,
+            buildingOverlapCount: 12,
+            highSeverityOverlapCount: 0,
+            groundedGapCount: 0,
+            openShellCount: 0,
+            roofWallGapCount: 0,
+            invalidSetbackJoinCount: 0,
+            terrainAnchoredRoadCount: 0,
+            terrainAnchoredWalkwayCount: 0,
+            transportTerrainCoverageRatio: 1,
+          } as any,
+        ],
+        totalBuildingCount: 4004,
+      }),
+    ).toBe(false);
+  });
+});

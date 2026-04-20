@@ -63,7 +63,7 @@ export class SnapshotBuilderService {
       timeOfDay,
       weather,
       generatedAt: new Date().toISOString(),
-      source: 'MVP_SYNTHETIC_RULES',
+      source: 'SYNTHETIC_RULES',
       crowd: {
         count: crowdCount,
         level: this.resolveLevel(crowdCount, [90, 150]),

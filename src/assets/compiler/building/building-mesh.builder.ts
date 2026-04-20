@@ -18,3 +18,7 @@ export { createBuildingWindowGeometry } from './building-mesh.window.builder';
 export { createBuildingEntranceGeometry } from './building-mesh.entrance.builder';
 export { createBuildingRoofEquipmentGeometry } from './building-mesh.roof-equipment.builder';
 export { resolveAccentTone } from './building-mesh.tone.utils';
+export {
+  FACADE_FRAME_OFFSET_FROM_SHELL,
+  WINDOW_OFFSET_FROM_PANEL,
+} from './building-mesh.facade-frame.utils';

@@ -380,6 +380,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
         segments: trafficObserved.segments,
         degraded: trafficObserved.failedSegmentCount > 0,
         failedSegmentCount: trafficObserved.failedSegmentCount,
+        provider: trafficObserved.provider,
       };
       const twinBuild = this.sceneTwinBuilderService.build({
         sceneId,
@@ -449,7 +450,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
           upstreamEnvelopes: weatherObserved.upstreamEnvelopes,
         },
         latestTrafficSnapshot: {
-          provider: 'TOMTOM_TRAFFIC_FLOW',
+          provider: trafficObserved.provider,
           observedAt: trafficSnapshot.updatedAt,
           segmentCount: trafficSnapshot.segments.length,
           averageCongestionScore:
@@ -464,10 +465,10 @@ export class SceneGenerationService implements OnApplicationShutdown {
                 )
               : 0,
           segments: trafficSnapshot.segments,
-          degraded: trafficSnapshot.degraded,
-          failedSegmentCount: trafficSnapshot.failedSegmentCount,
-          capturedAt: trafficSnapshot.updatedAt,
-          upstreamEnvelopes: trafficObserved.upstreamEnvelopes,
+            degraded: trafficSnapshot.degraded,
+            failedSegmentCount: trafficSnapshot.failedSegmentCount,
+            capturedAt: trafficSnapshot.updatedAt,
+            upstreamEnvelopes: trafficObserved.upstreamEnvelopes,
         },
         scene: {
           ...current.scene,

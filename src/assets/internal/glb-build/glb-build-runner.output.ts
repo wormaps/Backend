@@ -10,6 +10,7 @@ import { buildFacadeColorDiversityMetrics } from './glb-build-style-metrics';
 import { summarizeGraphIntents } from './glb-build-graph-intent';
 import type { GroupedBuildings } from './glb-build-stage.types';
 import type { SceneMeta } from '../../../scene/types/scene.types';
+import type { MaterialReuseDiagnostics } from './glb-build-material-cache';
 
 export interface FinalizeGlbBuildArgs {
   contract: GlbInputContract;
@@ -30,6 +31,7 @@ export interface FinalizeGlbBuildArgs {
   materialTuning: Record<string, unknown>;
   facadeMaterialProfile: Record<string, unknown>;
   variationProfile: Record<string, unknown>;
+  materialReuseDiagnostics?: MaterialReuseDiagnostics;
 }
 
 export async function finalizeGlbBuildArtifacts(
@@ -48,6 +50,9 @@ export async function finalizeGlbBuildArtifacts(
   const facadeColorDiversity = buildFacadeColorDiversityMetrics(
     args.contract,
     args.groupedBuildings,
+  );
+  const strategyDistribution = resolveGeometryStrategyDistribution(
+    args.contract.buildings,
   );
   const diagnosticsPayload = {
     sceneScoreReport: buildSceneFidelityMetricsReport(
@@ -78,6 +83,7 @@ export async function finalizeGlbBuildArtifacts(
       }),
     ),
     buildingClosureDiagnostics: args.buildingClosureDiagnostics,
+    geometryStrategyDistribution: strategyDistribution,
     meshNodes: args.currentMeshDiagnostics,
     facadeColorDiversity,
     graphIntentSummary: summarizeGraphIntents(
@@ -87,6 +93,7 @@ export async function finalizeGlbBuildArtifacts(
     materialTuning: args.materialTuning,
     facadeMaterialProfile: args.facadeMaterialProfile,
     variationProfile: args.variationProfile,
+    materialReuseDiagnostics: args.materialReuseDiagnostics,
     staticAtmosphere: args.contract.staticAtmosphere,
     sceneWideAtmosphereProfile: args.contract.sceneWideAtmosphereProfile,
     districtAtmosphereProfiles: args.contract.districtAtmosphereProfiles,
@@ -114,4 +121,23 @@ export async function finalizeGlbBuildArtifacts(
     JSON.stringify(comparisonReport, null, 2),
     'utf8',
   );
+}
+
+function resolveGeometryStrategyDistribution(
+  buildings: GlbInputContract['buildings'],
+): Record<string, { count: number; ratio: number }> {
+  const total = Math.max(1, buildings.length);
+  const counts: Record<string, number> = {};
+  for (const building of buildings) {
+    const strategy = building.geometryStrategy ?? 'simple_extrude';
+    counts[strategy] = (counts[strategy] ?? 0) + 1;
+  }
+  const result: Record<string, { count: number; ratio: number }> = {};
+  for (const [strategy, count] of Object.entries(counts)) {
+    result[strategy] = {
+      count,
+      ratio: Number((count / total).toFixed(3)),
+    };
+  }
+  return result;
 }

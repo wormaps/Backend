@@ -8,6 +8,7 @@ import { SceneHeroOverrideStep } from './steps/scene-hero-override.step';
 import { SceneMetaBuilderStep } from './steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './steps/scene-place-package.step';
 import { ScenePlaceResolutionStep } from './steps/scene-place-resolution.step';
+import { SceneTerrainFusionStep } from './steps/scene-terrain-fusion.step';
 import { SceneVisualRulesStep } from './steps/scene-visual-rules.step';
 import { SceneTerrainProfileService } from '../services/spatial';
 import { SceneAtmosphereRecomputeService } from '../services/vision';
@@ -28,6 +29,7 @@ export class SceneGenerationPipelineService {
     private readonly sceneHeroOverrideStep: SceneHeroOverrideStep,
     private readonly sceneAtmosphereRecomputeService: SceneAtmosphereRecomputeService,
     private readonly sceneTerrainProfileService: SceneTerrainProfileService,
+    private readonly sceneTerrainFusionStep: SceneTerrainFusionStep,
     private readonly sceneAssetProfileStep: SceneAssetProfileStep,
     private readonly sceneGeometryCorrectionStep: SceneGeometryCorrectionStep,
     private readonly sceneGlbBuildStep: SceneGlbBuildStep,
@@ -86,6 +88,11 @@ export class SceneGenerationPipelineService {
       walkwayCount: placePackage.placePackage.walkways.length,
       poiCount: placePackage.placePackage.pois.length,
     });
+
+    const terrainFusion = await this.sceneTerrainFusionStep.execute(
+      sceneId,
+      resolvedPlace.bounds,
+    );
 
     const vision = await this.sceneVisualRulesStep.execute(
       sceneId,
@@ -167,10 +174,7 @@ export class SceneGenerationPipelineService {
       ...corrected,
       meta: {
         ...corrected.meta,
-        terrainProfile: this.sceneTerrainProfileService.resolve(
-          sceneId,
-          corrected.meta,
-        ),
+        terrainProfile: terrainFusion.terrainProfile,
       },
     };
 

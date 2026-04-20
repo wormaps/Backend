@@ -1,3 +1,4 @@
+import type { LandCoverData } from '../../../places/types/place.types';
 import {
   createSceneMaterials,
   FacadeLayerMaterialProfile,
@@ -329,8 +330,9 @@ export function createEnhancedSceneMaterials(
   doc: GlbMaterialDocument,
   tuningOptions: MaterialTuningOptions = {},
   facadeProfile: FacadeLayerMaterialProfile = {},
+  landCovers: LandCoverData[] = [],
 ) {
-  const baseMaterials = createSceneMaterials(doc, tuningOptions);
+  const baseMaterials = createSceneMaterials(doc, tuningOptions, landCovers);
 
   const facadeMaterialFamily =
     facadeProfile.facadeFamily ?? resolveFacadeMaterialFamily(facadeProfile);

@@ -5,6 +5,7 @@ const COLLISION_RATIO_HARD_FAIL_THRESHOLD = 0.03;
 interface GeometryDiagnosticsShape {
   collisionRiskCount?: number;
   buildingOverlapCount?: number;
+  highSeverityOverlapCount?: number;
   groundedGapCount?: number;
   openShellCount?: number;
   roofWallGapCount?: number;
@@ -18,6 +19,7 @@ type SceneGeometryDiagnosticWithCorrection = {
   objectId?: string;
   collisionRiskCount?: number;
   buildingOverlapCount?: number;
+  highSeverityOverlapCount?: number;
   groundedGapCount?: number;
   openShellCount?: number;
   roofWallGapCount?: number;
@@ -33,14 +35,14 @@ export function hasCriticalCollision(args: {
 }): boolean {
   const marker = findGeometryCorrectionDiagnostics(args.geometryDiagnostics);
   const roadCollisionCount = marker?.collisionRiskCount ?? 0;
-  const buildingOverlapCount = marker?.buildingOverlapCount ?? 0;
-  const combinedCollisionCount = roadCollisionCount + buildingOverlapCount;
-  if (combinedCollisionCount === 0) {
+  const highSeverityOverlapCount = marker?.highSeverityOverlapCount ?? 0;
+  if (roadCollisionCount === 0 && highSeverityOverlapCount === 0) {
     return false;
   }
   const denominator = Math.max(1, args.totalBuildingCount);
   return (
-    combinedCollisionCount / denominator >= COLLISION_RATIO_HARD_FAIL_THRESHOLD
+    roadCollisionCount / denominator >= COLLISION_RATIO_HARD_FAIL_THRESHOLD ||
+    highSeverityOverlapCount > 0
   );
 }
 
@@ -112,6 +114,7 @@ export function findGeometryCorrectionDiagnostics(
   return {
     collisionRiskCount: marker.collisionRiskCount,
     buildingOverlapCount: marker.buildingOverlapCount,
+    highSeverityOverlapCount: marker.highSeverityOverlapCount,
     groundedGapCount: marker.groundedGapCount,
     openShellCount: marker.openShellCount,
     roofWallGapCount: marker.roofWallGapCount,

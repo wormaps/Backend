@@ -135,27 +135,27 @@ export class SceneWeatherLiveService {
       return null;
     }
 
-    return {
-      updatedAt: snapshot.capturedAt,
-      weatherCode: resolveWeatherCode(snapshot.resolvedWeather),
-      temperature: snapshot.temperatureCelsius,
-      preset: snapshot.resolvedWeather.toLowerCase(),
-      source: snapshot.provider,
-      observedAt: snapshot.localTime,
-    };
+      return {
+        updatedAt: snapshot.capturedAt,
+        weatherCode: resolveWeatherCode(snapshot.resolvedWeather),
+        temperature: snapshot.temperatureCelsius,
+        preset: snapshot.resolvedWeather.toLowerCase(),
+        source: snapshot.provider,
+        observedAt: snapshot.localTime,
+      };
   }
 }
 
 function toSceneWeatherResponse(
   observation: WeatherObservation | null,
 ): Omit<SceneWeatherResponse, 'updatedAt'> {
-  return {
-    weatherCode: resolveWeatherCode(observation?.resolvedWeather),
-    temperature: observation?.temperatureCelsius ?? null,
-    preset: observation?.resolvedWeather.toLowerCase() ?? 'clear',
-    source: observation?.source ?? 'OPEN_METEO_HISTORICAL',
-    observedAt: observation?.localTime ?? null,
-  };
+    return {
+      weatherCode: resolveWeatherCode(observation?.resolvedWeather),
+      temperature: observation?.temperatureCelsius ?? null,
+      preset: observation?.resolvedWeather.toLowerCase() ?? 'clear',
+      source: observation?.source ?? 'OPEN_METEO_HISTORICAL',
+      observedAt: observation?.localTime ?? null,
+    };
 }
 
 function resolveWeatherCode(weather: string | undefined): number | null {

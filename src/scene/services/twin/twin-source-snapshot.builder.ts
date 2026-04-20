@@ -322,7 +322,7 @@ export function buildSourceSnapshots(
             'TOMTOM',
             'TRAFFIC_FLOW',
             {
-              source: 'TOMTOM_TRAFFIC_FLOW',
+              source: trafficSnapshot.provider,
               observedAt: trafficSnapshot.updatedAt,
               segmentCount: trafficSnapshot.segments.length,
               averageCongestionScore:

@@ -18,6 +18,10 @@ import type {
   BuildingAnchorContext,
   FacadeContext,
 } from './scene-facade-vision.context.utils';
+import type {
+  PlaceCharacter,
+  PlaceCharacterDistrictType,
+} from '../../domain/place-character.value-object';
 
 export interface DistrictSignalInput {
   building: PlacePackage['buildings'][number];
@@ -778,4 +782,98 @@ function resolveDominantByWeight<T extends string>(
     }
   }
   return topKey;
+}
+
+const PLACE_CHARACTER_TO_CLUSTER_MAP: Record<
+  PlaceCharacterDistrictType,
+  DistrictCluster
+> = {
+  ELECTRONICS_DISTRICT: 'core_commercial',
+  SHOPPING_SCRAMBLE: 'tourist_shopping_street',
+  OFFICE_DISTRICT: 'office_mixed',
+  RESIDENTIAL: 'old_residential',
+  TRANSIT_HUB: 'station_district',
+  GENERIC: 'secondary_retail',
+};
+
+export function resolveFacadeProfileForWeakEvidence(
+  character: PlaceCharacter,
+  osmTags?: Record<string, string>,
+): BuildingFacadeProfile {
+  const cluster = PLACE_CHARACTER_TO_CLUSTER_MAP[character.districtType];
+  const baseProfile = resolveClusterFacadeProfile(cluster, 'weak');
+
+  if (!osmTags) {
+    return baseProfile;
+  }
+
+  const shopTag = osmTags['shop'];
+  const amenityTag = osmTags['amenity'];
+  const buildingTag = osmTags['building'];
+
+  if (shopTag === 'electronics' || shopTag === 'computer') {
+    return {
+      ...baseProfile,
+      family: 'metal',
+      variant: 'metal_station_silver',
+      pattern: 'retail_screen',
+      emissiveBoost: clamp((baseProfile.emissiveBoost ?? 1) * 1.3, 0.7, 1.8),
+      signDensity: 'high',
+      lightingStyle: 'neon_night',
+    };
+  }
+
+  if (buildingTag === 'retail' || shopTag === 'convenience') {
+    return {
+      ...baseProfile,
+      family: 'mixed',
+      variant: 'mixed_neutral_light',
+      pattern: 'podium_retail',
+      emissiveBoost: clamp((baseProfile.emissiveBoost ?? 1) * 1.15, 0.7, 1.6),
+      signDensity: 'medium',
+      lightingStyle: 'warm_evening',
+    };
+  }
+
+  if (amenityTag === 'restaurant' || shopTag === 'restaurant') {
+    return {
+      ...baseProfile,
+      family: 'plaster',
+      variant: 'plaster_old_town_white',
+      pattern: 'shopping_arcade',
+      emissiveBoost: clamp((baseProfile.emissiveBoost ?? 1) * 1.1, 0.7, 1.5),
+      signDensity: 'medium',
+      lightingStyle: 'warm_evening',
+    };
+  }
+
+  return baseProfile;
+}
+
+export function resolveSceneWideAtmosphereWithPlaceCharacter(
+  districtProfiles: DistrictAtmosphereProfile[],
+  placeCharacter: PlaceCharacter,
+  weakEvidenceRatio: number,
+): SceneWideAtmosphereProfile {
+  if (weakEvidenceRatio > 0.8) {
+    const cluster = PLACE_CHARACTER_TO_CLUSTER_MAP[placeCharacter.districtType];
+    const characterProfile = resolveDistrictAtmosphereProfile(
+      cluster,
+      0.5,
+      'weak',
+    );
+
+    return {
+      cityTone: mapClusterToCityTone(cluster),
+      evidenceStrength: 'weak',
+      baseFacadeProfile: characterProfile.facadeProfile,
+      streetAtmosphere: characterProfile.streetAtmosphere,
+      vegetationProfile: characterProfile.vegetationProfile,
+      roadProfile: characterProfile.roadProfile,
+      lightingProfile: characterProfile.lightingProfile,
+      weatherOverlay: characterProfile.weatherOverlay,
+    };
+  }
+
+  return resolveSceneWideAtmosphereProfile(districtProfiles);
 }

@@ -6,11 +6,18 @@ import {
 import type { MaterialTuningOptions } from '../../compiler/materials';
 import { resolveSceneFidelityModeSignal } from '../../../scene/utils/scene-fidelity-mode-signal.utils';
 import type { SceneFidelityMode } from '../../../scene/types/scene.types';
+import type { PlaceCharacter } from '../../../scene/domain/place-character.value-object';
+
+export type ResolvedFallbackSource =
+  | 'PLACE_CHARACTER'
+  | 'DISTRICT_TYPE'
+  | 'STATIC_DEFAULT';
 
 export function resolveMaterialTuningFromScene(
   facadeHints: SceneFacadeHint[],
   staticAtmosphere?: SceneStaticAtmosphereProfile,
   targetMode?: SceneFidelityMode,
+  placeCharacter?: PlaceCharacter,
 ): MaterialTuningOptions {
   const highEmissiveFacadeCount = facadeHints.filter(
     (hint) => hint.emissiveStrength >= 0.7,
@@ -45,6 +52,16 @@ export function resolveMaterialTuningFromScene(
     reasonCodes.push('WEAK_EVIDENCE_RATIO_HIGH');
   }
 
+  const resolvedFallbackSource = resolveFallbackSource(
+    placeCharacter,
+    facadeHints,
+    weakEvidenceRatio,
+  );
+
+  const placeCharacterEmissiveAdjustment = placeCharacter
+    ? resolvePlaceCharacterEmissiveAdjustment(placeCharacter)
+    : 0;
+
   return {
     shellLuminanceCap: clamp(0.92 + weakEvidenceRatio * 0.05, 0.9, 0.97),
     panelLuminanceCap: clamp(
@@ -54,7 +71,10 @@ export function resolveMaterialTuningFromScene(
     ),
     billboardLuminanceCap: 0.9,
     emissiveBoost: clamp(
-      atmosphericEmissiveBoost * districtBoost * modeSignal.emissiveMultiplier,
+      atmosphericEmissiveBoost *
+        districtBoost *
+        modeSignal.emissiveMultiplier +
+        placeCharacterEmissiveAdjustment,
       0.95,
       1.85,
     ),
@@ -72,7 +92,42 @@ export function resolveMaterialTuningFromScene(
     ),
     overlayDepthBias,
     inferenceReasonCodes: reasonCodes,
+    resolvedFallbackSource,
+    weakEvidenceRatio,
   };
+}
+
+function resolveFallbackSource(
+  placeCharacter: PlaceCharacter | undefined,
+  facadeHints: SceneFacadeHint[],
+  weakEvidenceRatio: number,
+): ResolvedFallbackSource {
+  if (placeCharacter && weakEvidenceRatio > 0.5) {
+    return 'PLACE_CHARACTER';
+  }
+  if (facadeHints.some((h) => h.districtCluster)) {
+    return 'DISTRICT_TYPE';
+  }
+  return 'STATIC_DEFAULT';
+}
+
+function resolvePlaceCharacterEmissiveAdjustment(
+  character: PlaceCharacter,
+): number {
+  switch (character.districtType) {
+    case 'ELECTRONICS_DISTRICT':
+      return 0.25;
+    case 'SHOPPING_SCRAMBLE':
+      return 0.3;
+    case 'TRANSIT_HUB':
+      return 0.1;
+    case 'RESIDENTIAL':
+      return -0.1;
+    case 'OFFICE_DISTRICT':
+      return -0.05;
+    default:
+      return 0;
+  }
 }
 
 function collectInferenceReasonCodes(

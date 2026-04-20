@@ -43,6 +43,7 @@ export interface MaterialTuningOptions {
   overlayDepthBias?: number;
   inferenceReasonCodes?: string[];
   weakEvidenceRatio?: number;
+  resolvedFallbackSource?: 'PLACE_CHARACTER' | 'DISTRICT_TYPE' | 'STATIC_DEFAULT';
   textureSlots?: MaterialTextureSlots;
   enableTexturePath?: boolean;
 }

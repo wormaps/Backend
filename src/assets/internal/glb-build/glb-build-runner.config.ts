@@ -27,6 +27,8 @@ const ENV_GLB_OPTIMIZE_SIMPLIFY_RATIO = 'GLB_OPTIMIZE_SIMPLIFY_RATIO';
 const ENV_GLB_OPTIMIZE_SIMPLIFY_ERROR = 'GLB_OPTIMIZE_SIMPLIFY_ERROR';
 const ENV_GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER =
   'GLB_OPTIMIZE_SIMPLIFY_LOCK_BORDER';
+const ENV_GLB_BUILD_TIMEOUT_MS = 'GLB_BUILD_TIMEOUT_MS';
+const DEFAULT_GLB_BUILD_TIMEOUT_MS = 600_000;
 
 export function resolveSimplifyOptionsFromEnv(): {
   enabled: boolean;
@@ -61,6 +63,16 @@ export function resolveSimplifyOptionsFromEnv(): {
       lockBorder,
     },
   };
+}
+
+export function resolveGlbBuildTimeoutMsFromEnv(): number {
+  const timeoutMs = parseNumericEnv(
+    process.env[ENV_GLB_BUILD_TIMEOUT_MS],
+    DEFAULT_GLB_BUILD_TIMEOUT_MS,
+    60_000,
+    3_600_000,
+  );
+  return Math.floor(timeoutMs);
 }
 
 export function buildMaterialTuningSignature(

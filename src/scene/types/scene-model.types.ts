@@ -276,9 +276,17 @@ export interface SceneAssetCounts {
   billboardPanelCount: number;
 }
 
+export type TerrainSampleSource = 'OPEN_ELEVATION' | 'SRTM' | 'MANUAL' | 'FLAT';
+
+export interface TerrainSample {
+  location: Coordinate;
+  heightMeters: number;
+  source: TerrainSampleSource;
+}
+
 export interface SceneTerrainProfile {
-  mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES';
-  source: 'NONE' | 'LOCAL_FILE';
+  mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES' | 'DEM_FUSED';
+  source: 'NONE' | 'LOCAL_FILE' | 'OPEN_ELEVATION' | 'DEM_FUSED';
   hasElevationModel: boolean;
   heightReference: 'ELLIPSOID_APPROX' | 'LOCAL_DEM';
   baseHeightMeters: number;
@@ -287,10 +295,9 @@ export interface SceneTerrainProfile {
   maxHeightMeters: number;
   sourcePath: string | null;
   notes: string;
-  samples: Array<{
-    location: Coordinate;
-    heightMeters: number;
-  }>;
+  samples: TerrainSample[];
+  /** 보간을 통해 주어진 좌표의 고도를 반환합니다. 샘플이 없으면 baseHeightMeters를 반환합니다. */
+  interpolateElevation?: (lat: number, lng: number) => number;
 }
 
 export interface SceneMeta {

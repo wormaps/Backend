@@ -28,6 +28,7 @@ import { resolveSceneModePolicy } from '../../../scene/utils/scene-mode-policy.u
 import {
   MaterialCacheStats,
   installMaterialCache,
+  computeMaterialReuseDiagnostics,
 } from './glb-build-material-cache';
 import {
   loadMeshoptimizerModule,
@@ -37,6 +38,7 @@ import {
 } from './glb-build-runner.helpers';
 import {
   buildMaterialTuningSignature,
+  resolveGlbBuildTimeoutMsFromEnv,
   resolveSimplifyOptionsFromEnv,
 } from './glb-build-runner.config';
 import { finalizeGlbBuildArtifacts } from './glb-build-runner.output';
@@ -72,6 +74,42 @@ export interface GlbBuildRunnerState {
   triangleBudget: TriangleBudgetState;
 }
 
+export function logGlbBuildStabilitySignals(args: {
+  appLoggerService: AppLoggerService;
+  sceneId: string;
+  buildingCount: number;
+  memoryStart: NodeJS.MemoryUsage;
+  memoryEnd?: NodeJS.MemoryUsage;
+}): void {
+  if (args.buildingCount >= 4000) {
+    args.appLoggerService.warn('scene.glb_build.large_scene_signal', {
+      sceneId: args.sceneId,
+      step: 'glb_build',
+      buildingCount: args.buildingCount,
+      memoryStart: args.memoryStart,
+      retryPolicy: 'best_effort_large_scene',
+    });
+    return;
+  }
+
+  args.appLoggerService.info('scene.glb_build.memory_start', {
+    sceneId: args.sceneId,
+    step: 'glb_build',
+    buildingCount: args.buildingCount,
+    memory: args.memoryStart,
+  });
+
+  if (args.memoryEnd) {
+    args.appLoggerService.info('scene.glb_build.memory_end', {
+      sceneId: args.sceneId,
+      step: 'glb_build',
+      buildingCount: args.buildingCount,
+      memoryStart: args.memoryStart,
+      memoryEnd: args.memoryEnd,
+    });
+  }
+}
+
 export async function executeGlbBuild(
   state: GlbBuildRunnerState,
   contract: GlbInputContract,
@@ -80,6 +118,8 @@ export async function executeGlbBuild(
   },
 ): Promise<string> {
   const buildStartedAt = Date.now();
+  const buildMemoryStart = process.memoryUsage();
+  const buildTimeoutMs = resolveGlbBuildTimeoutMsFromEnv();
   state.triangleBudget.totalTriangleCount = 0;
   state.triangleBudget.protectedTriangleCount = 0;
   state.materialCacheStats = { hits: 0, misses: 0 };
@@ -122,6 +162,18 @@ export async function executeGlbBuild(
   state.graphIntents = [];
 
   const assetSelection = contract.assetSelection;
+  const largeSceneBuildingCount = contract.buildings.length;
+  logGlbBuildStabilitySignals({
+    appLoggerService: state.appLoggerService,
+    sceneId: contract.sceneId,
+    buildingCount: largeSceneBuildingCount,
+    memoryStart: buildMemoryStart,
+  });
+  state.appLoggerService.info('scene.glb_build.timeout_configured', {
+    sceneId: contract.sceneId,
+    step: 'glb_build',
+    timeoutMs: buildTimeoutMs,
+  });
   const adaptiveMeta =
     state.sceneAssetProfileService.buildSceneMetaWithAssetSelection(
       contract,
@@ -140,6 +192,7 @@ export async function executeGlbBuild(
     doc,
     materialTuning,
     facadeMaterialProfile,
+    contract.landCovers ?? [],
   );
 
   state.appLoggerService.info('scene.glb_build.material_tuning', {
@@ -270,6 +323,13 @@ export async function executeGlbBuild(
   const outputPath = join(getSceneDataDir(), `${contract.sceneId}.glb`);
   await mkdir(dirname(outputPath), { recursive: true });
 
+  const preOptimizeTriangles = countDocumentTriangles(doc);
+  state.appLoggerService.info('scene.glb_build.pre_optimize_triangles', {
+    sceneId: contract.sceneId,
+    step: 'glb_build',
+    triangleCount: preOptimizeTriangles,
+  });
+
   await optimizeGlbDocument(
     doc,
     contract.sceneId,
@@ -329,6 +389,14 @@ export async function executeGlbBuild(
     );
     glbBinary = await io.writeBinary(doc);
   }
+  const buildMemoryEnd = process.memoryUsage();
+  logGlbBuildStabilitySignals({
+    appLoggerService: state.appLoggerService,
+    sceneId: contract.sceneId,
+    buildingCount: largeSceneBuildingCount,
+    memoryStart: buildMemoryStart,
+    memoryEnd: buildMemoryEnd,
+  });
   await validateGlb(Uint8Array.from(glbBinary), contract.sceneId, validatorModule, {
     severityOverrides: {
       NON_OBJECT_EXTRAS: 0,
@@ -354,6 +422,15 @@ export async function executeGlbBuild(
     'Latest GLB binary size in bytes.',
   );
 
+  const materialReuseDiagnostics = computeMaterialReuseDiagnostics(
+    state.materialCacheStats,
+    groupedBuildings.size,
+    [...groupedBuildings.values()].reduce(
+      (sum, g) => sum + g.buildings.length,
+      0,
+    ),
+  );
+
   await finalizeGlbBuildArtifacts({
     contract,
     adaptiveMeta,
@@ -373,7 +450,46 @@ export async function executeGlbBuild(
     materialTuning: materialTuning as Record<string, unknown>,
     facadeMaterialProfile: facadeMaterialProfile as Record<string, unknown>,
     variationProfile: variationProfile as unknown as Record<string, unknown>,
+    materialReuseDiagnostics,
   });
 
   return outputPath;
+}
+
+function countDocumentTriangles(doc: unknown): number {
+  let total = 0;
+  try {
+    const docRecord = doc as Record<string, unknown>;
+    const getRoot = docRecord.getRoot as (() => unknown) | undefined;
+    if (typeof getRoot !== 'function') return total;
+    const root = getRoot() as Record<string, unknown>;
+    const listMeshes = root.listMeshes as (() => unknown[]) | undefined;
+    if (typeof listMeshes !== 'function') return total;
+    const meshes = listMeshes();
+    if (!Array.isArray(meshes)) return total;
+    for (const mesh of meshes) {
+      const meshRecord = mesh as Record<string, unknown>;
+      const listPrimitives = meshRecord.listPrimitives as (() => unknown[]) | undefined;
+      if (typeof listPrimitives !== 'function') continue;
+      const primitives = listPrimitives();
+      if (!Array.isArray(primitives)) continue;
+      for (const prim of primitives) {
+        const primRecord = prim as Record<string, unknown>;
+        const getIndices = primRecord.getIndices as (() => unknown) | undefined;
+        if (typeof getIndices !== 'function') continue;
+        const indices = getIndices();
+        if (!indices) continue;
+        const indicesRecord = indices as Record<string, unknown>;
+        const getCount = indicesRecord.getCount as (() => number) | undefined;
+        if (typeof getCount !== 'function') continue;
+        const count = getCount();
+        if (typeof count === 'number') {
+          total += Math.floor(count / 3);
+        }
+      }
+    }
+  } catch {
+    void 0;
+  }
+  return total;
 }

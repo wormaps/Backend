@@ -14,6 +14,7 @@ import {
   ScenePoiMeta,
 } from './scene-model.types';
 import {
+  SceneLiveProvider,
   SceneFidelityPlan,
   SceneQualityGateResult,
   SceneScale,
@@ -92,7 +93,7 @@ export interface SceneStateResponse {
   updatedAt: string;
   timeOfDay: TimeOfDay;
   weather: WeatherType;
-  source: 'MVP_SYNTHETIC_RULES';
+  source: 'SYNTHETIC_RULES';
   crowd: DensityMetric;
   vehicles: DensityMetric;
   lighting: LightingState;
@@ -103,7 +104,7 @@ export interface SceneStateResponse {
     vehicleAnimationRate: number;
   };
   sourceDetail?: {
-    provider: 'OPEN_METEO' | 'UNKNOWN';
+    provider: Extract<SceneLiveProvider, 'OPEN_METEO' | 'UNKNOWN'>;
     date?: string | null;
     localTime?: string | null;
   };
@@ -128,7 +129,7 @@ export interface SceneEntityStateResponse {
   updatedAt: string;
   timeOfDay: TimeOfDay;
   weather: WeatherType;
-  source: 'MVP_SYNTHETIC_RULES';
+  source: 'SYNTHETIC_RULES';
   filters: {
     kind?: TwinEntityKind;
     objectId?: string;
@@ -152,6 +153,7 @@ export interface SceneTrafficResponse {
   segments: TrafficSegment[];
   degraded: boolean;
   failedSegmentCount: number;
+  provider: Extract<SceneLiveProvider, 'TOMTOM' | 'UNAVAILABLE'>;
 }
 
 export interface SceneQueueDebugResponse {
@@ -232,7 +234,7 @@ export interface StoredScene {
     upstreamEnvelopes?: FetchJsonEnvelope[];
   };
   latestTrafficSnapshot?: {
-    provider: 'TOMTOM_TRAFFIC_FLOW';
+    provider: Extract<SceneLiveProvider, 'TOMTOM' | 'UNAVAILABLE'>;
     observedAt: string;
     segmentCount: number;
     averageCongestionScore: number;

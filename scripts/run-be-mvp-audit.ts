@@ -292,7 +292,7 @@ function buildChecks(input: {
     status:
       input.bootstrap.liveEndpoints.state &&
       !('error' in input.state) &&
-      input.state.source === 'MVP_SYNTHETIC_RULES'
+      input.state.source === 'SYNTHETIC_RULES'
         ? 'PASS'
         : 'FAIL',
     evidence: [

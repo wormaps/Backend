@@ -34,6 +34,12 @@ export interface RegistryInfo {
   tags: string[];
 }
 
+export type EstimationConfidence =
+  | 'EXACT'
+  | 'LEVELS_BASED'
+  | 'CONTEXT_MEDIAN'
+  | 'TYPE_DEFAULT';
+
 export interface BuildingData {
   id: string;
   name: string;
@@ -48,6 +54,7 @@ export interface BuildingData {
   roofMaterial?: string | null;
   roofShape?: string | null;
   buildingPart?: string | null;
+  estimationConfidence?: EstimationConfidence;
   osmAttributes?: Record<string, string>;
   googlePlacesInfo?: {
     placeId: string;
@@ -195,7 +202,7 @@ export interface SceneSnapshot {
   timeOfDay: TimeOfDay;
   weather: WeatherType;
   generatedAt: string;
-  source: 'MVP_SYNTHETIC_RULES';
+  source: 'SYNTHETIC_RULES';
   crowd: DensityMetric;
   vehicles: DensityMetric;
   lighting: LightingState;

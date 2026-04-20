@@ -5,7 +5,7 @@ import type { ExternalPlaceDetail } from '../types/external-place.types';
 import type { PlacePackage } from '../types/place.types';
 import { createBoundsFromCenterRadius } from '../utils/geo.utils';
 import {
-  mapBuilding,
+  mapBuildings,
   mapCrossing,
   mapLandCover,
   mapLinearFeature,
@@ -118,15 +118,31 @@ export class OverpassClient {
     const elements = collectDedupedElements(responses);
     const partitioned = partitionOverpassElements(elements);
 
-    const buildings = [
+    this.appLoggerService.info('overpass.partition.category_counts', {
+      requestId: options.requestId ?? null,
+      sceneId: options.sceneId,
+      provider: 'overpass',
+      step: 'overpass_partition',
+      categories: {
+        buildingWays: partitioned.buildingWays.length,
+        buildingRelations: partitioned.buildingRelations.length,
+        roadWays: partitioned.roadWays.length,
+        walkwayWays: partitioned.walkwayWays.length,
+        crossingWays: partitioned.crossingWays.length,
+        poiNodes: partitioned.poiNodes.length,
+        furnitureNodes: partitioned.furnitureNodes.length,
+        vegetationNodes: partitioned.vegetationNodes.length,
+        landCoverWays: partitioned.landCoverWays.length,
+        linearFeatureWays: partitioned.linearFeatureWays.length,
+      },
+      deduplicatedCount: partitioned.deduplicatedCount,
+      mergedWayRelationCount: partitioned.mergedWayRelationCount,
+    });
+
+    const buildings = mapBuildings([
       ...partitioned.buildingWays,
       ...partitioned.buildingRelations,
-    ]
-      .map((wayOrRelation) => mapBuilding(wayOrRelation))
-      .filter(
-        (value): value is NonNullable<ReturnType<typeof mapBuilding>> =>
-          value !== null,
-      );
+    ]);
     const roads = partitioned.roadWays
       .map((way) => mapRoad(way))
       .filter(

@@ -4,6 +4,7 @@ import { SceneAssetsModule } from './scene-assets.module';
 import { SceneHeroOverrideModule } from './scene-hero-override.module';
 import { ScenePlanningModule } from './scene-planning.module';
 import { SceneVisionModule } from './scene-vision.module';
+import { SceneTerrainModule } from './scene-terrain.module';
 import { SceneAssetProfileStep } from '../pipeline/steps/scene-asset-profile.step';
 import { SceneFidelityPlanStep } from '../pipeline/steps/scene-fidelity-plan.step';
 import { SceneGlbBuildStep } from '../pipeline/steps/scene-glb-build.step';
@@ -14,6 +15,7 @@ import { SceneMetaBuilderStep } from '../pipeline/steps/scene-meta-builder.step'
 import { ScenePlacePackageStep } from '../pipeline/steps/scene-place-package.step';
 import { ScenePlaceResolutionStep } from '../pipeline/steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from '../pipeline/steps/scene-visual-rules.step';
+import { SceneTerrainFusionStep } from '../pipeline/steps/scene-terrain-fusion.step';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { SceneVisualRulesStep } from '../pipeline/steps/scene-visual-rules.step'
     SceneHeroOverrideModule,
     ScenePlanningModule,
     SceneVisionModule,
+    SceneTerrainModule,
   ],
   providers: [
     ScenePlaceResolutionStep,
@@ -30,6 +33,7 @@ import { SceneVisualRulesStep } from '../pipeline/steps/scene-visual-rules.step'
     SceneFidelityPlanStep,
     SceneMetaBuilderStep,
     SceneHeroOverrideStep,
+    SceneTerrainFusionStep,
     SceneAssetProfileStep,
     SceneGeometryCorrectionStep,
     SceneGlbBuildStep,
@@ -42,6 +46,7 @@ import { SceneVisualRulesStep } from '../pipeline/steps/scene-visual-rules.step'
     SceneFidelityPlanStep,
     SceneMetaBuilderStep,
     SceneHeroOverrideStep,
+    SceneTerrainFusionStep,
     SceneAssetProfileStep,
     SceneGeometryCorrectionStep,
     SceneGlbBuildStep,

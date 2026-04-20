@@ -10,6 +10,7 @@ import type { FacadeFrame } from './building-mesh.facade-frame.utils';
 import { buildFacadeFrame } from './building-mesh.facade-frame.utils';
 import { pushQuad } from './building-mesh.geometry-primitives';
 import { resolveBuildingVerticalBase } from './building-mesh.shell.builder';
+import { FACADE_FRAME_OFFSET_FROM_SHELL, WINDOW_OFFSET_FROM_PANEL } from './building-mesh.facade-frame.utils';
 
 export interface BuildingWindowGeometryOptions {
   maxWindowTriangles?: number;
@@ -533,7 +534,7 @@ function pushWindowFrame(
   const rightX = centerX + tangent[0] * halfWidth;
   const rightZ = centerZ + tangent[2] * halfWidth;
 
-  const frontOffset = 0.02;
+  const frontOffset = FACADE_FRAME_OFFSET_FROM_SHELL + WINDOW_OFFSET_FROM_PANEL;
   const frontLeftX = leftX + frame.normal[0] * frontOffset;
   const frontLeftZ = leftZ + frame.normal[2] * frontOffset;
   const frontRightX = rightX + frame.normal[0] * frontOffset;

@@ -1,5 +1,5 @@
 import type { OverpassElement, OverpassResponse } from './overpass.types';
-import { isSameBuildingFootprint } from '../../domain/building-footprint.value-object';
+import { BuildingFootprintVo } from '../../domain/building-footprint.value-object';
 
 export interface PartitionedOverpassElements {
   buildingRelations: OverpassElement[];
@@ -168,21 +168,26 @@ function dedupeBuildingElements(
   const keptRelations = dedupeRelationsByFootprint(buildingRelations);
   const dedupedWays: OverpassElement[] = [];
   let mergedWayRelationCount = 0;
+  const relationFootprints = keptRelations
+    .map((relation) => ({ relation, footprint: mapPrimaryOuterFootprintFromRelation(relation) }))
+    .filter(
+      (
+        item,
+      ): item is { relation: OverpassElement; footprint: BuildingFootprintVo } =>
+        item.footprint !== null,
+    )
+    .sort((left, right) => left.footprint.boundingBox().minLat - right.footprint.boundingBox().minLat);
 
   for (const way of buildingWays) {
-    const wayRing = mapRingFromWayGeometry(way);
-    if (wayRing.length < 3) {
+    const wayFootprint = mapFootprintFromWayGeometry(way);
+    if (!wayFootprint) {
       dedupedWays.push(way);
       continue;
     }
 
-    const hasEquivalentRelation = keptRelations.some((relation) => {
-      const relationRing = mapPrimaryOuterRingFromRelation(relation);
-      if (relationRing.length < 3) {
-        return false;
-      }
-      return isSameBuildingFootprint(wayRing, relationRing, 3);
-    });
+    const hasEquivalentRelation = relationFootprints.some(({ footprint }) =>
+      wayFootprint.isSameFootprint(footprint, 3),
+    );
 
     if (hasEquivalentRelation) {
       mergedWayRelationCount += 1;
@@ -208,18 +213,18 @@ function dedupeRelationsByFootprint(
 ): OverpassElement[] {
   const kept: OverpassElement[] = [];
   for (const relation of relations) {
-    const ring = mapPrimaryOuterRingFromRelation(relation);
-    if (ring.length < 3) {
+    const footprint = mapPrimaryOuterFootprintFromRelation(relation);
+    if (!footprint) {
       kept.push(relation);
       continue;
     }
 
     const duplicate = kept.some((candidate) => {
-      const candidateRing = mapPrimaryOuterRingFromRelation(candidate);
-      if (candidateRing.length < 3) {
+      const candidateFootprint = mapPrimaryOuterFootprintFromRelation(candidate);
+      if (!candidateFootprint) {
         return false;
       }
-      return isSameBuildingFootprint(ring, candidateRing, 3);
+      return footprint.isSameFootprint(candidateFootprint, 3);
     });
 
     if (!duplicate) {
@@ -227,6 +232,24 @@ function dedupeRelationsByFootprint(
     }
   }
   return kept;
+}
+
+function mapFootprintFromWayGeometry(element: OverpassElement): BuildingFootprintVo | null {
+  const ring = mapRingFromWayGeometry(element);
+  if (ring.length < 3) {
+    return null;
+  }
+  return new BuildingFootprintVo(ring);
+}
+
+function mapPrimaryOuterFootprintFromRelation(
+  element: OverpassElement,
+): BuildingFootprintVo | null {
+  const ring = mapPrimaryOuterRingFromRelation(element);
+  if (ring.length < 3) {
+    return null;
+  }
+  return new BuildingFootprintVo(ring);
 }
 
 function mapRingFromWayGeometry(element: OverpassElement): Array<{
@@ -261,7 +284,8 @@ function mapPrimaryOuterRingFromRelation(element: OverpassElement): Array<{
   }
 
   return [...outerMembers].sort(
-    (left, right) => Math.abs(resolveSignedArea(right)) - Math.abs(resolveSignedArea(left)),
+    (left, right) =>
+      Math.abs(resolveSignedArea(right)) - Math.abs(resolveSignedArea(left)),
   )[0];
 }
 

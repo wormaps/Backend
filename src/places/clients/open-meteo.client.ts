@@ -85,7 +85,7 @@ export class OpenMeteoClient {
         precipitation,
         cloudCover,
       ),
-      source: 'OPEN_METEO_HISTORICAL',
+       source: 'OPEN_METEO_HISTORICAL',
     };
   }
 
@@ -173,7 +173,7 @@ export class OpenMeteoClient {
         precipitation,
         cloudCover,
       ),
-      source: 'OPEN_METEO_CURRENT',
+       source: 'OPEN_METEO_CURRENT',
     };
   }
 

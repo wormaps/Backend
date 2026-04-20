@@ -503,6 +503,9 @@ export class SceneTrafficResponseDto {
 
   @ApiProperty({ example: 0 })
   failedSegmentCount!: number;
+
+  @ApiProperty({ enum: ['TOMTOM', 'UNAVAILABLE'] })
+  provider!: string;
 }
 
 export class SceneWeatherResponseDto {
@@ -518,7 +521,7 @@ export class SceneWeatherResponseDto {
   @ApiProperty({ example: 'cloudy' })
   preset!: string;
 
-  @ApiProperty({ enum: ['OPEN_METEO_CURRENT', 'OPEN_METEO_HISTORICAL'] })
+  @ApiProperty({ enum: ['OPEN_METEO'] })
   source!: string;
 
   @ApiProperty({ nullable: true, example: '2026-04-04T12:00' })

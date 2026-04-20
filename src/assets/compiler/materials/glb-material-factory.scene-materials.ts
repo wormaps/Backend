@@ -1,3 +1,4 @@
+import type { LandCoverData } from '../../../places/types/place.types';
 import type {
   AccentTone,
   FacadeLayerMaterialProfile,
@@ -5,6 +6,7 @@ import type {
   MaterialTuningOptions,
   SceneMaterials,
 } from './glb-material-factory.scene';
+import { resolveGroundMaterialProfile } from './ground-material-profile.utils';
 import {
   applySurfaceBias,
   applyTextureSlotIfAvailable,
@@ -21,17 +23,19 @@ import {
 export function createSceneMaterials(
   doc: GlbMaterialDocument,
   tuningOptions: MaterialTuningOptions = {},
+  landCovers: LandCoverData[] = [],
 ): SceneMaterials {
   const tuning = resolveMaterialTuningOptions(tuningOptions);
   const overlayBias = resolveOverlayDepthBias(tuning.overlayDepthBias);
   const overlayCutoff = clampRange(0.022 / overlayBias, 0.008, 0.03);
   const textureDiagnostics = resolveTextureDiagnostics(tuning);
 
+  const groundProfile = resolveGroundMaterialProfile(landCovers);
   const ground = doc
     .createMaterial('ground')
-    .setBaseColorFactor([0.52, 0.55, 0.5, 1])
-    .setMetallicFactor(0)
-    .setRoughnessFactor(1);
+    .setBaseColorFactor(groundProfile.baseColor)
+    .setMetallicFactor(groundProfile.metallic)
+    .setRoughnessFactor(groundProfile.roughness);
   applyTextureSlotIfAvailable(
     ground,
     tuning.textureSlots.ground,

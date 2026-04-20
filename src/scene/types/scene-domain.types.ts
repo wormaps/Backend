@@ -4,6 +4,11 @@ export const SCENE_SCALE_VALUES = ['SMALL', 'MEDIUM', 'LARGE'] as const;
 export type SceneScale = (typeof SCENE_SCALE_VALUES)[number];
 export type SceneStatus = 'PENDING' | 'READY' | 'FAILED';
 export type SceneDetailStatus = 'FULL' | 'PARTIAL' | 'OSM_ONLY';
+export type SceneLiveProvider =
+  | 'OPEN_METEO'
+  | 'TOMTOM'
+  | 'UNKNOWN'
+  | 'UNAVAILABLE';
 export type MaterialClass = 'glass' | 'concrete' | 'brick' | 'metal' | 'mixed';
 export type BuildingPreset =
   | 'glass_tower'
@@ -28,6 +33,8 @@ export type GeometryStrategy =
   | 'podium_tower'
   | 'stepped_tower'
   | 'gable_lowrise'
+  | 'hipped_lowrise'
+  | 'pyramidal_lowrise'
   | 'courtyard_block'
   | 'fallback_massing';
 export type FacadePreset =

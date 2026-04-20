@@ -19,6 +19,7 @@ const DEFAULT_MATERIAL_TUNING: Required<MaterialTuningOptions> = {
   overlayDepthBias: 1,
   inferenceReasonCodes: [],
   weakEvidenceRatio: 0,
+  resolvedFallbackSource: 'STATIC_DEFAULT',
   textureSlots: {},
   enableTexturePath: false,
 };
@@ -225,6 +226,9 @@ export function resolveMaterialTuningOptions(
       tuningOptions.inferenceReasonCodes ??
       DEFAULT_MATERIAL_TUNING.inferenceReasonCodes,
     weakEvidenceRatio,
+    resolvedFallbackSource:
+      tuningOptions.resolvedFallbackSource ??
+      DEFAULT_MATERIAL_TUNING.resolvedFallbackSource,
     textureSlots:
       tuningOptions.textureSlots ?? DEFAULT_MATERIAL_TUNING.textureSlots,
     enableTexturePath:

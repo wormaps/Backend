@@ -43,7 +43,7 @@ export interface WeatherSnapshotPayload {
 }
 
 export interface TrafficSnapshotPayload {
-  source: 'TOMTOM_TRAFFIC_FLOW';
+  source: 'TOMTOM' | 'UNAVAILABLE';
   observedAt: string;
   segmentCount: number;
   averageCongestionScore: number;
@@ -64,8 +64,8 @@ export interface TerrainProfileSample {
 }
 
 export interface TerrainSnapshotPayload {
-  mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES';
-  source: 'NONE' | 'LOCAL_FILE';
+  mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES' | 'DEM_FUSED';
+  source: 'NONE' | 'LOCAL_FILE' | 'OPEN_ELEVATION' | 'DEM_FUSED';
   hasElevationModel: boolean;
   heightReference: 'ELLIPSOID_APPROX' | 'LOCAL_DEM';
   baseHeightMeters: number;
@@ -185,8 +185,8 @@ export interface SpatialFrameManifest {
     };
   };
   terrain: {
-    mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES';
-    source: 'NONE' | 'LOCAL_FILE';
+    mode: 'FLAT_PLACEHOLDER' | 'LOCAL_DEM_SAMPLES' | 'DEM_FUSED';
+    source: 'NONE' | 'LOCAL_FILE' | 'OPEN_ELEVATION' | 'DEM_FUSED';
     hasElevationModel: boolean;
     baseHeightMeters: number;
     sampleCount: number;

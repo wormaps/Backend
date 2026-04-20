@@ -15,6 +15,8 @@ export interface BuildingFootprintBBox {
   maxLng: number;
 }
 
+export type BBox = BuildingFootprintBBox;
+
 export class BuildingFootprintVo {
   readonly outerRing: Coordinate[];
 
@@ -63,7 +65,7 @@ export class BuildingFootprintVo {
     });
   }
 
-  boundingBox(): BuildingFootprintBBox {
+  boundingBox(): BBox {
     let minLat = Number.POSITIVE_INFINITY;
     let minLng = Number.POSITIVE_INFINITY;
     let maxLat = Number.NEGATIVE_INFINITY;
@@ -144,6 +146,8 @@ export class BuildingFootprintVo {
     return this.outerRing.map((point) => toLocalPoint(reference, point));
   }
 }
+
+export type { Coordinate };
 
 export function isSameBuildingFootprint(
   leftRing: Coordinate[],

@@ -23,6 +23,8 @@ import { SceneMetaBuilderStep } from './pipeline/steps/scene-meta-builder.step';
 import { ScenePlacePackageStep } from './pipeline/steps/scene-place-package.step';
 import { ScenePlaceResolutionStep } from './pipeline/steps/scene-place-resolution.step';
 import { SceneVisualRulesStep } from './pipeline/steps/scene-visual-rules.step';
+import { SceneTerrainFusionStep } from './pipeline/steps/scene-terrain-fusion.step';
+import { IDemPort } from './infrastructure/terrain/dem.port';
 import { SceneService } from './scene.service';
 import {
   BuildingStyleResolverService,
@@ -243,6 +245,7 @@ export async function createSceneSpecContext(options?: {
       SceneAssetProfileStep,
       SceneGeometryCorrectionStep,
       SceneGlbBuildStep,
+      SceneTerrainFusionStep,
       SceneReadService,
       SceneStateLiveService,
       SceneWeatherLiveService,
@@ -250,6 +253,12 @@ export async function createSceneSpecContext(options?: {
       SceneLiveDataService,
       SceneMidQaService,
       SceneTerrainProfileService,
+      {
+        provide: IDemPort,
+        useValue: {
+          fetchElevations: vi.fn().mockResolvedValue([]),
+        },
+      },
       SceneRoadVisionService,
       SceneSignageVisionService,
       SceneTwinBuilderService,
@@ -503,6 +512,7 @@ export async function createSceneSpecContext(options?: {
     },
     upstreamEnvelopes: [],
   });
+  process.env.TOMTOM_API_KEY = process.env.TOMTOM_API_KEY ?? 'spec-key';
 
   return {
     service,

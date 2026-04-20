@@ -20,7 +20,7 @@ export class SceneSnapshotDto {
   @ApiProperty({ example: '2026-04-04T08:40:21Z' })
   generatedAt!: string;
 
-  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES'] })
+  @ApiProperty({ enum: ['SYNTHETIC_RULES'] })
   source!: string;
 
   @ApiProperty({ type: DensityMetricDto })
@@ -55,7 +55,7 @@ export class SceneStateResponseDto {
   @ApiProperty({ enum: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'] })
   weather!: string;
 
-  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES'] })
+  @ApiProperty({ enum: ['SYNTHETIC_RULES'] })
   source!: string;
 
   @ApiProperty({ type: DensityMetricDto })
@@ -125,7 +125,7 @@ export class SceneEntityStateResponseDto {
   @ApiProperty({ enum: ['CLEAR', 'CLOUDY', 'RAIN', 'SNOW'] })
   weather!: string;
 
-  @ApiProperty({ enum: ['MVP_SYNTHETIC_RULES'] })
+  @ApiProperty({ enum: ['SYNTHETIC_RULES'] })
   source!: string;
 
   @ApiProperty({

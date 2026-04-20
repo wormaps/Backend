@@ -9,6 +9,9 @@ import { SceneReadService } from '../read/scene-read.service';
 import { SceneRepository } from '../../storage/scene.repository';
 import type { Coordinate } from '../../../places/types/place.types';
 import type { FetchJsonEnvelope } from '../../../common/http/fetch-json';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
+
+type SceneTrafficProvider = 'TOMTOM' | 'UNAVAILABLE';
 
 @Injectable()
 export class SceneTrafficLiveService {
@@ -19,6 +22,7 @@ export class SceneTrafficLiveService {
     private readonly sceneRepository: SceneRepository,
     private readonly ttlCacheService: TtlCacheService,
     private readonly tomTomTrafficClient: TomTomTrafficClient,
+    private readonly appLoggerService: AppLoggerService,
   ) {}
 
   async getTraffic(sceneId: string): Promise<SceneTrafficResponse> {
@@ -42,6 +46,7 @@ export class SceneTrafficLiveService {
         const normalizedSegments = sampled.segments;
         const upstreamEnvelopes = sampled.upstreamEnvelopes;
         const failedSegmentCount = sampled.failedSegmentCount;
+        const provider = sampled.provider;
 
         const averageCongestionScore =
           normalizedSegments.length > 0
@@ -58,7 +63,7 @@ export class SceneTrafficLiveService {
         await this.sceneRepository.update(sceneId, (current) => ({
           ...current,
           latestTrafficSnapshot: {
-            provider: 'TOMTOM_TRAFFIC_FLOW',
+            provider,
             observedAt: new Date().toISOString(),
             segmentCount: normalizedSegments.length,
             averageCongestionScore,
@@ -74,6 +79,7 @@ export class SceneTrafficLiveService {
           segments: normalizedSegments,
           degraded: failedSegmentCount > 0,
           failedSegmentCount,
+          provider,
         };
       },
     );
@@ -86,7 +92,24 @@ export class SceneTrafficLiveService {
     segments: TrafficSegment[];
     failedSegmentCount: number;
     upstreamEnvelopes: FetchJsonEnvelope[];
+    provider: SceneTrafficProvider;
   }> {
+    const tomTomUnavailableReason = this.resolveTomTomUnavailableReason();
+    if (tomTomUnavailableReason) {
+      this.appLoggerService.warn('scene.traffic.provider_unavailable', {
+        requestId: requestId ?? null,
+        provider: 'tomtom',
+        step: 'live_traffic',
+        reason: tomTomUnavailableReason,
+      });
+      return {
+        segments: roads.map((road) => mapTrafficSegment(road.objectId)),
+        failedSegmentCount: roads.length,
+        upstreamEnvelopes: [],
+        provider: 'UNAVAILABLE',
+      };
+    }
+
     let failedSegmentCount = 0;
     const sampled = await Promise.all(
       roads.map(async (road) => {
@@ -117,6 +140,7 @@ export class SceneTrafficLiveService {
       segments: sampled.map((item) => item.segment),
       failedSegmentCount,
       upstreamEnvelopes: sampled.flatMap((item) => item.upstreamEnvelopes),
+      provider: 'TOMTOM',
     };
   }
 
@@ -163,7 +187,16 @@ export class SceneTrafficLiveService {
             })),
       degraded: snapshot.degraded,
       failedSegmentCount: snapshot.failedSegmentCount,
+      provider: snapshot.provider,
     };
+  }
+
+  private resolveTomTomUnavailableReason(): 'NO_API_KEY' | null {
+    if (!process.env.TOMTOM_API_KEY?.trim()) {
+      return 'NO_API_KEY';
+    }
+
+    return null;
   }
 }
 

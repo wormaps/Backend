@@ -49,6 +49,9 @@ export class SceneGeometryCorrectionStep {
     const buildingOverlapCount = correctedBuildings.filter((building) =>
       buildingOverlapObjectIds.has(building.objectId),
     ).length;
+    const correctedCount = correctedBuildings.filter(
+      (building) => (building.groundOffsetM ?? 0) > 0,
+    ).length;
     const groundedGapCount = correctedBuildings.filter(
       (building) =>
         (building.groundOffsetM ?? 0) > 0.16,
@@ -168,9 +171,18 @@ export class SceneGeometryCorrectionStep {
           highSeverityOverlapCount,
           mediumSeverityOverlapCount,
           lowSeverityOverlapCount,
+          correctedCount,
         } as unknown as SceneGeometryDiagnostic,
       ],
     };
+
+    if (correctedCount > correctedBuildings.length * 0.5) {
+      void appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction_warn', {
+        correctedCount,
+        totalBuildingCount: correctedBuildings.length,
+        ratio: Number((correctedCount / Math.max(1, correctedBuildings.length)).toFixed(3)),
+      });
+    }
 
     void appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction', {
       collisionRiskCount,
@@ -190,9 +202,7 @@ export class SceneGeometryCorrectionStep {
       buildingCount: correctedBuildings.length,
       roadCount: roads.length,
       walkwayCount: walkways.length,
-      correctedCount: correctedBuildings.filter(
-        (building) => building.collisionRisk === 'road_overlap',
-      ).length,
+      correctedCount,
       totalOverlapAreaM2,
       highSeverityOverlapCount,
       mediumSeverityOverlapCount,

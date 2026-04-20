@@ -1,4 +1,5 @@
 import type {
+  BuildingData,
   Coordinate,
   CrossingData,
   LandCoverData,
@@ -9,6 +10,9 @@ import type {
   VegetationData,
 } from '../../types/place.types';
 import {
+  computeContextMedian,
+} from '../../domain/building-height.estimator';
+import {
   coordinatesEqual,
   isFiniteCoordinate,
   midpoint,
@@ -17,6 +21,7 @@ import {
 import type { OverpassElement } from './overpass.types';
 import {
   resolveHeight,
+  resolveHeightConfidence,
   resolveLaneCount,
   resolveRoadWidth,
   resolveUsage,
@@ -56,6 +61,53 @@ export function mapPoi(node: OverpassElement): PoiData | null {
           : 'SIGNAL',
     location,
   };
+}
+
+export function mapBuildings(
+  elements: OverpassElement[],
+): PlacePackage['buildings'] {
+  const rawBuildings: Array<{
+    id: string;
+    tags: Record<string, string> | undefined;
+    outerRing: Coordinate[];
+    holes: Coordinate[][];
+  }> = [];
+
+  for (const element of elements) {
+    if (element.type === 'relation') {
+      const result = tryMapBuildingRelation(element);
+      if (result) {
+        rawBuildings.push(result);
+      }
+    } else {
+      const outerRing = sanitizeRing(mapGeometry(element.geometry ?? []));
+      if (outerRing !== null) {
+        rawBuildings.push({
+          id: `building-${element.id}`,
+          tags: element.tags,
+          outerRing,
+          holes: [],
+        });
+      }
+    }
+  }
+
+  const results: BuildingData[] = [];
+  for (const raw of rawBuildings) {
+    const buildingType = raw.tags?.building;
+    const contextMedian = computeContextMedian(rawBuildings, buildingType);
+    results.push(
+      buildBuildingRecord(
+        raw.id,
+        raw.tags,
+        raw.outerRing,
+        raw.holes,
+        contextMedian,
+      ),
+    );
+  }
+
+  return results;
 }
 
 export function mapBuilding(
@@ -258,9 +310,14 @@ function sanitizeRing(points: Coordinate[]): Coordinate[] | null {
   return sanitized;
 }
 
-function mapBuildingRelation(
+function tryMapBuildingRelation(
   relation: OverpassElement,
-): PlacePackage['buildings'][number] | null {
+): {
+  id: string;
+  tags: Record<string, string> | undefined;
+  outerRing: Coordinate[];
+  holes: Coordinate[][];
+} | null {
   const outerRings = buildRingsFromMembers(
     (relation.members ?? []).filter(
       (member) => (member.role ?? 'outer') === 'outer',
@@ -281,12 +338,22 @@ function mapBuildingRelation(
     return sample ? isPointInsideRing(sample, primaryOuter) : false;
   });
 
-  return buildBuildingRecord(
-    `building-${relation.id}`,
-    relation.tags,
-    primaryOuter,
+  return {
+    id: `building-${relation.id}`,
+    tags: relation.tags,
+    outerRing: primaryOuter,
     holes,
-  );
+  };
+}
+
+function mapBuildingRelation(
+  relation: OverpassElement,
+): PlacePackage['buildings'][number] | null {
+  const raw = tryMapBuildingRelation(relation);
+  if (!raw) {
+    return null;
+  }
+  return buildBuildingRecord(raw.id, raw.tags, raw.outerRing, raw.holes);
 }
 
 function buildBuildingRecord(
@@ -294,16 +361,20 @@ function buildBuildingRecord(
   tags: Record<string, string> | undefined,
   outerRing: Coordinate[],
   holes: Coordinate[][],
+  contextMedian?: number,
 ): PlacePackage['buildings'][number] {
   const normalizedOuterRing = normalizeRingOrientation(outerRing, 'CW');
   const normalizedHoles = holes.map((hole) =>
     normalizeRingOrientation(hole, 'CCW'),
   );
 
+  const heightMeters = resolveHeight(tags, contextMedian);
+  const estimationConfidence = resolveHeightConfidence(tags, contextMedian);
+
   return {
     id,
     name: tags?.name ?? id,
-    heightMeters: resolveHeight(tags),
+    heightMeters,
     usage: resolveUsage(tags),
     outerRing: normalizedOuterRing,
     holes: normalizedHoles,
@@ -314,6 +385,7 @@ function buildBuildingRecord(
     roofMaterial: tags?.['roof:material'] ?? null,
     roofShape: tags?.['roof:shape'] ?? null,
     buildingPart: tags?.['building:part'] ?? null,
+    estimationConfidence,
     osmAttributes: { ...(tags ?? {}) },
     googlePlacesInfo: undefined,
   };
