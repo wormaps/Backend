@@ -111,13 +111,16 @@ export function distanceToPathMeters(
     return Number.POSITIVE_INFINITY;
   }
   if (path.length === 1) {
-    return distanceMeters(point, path[0]);
+    const single = path[0];
+    if (!single) return Number.POSITIVE_INFINITY;
+    return distanceMeters(point, single);
   }
 
   let minDistance = Number.POSITIVE_INFINITY;
   for (let index = 0; index < path.length - 1; index += 1) {
     const start = path[index];
     const end = path[index + 1];
+    if (!start || !end) continue;
     const dist = distanceToSegmentMeters(point, start, end);
     if (dist < minDistance) {
       minDistance = dist;

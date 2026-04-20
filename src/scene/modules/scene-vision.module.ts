@@ -3,7 +3,7 @@ import { PlacesModule } from '../../places/places.module';
 import { BuildingStyleResolverService } from '../services/vision/building-style-resolver.service';
 import { SceneAtmosphereRecomputeService } from '../services/vision/scene-atmosphere-recompute.service';
 import { SceneFacadeAtmosphereService } from '../services/vision/scene-facade-atmosphere.service';
-import { SceneAssetProfileService, AssetMaterialClassService } from '../services/asset-profile';
+import { SceneAssetProfileService, AssetMaterialClassService, VisualArchetypeSelectionService, ContextProfileService } from '../services/asset-profile';
 import { SceneFacadeVisionService } from '../services/vision/scene-facade-vision.service';
 import { SceneGeometryDiagnosticsService } from '../services/vision/scene-geometry-diagnostics.service';
 import { SceneRoadVisionService } from '../services/vision/scene-road-vision.service';
@@ -16,6 +16,8 @@ import { SceneVisionService } from '../services/vision';
   imports: [PlacesModule],
   providers: [
     AssetMaterialClassService,
+    VisualArchetypeSelectionService,
+    ContextProfileService,
     SceneAssetProfileService,
     BuildingStyleResolverService,
     SceneRoadVisionService,
@@ -30,6 +32,8 @@ import { SceneVisionService } from '../services/vision';
   ],
   exports: [
     AssetMaterialClassService,
+    VisualArchetypeSelectionService,
+    ContextProfileService,
     SceneAssetProfileService,
     BuildingStyleResolverService,
     SceneRoadVisionService,

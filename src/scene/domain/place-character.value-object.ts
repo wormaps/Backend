@@ -113,12 +113,14 @@ export function resolvePlaceCharacter(
     const gp = building.googlePlacesInfo;
     if (gp?.primaryType && GOOGLE_PLACES_DISTRICT_MAP[gp.primaryType]) {
       const district = GOOGLE_PLACES_DISTRICT_MAP[gp.primaryType];
-      districtVotes.set(district, (districtVotes.get(district) ?? 0) + 2);
+      if (district) {
+        districtVotes.set(district, (districtVotes.get(district) ?? 0) + 2);
+      }
     }
     if (gp?.types) {
       for (const t of gp.types) {
-        if (GOOGLE_PLACES_DISTRICT_MAP[t]) {
-          const district = GOOGLE_PLACES_DISTRICT_MAP[t];
+        const district = GOOGLE_PLACES_DISTRICT_MAP[t];
+        if (district) {
           districtVotes.set(district, (districtVotes.get(district) ?? 0) + 1);
         }
       }

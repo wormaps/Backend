@@ -6,10 +6,34 @@ export interface GlbSimplifyOptions {
   lockBorder: boolean;
 }
 
+export interface LodSimplifyProfile {
+  low: GlbSimplifyOptions;
+  medium: GlbSimplifyOptions;
+  high: GlbSimplifyOptions;
+}
+
 const DEFAULT_GLB_SIMPLIFY_OPTIONS: GlbSimplifyOptions = {
   ratio: 0.75,
   error: 0.001,
   lockBorder: false,
+};
+
+const DEFAULT_LOD_SIMPLIFY_PROFILE: LodSimplifyProfile = {
+  low: {
+    ratio: 0.45,
+    error: 0.004,
+    lockBorder: false,
+  },
+  medium: {
+    ratio: 0.65,
+    error: 0.002,
+    lockBorder: false,
+  },
+  high: {
+    ratio: 0.85,
+    error: 0.0008,
+    lockBorder: false,
+  },
 };
 
 const GLB_SIMPLIFY_RATIO_RANGE = {
@@ -63,6 +87,10 @@ export function resolveSimplifyOptionsFromEnv(): {
       lockBorder,
     },
   };
+}
+
+export function resolveLodSimplifyProfile(): LodSimplifyProfile {
+  return DEFAULT_LOD_SIMPLIFY_PROFILE;
 }
 
 export function resolveGlbBuildTimeoutMsFromEnv(): number {

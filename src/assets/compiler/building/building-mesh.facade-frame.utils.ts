@@ -25,8 +25,8 @@ export function resolveLongestEdgeIndex(points: Vec3[]): number {
   let longestIndex = 0;
   let longestLength = 0;
   for (let index = 0; index < points.length; index += 1) {
-    const current = points[index];
-    const next = points[(index + 1) % points.length];
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
     const length = Math.hypot(next[0] - current[0], next[2] - current[2]);
     if (length > longestLength) {
       longestLength = length;

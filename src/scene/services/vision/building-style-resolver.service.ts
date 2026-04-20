@@ -208,8 +208,8 @@ export class BuildingStyleResolverService {
     let longestIndex = 0;
     let longestLength = 0;
     for (let index = 0; index < ring.length; index += 1) {
-      const current = ring[index];
-      const next = ring[(index + 1) % ring.length];
+      const current = ring[index]!;
+      const next = ring[(index + 1) % ring.length]!;
       const length = Math.hypot(
         (next.lng - current.lng) * 111_320,
         (next.lat - current.lat) * 111_320,
@@ -389,20 +389,21 @@ export class BuildingStyleResolverService {
     const pool =
       MATERIAL_CLASS_PALETTE_POOL[materialClass] ??
       MATERIAL_CLASS_PALETTE_POOL.mixed;
-    const variant =
-      pool[
-        resolvePaletteVariantIndex({
-          input,
-          preset,
-          materialClass,
-          poolSize: pool.length,
-        })
-      ] ?? pool[0];
+    const variantIndex = resolvePaletteVariantIndex({
+      input,
+      preset,
+      materialClass,
+      poolSize: pool.length,
+    });
+    const variant = pool[variantIndex] ?? pool[0];
+    if (!variant) {
+      return ['#9ea4aa', '#c9cdd1', '#ebecee'];
+    }
     if (materialClass === 'glass' && preset === 'glass_tower') {
       return uniquePalette([
-        mixHex(variant[0], '#6f9dc8', 0.22),
-        mixHex(variant[1], '#d7e8f4', 0.2),
-        mixHex(variant[2], '#f2f8fd', 0.18),
+        mixHex(variant[0]!, '#6f9dc8', 0.22),
+        mixHex(variant[1]!, '#d7e8f4', 0.2),
+        mixHex(variant[2]!, '#f2f8fd', 0.18),
       ]);
     }
     return uniquePalette(variant);

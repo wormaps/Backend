@@ -50,14 +50,14 @@ export function calculatePolygonAreaM2(ring: Coordinate[]): number {
     return 0;
   }
 
-  const anchor = normalized[0];
+  const anchor = normalized[0]!;
   const metersPerLng =
     METERS_PER_LAT * Math.cos((anchor.lat * Math.PI) / 180);
 
   let signedArea = 0;
   for (let i = 0; i < normalized.length; i += 1) {
-    const current = normalized[i];
-    const next = normalized[(i + 1) % normalized.length];
+    const current = normalized[i]!;
+    const next = normalized[(i + 1) % normalized.length]!;
     const currentX = (current.lng - anchor.lng) * metersPerLng;
     const currentY = (current.lat - anchor.lat) * METERS_PER_LAT;
     const nextX = (next.lng - anchor.lng) * metersPerLng;
@@ -122,8 +122,8 @@ function sanitizeRing(ring: Coordinate[]): Coordinate[] {
   });
 
   if (deduped.length > 2) {
-    const first = deduped[0];
-    const last = deduped[deduped.length - 1];
+    const first = deduped[0]!;
+    const last = deduped[deduped.length - 1]!;
     if (first.lat === last.lat && first.lng === last.lng) {
       deduped.pop();
     }

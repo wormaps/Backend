@@ -16,6 +16,10 @@ import {
   pushEnhancedStreetLightAssembly,
   pushFireHydrantAssembly,
   pushTrashCanAssembly,
+  pushPostBoxAssembly,
+  pushPublicPhoneAssembly,
+  pushAdvertisingAssembly,
+  pushVendingMachineAssembly,
 } from './street-furniture-mesh.assembly';
 import {
   DEFAULT_SCENE_VARIATION_PROFILE,
@@ -183,6 +187,97 @@ export function createEnhancedSignPoleGeometry(
       ),
     );
     pushEnhancedSignPoleAssembly(geometry, center, variant, variationProfile);
+  }
+
+  return geometry;
+}
+
+export function createPostBoxGeometry(
+  origin: Coordinate,
+  items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'POST_BOX') {
+      continue;
+    }
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+    const variant = stableVariant(item.objectId, 4);
+    pushPostBoxAssembly(geometry, center, variant, variationProfile);
+  }
+
+  return geometry;
+}
+
+export function createPublicPhoneGeometry(
+  origin: Coordinate,
+  items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'PUBLIC_PHONE') {
+      continue;
+    }
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+    const variant = stableVariant(item.objectId, 3);
+    pushPublicPhoneAssembly(geometry, center, variant, variationProfile);
+  }
+
+  return geometry;
+}
+
+export function createAdvertisingGeometry(
+  origin: Coordinate,
+  items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'ADVERTISING') {
+      continue;
+    }
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+    const variant = stableVariant(
+      item.objectId,
+      Math.max(3, Math.round(5 * clamp(variationProfile.furnitureVariantBoost, 1, 1.6))),
+    );
+    pushAdvertisingAssembly(geometry, center, variant, variationProfile);
+  }
+
+  return geometry;
+}
+
+export function createVendingMachineGeometry(
+  origin: Coordinate,
+  items: SceneStreetFurnitureDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'VENDING_MACHINE') {
+      continue;
+    }
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+    const variant = stableVariant(item.objectId, 3);
+    pushVendingMachineAssembly(geometry, center, variant, variationProfile);
   }
 
   return geometry;

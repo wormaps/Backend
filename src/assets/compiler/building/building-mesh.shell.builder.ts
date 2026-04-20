@@ -677,9 +677,13 @@ function triangulateRings(
   const indices = triangulate(vertices, holeIndices, 2);
   const triangles: Array<[Vec3, Vec3, Vec3]> = [];
   for (let index = 0; index < indices.length; index += 3) {
-    const a = points[indices[index]];
-    const b = points[indices[index + 1]];
-    const c = points[indices[index + 2]];
+    const idxA = indices[index];
+    const idxB = indices[index + 1];
+    const idxC = indices[index + 2];
+    if (idxA === undefined || idxB === undefined || idxC === undefined) continue;
+    const a = points[idxA];
+    const b = points[idxB];
+    const c = points[idxC];
     if (!a || !b || !c) {
       continue;
     }
@@ -702,6 +706,7 @@ function pushRingWallsBetween(
   for (let index = 0; index < ring.length; index += 1) {
     const current = ring[index];
     const next = ring[(index + 1) % ring.length];
+    if (!current || !next) continue;
     if (invert) {
       pushQuad(
         geometry,
@@ -879,6 +884,7 @@ function pushPyramidalRoof(
   for (let index = 0; index < outerRing.length; index += 1) {
     const current = outerRing[index];
     const next = outerRing[(index + 1) % outerRing.length];
+    if (!current || !next) continue;
     pushTriangle(
       geometry,
       [current[0], roofBaseHeight, current[2]],
@@ -958,6 +964,7 @@ function computeRingAreaM2(ring: Vec3[]): number {
   for (let i = 0; i < ring.length; i += 1) {
     const current = ring[i];
     const next = ring[(i + 1) % ring.length];
+    if (!current || !next) continue;
     area += current[0] * next[2] - next[0] * current[2];
   }
   return Math.abs(area) / 2;
@@ -967,16 +974,20 @@ function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {
   if (ring.length <= 4) {
     return ring;
   }
-  const result: Vec3[] = [ring[0]];
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (!first || !last) return ring;
+  const result: Vec3[] = [first];
   for (let i = 1; i < ring.length - 1; i += 1) {
     const prev = result[result.length - 1];
     const curr = ring[i];
+    if (!curr || !prev) continue;
     const dist = Math.sqrt((curr[0] - prev[0]) ** 2 + (curr[2] - prev[2]) ** 2);
     if (dist >= tolerance) {
       result.push(curr);
     }
   }
-  result.push(ring[ring.length - 1]);
+  result.push(last);
 
   if (result.length < 3) {
     return ring;
@@ -985,6 +996,7 @@ function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {
   const hasArea = result.some((p, i) => {
     const next = result[(i + 1) % result.length];
     const nextNext = result[(i + 2) % result.length];
+    if (!next || !nextNext) return false;
     const cross =
       (next[0] - p[0]) * (nextNext[2] - p[2]) -
       (next[2] - p[2]) * (nextNext[0] - p[0]);

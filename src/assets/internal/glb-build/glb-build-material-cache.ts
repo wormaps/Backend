@@ -40,7 +40,7 @@ export function installMaterialCache(
       materialCacheKey: stableKey,
     });
     if (cache.size >= MAX_MATERIAL_CACHE_SIZE) {
-      const firstKey = cache.keys().next().value;
+      const firstKey = cache.keys().next().value as string | undefined;
       if (firstKey) cache.delete(firstKey);
     }
     cache.set(stableKey, material);
@@ -114,8 +114,8 @@ export function buildMaterialCacheKey(
   // Normalize: extract materialClass, replace exact hex with bucket
   const shellMatch = name.match(/^building-shell-([a-z]+)-(.+)$/);
   if (shellMatch) {
-    const materialClass = shellMatch[1];
-    const colorPart = shellMatch[2];
+    const materialClass = shellMatch[1]!;
+    const colorPart = shellMatch[2]!;
     const bucket = normalizeColorToBucket(colorPart);
     return `${sceneId}::${tuningSignature}::building-shell::${materialClass}::${bucket}`;
   }
@@ -123,14 +123,14 @@ export function buildMaterialCacheKey(
   // Normalize: replace exact hex with quantized bucket
   const panelMatch = name.match(/^building-panel-([a-z]+)-(.+)$/);
   if (panelMatch) {
-    const hexPrefix = quantizeHexToBucket(panelMatch[2]);
+    const hexPrefix = quantizeHexToBucket(panelMatch[2]!);
     return `${sceneId}::${tuningSignature}::building-panel::${panelMatch[1]}::${hexPrefix}`;
   }
   // Billboard pattern: billboard-${tone}-${hex}
   // Normalize: replace exact hex with quantized bucket
   const billboardMatch = name.match(/^billboard-([a-z]+)-(.+)$/);
   if (billboardMatch) {
-    const hexPrefix = quantizeHexToBucket(billboardMatch[2]);
+    const hexPrefix = quantizeHexToBucket(billboardMatch[2]!);
     return `${sceneId}::${tuningSignature}::billboard::${billboardMatch[1]}::${hexPrefix}`;
   }
   // Default: sceneId + name

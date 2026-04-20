@@ -14,19 +14,19 @@ import {
   resolveTerrainOffsetForPoints,
 } from './scene-geometry-correction.utils';
 
-/** 건물-도로 충돌 판정 거리 (m). 이 이내면 충돌로 간주. */
+/** 건축물-도로 충돌 판정 거리 (m). 이 이내이면 충돌로 간주. */
 const COLLISION_NEAR_ROAD_M = 3;
 
-/** 충돌 시 건물 바닥 오프셋 (m). 도로 위로 이동. */
+/** 충돌 시 건축물 바닥 오프셋 (m). 도로 위로 이동. */
 const BASE_GROUND_OFFSET_ON_COLLISION_M = 0.06;
 
-/** 충돌 시 건물 바닥 오프셋 최대값 (m). */
+/** 충돌 시 건축물 바닥 오프셋 최대값 (m). */
 const MAX_GROUND_OFFSET_ON_COLLISION_M = 0.24;
 
-/** 건물 간 중복 판정 패딩 (m). */
+/** 건축물 간 중복 판정 패딩 (m). */
 const BUILDING_OVERLAP_PADDING_M = 0.35;
 
-/** 건물 간 중복 시 바닥 오프셋 (m). */
+/** 건축물 간 중복 시 바닥 오프셋 (m). */
 const BUILDING_OVERLAP_GROUND_OFFSET_M = 0.08;
 
 /** 심각한 grounded gap 판정 임계값 (m). */
@@ -372,12 +372,18 @@ export function resolveBuildingOverlapObjectIds(
 
   for (let index = 0; index < boxes.length; index += 1) {
     const current = boxes[index];
+    if (!current) {
+      continue;
+    }
     for (
       let candidateIndex = index + 1;
       candidateIndex < boxes.length;
       candidateIndex += 1
     ) {
       const candidate = boxes[candidateIndex];
+      if (!candidate) {
+        continue;
+      }
       if (candidate.minX > current.maxX + BUILDING_OVERLAP_PADDING_M) {
         break;
       }
@@ -405,6 +411,9 @@ export function resolveOverlapAreas(
     for (let j = i + 1; j < boxes.length; j += 1) {
       const left = boxes[i];
       const right = boxes[j];
+      if (!left || !right) {
+        continue;
+      }
       if (!overlapObjectIds.has(left.objectId) && !overlapObjectIds.has(right.objectId)) {
         continue;
       }

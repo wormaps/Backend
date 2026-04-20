@@ -72,8 +72,8 @@ export function polygonSignedArea(points: Coordinate[]): number {
 
   let area = 0;
   for (let i = 0; i < points.length; i += 1) {
-    const current = points[i];
-    const next = points[(i + 1) % points.length];
+    const current = points[i]!;
+    const next = points[(i + 1) % points.length]!;
     area += current.lng * next.lat - next.lng * current.lat;
   }
 
@@ -85,5 +85,11 @@ export function midpoint(path: Coordinate[]): Coordinate | null {
     return null;
   }
 
-  return path[Math.floor(path.length / 2)] ?? path[0];
+  const midIndex = Math.floor(path.length / 2);
+  const midPoint = path[midIndex];
+  if (midPoint) {
+    return midPoint;
+  }
+  const firstPoint = path[0];
+  return firstPoint ?? null;
 }

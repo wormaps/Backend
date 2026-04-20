@@ -143,7 +143,11 @@ export function resolveDistrictCluster(input: DistrictSignalInput): {
 
   const entries = Object.entries(score) as Array<[DistrictCluster, number]>;
   entries.sort((a, b) => b[1] - a[1]);
-  const [bestCluster, bestScore] = entries[0];
+  const firstEntry = entries[0];
+  if (!firstEntry) {
+    return { cluster: 'secondary_retail', confidence: 0.35, evidenceStrength: 'weak' };
+  }
+  const [bestCluster, bestScore] = firstEntry;
   const secondScore = entries[1]?.[1] ?? 0;
 
   const margin = Math.max(0, bestScore - secondScore);
@@ -298,9 +302,10 @@ export function resolveSceneWideAtmosphereProfile(
       (profile.facadeProfile.emissiveBoost ?? 1) * districtWeight;
   }
 
-  const dominantCluster = [...byCluster.entries()].sort(
+  const dominantClusterEntry = [...byCluster.entries()].sort(
     (a, b) => b[1] - a[1],
-  )[0]?.[0];
+  )[0];
+  const dominantCluster = dominantClusterEntry?.[0];
   const meanEvidence = evidenceScore / Math.max(1, totalDistrictWeight);
   const sceneEvidence =
     meanEvidence >= 2.6

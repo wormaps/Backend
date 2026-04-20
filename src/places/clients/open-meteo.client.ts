@@ -73,7 +73,7 @@ export class OpenMeteoClient {
 
     return {
       date,
-      localTime: times[index],
+      localTime: times[index] ?? '',
       temperatureCelsius: hourly?.temperature_2m?.[index] ?? null,
       precipitationMm: precipitation,
       rainMm: rain,
@@ -275,7 +275,7 @@ export class OpenMeteoClient {
     return {
       observation: {
         date,
-        localTime: times[index],
+        localTime: times[index] ?? '',
         temperatureCelsius: hourly?.temperature_2m?.[index] ?? null,
         precipitationMm: precipitation,
         rainMm: rain,

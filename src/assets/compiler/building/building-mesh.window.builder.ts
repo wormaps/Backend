@@ -298,6 +298,15 @@ const FNV1A_HASH_MULTIPLIER = 16777619;
 /** Hash 나눗셈 상수 (2^32). */
 const FNV1A_HASH_DIVISOR = 4294967295;
 
+/** MurmurHash3-style numeric seed multiplier. */
+const NUMERIC_HASH_MULTIPLIER_1 = 2654435761;
+
+/** MurmurHash3-style mix constant. */
+const NUMERIC_HASH_MIX_1 = 2246822519;
+
+/** MurmurHash3-style mix constant. */
+const NUMERIC_HASH_MIX_2 = 3266489917;
+
 type WindowArchetype =
   | 'apartment'
   | 'office'
@@ -469,6 +478,7 @@ function edgeLengthAt(ring: Vec3[], edgeIndex: number): number {
   }
   const a = ring[edgeIndex % ring.length];
   const b = ring[(edgeIndex + 1) % ring.length];
+  if (!a || !b) return 0;
   return Math.hypot(b[0] - a[0], b[2] - a[2]);
 }
 
@@ -547,9 +557,8 @@ function pushWindowGrid(
       if (config.facadeEdgeOnly && col > 0) {
         continue;
       }
-      const randomBase = stableUnitNoise(
-        `${frame.a[0].toFixed(2)}:${frame.a[2].toFixed(2)}:${floor}:${col}:${config.pattern}`,
-      );
+      const seed = numericWindowSeed(frame.a[0], frame.a[2], floor, col, config.pattern);
+      const randomBase = stableUnitNoiseNumeric(seed);
       if (!shouldEmitWindow(config, floor, col, randomBase)) {
         continue;
       }
@@ -559,8 +568,7 @@ function pushWindowGrid(
       const centerX = frame.a[0] + (frame.b[0] - frame.a[0]) * t;
       const centerZ = frame.a[2] + (frame.b[2] - frame.a[2]) * t;
       const sizeScale =
-        0.96 +
-        stableUnitNoise(`${floor}:${col}:${config.windowsPerFloor}`) * 0.08;
+        0.96 + stableUnitNoiseNumeric(numericWindowSeed(frame.a[0], frame.a[2], floor, col, 'size')) * 0.08;
 
       pushWindowFrame(
         geometry,
@@ -658,6 +666,26 @@ function stableUnitNoise(seed: string): number {
     hash = Math.imul(hash, FNV1A_HASH_MULTIPLIER);
   }
   return (hash >>> 0) / FNV1A_HASH_DIVISOR;
+}
+
+function stableUnitNoiseNumeric(seed: number): number {
+  let hash = Math.imul(seed, NUMERIC_HASH_MULTIPLIER_1);
+  hash = Math.imul(hash ^ (hash >>> 16), NUMERIC_HASH_MIX_1);
+  hash = Math.imul(hash ^ (hash >>> 13), NUMERIC_HASH_MIX_2);
+  return (hash >>> 0) / FNV1A_HASH_DIVISOR;
+}
+
+function numericWindowSeed(
+  ax: number,
+  az: number,
+  floor: number,
+  col: number,
+  pattern: string,
+): number {
+  const patternHash = stableUnitNoise(pattern);
+  const axBits = Math.trunc(ax * 100) & 0xffff;
+  const azBits = Math.trunc(az * 100) & 0xffff;
+  return (axBits << 24) | (azBits << 16) | ((floor & 0xff) << 8) | ((col & 0xff) << 4) | Math.trunc(patternHash * 0xf);
 }
 
 function buildFallbackFacadeHint(seedHint?: SceneFacadeHint): SceneFacadeHint {

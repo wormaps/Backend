@@ -40,6 +40,9 @@ import {
   buildMaterialTuningSignature,
   resolveGlbBuildTimeoutMsFromEnv,
   resolveSimplifyOptionsFromEnv,
+  resolveLodSimplifyProfile,
+  type LodSimplifyProfile,
+  type GlbSimplifyOptions,
 } from './glb-build-runner.config';
 import { finalizeGlbBuildArtifacts } from './glb-build-runner.output';
 import {
@@ -332,13 +335,24 @@ export async function executeGlbBuild(
     triangleCount: preOptimizeTriangles,
   });
 
+  const lodProfile = resolveLodSimplifyProfile();
+  const baseSimplifyConfig = resolveSimplifyOptionsFromEnv();
+  const adaptiveSimplifyOptions = selectLodSimplifyOptions(
+    lodProfile,
+    preOptimizeTriangles,
+    baseSimplifyConfig.options,
+  );
+
   await optimizeGlbDocument(
     doc,
     contract.sceneId,
     transformFunctionsModule,
     meshoptimizerModule?.MeshoptSimplifier,
     state.appLoggerService,
-    resolveSimplifyOptionsFromEnv(),
+    {
+      enabled: baseSimplifyConfig.enabled,
+      options: adaptiveSimplifyOptions,
+    },
     {
       quantizeOptions: {
         quantizeTexcoord: 12,
@@ -346,7 +360,7 @@ export async function executeGlbBuild(
         quantizeGeneric: 12,
         cleanup: false,
       },
-      instanceOptions: { min: 5 },
+      instanceOptions: { min: 3, mode: 1 },
     },
   );
 
@@ -366,7 +380,10 @@ export async function executeGlbBuild(
       transformFunctionsModule,
       meshoptimizerModule?.MeshoptSimplifier,
       state.appLoggerService,
-      resolveSimplifyOptionsFromEnv(),
+      {
+        enabled: true,
+        options: adaptiveSimplifyOptions,
+      },
       {
         quantizeOptions: {
           quantizeTexcoord: 12,
@@ -374,7 +391,7 @@ export async function executeGlbBuild(
           quantizeGeneric: 12,
           cleanup: false,
         },
-        instanceOptions: { min: 5 },
+        instanceOptions: { min: 3, mode: 1 },
       },
       {
         simplify: {
@@ -499,4 +516,23 @@ function countDocumentTriangles(doc: unknown): number {
     void 0;
   }
   return total;
+}
+
+function selectLodSimplifyOptions(
+  lodProfile: LodSimplifyProfile,
+  triangleCount: number,
+  envOptions: GlbSimplifyOptions,
+): GlbSimplifyOptions {
+  const lodProfileOptions =
+    triangleCount >= 100_000
+      ? lodProfile.low
+      : triangleCount >= 30_000
+        ? lodProfile.medium
+        : lodProfile.high;
+
+  return {
+    ratio: envOptions.ratio !== 0.75 ? envOptions.ratio : lodProfileOptions.ratio,
+    error: envOptions.error !== 0.001 ? envOptions.error : lodProfileOptions.error,
+    lockBorder: envOptions.lockBorder,
+  };
 }

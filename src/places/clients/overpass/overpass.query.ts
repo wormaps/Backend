@@ -22,6 +22,15 @@ export function buildQuery(bounds: GeoBounds, scope: OverpassScope): string {
             `node["highway"="street_lamp"]${bbox};`,
             `node["traffic_sign"]${bbox};`,
             `node["natural"="tree"]${bbox};`,
+            `node["natural"="shrub"]${bbox};`,
+            `node["natural"="grass"]${bbox};`,
+            `node["amenity"="bench"]${bbox};`,
+            `node["amenity"="waste_basket"]${bbox};`,
+            `node["amenity"="post_box"]${bbox};`,
+            `node["amenity"="public_phone"]${bbox};`,
+            `node["amenity"="vending_machine"]${bbox};`,
+            `node["advertising"]${bbox};`,
+            `node["barrier"="hedge"]${bbox};`,
           ]
         : [
             `way["landuse"]${bbox};`,

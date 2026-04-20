@@ -28,7 +28,7 @@ export function estimateBuildingHeight(
     return { heightMeters: explicitHeight, confidence: 'EXACT' };
   }
 
-  // 2순위: building:levels= × 3.5m (일본 건물 층고 기준)
+  // 2순위: building:levels= × 3.5m (일본 건축물 층고 기준)
   const levels = Number.parseInt(tags?.['building:levels'] ?? '', 10);
   if (Number.isInteger(levels) && levels > 0) {
     return {
@@ -37,7 +37,7 @@ export function estimateBuildingHeight(
     };
   }
 
-  // 3순위: 주변 건물 중앙값 높이 (같은 building:type 클러스터)
+  // 3순위: 주변 건축물 중앙값 높이 (같은 building:type 클러스터)
   if (contextMedian !== undefined && contextMedian > 0) {
     return { heightMeters: contextMedian, confidence: 'CONTEXT_MEDIAN' };
   }
@@ -46,14 +46,14 @@ export function estimateBuildingHeight(
   const buildingType = (tags?.building ?? '').toLowerCase();
   if (buildingType && TYPE_DEFAULT_HEIGHTS[buildingType] !== undefined) {
     return {
-      heightMeters: TYPE_DEFAULT_HEIGHTS[buildingType],
+      heightMeters: TYPE_DEFAULT_HEIGHTS[buildingType]!,
       confidence: 'TYPE_DEFAULT',
     };
   }
 
   // 최종 fallback: commercial 기본값
   return {
-    heightMeters: TYPE_DEFAULT_HEIGHTS.commercial,
+    heightMeters: TYPE_DEFAULT_HEIGHTS.commercial!,
     confidence: 'TYPE_DEFAULT',
   };
 }
@@ -88,7 +88,12 @@ export function computeContextMedian(
   heights.sort((a, b) => a - b);
   const mid = Math.floor(heights.length / 2);
   if (heights.length % 2 === 0) {
-    return (heights[mid - 1] + heights[mid]) / 2;
+    const left = heights[mid - 1];
+    const right = heights[mid];
+    if (left !== undefined && right !== undefined) {
+      return (left + right) / 2;
+    }
+    return left ?? right;
   }
   return heights[mid];
 }

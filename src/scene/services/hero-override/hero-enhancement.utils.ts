@@ -103,6 +103,7 @@ function resolveLongestEdgeIndex(ring: { lat: number; lng: number }[]): number {
   for (let index = 0; index < ring.length; index += 1) {
     const current = ring[index];
     const next = ring[(index + 1) % ring.length];
+    if (!current || !next) continue;
     const length = Math.hypot(next.lng - current.lng, next.lat - current.lat);
     if (length > longestLength) {
       longestLength = length;

@@ -64,7 +64,7 @@ export function selectSpatialSample<T>(
           return left.index - right.index;
         })[0],
     )
-    .filter(Boolean);
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
 
   for (const entry of chosen) {
     if (selected.size >= maxCount) {
@@ -118,11 +118,17 @@ export function selectPrioritizedSample<T>(
       groupIndex += 1
     ) {
       const group = orderedGroups[groupIndex];
+      if (!group) {
+        continue;
+      }
       const cursor = cursors[groupIndex];
       if (cursor >= group.length) {
         continue;
       }
       const item = group[cursor];
+      if (item === undefined) {
+        continue;
+      }
       cursors[groupIndex] = cursor + 1;
       progressed = true;
       if (reserved.has(item)) {

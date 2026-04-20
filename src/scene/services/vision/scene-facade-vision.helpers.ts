@@ -144,30 +144,38 @@ export function applyWeakEvidencePaletteDrift(input: {
   const districtSeed = resolveWeakEvidenceDistrictPalette(
     input.districtProfile,
   );
-  const variant =
-    districtSeed[stableVariant(input.buildingId, districtSeed.length)];
+  const variantIndex = stableVariant(input.buildingId, districtSeed.length);
+  const variant = districtSeed[variantIndex];
+  if (!variant) {
+    return {
+      palette: input.palette,
+      shellPalette: input.shellPalette,
+      panelPalette: input.panelPalette,
+      contextualUpgradeBoost: false,
+    };
+  }
   const shellBase = input.shellPalette[0] ?? input.palette[0] ?? variant[0];
   const shellSecondary =
     input.shellPalette[1] ?? input.palette[1] ?? variant[1];
-  const shellPrimaryDrift = mixHex(shellBase, variant[0], 0.24);
-  const shellSecondaryDrift = mixHex(shellSecondary, variant[1], 0.22);
+  const shellPrimaryDrift = mixHex(shellBase, variant[0]!, 0.24);
+  const shellSecondaryDrift = mixHex(shellSecondary, variant[1]!, 0.22);
   const saturationMix = clamp(
     0.18 + input.explicitSignalBoost.signageDensityBoost * 0.18,
     0.12,
     0.44,
   );
-  const vividVariant = mixHex(variant[0], '#ffd166', saturationMix);
+  const vividVariant = mixHex(variant[0]!, '#ffd166', saturationMix);
   const extraVariant = resolveAdditionalWeakEvidenceAccent(
     input.buildingId,
     input.districtProfile,
     variant,
   );
-  const shadowVariant = mixHex(variant[1], '#2f3846', 0.18);
+  const shadowVariant = mixHex(variant[1]!, '#2f3846', 0.18);
   const panelPalette = uniquePalette(
     [
       vividVariant,
-      mixHex(variant[1], '#6bc2ff', saturationMix * 0.8),
-      variant[2],
+      mixHex(variant[1]!, '#6bc2ff', saturationMix * 0.8),
+      variant[2]!,
       extraVariant,
       shadowVariant,
       ...input.panelPalette,
@@ -179,11 +187,11 @@ export function applyWeakEvidencePaletteDrift(input: {
       shellPrimaryDrift,
       shellSecondaryDrift,
       mixHex(
-        variant[2],
+        variant[2]!,
         '#f8f5ee',
         input.explicitSignalBoost.evidenceBoost * 0.2,
       ),
-      mixHex(variant[0], '#c9d5e7', 0.22),
+      mixHex(variant[0]!, '#c9d5e7', 0.22),
       ...input.palette,
     ],
     5,
@@ -192,8 +200,8 @@ export function applyWeakEvidencePaletteDrift(input: {
     [
       shellPrimaryDrift,
       shellSecondaryDrift,
-      mixHex(variant[2], '#f1efe9', 0.18),
-      mixHex(variant[1], '#8aa4bf', 0.2),
+      mixHex(variant[2]!, '#f1efe9', 0.18),
+      mixHex(variant[1]!, '#8aa4bf', 0.2),
       ...input.shellPalette,
     ],
     5,
@@ -306,8 +314,8 @@ function resolveAdditionalWeakEvidenceAccent(
   const picked =
     candidatePool[
       stableVariant(`${buildingId}:weak-extra`, candidatePool.length)
-    ] ?? candidatePool[0];
-  return mixHex(variant[0], picked, 0.32);
+    ] ?? candidatePool[0]!;
+  return mixHex(variant[0]!, picked, 0.32);
 }
 
 function resolveWeakEvidenceDistrictPalette(

@@ -53,39 +53,41 @@ export class SceneGlbBuildStep {
       );
       if (markerIndex >= 0) {
         const existingMarker = geometryDiagnostics[markerIndex];
-        const mergedMarker = {
-          ...existingMarker,
-          openShellCount:
-            closureDiagnostics.openShellCount ?? existingMarker.openShellCount,
-          roofWallGapCount:
-            closureDiagnostics.roofWallGapCount ??
-            existingMarker.roofWallGapCount,
-          invalidSetbackJoinCount:
-            closureDiagnostics.invalidSetbackJoinCount ??
-            existingMarker.invalidSetbackJoinCount,
-        };
-        geometryDiagnostics[markerIndex] = {
-          ...mergedMarker,
-        };
-        detail.geometryDiagnostics = geometryDiagnostics;
+        if (existingMarker) {
+          const mergedMarker = {
+            ...existingMarker,
+            openShellCount:
+              closureDiagnostics.openShellCount ?? existingMarker.openShellCount,
+            roofWallGapCount:
+              closureDiagnostics.roofWallGapCount ??
+              existingMarker.roofWallGapCount,
+            invalidSetbackJoinCount:
+              closureDiagnostics.invalidSetbackJoinCount ??
+              existingMarker.invalidSetbackJoinCount,
+          };
+          geometryDiagnostics[markerIndex] = {
+            ...mergedMarker,
+          };
+          detail.geometryDiagnostics = geometryDiagnostics;
 
-        await appendSceneDiagnosticsLog(
-          meta.sceneId,
-          'geometry_correction_merge',
-          {
-            markerBeforeMerge: {
-              openShellCount: existingMarker.openShellCount,
-              roofWallGapCount: existingMarker.roofWallGapCount,
-              invalidSetbackJoinCount: existingMarker.invalidSetbackJoinCount,
+          await appendSceneDiagnosticsLog(
+            meta.sceneId,
+            'geometry_correction_merge',
+            {
+              markerBeforeMerge: {
+                openShellCount: existingMarker.openShellCount,
+                roofWallGapCount: existingMarker.roofWallGapCount,
+                invalidSetbackJoinCount: existingMarker.invalidSetbackJoinCount,
+              },
+              markerFromGlbBuild: closureDiagnostics,
+              markerAfterMerge: {
+                openShellCount: mergedMarker.openShellCount,
+                roofWallGapCount: mergedMarker.roofWallGapCount,
+                invalidSetbackJoinCount: mergedMarker.invalidSetbackJoinCount,
+              },
             },
-            markerFromGlbBuild: closureDiagnostics,
-            markerAfterMerge: {
-              openShellCount: mergedMarker.openShellCount,
-              roofWallGapCount: mergedMarker.roofWallGapCount,
-              invalidSetbackJoinCount: mergedMarker.invalidSetbackJoinCount,
-            },
-          },
-        );
+          );
+        }
       }
     }
 

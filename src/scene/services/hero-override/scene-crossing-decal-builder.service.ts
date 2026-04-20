@@ -16,18 +16,22 @@ export class SceneCrossingDecalBuilderService {
   ): SceneDetail['crossings'] {
     return mergeByObjectId(
       detail.crossings,
-      manifest.crossings.map((crossing) => ({
-        objectId: crossing.id,
-        name: crossing.name,
-        type: 'CROSSING' as const,
-        crossing: crossing.style,
-        crossingRef: crossing.style,
-        signalized: crossing.style === 'signalized',
-        path: crossing.path,
-        center: midpoint(crossing.path) ?? crossing.path[0],
-        principal: crossing.importance === 'primary',
-        style: crossing.style,
-      })),
+      manifest.crossings
+        .filter((crossing) => crossing.path.length > 0)
+        .map((crossing) => ({
+          objectId: crossing.id,
+          name: crossing.name,
+          type: 'CROSSING' as const,
+          crossing: crossing.style,
+          crossingRef: crossing.style,
+          signalized: crossing.style === 'signalized',
+          path: crossing.path,
+          center: midpoint(crossing.path) ?? crossing.path[0]!,
+          principal: crossing.importance === 'primary',
+          style: crossing.style,
+          tactilePaving: false,
+          crossingMarkings: null,
+        })),
     );
   }
 
@@ -54,12 +58,14 @@ export class SceneCrossingDecalBuilderService {
   ): SceneDetail['intersectionProfiles'] {
     return mergeByObjectId(
       detail.intersectionProfiles ?? [],
-      manifest.crossings.map((crossing) => ({
-        objectId: `${crossing.id}-intersection`,
-        anchor: midpoint(crossing.path) ?? crossing.path[0],
-        profile: resolveCrossingProfile(crossing.importance, crossing.style),
-        crossingObjectIds: [crossing.id],
-      })),
+      manifest.crossings
+        .filter((crossing) => crossing.path.length > 0)
+        .map((crossing) => ({
+          objectId: `${crossing.id}-intersection`,
+          anchor: midpoint(crossing.path) ?? crossing.path[0]!,
+          profile: resolveCrossingProfile(crossing.importance, crossing.style),
+          crossingObjectIds: [crossing.id],
+        })),
     );
   }
 }

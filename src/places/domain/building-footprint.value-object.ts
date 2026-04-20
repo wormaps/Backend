@@ -31,7 +31,7 @@ export class BuildingFootprintVo {
   }
 
   centroid(): Coordinate {
-    const anchor = this.outerRing[0];
+    const anchor = this.outerRing[0]!;
     const localRing = this.toLocalRing(anchor);
 
     let crossSum = 0;
@@ -39,8 +39,8 @@ export class BuildingFootprintVo {
     let centroidY = 0;
 
     for (let i = 0; i < localRing.length; i += 1) {
-      const current = localRing[i];
-      const next = localRing[(i + 1) % localRing.length];
+      const current = localRing[i]!;
+      const next = localRing[(i + 1) % localRing.length]!;
       const cross = current.x * next.y - next.x * current.y;
       crossSum += cross;
       centroidX += (current.x + next.x) * cross;
@@ -91,6 +91,9 @@ export class BuildingFootprintVo {
       ...this.outerRing,
       ...other.outerRing,
     ]);
+    if (!reference) {
+      return 0;
+    }
     const left = this.toLocalRing(reference);
     const right = other.toLocalRing(reference);
     const bounds = resolveUnionBounds(left, right);
@@ -172,8 +175,8 @@ function sanitizeRing(ring: Coordinate[]): Coordinate[] {
   });
 
   if (deduped.length > 2) {
-    const first = deduped[0];
-    const last = deduped[deduped.length - 1];
+    const first = deduped[0]!;
+    const last = deduped[deduped.length - 1]!;
     if (coordinatesAlmostEqual(first, last)) {
       deduped.pop();
     }
@@ -239,8 +242,8 @@ function isPointInsidePolygon(point: LocalPoint, polygon: LocalPoint[]): boolean
     i < polygon.length;
     j = i, i += 1
   ) {
-    const current = polygon[i];
-    const previous = polygon[j];
+    const current = polygon[i]!;
+    const previous = polygon[j]!;
     if (isPointOnSegment(point, previous, current)) {
       return true;
     }
@@ -283,7 +286,10 @@ function isPointOnSegment(
   return dot <= squaredLength;
 }
 
-function averageCoordinate(points: Coordinate[]): Coordinate {
+function averageCoordinate(points: Coordinate[]): Coordinate | null {
+  if (points.length === 0) {
+    return null;
+  }
   const sums = points.reduce(
     (acc, point) => {
       acc.lat += point.lat;

@@ -180,18 +180,28 @@ export function mapCrossing(way: OverpassElement): CrossingData | null {
     return null;
   }
 
+  const tags = way.tags ?? {};
+
   return {
     id: `crossing-${way.id}`,
-    name: way.tags?.name ?? `crossing-${way.id}`,
+    name: tags.name ?? `crossing-${way.id}`,
     type: 'CROSSING',
-    crossing: way.tags?.crossing ?? way.tags?.['crossing:markings'] ?? null,
-    crossingRef: way.tags?.crossing_ref ?? null,
+    crossing: tags.crossing ?? tags['crossing:markings'] ?? null,
+    crossingRef: tags.crossing_ref ?? null,
     signalized:
-      way.tags?.crossing === 'traffic_signals' ||
-      way.tags?.crossing === 'controlled' ||
-      way.tags?.crossing_signals === 'yes',
+      tags.crossing === 'traffic_signals' ||
+      tags.crossing === 'controlled' ||
+      tags.crossing_signals === 'yes' ||
+      tags['crossing:signals'] === 'yes' ||
+      tags['crossing:signals'] === '1',
+    tactilePaving:
+      tags.tactile_paving === 'yes' ||
+      tags.tactile_paving === '1' ||
+      tags['crossing:tactile_paving'] === 'yes',
+    crossingMarkings: tags['crossing:markings'] ?? null,
     path,
     center,
+    osmTags: Object.keys(tags).length > 0 ? { ...tags } : undefined,
   };
 }
 
@@ -206,14 +216,8 @@ export function mapStreetFurniture(
     return null;
   }
 
-  const type =
-    node.tags?.highway === 'traffic_signals'
-      ? 'TRAFFIC_LIGHT'
-      : node.tags?.highway === 'street_lamp'
-        ? 'STREET_LIGHT'
-        : node.tags?.traffic_sign
-          ? 'SIGN_POLE'
-          : null;
+  const tags = node.tags ?? {};
+  const type = resolveStreetFurnitureType(tags);
 
   if (!type) {
     return null;
@@ -221,10 +225,29 @@ export function mapStreetFurniture(
 
   return {
     id: `street-furniture-${node.id}`,
-    name: node.tags?.name ?? `${type.toLowerCase()}-${node.id}`,
+    name: tags.name ?? `${type.toLowerCase()}-${node.id}`,
     type,
     location,
+    osmTags: Object.keys(tags).length > 0 ? { ...tags } : undefined,
   };
+}
+
+function resolveStreetFurnitureType(
+  tags: Record<string, string>,
+): StreetFurnitureData['type'] | null {
+  if (tags.highway === 'traffic_signals') return 'TRAFFIC_LIGHT';
+  if (tags.highway === 'street_lamp') return 'STREET_LIGHT';
+  if (tags.traffic_sign) return 'SIGN_POLE';
+  if (tags.highway === 'bollard') return 'BOLLARD';
+  if (tags.amenity === 'bench') return 'BENCH';
+  if (tags.amenity === 'waste_basket' || tags.amenity === 'waste_disposal') {
+    return 'TRASH_CAN';
+  }
+  if (tags.amenity === 'post_box') return 'POST_BOX';
+  if (tags.amenity === 'public_phone') return 'PUBLIC_PHONE';
+  if (tags.amenity === 'vending_machine') return 'VENDING_MACHINE';
+  if (tags.advertising) return 'ADVERTISING';
+  return null;
 }
 
 export function mapVegetation(node: OverpassElement): VegetationData | null {
@@ -236,13 +259,54 @@ export function mapVegetation(node: OverpassElement): VegetationData | null {
     return null;
   }
 
+  const tags = node.tags ?? {};
+  const type = resolveVegetationType(tags);
+  const radiusMeters = resolveVegetationRadius(tags, type);
+
   return {
     id: `vegetation-${node.id}`,
-    name: node.tags?.name ?? `tree-${node.id}`,
-    type: 'TREE',
+    name: tags.name ?? `${type.toLowerCase()}-${node.id}`,
+    type,
     location,
-    radiusMeters: 2.4,
+    radiusMeters,
+    osmTags: Object.keys(tags).length > 0 ? { ...tags } : undefined,
   };
+}
+
+function resolveVegetationType(
+  tags: Record<string, string>,
+): VegetationData['type'] {
+  if (tags.natural === 'shrub') return 'SHRUB';
+  if (tags.natural === 'grass') return 'GRASS';
+  if (tags.barrier === 'hedge') return 'HEDGE';
+  if (tags.natural === 'wood') return 'TREE';
+  return 'TREE';
+}
+
+function resolveVegetationRadius(
+  tags: Record<string, string>,
+  type: VegetationData['type'],
+): number {
+  const diameter = tags.diameter ? Number.parseFloat(tags.diameter) : null;
+  if (diameter && Number.isFinite(diameter) && diameter > 0) {
+    return diameter / 2;
+  }
+  const circumference = tags.circumference
+    ? Number.parseFloat(tags.circumference)
+    : null;
+  if (circumference && Number.isFinite(circumference) && circumference > 0) {
+    return circumference / (2 * Math.PI);
+  }
+  switch (type) {
+    case 'SHRUB':
+      return 1.2;
+    case 'GRASS':
+      return 0.8;
+    case 'HEDGE':
+      return 0.6;
+    default:
+      return 2.4;
+  }
 }
 
 export function mapLandCover(way: OverpassElement): LandCoverData | null {
@@ -252,20 +316,64 @@ export function mapLandCover(way: OverpassElement): LandCoverData | null {
   }
 
   const tags = way.tags ?? {};
-  const type =
-    tags.landuse === 'grass' ||
-    tags.landuse === 'recreation_ground' ||
-    tags.leisure === 'park'
-      ? 'PARK'
-      : tags.natural === 'water' || tags.landuse === 'reservoir'
-        ? 'WATER'
-        : 'PLAZA';
+  const type = resolveLandCoverType(tags);
 
   return {
     id: `land-cover-${way.id}`,
     type,
     polygon,
+    osmTags: Object.keys(tags).length > 0 ? { ...tags } : undefined,
   };
+}
+
+function resolveLandCoverType(
+  tags: Record<string, string>,
+): LandCoverData['type'] {
+  const landuse = tags.landuse ?? '';
+  const natural = tags.natural ?? '';
+  const leisure = tags.leisure ?? '';
+
+  if (
+    landuse === 'grass' ||
+    landuse === 'recreation_ground' ||
+    leisure === 'park' ||
+    leisure === 'garden'
+  ) {
+    return 'PARK';
+  }
+  if (
+    landuse === 'forest' ||
+    natural === 'wood' ||
+    natural === 'forest'
+  ) {
+    return 'FOREST';
+  }
+  if (
+    landuse === 'farmland' ||
+    landuse === 'farmyard' ||
+    landuse === 'orchard' ||
+    landuse === 'vineyard'
+  ) {
+    return 'FARMLAND';
+  }
+  if (
+    landuse === 'meadow' ||
+    landuse === 'village_green' ||
+    leisure === 'golf_course'
+  ) {
+    return 'GRASS';
+  }
+  if (
+    natural === 'wetland' ||
+    landuse === 'saltmarsh' ||
+    natural === 'mud'
+  ) {
+    return 'WETLAND';
+  }
+  if (natural === 'water' || landuse === 'reservoir') {
+    return 'WATER';
+  }
+  return 'PLAZA';
 }
 
 export function mapLinearFeature(
@@ -292,8 +400,8 @@ export function mapLinearFeature(
 function sanitizeRing(points: Coordinate[]): Coordinate[] | null {
   const sanitized = dedupeCoordinates(points).filter(isFiniteCoordinate);
   if (sanitized.length > 1) {
-    const first = sanitized[0];
-    const last = sanitized[sanitized.length - 1];
+    const first = sanitized[0]!;
+    const last = sanitized[sanitized.length - 1]!;
     if (coordinatesEqual(first, last)) {
       sanitized.pop();
     }
@@ -327,10 +435,14 @@ function tryMapBuildingRelation(
     return null;
   }
 
-  const primaryOuter = [...outerRings].sort(
+  const sortedRings = [...outerRings].sort(
     (left, right) =>
       Math.abs(polygonSignedArea(right)) - Math.abs(polygonSignedArea(left)),
-  )[0];
+  );
+  const primaryOuter = sortedRings[0];
+  if (!primaryOuter) {
+    return null;
+  }
   const holes = buildRingsFromMembers(
     (relation.members ?? []).filter((member) => member.role === 'inner'),
   ).filter((ring) => {
@@ -401,21 +513,39 @@ function buildRingsFromMembers(
   const rings: Coordinate[][] = [];
 
   while (remaining.length > 0) {
-    let ring = [...remaining.shift()!];
+    const firstSegment = remaining.shift();
+    if (!firstSegment) {
+      break;
+    }
+    let ring = [...firstSegment];
     let progressed = true;
 
     while (progressed) {
       progressed = false;
-      if (coordinatesEqual(ring[0], ring[ring.length - 1])) {
+      const ringFirst = ring[0];
+      const ringLast = ring[ring.length - 1];
+      if (!ringFirst || !ringLast) {
+        break;
+      }
+      if (coordinatesEqual(ringFirst, ringLast)) {
         break;
       }
 
       for (let index = 0; index < remaining.length; index += 1) {
         const segment = remaining[index];
+        if (!segment) {
+          continue;
+        }
         const start = segment[0];
         const end = segment[segment.length - 1];
+        if (!start || !end) {
+          continue;
+        }
         const ringStart = ring[0];
         const ringEnd = ring[ring.length - 1];
+        if (!ringStart || !ringEnd) {
+          continue;
+        }
 
         if (coordinatesEqual(ringEnd, start)) {
           ring = [...ring, ...segment.slice(1)];
@@ -453,6 +583,9 @@ function isPointInsideRing(point: Coordinate, ring: Coordinate[]): boolean {
   ) {
     const current = ring[index];
     const previous = ring[prev];
+    if (!current || !previous) {
+      continue;
+    }
     const intersects =
       current.lat > point.lat !== previous.lat > point.lat &&
       point.lng <

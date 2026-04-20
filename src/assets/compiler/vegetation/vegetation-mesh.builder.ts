@@ -59,7 +59,7 @@ function resolveTreeParams(
   const silhouette = silhouettes[variant % silhouettes.length];
 
   const sizes: TreeSize[] = ['small', 'medium', 'large'];
-  const size = sizes[variant % sizes.length];
+  const size = sizes[variant % sizes.length]!;
 
   const sizeMultipliers: Record<
     TreeSize,
@@ -70,14 +70,14 @@ function resolveTreeParams(
     large: { trunk: 1.3, crown: 1.4, height: 1.5 },
   };
 
-  const multiplier = sizeMultipliers[size];
+  const multiplier = sizeMultipliers[size]!;
 
   const baseTrunkHeight = 1.4 + (variant % 3) * 0.3;
   const baseCrownRadius = baseRadius * (1.2 + (variant % 4) * 0.15);
   const baseCrownHeight = 1.8 + (variant % 3) * 0.4;
 
   return {
-    silhouette,
+    silhouette: silhouette!,
     size,
     trunkHeight:
       baseTrunkHeight * multiplier.trunk * (0.96 + (detailScale - 1) * 0.4),
@@ -363,6 +363,109 @@ export function createFlowerBedGeometry(
       centerFlowerRadius,
       variationProfile.vegetationDetailBoost >= 1.12 ? 6 : 5,
       variationProfile.vegetationDetailBoost >= 1.12 ? 4 : 3,
+    );
+  }
+
+  return geometry;
+}
+
+export function createShrubGeometry(
+  origin: Coordinate,
+  items: SceneVegetationDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'SHRUB') {
+      continue;
+    }
+
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+
+    const variant = stableVariant(item.objectId, 6);
+    const baseRadius = Math.max(0.3, item.radiusMeters * 0.4);
+    const shrubHeight = 0.5 + (variant % 3) * 0.25;
+    const segments = variationProfile.vegetationDetailBoost >= 1.1 ? 8 : 6;
+
+    pushSphere(
+      geometry,
+      center[0],
+      shrubHeight * 0.5,
+      center[2],
+      baseRadius,
+      segments,
+      variationProfile.vegetationDetailBoost >= 1.1 ? 6 : 4,
+    );
+  }
+
+  return geometry;
+}
+
+export function createGrassPatchGeometry(
+  origin: Coordinate,
+  items: SceneVegetationDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'GRASS') {
+      continue;
+    }
+
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+
+    const variant = stableVariant(item.objectId, 4);
+    const patchRadius = Math.max(0.2, item.radiusMeters * 0.3);
+    const patchHeight = 0.08 + (variant % 3) * 0.04;
+
+    pushCylinder(
+      geometry,
+      center[0],
+      patchHeight / 2,
+      center[2],
+      patchRadius,
+      patchHeight,
+      6,
+    );
+  }
+
+  return geometry;
+}
+
+export function createHedgeGeometry(
+  origin: Coordinate,
+  items: SceneVegetationDetail[],
+  variationProfile: SceneVariationProfile = DEFAULT_SCENE_VARIATION_PROFILE,
+): GeometryBuffers {
+  const geometry = createEmptyGeometry();
+
+  for (const item of items) {
+    if (item.type !== 'HEDGE') {
+      continue;
+    }
+
+    const center = toLocalPoint(origin, item.location);
+    if (!isFiniteVec3(center)) {
+      continue;
+    }
+
+    const variant = stableVariant(item.objectId, 4);
+    const hedgeWidth = 0.4 + (variant % 2) * 0.2;
+    const hedgeHeight = 0.6 + (variant % 3) * 0.2;
+    const hedgeDepth = 0.3;
+
+    pushBox(
+      geometry,
+      [center[0] - hedgeWidth / 2, 0, center[2] - hedgeDepth / 2],
+      [center[0] + hedgeWidth / 2, hedgeHeight, center[2] + hedgeDepth / 2],
     );
   }
 

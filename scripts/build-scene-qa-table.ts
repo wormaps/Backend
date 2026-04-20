@@ -535,7 +535,7 @@ function selectLatestSceneBase(files: string[], slug: string): string | null {
   if (candidates.length === 0) {
     return null;
   }
-  return candidates[candidates.length - 1].replace(/\.json$/, '');
+  return candidates[candidates.length - 1]!.replace(/\.json$/, '');
 }
 
 async function readJson(path: string, optional = false): Promise<any | null> {

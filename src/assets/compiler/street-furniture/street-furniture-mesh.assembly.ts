@@ -25,45 +25,53 @@ export function pushBenchAssembly(
   const seatHalfLength = benchLength / 2;
   const seatHalfWidth = benchWidth / 2;
 
-  const corners = [
+  const corners: Vec3[] = [
     [-seatHalfLength, -seatHalfWidth],
     [seatHalfLength, -seatHalfWidth],
     [seatHalfLength, seatHalfWidth],
     [-seatHalfLength, seatHalfWidth],
   ].map(([x, z]) => [
-    center[0] + x * cos - z * sin,
+    center[0] + (x ?? 0) * cos - (z ?? 0) * sin,
     center[1] + seatHeight,
-    center[2] + x * sin + z * cos,
-  ]);
+    center[2] + (x ?? 0) * sin + (z ?? 0) * cos,
+  ] as Vec3);
 
-  pushBox(geometry, corners[0] as Vec3, corners[2] as Vec3);
+  const c0 = corners[0];
+  const c2 = corners[2];
+  if (c0 && c2) {
+    pushBox(geometry, c0, c2);
+  }
 
   const backrestThickness = 0.06;
   const backrestY = seatHeight + (backrestHeight - seatHeight) / 2;
-  const backrestCorners = [
+  const backrestCorners: Vec3[] = [
     [-seatHalfLength, -seatHalfWidth - backrestThickness],
     [seatHalfLength, -seatHalfWidth - backrestThickness],
     [seatHalfLength, -seatHalfWidth],
     [-seatHalfLength, -seatHalfWidth],
   ].map(([x, z]) => [
-    center[0] + x * cos - z * sin,
+    center[0] + (x ?? 0) * cos - (z ?? 0) * sin,
     center[1] + backrestY,
-    center[2] + x * sin + z * cos,
-  ]);
-  const backrestTop = [
+    center[2] + (x ?? 0) * sin + (z ?? 0) * cos,
+  ] as Vec3);
+  const backrestTop: Vec3[] = [
     [-seatHalfLength, -seatHalfWidth - backrestThickness],
     [seatHalfLength, -seatHalfWidth - backrestThickness],
     [seatHalfLength, -seatHalfWidth],
     [-seatHalfLength, -seatHalfWidth],
   ].map(([x, z]) => [
-    center[0] + x * cos - z * sin,
+    center[0] + (x ?? 0) * cos - (z ?? 0) * sin,
     center[1] + backrestHeight,
-    center[2] + x * sin + z * cos,
-  ]);
+    center[2] + (x ?? 0) * sin + (z ?? 0) * cos,
+  ] as Vec3);
 
-  pushBox(geometry, backrestCorners[0] as Vec3, backrestTop[2] as Vec3);
+  const bc0 = backrestCorners[0];
+  const bt2 = backrestTop[2];
+  if (bc0 && bt2) {
+    pushBox(geometry, bc0, bt2);
+  }
 
-  const legPositions = [
+  const legPositions: Array<[number, number]> = [
     [-seatHalfLength + 0.08, -seatHalfWidth + 0.08],
     [-seatHalfLength + 0.08, seatHalfWidth - 0.08],
     [seatHalfLength - 0.08, -seatHalfWidth + 0.08],
@@ -82,7 +90,7 @@ export function pushBenchAssembly(
 
   if (variant >= 1) {
     const armrestHeight = seatHeight + 0.25;
-    const armrestPositions = [
+    const armrestPositions: Array<[number, number]> = [
       [-seatHalfLength + 0.15, 0],
       [seatHalfLength - 0.15, 0],
     ];
@@ -678,4 +686,90 @@ export function pushEnhancedSignPoleAssembly(
       ],
     );
   }
+}
+
+export function pushPostBoxAssembly(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  _variant: number,
+  _variationProfile: SceneVariationProfile,
+): void {
+  const baseY = 0.9;
+  const boxWidth = 0.35;
+  const boxDepth = 0.25;
+  const boxHeight = 0.45;
+
+  pushCylinder(
+    geometry,
+    [center[0], baseY / 2, center[2]],
+    0.04,
+    baseY,
+    6,
+  );
+
+  pushBox(
+    geometry,
+    [center[0] - boxWidth / 2, baseY, center[2] - boxDepth / 2],
+    [center[0] + boxWidth / 2, baseY + boxHeight, center[2] + boxDepth / 2],
+  );
+}
+
+export function pushPublicPhoneAssembly(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  _variant: number,
+  _variationProfile: SceneVariationProfile,
+): void {
+  const kioskWidth = 0.8;
+  const kioskDepth = 0.5;
+  const kioskHeight = 2.2;
+
+  pushBox(
+    geometry,
+    [center[0] - kioskWidth / 2, 0, center[2] - kioskDepth / 2],
+    [center[0] + kioskWidth / 2, kioskHeight, center[2] + kioskDepth / 2],
+  );
+}
+
+export function pushAdvertisingAssembly(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  variant: number,
+  _variationProfile: SceneVariationProfile,
+): void {
+  const poleHeight = 2.5 + (variant % 3) * 0.3;
+  const panelWidth = 1.2 + (variant % 2) * 0.4;
+  const panelHeight = 0.8 + (variant % 2) * 0.2;
+  const panelDepth = 0.04;
+
+  pushCylinder(
+    geometry,
+    [center[0], poleHeight / 2, center[2]],
+    0.05,
+    poleHeight,
+    6,
+  );
+
+  pushBox(
+    geometry,
+    [center[0] - panelWidth / 2, poleHeight, center[2] - panelDepth / 2],
+    [center[0] + panelWidth / 2, poleHeight + panelHeight, center[2] + panelDepth / 2],
+  );
+}
+
+export function pushVendingMachineAssembly(
+  geometry: GeometryBuffers,
+  center: Vec3,
+  _variant: number,
+  _variationProfile: SceneVariationProfile,
+): void {
+  const machineWidth = 0.6;
+  const machineDepth = 0.4;
+  const machineHeight = 1.6;
+
+  pushBox(
+    geometry,
+    [center[0] - machineWidth / 2, 0, center[2] - machineDepth / 2],
+    [center[0] + machineWidth / 2, machineHeight, center[2] + machineDepth / 2],
+  );
 }

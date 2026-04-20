@@ -42,22 +42,30 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
 
   for (const face of faces) {
     for (const vertexIndex of face.indices) {
-      vertexNormals[vertexIndex][0] += face.normal[0];
-      vertexNormals[vertexIndex][1] += face.normal[1];
-      vertexNormals[vertexIndex][2] += face.normal[2];
-      vertexNormalCounts[vertexIndex] += 1;
+      const vn = vertexNormals[vertexIndex];
+      if (vn) {
+        vn[0] += face.normal[0];
+        vn[1] += face.normal[1];
+        vn[2] += face.normal[2];
+      }
+      vertexNormalCounts[vertexIndex] = (vertexNormalCounts[vertexIndex] ?? 0) + 1;
     }
   }
 
   for (let i = 0; i < 8; i += 1) {
-    const count = vertexNormalCounts[i];
+    const count = vertexNormalCounts[i] ?? 0;
     let normal: Vec3;
     if (count > 0) {
-      const nx = vertexNormals[i][0] / count;
-      const ny = vertexNormals[i][1] / count;
-      const nz = vertexNormals[i][2] / count;
-      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-      normal = len > 0 ? [nx / len, ny / len, nz / len] : [0, 1, 0];
+      const vn = vertexNormals[i];
+      if (vn) {
+        const nx = vn[0] / count;
+        const ny = vn[1] / count;
+        const nz = vn[2] / count;
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        normal = len > 0 ? [nx / len, ny / len, nz / len] : [0, 1, 0];
+      } else {
+        normal = [0, 1, 0];
+      }
     } else {
       normal = [0, 1, 0];
     }

@@ -99,9 +99,9 @@ function fallbackColorFromImageMeta(image: MapillaryImage): string {
   ].join('|');
   const hash = createHash('sha256').update(seed).digest();
   return rgbToHex(
-    64 + (hash[0] % 128),
-    64 + (hash[1] % 128),
-    64 + (hash[2] % 128),
+    64 + (hash[0]! % 128),
+    64 + (hash[1]! % 128),
+    64 + (hash[2]! % 128),
   );
 }
 

@@ -43,7 +43,7 @@ export class SceneHeroPromotionService {
       )
       .map((building) => {
         const center =
-          averageCoordinate(building.outerRing) ?? building.outerRing[0];
+          averageCoordinate(building.outerRing) ?? building.outerRing[0]!;
         const hint = hintByObjectId.get(building.objectId);
         if (!hint) {
           return {

@@ -1,31 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import { averageCoordinate } from '../../../common/geo/coordinate-utils.utils';
 import { Coordinate } from '../../../places/types/place.types';
 import { midpoint } from '../../../places/utils/geo.utils';
 import {
-  SceneBuildingMeta,
-  SceneCrossingDetail,
   SceneDetail,
   SceneEvidenceProfile,
   SceneMeta,
   SceneScale,
 } from '../../types/scene.types';
-import {
-  distanceMeters,
-  selectItemsNearPoints,
-  selectItemsWithinRadius,
-  selectPrioritizedSample,
-  selectSpatialSample,
-} from './scene-asset-selection.utils';
-import { SceneAssetSelection } from './scene-asset-profile.types';
 import { resolveAssetBudget, resolveAdaptiveAssetBudget } from './asset-budget.utils';
-import { buildEvidenceProfile } from './asset-evidence-profile.utils';
-import { AssetMaterialClassService } from './asset-material-class.service';
+import { ContextProfileService } from './context-profile.service';
+import { SceneAssetSelection } from './scene-asset-profile.types';
+import { selectSpatialSample } from './scene-asset-selection.utils';
+import { VisualArchetypeSelectionService } from './visual-archetype-selection.service';
+
+const SCALE_RADII: Record<SceneScale, { core: number; crossing: number; road: number; walkway: number }> = {
+  SMALL: { core: 150, crossing: 160, road: 180, walkway: 170 },
+  MEDIUM: { core: 230, crossing: 320, road: 360, walkway: 320 },
+  LARGE: { core: 230, crossing: 320, road: 360, walkway: 320 },
+};
 
 @Injectable()
 export class SceneAssetProfileService {
   constructor(
-    private readonly materialClassService: AssetMaterialClassService,
+    private readonly visualArchetype: VisualArchetypeSelectionService,
+    private readonly contextProfile: ContextProfileService,
   ) {}
 
   buildSceneAssetSelection(
@@ -38,321 +36,148 @@ export class SceneAssetProfileService {
       sceneDetail.fidelityPlan?.targetMode,
       sceneMeta,
     );
+    const radii = SCALE_RADII[scale];
     const landmarkLocations = sceneMeta.landmarkAnchors.map(
       (anchor) => anchor.location,
     );
-    const coreRadiusMeters = scale === 'MEDIUM' ? 230 : 150;
-    const crossingCoreRadiusMeters = scale === 'MEDIUM' ? 320 : 160;
-    const roadCoreRadiusMeters = scale === 'MEDIUM' ? 360 : 180;
-    const walkwayCoreRadiusMeters = scale === 'MEDIUM' ? 320 : 170;
 
-    const allBuildingsWithDistance = sceneMeta.buildings.map((building) => {
-      const center = averageCoordinate(building.outerRing) ?? sceneMeta.origin;
-      return {
-        ...building,
-        _distanceM: distanceMeters(center, sceneMeta.origin),
-      };
-    });
-
-    const buildings = selectPrioritizedSample(
-      allBuildingsWithDistance,
-      budget.buildingCount,
-      [
-        selectItemsWithinRadius(
-          allBuildingsWithDistance,
-          sceneMeta.origin,
-          (building) =>
-            averageCoordinate(building.outerRing) ?? sceneMeta.origin,
-          coreRadiusMeters,
-        ),
-        allBuildingsWithDistance.filter(
-          (building) =>
-            building.heightMeters >= 28 ||
-            building.usage === 'COMMERCIAL' ||
-            building.usage === 'TRANSIT',
-        ),
-        allBuildingsWithDistance.filter(
-          (building) =>
-            building.visualRole && building.visualRole !== 'generic',
-        ),
-      ],
-      (building) => averageCoordinate(building.outerRing) ?? sceneMeta.origin,
+    const buildings = this.visualArchetype.selectBuildings(
       sceneMeta,
-    ).map((building) => {
-      const center = averageCoordinate(building.outerRing) ?? sceneMeta.origin;
-      const dist = distanceMeters(center, sceneMeta.origin);
-      const lodLevel: SceneBuildingMeta['lodLevel'] =
-        dist <= 200 ? 'HIGH' : dist <= 400 ? 'MEDIUM' : 'LOW';
-      return {
-        ...building,
-        lodLevel,
-      };
-    });
-    const crossings = this.selectCrossings(
+      budget.buildingCount,
+      radii.core,
+    );
+
+    const crossings = this.visualArchetype.selectCrossings(
       sceneDetail.crossings,
       budget.crossingCount,
       sceneMeta,
       landmarkLocations,
-      crossingCoreRadiusMeters,
+      radii.crossing,
       sceneDetail,
     );
-    const priorityRoadAnchors = uniqueCoordinates([
+
+    const priorityRoadAnchors = this.uniqueCoordinates([
       sceneMeta.origin,
       ...landmarkLocations,
       ...crossings
-        .filter((crossing) => crossing.principal)
-        .map((crossing) => crossing.center),
+        .filter((c) => c.principal)
+        .map((c) => c.center),
     ]);
-    const roads = this.selectPathCollection(
+
+    const roads = this.visualArchetype.selectPathCollection(
       sceneMeta.roads,
       budget.roadCount,
-      (road) => road.path,
-      (road) => road.center,
+      (r) => r.path,
+      (r) => r.center,
       sceneMeta,
       [
-        selectItemsWithinRadius(
-          sceneMeta.roads,
-          sceneMeta.origin,
-          (road) => road.center,
-          roadCoreRadiusMeters,
-        ),
         sceneMeta.roads.filter(
-          (road) =>
-            road.roadClass.includes('primary') ||
-            road.roadClass.includes('trunk') ||
-            road.widthMeters >= 12,
+          (r) =>
+            r.roadClass.includes('primary') ||
+            r.roadClass.includes('trunk') ||
+            r.widthMeters >= 12,
         ),
       ],
       priorityRoadAnchors,
-      240,
+      radii.road,
     );
-    const walkways = this.selectPathCollection(
+
+    const walkways = this.visualArchetype.selectPathCollection(
       sceneMeta.walkways,
       budget.walkwayCount,
-      (walkway) => walkway.path,
-      (walkway) => midpoint(walkway.path) ?? sceneMeta.origin,
+      (w) => w.path,
+      (w) => midpoint(w.path) ?? sceneMeta.origin,
       sceneMeta,
       [
-        selectItemsWithinRadius(
-          sceneMeta.walkways,
-          sceneMeta.origin,
-          (walkway) => midpoint(walkway.path) ?? sceneMeta.origin,
-          walkwayCoreRadiusMeters,
+        sceneMeta.walkways.filter(
+          (w) =>
+            this.distanceToOrigin(midpoint(w.path) ?? sceneMeta.origin, sceneMeta.origin) <= radii.walkway,
         ),
-        selectItemsNearPoints(
-          sceneMeta.walkways,
-          crossings.map((crossing) => crossing.center),
-          (walkway) => walkway.path,
-          120,
+        sceneMeta.walkways.filter((w) =>
+          crossings.some((c) =>
+            w.path.some((p) => this.distanceToOrigin(p, c.center) <= 120),
+          ),
         ),
       ],
       priorityRoadAnchors,
       220,
     );
-    const landmarkPois = sceneMeta.pois.filter((poi) => poi.isLandmark);
-    const remainingPois = sceneMeta.pois.filter((poi) => !poi.isLandmark);
-    const poiBudget = Math.max(0, budget.poiCount - landmarkPois.length);
-    const sampledPois = selectSpatialSample(
-      remainingPois,
-      poiBudget,
-      (poi) => poi.location,
-      sceneMeta,
-    );
-    const pois = [...landmarkPois, ...sampledPois];
-    const allTrafficLights = sceneDetail.streetFurniture.filter(
-      (item) => item.type === 'TRAFFIC_LIGHT',
-    );
-    const allStreetLights = sceneDetail.streetFurniture.filter(
-      (item) => item.type === 'STREET_LIGHT',
-    );
-    const trafficLights = this.selectWithSourceFloor(
-      allTrafficLights,
+
+    const pois = this.visualArchetype.selectPois(sceneMeta, budget.poiCount);
+
+    const trafficLights = this.visualArchetype.selectWithSourceFloor(
+      sceneDetail.streetFurniture.filter((i) => i.type === 'TRAFFIC_LIGHT'),
       budget.trafficLightCount,
-      (item) => item.location,
+      (i) => i.location,
       sceneMeta,
     );
-    const streetLights = this.selectWithSourceFloor(
-      allStreetLights,
+
+    const streetLights = this.visualArchetype.selectWithSourceFloor(
+      sceneDetail.streetFurniture.filter((i) => i.type === 'STREET_LIGHT'),
       budget.streetLightCount,
-      (item) => item.location,
+      (i) => i.location,
       sceneMeta,
     );
+
     const signPoles = selectSpatialSample(
-      sceneDetail.streetFurniture.filter((item) => item.type === 'SIGN_POLE'),
+      sceneDetail.streetFurniture.filter((i) => i.type === 'SIGN_POLE'),
       budget.signPoleCount,
-      (item) => item.location,
+      (i) => i.location,
       sceneMeta,
     );
+
     const vegetation = selectSpatialSample(
       sceneDetail.vegetation,
       budget.treeClusterCount,
-      (item) => item.location,
+      (i) => i.location,
       sceneMeta,
     );
+
     const billboardPanels = selectSpatialSample(
       sceneDetail.signageClusters,
       budget.billboardPanelCount,
-      (item) => item.anchor,
+      (i) => i.anchor,
       sceneMeta,
-    );
-    const structuralCoverage = this.materialClassService.buildStructuralCoverage(
-      sceneMeta,
-      buildings,
-      coreRadiusMeters,
     );
 
-    return {
-      buildings,
-      roads,
-      walkways,
-      pois,
-      crossings,
-      trafficLights,
-      streetLights,
-      signPoles,
-      vegetation,
-      billboardPanels,
-      budget,
-      selected: {
-        buildingCount: buildings.length,
-        roadCount: roads.length,
-        walkwayCount: walkways.length,
-        poiCount: pois.length,
-        crossingCount: crossings.length,
-        trafficLightCount: trafficLights.length,
-        streetLightCount: streetLights.length,
-        signPoleCount: signPoles.length,
-        treeClusterCount: vegetation.length,
-        billboardPanelCount: billboardPanels.length,
-      },
-      structuralCoverage,
-    };
+    const contextProfile = this.contextProfile.buildContextProfile(
+      sceneMeta,
+      { buildings, budget },
+      sceneDetail,
+    );
+
+    return this.contextProfile.composeSelection(buildings, roads, walkways, pois, crossings, trafficLights, streetLights, signPoles, vegetation, billboardPanels, budget, contextProfile.structuralCoverage);
   }
 
   buildSceneMetaWithAssetSelection(
     sceneMeta: SceneMeta,
-    selection: Pick<
-      SceneAssetSelection,
-      'budget' | 'selected' | 'structuralCoverage'
-    >,
+    selection: Pick<SceneAssetSelection, 'budget' | 'selected' | 'structuralCoverage'>,
     sceneDetail?: SceneDetail,
   ): SceneMeta {
-    const evidenceProfile = sceneDetail
-      ? buildEvidenceProfile(sceneDetail)
-      : undefined;
-    return {
-      ...sceneMeta,
-      assetProfile: {
-        ...sceneMeta.assetProfile,
-        budget: selection.budget,
-        selected: selection.selected,
-        ...(evidenceProfile ? { evidenceProfile } : {}),
-      },
-      structuralCoverage: selection.structuralCoverage,
-    };
+    return this.contextProfile.buildSceneMetaWithAssetSelection(
+      sceneMeta,
+      selection,
+      sceneDetail,
+    );
   }
 
   buildEvidenceProfile(sceneDetail: SceneDetail): SceneEvidenceProfile {
-    return buildEvidenceProfile(sceneDetail);
+    return this.contextProfile.buildEvidenceProfile(sceneDetail);
   }
 
-  private selectCrossings(
-    items: SceneCrossingDetail[],
-    maxCount: number,
-    sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
-    landmarkLocations: Coordinate[],
-    coreRadiusMeters: number,
-    sceneDetail: SceneDetail,
-  ): SceneCrossingDetail[] {
-    if (items.length <= maxCount) {
-      return items;
-    }
-
-    const principal = items.filter((crossing) => crossing.principal);
-    const decalIntersectionIds = new Set(
-      (sceneDetail.roadDecals ?? [])
-        .filter((decal) => decal.type === 'CROSSWALK_OVERLAY')
-        .map((decal) => decal.intersectionId)
-        .filter((value): value is string => Boolean(value)),
-    );
-    const decalAnchored = items.filter((crossing) =>
-      decalIntersectionIds.has(`${crossing.objectId}-intersection`),
-    );
-    const signalized = items.filter((crossing) => crossing.signalized);
-    const zebra = items.filter((crossing) => crossing.style === 'zebra');
-    const anchorNear = selectItemsNearPoints(
-      items,
-      landmarkLocations,
-      (crossing) => crossing.path,
-      120,
-    );
-    return selectPrioritizedSample(
-      items,
-      maxCount,
-      [
-        principal,
-        decalAnchored,
-        signalized,
-        zebra,
-        anchorNear,
-        selectItemsWithinRadius(
-          items,
-          sceneMeta.origin,
-          (crossing) => crossing.center,
-          coreRadiusMeters,
-        ),
-      ],
-      (crossing) => crossing.center,
-      sceneMeta,
-    );
+  private uniqueCoordinates(points: Coordinate[]): Coordinate[] {
+    const seen = new Set<string>();
+    return points.filter((p) => {
+      const key = `${p.lat}:${p.lng}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
-  private selectPathCollection<T>(
-    items: T[],
-    maxCount: number,
-    getPath: (item: T) => Coordinate[],
-    getPoint: (item: T) => Coordinate,
-    sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
-    priorityGroups: T[][],
-    anchorPoints: Coordinate[],
-    radiusMeters: number,
-  ): T[] {
-    return selectPrioritizedSample(
-      items,
-      maxCount,
-      [
-        ...priorityGroups,
-        selectItemsNearPoints(items, anchorPoints, getPath, radiusMeters),
-      ],
-      getPoint,
-      sceneMeta,
-    );
+  private distanceToOrigin(a: Coordinate, b: Coordinate): number {
+    const metersPerLat = 111_320;
+    const metersPerLng = 111_320 * Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
+    return Math.hypot((a.lat - b.lat) * metersPerLat, (a.lng - b.lng) * metersPerLng);
   }
-
-  private selectWithSourceFloor<T>(
-    items: T[],
-    maxCount: number,
-    getPoint: (item: T) => Coordinate,
-    sceneMeta: Pick<SceneMeta, 'origin' | 'bounds'>,
-  ): T[] {
-    if (items.length === 0) {
-      return [];
-    }
-    const minimumFloor = Math.max(1, Math.ceil(maxCount * 0.25));
-    const floorCount = Math.min(items.length, minimumFloor);
-    const effectiveMax = Math.max(maxCount, floorCount);
-    return selectSpatialSample(items, effectiveMax, getPoint, sceneMeta);
-  }
-}
-
-function uniqueCoordinates(points: Coordinate[]): Coordinate[] {
-  const seen = new Set<string>();
-  return points.filter((point) => {
-    const key = `${point.lat}:${point.lng}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
 }

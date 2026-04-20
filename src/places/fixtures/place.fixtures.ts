@@ -445,6 +445,9 @@ export const PLACE_PACKAGE_FIXTURES: Record<string, PlacePackage> = {
 export const PLACE_DETAILS_FIXTURES: PlaceDetail[] =
   PLACE_REGISTRY_FIXTURES.map((registry) => {
     const placePackage = PLACE_PACKAGE_FIXTURES[registry.id];
+    if (!placePackage) {
+      throw new Error(`Place package not found for registry id: ${registry.id}`);
+    }
 
     return {
       registry,

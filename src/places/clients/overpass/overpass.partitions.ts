@@ -131,14 +131,30 @@ export function partitionOverpassElements(
       element.lon !== undefined &&
       (element.tags?.highway === 'traffic_signals' ||
         element.tags?.highway === 'street_lamp' ||
-        Boolean(element.tags?.traffic_sign)),
+        Boolean(element.tags?.traffic_sign) ||
+        element.tags?.amenity === 'bench' ||
+        element.tags?.amenity === 'waste_basket' ||
+        element.tags?.amenity === 'waste_disposal' ||
+        element.tags?.amenity === 'post_box' ||
+        element.tags?.amenity === 'public_phone' ||
+        element.tags?.amenity === 'vending_machine' ||
+        element.tags?.advertising === 'billboard' ||
+        element.tags?.advertising === 'column' ||
+        element.tags?.advertising === 'poster_box' ||
+        element.tags?.advertising === 'display' ||
+        element.tags?.advertising === 'board' ||
+        element.tags?.highway === 'bollard'),
   );
   const vegetationNodes = elements.filter(
     (element) =>
       element.type === 'node' &&
       element.lat !== undefined &&
       element.lon !== undefined &&
-      element.tags?.natural === 'tree',
+      (element.tags?.natural === 'tree' ||
+        element.tags?.natural === 'shrub' ||
+        element.tags?.natural === 'grass' ||
+        element.tags?.barrier === 'hedge' ||
+        element.tags?.natural === 'wood'),
   );
   const landCoverWays = elements.filter(
     (element) =>
@@ -566,10 +582,12 @@ function mapPrimaryOuterRingFromRelation(element: OverpassElement): Array<{
     return [];
   }
 
-  return [...outerMembers].sort(
+  const sorted = [...outerMembers].sort(
     (left, right) =>
       Math.abs(resolveSignedArea(right)) - Math.abs(resolveSignedArea(left)),
-  )[0];
+  );
+  const result = sorted[0];
+  return result ?? [];
 }
 
 function normalizeRing(
@@ -580,8 +598,8 @@ function normalizeRing(
     return !previous || previous.lat !== point.lat || previous.lng !== point.lng;
   });
   if (deduped.length > 2) {
-    const first = deduped[0];
-    const last = deduped[deduped.length - 1];
+    const first = deduped[0]!;
+    const last = deduped[deduped.length - 1]!;
     if (first.lat === last.lat && first.lng === last.lng) {
       deduped.pop();
     }
@@ -596,8 +614,8 @@ function resolveSignedArea(ring: Array<{ lat: number; lng: number }>): number {
 
   let area = 0;
   for (let i = 0; i < ring.length; i += 1) {
-    const current = ring[i];
-    const next = ring[(i + 1) % ring.length];
+    const current = ring[i]!;
+    const next = ring[(i + 1) % ring.length]!;
     area += current.lng * next.lat - next.lng * current.lat;
   }
   return area / 2;

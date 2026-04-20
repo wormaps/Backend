@@ -22,6 +22,7 @@ import {
   toLocalRing,
   triangulateRings,
 } from './glb-build-geometry-primitives.utils';
+import { buildRoadSpatialIndex } from '../../../compiler/road/road-spatial-index.utils';
 import { resolveBuildingAccentToneFromBuilding } from '../glb-build-style.utils';
 
 function stableVariant(seed: string, modulo: number): number {
@@ -212,6 +213,7 @@ export function createCrosswalkGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   const crosswalkY = 0.142;
+  const spatialIndex = buildRoadSpatialIndex(roads, origin);
   for (const crossing of crossings) {
     const local = crossing.path
       .map((point) => toLocalPoint(origin, point))
@@ -220,8 +222,8 @@ export function createCrosswalkGeometry(
       continue;
     }
 
-    const start = local[0];
-    const end = local[local.length - 1];
+    const start = local[0]!;
+    const end = local[local.length - 1]!;
     const direction = normalize2d({
       x: end[0] - start[0],
       z: end[2] - start[2],
@@ -231,7 +233,7 @@ export function createCrosswalkGeometry(
     const stripeCount = Math.max(4, Math.min(9, Math.floor(length / 1.4)));
     const stripeDepth = 0.8;
     const halfWidth = crossing.principal ? 8 : 5;
-    const y = crosswalkY + resolveCrosswalkYOffset(crossing, roads);
+    const y = crosswalkY + (crossing.center ? spatialIndex.findNearest(crossing.center).terrainOffset : 0);
 
     for (let i = 0; i < stripeCount; i += 1) {
       const t = (i + 0.5) / stripeCount;
@@ -256,32 +258,28 @@ export function createCrosswalkGeometry(
 function resolveCrosswalkYOffset(
   crossing: SceneCrossingDetail,
   roads: SceneMeta['roads'],
+  origin: Coordinate,
 ): number {
   if (!crossing.center || roads.length === 0) {
     return 0;
   }
 
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  let nearestTerrainOffset = 0;
-  for (const road of roads) {
-    const distance = distanceToPathMeters(crossing.center, road.path);
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestTerrainOffset = road.terrainOffsetM ?? 0;
-    }
-  }
-  return nearestTerrainOffset;
+  const spatialIndex = buildRoadSpatialIndex(roads, origin);
+  return spatialIndex.findNearest(crossing.center).terrainOffset;
 }
 
-function distanceToPathMeters(point: Coordinate, path: Coordinate[]): number {
+function distanceToPathMeters(point: Coordinate, path: Coordinate[], origin: Coordinate): number {
   if (path.length < 2) {
     return Number.POSITIVE_INFINITY;
   }
 
   let minimum = Number.POSITIVE_INFINITY;
   for (let index = 0; index < path.length - 1; index += 1) {
-    const start = toLocalPoint(point, path[index]);
-    const end = toLocalPoint(point, path[index + 1]);
+    const segStart = path[index];
+    const segEnd = path[index + 1];
+    if (!segStart || !segEnd) continue;
+    const start = toLocalPoint(origin, segStart);
+    const end = toLocalPoint(origin, segEnd);
     if (!isFiniteVec3(start) || !isFiniteVec3(end)) {
       continue;
     }

@@ -151,6 +151,7 @@ export function pushPathStrips(
 
   for (let i = 0; i < localPath.length; i += 1) {
     const current = localPath[i];
+    if (!current) continue;
     const prev = localPath[i - 1] ?? current;
     const next = localPath[i + 1] ?? current;
     const normal = computePathNormal(prev, current, next);
@@ -170,10 +171,14 @@ export function pushPathStrips(
   }
 
   for (let i = 0; i < localPath.length - 1; i += 1) {
-    if (!left[i] || !right[i] || !left[i + 1] || !right[i + 1]) {
+    const l0 = left[i];
+    const r0 = right[i];
+    const l1 = left[i + 1];
+    const r1 = right[i + 1];
+    if (!l0 || !r0 || !l1 || !r1) {
       continue;
     }
-    pushQuad(geometry, left[i], right[i], right[i + 1], left[i + 1]);
+    pushQuad(geometry, l0, r0, r1, l1);
   }
 }
 
@@ -188,6 +193,7 @@ export function signedAreaXZ(points: Vec3[]): number {
   for (let index = 0; index < points.length; index += 1) {
     const current = points[index];
     const next = points[(index + 1) % points.length];
+    if (!current || !next) continue;
     area += current[0] * next[2] - next[0] * current[2];
   }
 
@@ -225,9 +231,13 @@ export function triangulateRings(
   const indices = triangulate(vertices, holeIndices, 2);
   const triangles: Array<[Vec3, Vec3, Vec3]> = [];
   for (let index = 0; index < indices.length; index += 3) {
-    const a = points[indices[index]];
-    const b = points[indices[index + 1]];
-    const c = points[indices[index + 2]];
+    const idxA = indices[index];
+    const idxB = indices[index + 1];
+    const idxC = indices[index + 2];
+    if (idxA === undefined || idxB === undefined || idxC === undefined) continue;
+    const a = points[idxA];
+    const b = points[idxB];
+    const c = points[idxC];
     if (!a || !b || !c) {
       continue;
     }
@@ -250,6 +260,7 @@ export function pushRingWallsBetween(
   for (let index = 0; index < ring.length; index += 1) {
     const current = ring[index];
     const next = ring[(index + 1) % ring.length];
+    if (!current || !next) continue;
     if (invert) {
       pushQuad(
         geometry,

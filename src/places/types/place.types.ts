@@ -98,8 +98,11 @@ export interface CrossingData {
   crossing: string | null;
   crossingRef: string | null;
   signalized: boolean;
+  tactilePaving: boolean;
+  crossingMarkings: string | null;
   path: Coordinate[];
   center: Coordinate;
+  osmTags?: Record<string, string>;
 }
 
 export interface StreetFurnitureData {
@@ -113,22 +116,29 @@ export interface StreetFurnitureData {
     | 'BENCH'
     | 'BIKE_RACK'
     | 'TRASH_CAN'
-    | 'FIRE_HYDRANT';
+    | 'FIRE_HYDRANT'
+    | 'POST_BOX'
+    | 'PUBLIC_PHONE'
+    | 'ADVERTISING'
+    | 'VENDING_MACHINE';
   location: Coordinate;
+  osmTags?: Record<string, string>;
 }
 
 export interface VegetationData {
   id: string;
   name: string;
-  type: 'TREE' | 'PLANTER' | 'GREEN_PATCH';
+  type: 'TREE' | 'PLANTER' | 'GREEN_PATCH' | 'SHRUB' | 'GRASS' | 'HEDGE';
   location: Coordinate;
   radiusMeters: number;
+  osmTags?: Record<string, string>;
 }
 
 export interface LandCoverData {
   id: string;
-  type: 'PARK' | 'WATER' | 'PLAZA';
+  type: 'PARK' | 'WATER' | 'PLAZA' | 'GRASS' | 'FOREST' | 'FARMLAND' | 'WETLAND';
   polygon: Coordinate[];
+  osmTags?: Record<string, string>;
 }
 
 export interface LinearFeatureData {

@@ -43,13 +43,13 @@ export class SceneFacadeVisionService {
       id: building.id,
       usage: building.usage,
       heightMeters: building.heightMeters,
-      anchor: averageCoordinate(building.outerRing) ?? building.outerRing[0],
+      anchor: averageCoordinate(building.outerRing) ?? building.outerRing[0]!,
     }));
 
     return Promise.all(
       placePackage.buildings.map(async (building) => {
         const dominantImageColor = await extractDominantFacadeColor(
-          averageCoordinate(building.outerRing) ?? building.outerRing[0],
+          averageCoordinate(building.outerRing) ?? building.outerRing[0]!,
           mapillaryImages,
         );
         const style = this.buildingStyleResolverService.resolveBuildingStyle({
@@ -57,20 +57,20 @@ export class SceneFacadeVisionService {
           nearbyImageCount: mapillaryImages.filter(
             (image) =>
               distanceMeters(
-                averageCoordinate(building.outerRing) ?? building.outerRing[0],
+                averageCoordinate(building.outerRing) ?? building.outerRing[0]!,
                 image.location,
               ) <= 45,
           ).length,
           nearbyFeatureCount: mapillaryFeatures.filter(
             (feature) =>
               distanceMeters(
-                averageCoordinate(building.outerRing) ?? building.outerRing[0],
+                averageCoordinate(building.outerRing) ?? building.outerRing[0]!,
                 feature.location,
               ) <= 35,
           ).length,
         });
         const anchor =
-          averageCoordinate(building.outerRing) ?? building.outerRing[0];
+          averageCoordinate(building.outerRing) ?? building.outerRing[0]!;
         const explicitBuildingColor = hasExplicitBuildingColor(building);
         const nearbyImageCount = mapillaryImages.filter(
           (image) => distanceMeters(anchor, image.location) <= 45,

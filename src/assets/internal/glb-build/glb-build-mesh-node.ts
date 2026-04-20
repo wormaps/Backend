@@ -162,9 +162,9 @@ export function addMeshNode(
   let maxY = -Infinity;
   let maxZ = -Infinity;
   for (let i = 0; i < geometry.positions.length; i += 3) {
-    const x = geometry.positions[i];
-    const y = geometry.positions[i + 1];
-    const z = geometry.positions[i + 2];
+    const x = geometry.positions[i]!;
+    const y = geometry.positions[i + 1]!;
+    const z = geometry.positions[i + 2]!;
     if (x < minX) minX = x;
     if (y < minY) minY = y;
     if (z < minZ) minZ = z;

@@ -40,14 +40,14 @@ export class SceneHeroOverrideMatcherService {
     const nearest = this.findNearest(
       meta.buildings,
       annotation.anchor,
-      (item) => averageCoordinate(item.outerRing) ?? item.outerRing[0],
+      (item) => averageCoordinate(item.outerRing) ?? item.outerRing[0]!,
     );
     if (!nearest) {
       return null;
     }
 
     const nearestAnchor =
-      averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0];
+      averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0]!;
     return squaredDistance(annotation.anchor, nearestAnchor) <=
       this.fallbackMatchRadiusMeters ** 2
       ? nearest
@@ -120,14 +120,14 @@ export class SceneHeroOverrideMatcherService {
         (building) => !usedBuildings.has(building.objectId),
       ),
       annotation.anchor,
-      (item) => averageCoordinate(item.outerRing) ?? item.outerRing[0],
+      (item) => averageCoordinate(item.outerRing) ?? item.outerRing[0]!,
     );
     if (!nearest) {
       return null;
     }
 
     const nearestAnchor =
-      averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0];
+      averageCoordinate(nearest.outerRing) ?? nearest.outerRing[0]!;
     return squaredDistance(annotation.anchor, nearestAnchor) <=
       this.fallbackMatchRadiusMeters ** 2
       ? nearest

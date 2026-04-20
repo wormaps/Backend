@@ -54,7 +54,7 @@ export class OpenElevationAdapter implements IDemPort {
       for (let i = 0; i < data.results.length; i++) {
         const result = data.results[i];
         const point = points[i];
-        if (!point || !Number.isFinite(result.elevation)) {
+        if (!point || !result || !Number.isFinite(result.elevation)) {
           continue;
         }
         samples.push({

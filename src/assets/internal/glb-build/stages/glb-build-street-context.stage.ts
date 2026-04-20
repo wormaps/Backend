@@ -5,11 +5,18 @@ import {
   createEnhancedStreetLightGeometry,
   createFireHydrantGeometry,
   createTrashCanGeometry,
+  createPostBoxGeometry,
+  createPublicPhoneGeometry,
+  createAdvertisingGeometry,
+  createVendingMachineGeometry,
 } from '../../../compiler/street-furniture';
 import {
   createBushGeometry,
   createFlowerBedGeometry,
   createTreeVariationGeometry,
+  createShrubGeometry,
+  createGrassPatchGeometry,
+  createHedgeGeometry,
 } from '../../../compiler/vegetation';
 import {
   AssetSelection,
@@ -218,6 +225,78 @@ export function addStreetContextMeshes(
         sourceObjectIds: hydrantItems.map((item) => item.objectId),
       },
     );
+    const postBoxItems = selectMinorFurniture(sceneDetail.streetFurniture, 'POST_BOX');
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'post_boxes',
+      createPostBoxGeometry(sceneMeta.origin, postBoxItems, hooks.variationProfile),
+      materials.bench,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'POST_BOX',
+        ).length,
+        selectedCount: postBoxItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: postBoxItems.map((item) => item.objectId),
+      },
+    );
+    const publicPhoneItems = selectMinorFurniture(sceneDetail.streetFurniture, 'PUBLIC_PHONE');
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'public_phones',
+      createPublicPhoneGeometry(sceneMeta.origin, publicPhoneItems, hooks.variationProfile),
+      materials.signPole,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'PUBLIC_PHONE',
+        ).length,
+        selectedCount: publicPhoneItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: publicPhoneItems.map((item) => item.objectId),
+      },
+    );
+    const advertisingItems = selectMinorFurniture(sceneDetail.streetFurniture, 'ADVERTISING');
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'advertising',
+      createAdvertisingGeometry(sceneMeta.origin, advertisingItems, hooks.variationProfile),
+      materials.signPole,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'ADVERTISING',
+        ).length,
+        selectedCount: advertisingItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: advertisingItems.map((item) => item.objectId),
+      },
+    );
+    const vendingMachineItems = selectMinorFurniture(sceneDetail.streetFurniture, 'VENDING_MACHINE');
+    hooks.addMeshNode(
+      ctx.doc,
+      ctx.Accessor,
+      ctx.scene,
+      ctx.buffer,
+      'vending_machines',
+      createVendingMachineGeometry(sceneMeta.origin, vendingMachineItems, hooks.variationProfile),
+      materials.bench,
+      {
+        sourceCount: sceneDetail.streetFurniture.filter(
+          (item) => item.type === 'VENDING_MACHINE',
+        ).length,
+        selectedCount: vendingMachineItems.length,
+        semanticCategory: 'street_context',
+        sourceObjectIds: vendingMachineItems.map((item) => item.objectId),
+      },
+    );
   }
   hooks.addMeshNode(
     ctx.doc,
@@ -291,6 +370,60 @@ export function addStreetContextMeshes(
       sourceObjectIds: assetSelection.vegetation
         .filter((item) => item.type === 'PLANTER')
         .map((item) => item.objectId),
+    },
+  );
+  const shrubItems = assetSelection.vegetation.filter((item) => item.type === 'SHRUB');
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'shrubs',
+    createShrubGeometry(sceneMeta.origin, shrubItems, hooks.variationProfile),
+    materials.bush,
+    {
+      sourceCount: sceneDetail.vegetation.filter(
+        (item) => item.type === 'SHRUB',
+      ).length,
+      selectedCount: shrubItems.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: shrubItems.map((item) => item.objectId),
+    },
+  );
+  const grassItems = assetSelection.vegetation.filter((item) => item.type === 'GRASS');
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'grass_patches',
+    createGrassPatchGeometry(sceneMeta.origin, grassItems, hooks.variationProfile),
+    materials.bush,
+    {
+      sourceCount: sceneDetail.vegetation.filter(
+        (item) => item.type === 'GRASS',
+      ).length,
+      selectedCount: grassItems.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: grassItems.map((item) => item.objectId),
+    },
+  );
+  const hedgeItems = assetSelection.vegetation.filter((item) => item.type === 'HEDGE');
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'hedges',
+    createHedgeGeometry(sceneMeta.origin, hedgeItems, hooks.variationProfile),
+    materials.bush,
+    {
+      sourceCount: sceneDetail.vegetation.filter(
+        (item) => item.type === 'HEDGE',
+      ).length,
+      selectedCount: hedgeItems.length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: hedgeItems.map((item) => item.objectId),
     },
   );
   hooks.addMeshNode(
@@ -382,6 +515,110 @@ export function addStreetContextMeshes(
       semanticCategory: 'street_context',
       sourceObjectIds: sceneDetail.landCovers
         .filter((item) => item.type === 'PLAZA')
+        .map((item) => item.id),
+    },
+  );
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'landcover_forest',
+    hooks.createLandCoverGeometry(
+      sceneMeta.origin,
+      sceneDetail.landCovers,
+      'FOREST',
+      triangulate,
+    ),
+    materials.landCoverPark,
+    {
+      sourceCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'FOREST',
+      ).length,
+      selectedCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'FOREST',
+      ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'FOREST')
+        .map((item) => item.id),
+    },
+  );
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'landcover_grass',
+    hooks.createLandCoverGeometry(
+      sceneMeta.origin,
+      sceneDetail.landCovers,
+      'GRASS',
+      triangulate,
+    ),
+    materials.landCoverPark,
+    {
+      sourceCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'GRASS',
+      ).length,
+      selectedCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'GRASS',
+      ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'GRASS')
+        .map((item) => item.id),
+    },
+  );
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'landcover_farmland',
+    hooks.createLandCoverGeometry(
+      sceneMeta.origin,
+      sceneDetail.landCovers,
+      'FARMLAND',
+      triangulate,
+    ),
+    materials.landCoverPlaza,
+    {
+      sourceCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'FARMLAND',
+      ).length,
+      selectedCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'FARMLAND',
+      ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'FARMLAND')
+        .map((item) => item.id),
+    },
+  );
+  hooks.addMeshNode(
+    ctx.doc,
+    ctx.Accessor,
+    ctx.scene,
+    ctx.buffer,
+    'landcover_wetland',
+    hooks.createLandCoverGeometry(
+      sceneMeta.origin,
+      sceneDetail.landCovers,
+      'WETLAND',
+      triangulate,
+    ),
+    materials.landCoverWater,
+    {
+      sourceCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'WETLAND',
+      ).length,
+      selectedCount: sceneDetail.landCovers.filter(
+        (item) => item.type === 'WETLAND',
+      ).length,
+      semanticCategory: 'street_context',
+      sourceObjectIds: sceneDetail.landCovers
+        .filter((item) => item.type === 'WETLAND')
         .map((item) => item.id),
     },
   );

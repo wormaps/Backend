@@ -26,8 +26,8 @@ export function toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
   });
   const normalized = [...deduped];
   if (normalized.length > 1) {
-    const first = normalized[0];
-    const last = normalized[normalized.length - 1];
+    const first = normalized[0]!;
+    const last = normalized[normalized.length - 1]!;
     if (first.lat === last.lat && first.lng === last.lng) {
       normalized.pop();
     }
@@ -40,7 +40,7 @@ export function toLocalRing(origin: Coordinate, points: Coordinate[]): Vec3[] {
 
 /**
  * 링의 방향(CW/CCW)을 기준으로 방향을 정규화.
- * 방향이 다르면 reverse.
+ * 방향이 다륾면 reverse.
  */
 export function normalizeLocalRing(
   ring: Vec3[],
@@ -86,8 +86,8 @@ export function samePointXZ(left: Vec3, right: Vec3): boolean {
 function signedAreaXZ(ring: Vec3[]): number {
   let area = 0;
   for (let index = 0; index < ring.length; index += 1) {
-    const current = ring[index];
-    const next = ring[(index + 1) % ring.length];
+    const current = ring[index]!;
+    const next = ring[(index + 1) % ring.length]!;
     area += current[0] * next[2] - next[0] * current[2];
   }
   return area / 2;

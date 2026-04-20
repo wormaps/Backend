@@ -1,17 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { averageCoordinate } from '../../../common/geo/coordinate-utils.utils';
-import { Coordinate } from '../../../places/types/place.types';
 import {
   SceneBuildingMeta,
   SceneMeta,
 } from '../../types/scene.types';
-import {
-  distanceMeters,
-  selectItemsNearPoints,
-  selectItemsWithinRadius,
-  selectPrioritizedSample,
-  selectSpatialSample,
-} from './scene-asset-selection.utils';
+import { distanceMeters } from './scene-asset-selection.utils';
 
 @Injectable()
 export class AssetMaterialClassService {

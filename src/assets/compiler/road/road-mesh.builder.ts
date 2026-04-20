@@ -27,6 +27,7 @@ import {
   pushPathSidewalkEdge,
   pushPathStrips,
 } from './road-mesh.path.utils';
+import { buildRoadSpatialIndex } from './road-spatial-index.utils';
 
 export { createEmptyGeometry, mergeGeometryBuffers };
 export type { GeometryBuffers, Vec3 };
@@ -283,10 +284,14 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
 
   for (let iz = 0; iz < GRID; iz += 1) {
     for (let ix = 0; ix < GRID; ix += 1) {
-      const a = grid[iz][ix];
-      const b = grid[iz][ix + 1];
-      const c = grid[iz + 1][ix + 1];
-      const d = grid[iz + 1][ix];
+      const row0 = grid[iz];
+      const row1 = grid[iz + 1];
+      if (!row0 || !row1) continue;
+      const a = row0[ix];
+      const b = row0[ix + 1];
+      const c = row1[ix + 1];
+      const d = row1[ix];
+      if (!a || !b || !c || !d) continue;
       pushQuad(geometry, a, b, c, d);
     }
   }
@@ -434,8 +439,8 @@ export function createRoadDecalStripeGeometry(
       continue;
     }
 
-    const start = local[0];
-    const end = local[local.length - 1];
+    const start = local[0]!;
+    const end = local[local.length - 1]!;
     const direction = normalize2d({
       x: end[0] - start[0],
       z: end[2] - start[2],
@@ -528,6 +533,7 @@ export function createCrosswalkGeometry(
   roads: SceneMeta['roads'] = [],
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
+  const spatialIndex = buildRoadSpatialIndex(roads, origin);
   for (const crossing of crossings) {
     const local = crossing.path
       .map((point) => toLocalPoint(origin, point))
@@ -536,8 +542,8 @@ export function createCrosswalkGeometry(
       continue;
     }
 
-    const start = local[0];
-    const end = local[local.length - 1];
+    const start = local[0]!;
+    const end = local[local.length - 1]!;
     const direction = normalize2d({
       x: end[0] - start[0],
       z: end[2] - start[2],
@@ -546,7 +552,7 @@ export function createCrosswalkGeometry(
     const length = Math.hypot(end[0] - start[0], end[2] - start[2]);
     const signalizedBoost = crossing.style === 'signalized' ? 1 : 0;
     const halfWidth = crossing.principal ? PRINCIPAL_CROSSWALK_HALF_WIDTH_M : NORMAL_CROSSWALK_HALF_WIDTH_M;
-    const y = CROSSWALK_Y + resolveCrosswalkYOffset(crossing, roads);
+    const y = CROSSWALK_Y + (crossing.center ? spatialIndex.findNearest(crossing.center).terrainOffset : 0);
     const corridorCapacity = Math.max(
       6,
       Math.floor(length / Math.max(CROSSWALK_MIN_STRIPE_SPACING_M, halfWidth * CROSSWALK_STRIPE_SPACING_RATIO)),
@@ -725,32 +731,28 @@ function resolveWalkwayYOffset(walkway: SceneMeta['walkways'][number]): number {
 function resolveCrosswalkYOffset(
   crossing: SceneCrossingDetail,
   roads: SceneMeta['roads'],
+  origin: Coordinate,
 ): number {
   if (!crossing.center || roads.length === 0) {
     return 0;
   }
 
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  let nearestTerrainOffset = 0;
-  for (const road of roads) {
-    const distance = distanceToPathMeters(crossing.center, road.path);
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestTerrainOffset = road.terrainOffsetM ?? 0;
-    }
-  }
-  return nearestTerrainOffset;
+  const spatialIndex = buildRoadSpatialIndex(roads, origin);
+  return spatialIndex.findNearest(crossing.center).terrainOffset;
 }
 
-function distanceToPathMeters(point: Coordinate, path: Coordinate[]): number {
+function distanceToPathMeters(point: Coordinate, path: Coordinate[], origin: Coordinate): number {
   if (path.length < 2) {
     return Number.POSITIVE_INFINITY;
   }
 
   let minimum = Number.POSITIVE_INFINITY;
   for (let index = 0; index < path.length - 1; index += 1) {
-    const start = toLocalPoint(point, path[index]);
-    const end = toLocalPoint(point, path[index + 1]);
+    const segStart = path[index];
+    const segEnd = path[index + 1];
+    if (!segStart || !segEnd) continue;
+    const start = toLocalPoint(origin, segStart);
+    const end = toLocalPoint(origin, segEnd);
     if (!isFiniteVec3(start) || !isFiniteVec3(end)) {
       continue;
     }

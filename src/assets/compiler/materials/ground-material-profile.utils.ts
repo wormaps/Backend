@@ -29,7 +29,7 @@ const GROUND_PROFILES: Record<string, GroundMaterialProfile> = {
   },
 };
 
-const DEFAULT_PROFILE: GroundMaterialProfile = GROUND_PROFILES.sand;
+const DEFAULT_PROFILE: GroundMaterialProfile = GROUND_PROFILES['sand']!;
 
 const LANDUSE_TO_GROUND: Record<string, string> = {
   grass: 'grass',

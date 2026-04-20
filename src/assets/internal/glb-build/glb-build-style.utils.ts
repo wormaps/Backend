@@ -92,13 +92,13 @@ export function defaultShellColorForMaterialClass(
 ): string {
   const pool = SHELL_COLOR_POOL[materialClass] ?? SHELL_COLOR_POOL.mixed;
   if (!seed) {
-    return pool[0];
+    return pool[0] ?? '#7e868c';
   }
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
-  return pool[hash % pool.length];
+  return pool[hash % pool.length] ?? pool[0] ?? '#7e868c';
 }
 
 export function resolveMaterialClassFromBuilding(

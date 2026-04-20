@@ -34,6 +34,7 @@ export function pushPathStrips(
 
   for (let i = 0; i < localPath.length; i += 1) {
     const current = localPath[i];
+    if (!current) continue;
     const prev = localPath[i - 1] ?? current;
     const next = localPath[i + 1] ?? current;
     const normal = computePathNormal(prev, current, next);
@@ -53,10 +54,14 @@ export function pushPathStrips(
   }
 
   for (let i = 0; i < localPath.length - 1; i += 1) {
-    if (!left[i] || !right[i] || !left[i + 1] || !right[i + 1]) {
+    const l0 = left[i];
+    const r0 = right[i];
+    const l1 = left[i + 1];
+    const r1 = right[i + 1];
+    if (!l0 || !r0 || !l1 || !r1) {
       continue;
     }
-    pushQuad(geometry, left[i], right[i], right[i + 1], left[i + 1]);
+    pushQuad(geometry, l0, r0, r1, l1);
   }
 }
 
@@ -88,13 +93,14 @@ export function pushPathEdgeBands(
 
   for (let i = 0; i < localPath.length; i += 1) {
     const current = localPath[i];
+    if (!current) continue;
     const prev = localPath[i - 1] ?? current;
     const next = localPath[i + 1] ?? current;
     const normal = computePathNormal(prev, current, next);
     if (!isFiniteVec2(normal)) {
       continue;
     }
-    const localEdgeWidth = edgeWidth * edgeWidthVariation(i, localPath.length);
+    const localEdgeWidth = edgeWidthVariation(i, localPath.length);
     const localInnerHalf = Math.max(0.4, outerHalf - localEdgeWidth);
     leftOuter.push([
       current[0] + normal[0] * outerHalf,
@@ -119,32 +125,19 @@ export function pushPathEdgeBands(
   }
 
   for (let i = 0; i < localPath.length - 1; i += 1) {
-    if (
-      !leftOuter[i] ||
-      !leftInner[i] ||
-      !leftOuter[i + 1] ||
-      !leftInner[i + 1] ||
-      !rightOuter[i] ||
-      !rightInner[i] ||
-      !rightOuter[i + 1] ||
-      !rightInner[i + 1]
-    ) {
+    const lo0 = leftOuter[i];
+    const li0 = leftInner[i];
+    const lo1 = leftOuter[i + 1];
+    const li1 = leftInner[i + 1];
+    const ro0 = rightOuter[i];
+    const ri0 = rightInner[i];
+    const ro1 = rightOuter[i + 1];
+    const ri1 = rightInner[i + 1];
+    if (!lo0 || !li0 || !lo1 || !li1 || !ro0 || !ri0 || !ro1 || !ri1) {
       continue;
     }
-    pushQuad(
-      geometry,
-      leftOuter[i],
-      leftInner[i],
-      leftInner[i + 1],
-      leftOuter[i + 1],
-    );
-    pushQuad(
-      geometry,
-      rightInner[i],
-      rightOuter[i],
-      rightOuter[i + 1],
-      rightInner[i + 1],
-    );
+    pushQuad(geometry, lo0, li0, li1, lo1);
+    pushQuad(geometry, ri0, ro0, ro1, ri1);
   }
 }
 
@@ -186,6 +179,7 @@ export function pushPathCurb(
 
   for (let i = 0; i < localPath.length; i += 1) {
     const current = localPath[i];
+    if (!current) continue;
     const prev = localPath[i - 1] ?? current;
     const next = localPath[i + 1] ?? current;
     const normal = computePathNormal(prev, current, next);
@@ -215,48 +209,21 @@ export function pushPathCurb(
   }
 
   for (let i = 0; i < localPath.length - 1; i += 1) {
-    if (
-      !leftOuter[i] ||
-      !leftInner[i] ||
-      !leftOuter[i + 1] ||
-      !leftInner[i + 1] ||
-      !rightOuter[i] ||
-      !rightInner[i] ||
-      !rightOuter[i + 1] ||
-      !rightInner[i + 1]
-    ) {
+    const lo0 = leftOuter[i];
+    const li0 = leftInner[i];
+    const lo1 = leftOuter[i + 1];
+    const li1 = leftInner[i + 1];
+    const ro0 = rightOuter[i];
+    const ri0 = rightInner[i];
+    const ro1 = rightOuter[i + 1];
+    const ri1 = rightInner[i + 1];
+    if (!lo0 || !li0 || !lo1 || !li1 || !ro0 || !ri0 || !ro1 || !ri1) {
       continue;
     }
-    pushQuad(
-      geometry,
-      leftOuter[i],
-      leftInner[i],
-      leftInner[i + 1],
-      leftOuter[i + 1],
-    );
-    pushQuad(
-      geometry,
-      rightInner[i],
-      rightOuter[i],
-      rightOuter[i + 1],
-      rightInner[i + 1],
-    );
-    pushCurbVerticalFace(
-      geometry,
-      leftOuter[i],
-      leftInner[i],
-      leftOuter[i + 1],
-      leftInner[i + 1],
-      baseY,
-    );
-    pushCurbVerticalFace(
-      geometry,
-      rightInner[i],
-      rightOuter[i],
-      rightInner[i + 1],
-      rightOuter[i + 1],
-      baseY,
-    );
+    pushQuad(geometry, lo0, li0, li1, lo1);
+    pushQuad(geometry, ri0, ro0, ro1, ri1);
+    pushCurbVerticalFace(geometry, lo0, li0, lo1, li1, baseY);
+    pushCurbVerticalFace(geometry, ri0, ro0, ri1, ro1, baseY);
   }
 }
 
@@ -308,6 +275,7 @@ export function pushPathMedian(
 
   for (let i = 0; i < localPath.length; i += 1) {
     const current = localPath[i];
+    if (!current) continue;
     const prev = localPath[i - 1] ?? current;
     const next = localPath[i + 1] ?? current;
     const normal = computePathNormal(prev, current, next);
@@ -327,18 +295,15 @@ export function pushPathMedian(
   }
 
   for (let i = 0; i < localPath.length - 1; i += 1) {
-    if (!left[i] || !right[i] || !left[i + 1] || !right[i + 1]) {
+    const l0 = left[i];
+    const r0 = right[i];
+    const l1 = left[i + 1];
+    const r1 = right[i + 1];
+    if (!l0 || !r0 || !l1 || !r1) {
       continue;
     }
-    pushQuad(geometry, left[i], right[i], right[i + 1], left[i + 1]);
-    pushMedianVerticalFace(
-      geometry,
-      left[i],
-      right[i],
-      left[i + 1],
-      right[i + 1],
-      baseY,
-    );
+    pushQuad(geometry, l0, r0, r1, l1);
+    pushMedianVerticalFace(geometry, l0, r0, l1, r1, baseY);
   }
 }
 
@@ -387,6 +352,7 @@ export function pushPathSidewalkEdge(
 
   for (let i = 0; i < localPath.length; i += 1) {
     const current = localPath[i];
+    if (!current) continue;
     const prev = localPath[i - 1] ?? current;
     const next = localPath[i + 1] ?? current;
     const normal = computePathNormal(prev, current, next);
@@ -416,48 +382,21 @@ export function pushPathSidewalkEdge(
   }
 
   for (let i = 0; i < localPath.length - 1; i += 1) {
-    if (
-      !leftOuter[i] ||
-      !leftInner[i] ||
-      !leftOuter[i + 1] ||
-      !leftInner[i + 1] ||
-      !rightOuter[i] ||
-      !rightInner[i] ||
-      !rightOuter[i + 1] ||
-      !rightInner[i + 1]
-    ) {
+    const lo0 = leftOuter[i];
+    const li0 = leftInner[i];
+    const lo1 = leftOuter[i + 1];
+    const li1 = leftInner[i + 1];
+    const ro0 = rightOuter[i];
+    const ri0 = rightInner[i];
+    const ro1 = rightOuter[i + 1];
+    const ri1 = rightInner[i + 1];
+    if (!lo0 || !li0 || !lo1 || !li1 || !ro0 || !ri0 || !ro1 || !ri1) {
       continue;
     }
-    pushQuad(
-      geometry,
-      leftOuter[i],
-      leftInner[i],
-      leftInner[i + 1],
-      leftOuter[i + 1],
-    );
-    pushQuad(
-      geometry,
-      rightInner[i],
-      rightOuter[i],
-      rightOuter[i + 1],
-      rightInner[i + 1],
-    );
-    pushSidewalkEdgeVerticalFace(
-      geometry,
-      leftOuter[i],
-      leftInner[i],
-      leftOuter[i + 1],
-      leftInner[i + 1],
-      baseY,
-    );
-    pushSidewalkEdgeVerticalFace(
-      geometry,
-      rightInner[i],
-      rightOuter[i],
-      rightInner[i + 1],
-      rightOuter[i + 1],
-      baseY,
-    );
+    pushQuad(geometry, lo0, li0, li1, lo1);
+    pushQuad(geometry, ri0, ro0, ro1, ri1);
+    pushSidewalkEdgeVerticalFace(geometry, lo0, li0, lo1, li1, baseY);
+    pushSidewalkEdgeVerticalFace(geometry, ri0, ro0, ri1, ro1, baseY);
   }
 }
 

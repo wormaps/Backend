@@ -208,6 +208,9 @@ export class MapillaryClient {
 
     for (let index = 0; index < bboxCandidates.length; index += 1) {
       const candidate = bboxCandidates[index];
+      if (!candidate) {
+        continue;
+      }
       const bboxResult = await this.fetchImagesByBbox(
         candidate,
         limit,

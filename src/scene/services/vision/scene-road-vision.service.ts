@@ -34,6 +34,8 @@ export class SceneRoadVisionService {
         : crossing.crossing === 'zebra' || crossing.crossingRef === 'zebra'
           ? 'zebra'
           : 'unknown',
+      tactilePaving: crossing.tactilePaving,
+      crossingMarkings: crossing.crossingMarkings,
     }));
   }
 
@@ -247,7 +249,7 @@ export class SceneRoadVisionService {
     }
 
     if (decals.length === 0 && placePackage.roads.length > 0) {
-      const primaryRoad = placePackage.roads[0];
+      const primaryRoad = placePackage.roads[0]!;
       decals.push({
         objectId: `${primaryRoad.id}-fallback-lane`,
         type: 'LANE_OVERLAY',
@@ -281,9 +283,9 @@ function buildScramblePathOverlays(
     return [];
   }
   const points = crossing.path;
-  const start = points[0];
-  const end = points[points.length - 1];
-  const center = midpoint(points) ?? points[Math.floor(points.length / 2)];
+  const start = points[0]!;
+  const end = points[points.length - 1]!;
+  const center = midpoint(points) ?? points[Math.floor(points.length / 2)]!;
   const overlays: Omit<SceneRoadDecal, 'objectId'>[] = [];
   for (let level = 1; level <= depth; level += 1) {
     const ratio = level / (depth + 1);

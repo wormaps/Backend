@@ -34,7 +34,7 @@ export function inferBuildingPalette(
     `${buildingId}:${context.districtProfile}:${context.centerBias}`,
     family.length,
   );
-  const palette = family[variant] ?? family[0];
+  const palette = family[variant] ?? family[0] ?? [];
 
   return {
     materialClass,
@@ -520,7 +520,7 @@ function resolvePanelPalette(
       [darkenHex(palette[0] ?? '#5e8faf', 0.74), '#dde8f1', '#f6f9fb'],
       [darkenHex(palette[0] ?? '#7a8ea3', 0.72), '#d9e1e8', '#f3f7fa'],
     ];
-    return variants[variant] ?? variants[0];
+    return variants[variant] ?? variants[0] ?? [];
   }
   if (
     style.facadePreset === 'retail_sign_band' ||
@@ -535,7 +535,7 @@ function resolvePanelPalette(
         ['#ff6f61', '#3ec1d3', '#fefefe'],
         ['#ffb703', '#fb8500', '#fff3db'],
       ];
-      return variants[variant] ?? variants[0];
+      return variants[variant] ?? variants[0] ?? [];
     }
     const variants = [
       ['#f44336', '#ffd166', '#fff8e7'],
@@ -543,7 +543,7 @@ function resolvePanelPalette(
       ['#ffb703', '#fb8500', '#fff3db'],
       ['#00bcd4', '#ff4d6d', '#fff7f0'],
     ];
-    return variants[variant] ?? variants[0];
+    return variants[variant] ?? variants[0] ?? [];
   }
   if (materialClass === 'brick') {
     return [palette[0] ?? '#8d4d38', '#d9c1ae', '#f0e6dd'];
