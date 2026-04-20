@@ -134,7 +134,7 @@ export class SceneGenerationPipelineService {
       fidelityPlan,
     );
     vision.detail.fidelityPlan = fidelityPlan;
-    const merged = this.sceneHeroOverrideStep.execute(
+    const merged = await this.sceneHeroOverrideStep.execute(
       resolvedPlace.place,
       baseMeta,
       vision.detail,
@@ -172,7 +172,7 @@ export class SceneGenerationPipelineService {
       ...mergedWithAtmosphere.meta,
       terrainProfile: terrainFusion.terrainProfile,
     };
-    const corrected = this.sceneGeometryCorrectionStep.execute(
+    const corrected = await this.sceneGeometryCorrectionStep.execute(
       metaWithTerrainProfile,
       mergedWithAtmosphere.detail,
     );

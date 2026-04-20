@@ -48,7 +48,7 @@ export function createBuildingWindowGeometry(
     }
 
     const windowConfig = resolveWindowConfig(building, hint, lodLevel);
-    const height = Math.max(4, building.heightMeters);
+  const height = Math.max(MIN_WINDOW_HEIGHT_M, building.heightMeters);
     const targetEdgeIndices = resolveWindowEdgeIndices(
       outerRing,
       hint,
@@ -97,8 +97,206 @@ interface WindowConfig {
   groundFloorRule: 'none' | 'sparse' | 'full';
 }
 
+/** 창문 geometry 최대 triangle 수. GLB 크기 제한 기반. */
 const MAX_WINDOW_TRIANGLES = 420_000;
+
+/** 창문 1개당 예상 triangle 수 (budget 계산용). */
 const WINDOW_TRIANGLES_PER_EMIT_ESTIMATE = 2;
+
+/** 층고 기본값 (m). 상업용 건물 기준. */
+const DEFAULT_FLOOR_HEIGHT_M = 3.6;
+
+/** LOD별 최대 표시 층 수. */
+const LOD_FLOOR_LIMITS = { LOW: 4, MEDIUM: 6, HIGH: 9 } as const;
+
+/** 창문 최소 높이 (m). */
+const MIN_WINDOW_HEIGHT_M = 4;
+
+/** 건물 높이 최소값 (m). shell builder와 공유. */
+const MIN_BUILDING_HEIGHT_M = 4;
+
+/** 창문 floor 시작 비율 (floor 높이의 25%). */
+const FLOOR_START_RATIO = 0.25;
+
+/** 창문 상단 마진 (m). */
+const WINDOW_TOP_MARGIN_M = 0.25;
+
+/** 창문 edge 길이 최소값 (m). */
+const MIN_WINDOW_EDGE_LENGTH_M = 1e-6;
+
+/** Office 창문 너비 (dense). */
+const OFFICE_WINDOW_WIDTH_DENSE_M = 1.5;
+
+/** Office 창문 너비 (medium). */
+const OFFICE_WINDOW_WIDTH_MEDIUM_M = 1.4;
+
+/** Office 창문 높이 (m). */
+const OFFICE_WINDOW_HEIGHT_M = 2.1;
+
+/** Office 창문 깊이 (dense, m). */
+const OFFICE_WINDOW_DEPTH_DENSE_M = 0.17;
+
+/** Office 창문 깊이 (medium, m). */
+const OFFICE_WINDOW_DEPTH_MEDIUM_M = 0.16;
+
+/** Office 서비스 층 간격. */
+const OFFICE_SERVICE_FLOOR_STEP = 12;
+
+/** Office top blind floors 임계 층 수. */
+const OFFICE_TOP_BLIND_FLOOR_THRESHOLD = 14;
+
+/** Apartment 창문 너비 (dense, m). */
+const APARTMENT_WINDOW_WIDTH_DENSE_M = 1.08;
+
+/** Apartment 창문 너비 (medium, m). */
+const APARTMENT_WINDOW_WIDTH_MEDIUM_M = 0.98;
+
+/** Apartment 창문 높이 (dense, m). */
+const APARTMENT_WINDOW_HEIGHT_DENSE_M = 1.5;
+
+/** Apartment 창문 높이 (medium, m). */
+const APARTMENT_WINDOW_HEIGHT_MEDIUM_M = 1.42;
+
+/** Apartment jitter strength (dense). */
+const APARTMENT_JITTER_DENSE = 0.012;
+
+/** Apartment jitter strength (medium). */
+const APARTMENT_JITTER_MEDIUM = 0.016;
+
+/** Apartment skip chance (dense). */
+const APARTMENT_SKIP_CHANCE_DENSE = 0.01;
+
+/** Apartment skip chance (medium). */
+const APARTMENT_SKIP_CHANCE_MEDIUM = 0.02;
+
+/** Apartment top blind floor 임계 층 수. */
+const APARTMENT_TOP_BLIND_FLOOR_THRESHOLD = 12;
+
+/** Retail 창문 너비 (m). */
+const RETAIL_WINDOW_WIDTH_M = 1.95;
+
+/** Retail 창문 높이 (dense, m). */
+const RETAIL_WINDOW_HEIGHT_DENSE_M = 1.38;
+
+/** Retail 창문 높이 (medium, m). */
+const RETAIL_WINDOW_HEIGHT_MEDIUM_M = 1.26;
+
+/** Retail 창문 sill 깊이 (m). */
+const RETAIL_SILL_DEPTH_M = 0.14;
+
+/** Retail jitter strength. */
+const RETAIL_JITTER_STRENGTH = 0.008;
+
+/** Retail skip chance (dense). */
+const RETAIL_SKIP_CHANCE_DENSE = 0.008;
+
+/** Retail skip chance (medium). */
+const RETAIL_SKIP_CHANCE_MEDIUM = 0.015;
+
+/** Retail floor 비율 (최대 40%). */
+const RETAIL_FLOOR_RATIO = 0.4;
+
+/** Retail 최대 층 수. */
+const RETAIL_MAX_FLOORS = 3;
+
+/** Retail 최소 층 수. */
+const RETAIL_MIN_FLOORS = 1;
+
+/** Hotel 창문 너비 (dense, m). */
+const HOTEL_WINDOW_WIDTH_DENSE_M = 1.16;
+
+/** Hotel 창문 너비 (medium, m). */
+const HOTEL_WINDOW_WIDTH_MEDIUM_M = 1.1;
+
+/** Hotel 창문 높이 (m). */
+const HOTEL_WINDOW_HEIGHT_M = 1.6;
+
+/** Hotel 창문 깊이 (m). */
+const HOTEL_WINDOW_DEPTH_M = 0.16;
+
+/** Hotel jitter strength. */
+const HOTEL_JITTER_STRENGTH = 0.008;
+
+/** Hotel skip chance. */
+const HOTEL_SKIP_CHANCE = 0.01;
+
+/** Hotel 서비스 층 간격. */
+const HOTEL_SERVICE_FLOOR_STEP = 10;
+
+/** Hotel top blind floor 임계 층 수. */
+const HOTEL_TOP_BLIND_FLOOR_THRESHOLD = 16;
+
+/** Industrial 창문 너비 (m). */
+const INDUSTRIAL_WINDOW_WIDTH_M = 2.4;
+
+/** Industrial 창문 높이 (dense, m). */
+const INDUSTRIAL_WINDOW_HEIGHT_DENSE_M = 1.22;
+
+/** Industrial 창문 높이 (medium, m). */
+const INDUSTRIAL_WINDOW_HEIGHT_MEDIUM_M = 1.12;
+
+/** Industrial 창문 깊이 (m). */
+const INDUSTRIAL_WINDOW_DEPTH_M = 0.14;
+
+/** Industrial jitter strength. */
+const INDUSTRIAL_JITTER_STRENGTH = 0.005;
+
+/** Industrial skip chance. */
+const INDUSTRIAL_SKIP_CHANCE = 0.03;
+
+/** Industrial floor 비율 (최대 40%). */
+const INDUSTRIAL_FLOOR_RATIO = 0.4;
+
+/** Industrial 최대 층 수. */
+const INDUSTRIAL_MAX_FLOORS = 3;
+
+/** Industrial 최소 층 수. */
+const INDUSTRIAL_MIN_FLOORS = 1;
+
+/** 기본 jitter strength. */
+const DEFAULT_JITTER_STRENGTH = 0.01;
+
+/** 기본 skip chance. */
+const DEFAULT_SKIP_CHANCE = 0.015;
+
+/** Retail ground floor 창문 너비 배율. */
+const RETAIL_GROUND_FLOOR_WIDTH_SCALE = 1.28;
+
+/** Retail ground floor 창문 높이 배율. */
+const RETAIL_GROUND_FLOOR_HEIGHT_SCALE = 1.35;
+
+/** Retail ground floor 창문 높이 비율 (floor 높이의 68%). */
+const RETAIL_GROUND_FLOOR_HEIGHT_RATIO = 0.68;
+
+/** Retail ground floor yOffset 비율 (floor 높이의 8%). */
+const RETAIL_GROUND_FLOOR_Y_OFFSET_RATIO = 0.08;
+
+/** Industrial 창문 너비 배율. */
+const INDUSTRIAL_WINDOW_WIDTH_SCALE = 1.2;
+
+/** Industrial 창문 높이 배율. */
+const INDUSTRIAL_WINDOW_HEIGHT_SCALE = 0.84;
+
+/** Industrial yOffset 비율 (floor 높이의 18%). */
+const INDUSTRIAL_Y_OFFSET_RATIO = 0.18;
+
+/** Apartment ground floor 창문 높이 배율. */
+const APARTMENT_GROUND_FLOOR_HEIGHT_SCALE = 0.9;
+
+/** Apartment ground floor yOffset 비율 (floor 높이의 4%). */
+const APARTMENT_GROUND_FLOOR_Y_OFFSET_RATIO = 0.04;
+
+/** Fallback hint glazing ratio. */
+const FALLBACK_GLAZING_RATIO = 0.28;
+
+/** Hash 초기값 (FNV-1a). */
+const FNV1A_HASH_INIT = 2166136261;
+
+/** Hash 곱셈 상수 (FNV-1a). */
+const FNV1A_HASH_MULTIPLIER = 16777619;
+
+/** Hash 나눗셈 상수 (2^32). */
+const FNV1A_HASH_DIVISOR = 4294967295;
 
 type WindowArchetype =
   | 'apartment'
@@ -116,9 +314,9 @@ function resolveWindowConfig(
   const density = hint.windowPatternDensity ?? 'medium';
   const height = Math.max(4, building.heightMeters);
 
-  const floorHeight = 3.6;
-  const rawFloorCount = Math.max(2, Math.floor(height / floorHeight));
-  const floorLimit = lodLevel === 'LOW' ? 4 : lodLevel === 'MEDIUM' ? 6 : 9;
+  const floorHeight = DEFAULT_FLOOR_HEIGHT_M;
+  const rawFloorCount = Math.max(MIN_BUILDING_HEIGHT_M, Math.floor(height / floorHeight));
+  const floorLimit = lodLevel === 'LOW' ? LOD_FLOOR_LIMITS.LOW : lodLevel === 'MEDIUM' ? LOD_FLOOR_LIMITS.MEDIUM : LOD_FLOOR_LIMITS.HIGH;
   const floorCount = Math.min(rawFloorCount, floorLimit);
 
   const baseConfig: WindowConfig = {
@@ -144,38 +342,38 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         windowsPerFloor: density === 'dense' ? 4 : density === 'medium' ? 4 : 3,
-        windowWidth: density === 'dense' ? 1.5 : 1.4,
-        windowHeight: 2.1,
-        windowDepth: density === 'dense' ? 0.17 : 0.16,
+        windowWidth: density === 'dense' ? OFFICE_WINDOW_WIDTH_DENSE_M : OFFICE_WINDOW_WIDTH_MEDIUM_M,
+        windowHeight: OFFICE_WINDOW_HEIGHT_M,
+        windowDepth: density === 'dense' ? OFFICE_WINDOW_DEPTH_DENSE_M : OFFICE_WINDOW_DEPTH_MEDIUM_M,
         pattern: 'grid',
-        topBlindFloors: floorCount >= 14 ? 1 : 0,
-        serviceFloorStep: 12,
+        topBlindFloors: floorCount >= OFFICE_TOP_BLIND_FLOOR_THRESHOLD ? 1 : 0,
+        serviceFloorStep: OFFICE_SERVICE_FLOOR_STEP,
         groundFloorRule: 'sparse',
       };
     case 'apartment':
       return {
         ...baseConfig,
         windowsPerFloor: density === 'dense' ? 3 : density === 'medium' ? 3 : 2,
-        windowWidth: density === 'dense' ? 1.08 : 0.98,
-        windowHeight: density === 'dense' ? 1.5 : 1.42,
+        windowWidth: density === 'dense' ? APARTMENT_WINDOW_WIDTH_DENSE_M : APARTMENT_WINDOW_WIDTH_MEDIUM_M,
+        windowHeight: density === 'dense' ? APARTMENT_WINDOW_HEIGHT_DENSE_M : APARTMENT_WINDOW_HEIGHT_MEDIUM_M,
         pattern: 'grid',
-        jitterStrength: density === 'dense' ? 0.012 : 0.016,
-        skipChance: density === 'dense' ? 0.01 : 0.02,
-        topBlindFloors: floorCount >= 12 ? 1 : 0,
+        jitterStrength: density === 'dense' ? APARTMENT_JITTER_DENSE : APARTMENT_JITTER_MEDIUM,
+        skipChance: density === 'dense' ? APARTMENT_SKIP_CHANCE_DENSE : APARTMENT_SKIP_CHANCE_MEDIUM,
+        topBlindFloors: floorCount >= APARTMENT_TOP_BLIND_FLOOR_THRESHOLD ? 1 : 0,
         groundFloorRule: 'sparse',
       };
     case 'retail':
       return {
         ...baseConfig,
-        floorCount: Math.max(1, Math.min(3, Math.floor(floorCount * 0.4))),
+        floorCount: Math.max(RETAIL_MIN_FLOORS, Math.min(RETAIL_MAX_FLOORS, Math.floor(floorCount * RETAIL_FLOOR_RATIO))),
         windowsPerFloor: density === 'dense' ? 3 : density === 'medium' ? 2 : 1,
-        windowWidth: 1.95,
-        windowHeight: density === 'dense' ? 1.38 : 1.26,
-        sillDepth: 0.14,
+        windowWidth: RETAIL_WINDOW_WIDTH_M,
+        windowHeight: density === 'dense' ? RETAIL_WINDOW_HEIGHT_DENSE_M : RETAIL_WINDOW_HEIGHT_MEDIUM_M,
+        sillDepth: RETAIL_SILL_DEPTH_M,
         pattern: 'horizontal',
         facadeEdgeOnly: false,
-        jitterStrength: 0.008,
-        skipChance: density === 'dense' ? 0.008 : 0.015,
+        jitterStrength: RETAIL_JITTER_STRENGTH,
+        skipChance: density === 'dense' ? RETAIL_SKIP_CHANCE_DENSE : RETAIL_SKIP_CHANCE_MEDIUM,
         topBlindFloors: 0,
         groundFloorRule: 'full',
       };
@@ -183,28 +381,28 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         windowsPerFloor: density === 'dense' ? 5 : density === 'medium' ? 4 : 3,
-        windowWidth: density === 'dense' ? 1.16 : 1.1,
-        windowHeight: 1.6,
-        windowDepth: 0.16,
+        windowWidth: density === 'dense' ? HOTEL_WINDOW_WIDTH_DENSE_M : HOTEL_WINDOW_WIDTH_MEDIUM_M,
+        windowHeight: HOTEL_WINDOW_HEIGHT_M,
+        windowDepth: HOTEL_WINDOW_DEPTH_M,
         pattern: 'grid',
-        jitterStrength: 0.008,
-        skipChance: 0.01,
-        topBlindFloors: floorCount >= 16 ? 1 : 0,
-        serviceFloorStep: 10,
+        jitterStrength: HOTEL_JITTER_STRENGTH,
+        skipChance: HOTEL_SKIP_CHANCE,
+        topBlindFloors: floorCount >= HOTEL_TOP_BLIND_FLOOR_THRESHOLD ? 1 : 0,
+        serviceFloorStep: HOTEL_SERVICE_FLOOR_STEP,
         groundFloorRule: 'sparse',
       };
     case 'industrial':
       return {
         ...baseConfig,
-        floorCount: Math.max(1, Math.min(3, Math.floor(floorCount * 0.4))),
+        floorCount: Math.max(INDUSTRIAL_MIN_FLOORS, Math.min(INDUSTRIAL_MAX_FLOORS, Math.floor(floorCount * INDUSTRIAL_FLOOR_RATIO))),
         windowsPerFloor: density === 'dense' ? 3 : density === 'medium' ? 2 : 1,
-        windowWidth: 2.4,
-        windowHeight: density === 'dense' ? 1.22 : 1.12,
-        windowDepth: 0.14,
+        windowWidth: INDUSTRIAL_WINDOW_WIDTH_M,
+        windowHeight: density === 'dense' ? INDUSTRIAL_WINDOW_HEIGHT_DENSE_M : INDUSTRIAL_WINDOW_HEIGHT_MEDIUM_M,
+        windowDepth: INDUSTRIAL_WINDOW_DEPTH_M,
         pattern: 'horizontal',
         facadeEdgeOnly: false,
-        jitterStrength: 0.005,
-        skipChance: 0.03,
+        jitterStrength: INDUSTRIAL_JITTER_STRENGTH,
+        skipChance: INDUSTRIAL_SKIP_CHANCE,
         topBlindFloors: 0,
         groundFloorRule: 'none',
       };
@@ -212,8 +410,8 @@ function resolveWindowConfig(
       return {
         ...baseConfig,
         pattern: 'grid',
-        jitterStrength: 0.01,
-        skipChance: 0.015,
+        jitterStrength: DEFAULT_JITTER_STRENGTH,
+        skipChance: DEFAULT_SKIP_CHANCE,
       };
   }
 }
@@ -324,17 +522,17 @@ function pushWindowGrid(
     frame.b[0] - frame.a[0],
     frame.b[2] - frame.a[2],
   );
-  if (edgeLength <= 1e-6) {
+  if (edgeLength <= MIN_WINDOW_EDGE_LENGTH_M) {
     return;
   }
 
   const floorHeight = buildingHeight / Math.max(1, config.floorCount);
 
   for (let floor = 0; floor < config.floorCount; floor += 1) {
-    const floorY = floor * floorHeight + floorHeight * 0.25;
+    const floorY = floor * floorHeight + floorHeight * FLOOR_START_RATIO;
     const floorTopY = floorY + config.windowHeight;
 
-    if (floorTopY > buildingHeight - 0.25) {
+    if (floorTopY > buildingHeight - WINDOW_TOP_MARGIN_M) {
       continue;
     }
 
@@ -426,23 +624,23 @@ function resolveFloorWindowSpec(
 ): { windowWidth: number; windowHeight: number; yOffset: number } {
   if (config.archetype === 'retail' && floor === 0) {
     return {
-      windowWidth: config.windowWidth * 1.28,
-      windowHeight: Math.max(config.windowHeight * 1.35, floorHeight * 0.68),
-      yOffset: floorHeight * 0.08,
+      windowWidth: config.windowWidth * RETAIL_GROUND_FLOOR_WIDTH_SCALE,
+      windowHeight: Math.max(config.windowHeight * RETAIL_GROUND_FLOOR_HEIGHT_SCALE, floorHeight * RETAIL_GROUND_FLOOR_HEIGHT_RATIO),
+      yOffset: floorHeight * RETAIL_GROUND_FLOOR_Y_OFFSET_RATIO,
     };
   }
   if (config.archetype === 'industrial') {
     return {
-      windowWidth: config.windowWidth * 1.2,
-      windowHeight: config.windowHeight * 0.84,
-      yOffset: floorHeight * 0.18,
+      windowWidth: config.windowWidth * INDUSTRIAL_WINDOW_WIDTH_SCALE,
+      windowHeight: config.windowHeight * INDUSTRIAL_WINDOW_HEIGHT_SCALE,
+      yOffset: floorHeight * INDUSTRIAL_Y_OFFSET_RATIO,
     };
   }
   if (config.archetype === 'apartment' && floor === 0) {
     return {
       windowWidth: config.windowWidth,
-      windowHeight: config.windowHeight * 0.9,
-      yOffset: floorHeight * 0.04,
+      windowHeight: config.windowHeight * APARTMENT_GROUND_FLOOR_HEIGHT_SCALE,
+      yOffset: floorHeight * APARTMENT_GROUND_FLOOR_Y_OFFSET_RATIO,
     };
   }
 
@@ -454,12 +652,12 @@ function resolveFloorWindowSpec(
 }
 
 function stableUnitNoise(seed: string): number {
-  let hash = 2166136261;
+  let hash = FNV1A_HASH_INIT;
   for (let i = 0; i < seed.length; i += 1) {
     hash ^= seed.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
+    hash = Math.imul(hash, FNV1A_HASH_MULTIPLIER);
   }
-  return (hash >>> 0) / 4294967295;
+  return (hash >>> 0) / FNV1A_HASH_DIVISOR;
 }
 
 function buildFallbackFacadeHint(seedHint?: SceneFacadeHint): SceneFacadeHint {
@@ -473,7 +671,7 @@ function buildFallbackFacadeHint(seedHint?: SceneFacadeHint): SceneFacadeHint {
     materialClass: seedHint?.materialClass ?? 'mixed',
     signageDensity: seedHint?.signageDensity ?? 'low',
     emissiveStrength: seedHint?.emissiveStrength ?? 0,
-    glazingRatio: seedHint?.glazingRatio ?? 0.28,
+    glazingRatio: seedHint?.glazingRatio ?? FALLBACK_GLAZING_RATIO,
     visualArchetype: seedHint?.visualArchetype,
     geometryStrategy: seedHint?.geometryStrategy,
     facadePreset: seedHint?.facadePreset,
@@ -522,7 +720,7 @@ function pushWindowFrame(
   const edgeDx = frame.b[0] - frame.a[0];
   const edgeDz = frame.b[2] - frame.a[2];
   const edgeLength = Math.hypot(edgeDx, edgeDz);
-  if (edgeLength <= 1e-6) {
+  if (edgeLength <= MIN_WINDOW_EDGE_LENGTH_M) {
     return;
   }
 

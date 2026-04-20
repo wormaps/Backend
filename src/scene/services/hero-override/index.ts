@@ -1,3 +1,9 @@
 export { SceneHeroOverrideApplierService } from './scene-hero-override-applier.service';
 export { SceneHeroOverrideMatcherService } from './scene-hero-override-matcher.service';
 export { SceneHeroOverrideService } from './scene-hero-override.service';
+export { SceneLandmarkApplierService } from './scene-landmark-applier.service';
+export { SceneFacadeHintMergerService } from './scene-facade-hint-merger.service';
+export { SceneCrossingDecalBuilderService } from './scene-crossing-decal-builder.service';
+export { SceneSignageMergerService } from './scene-signage-merger.service';
+export { SceneFurnitureMergerService } from './scene-furniture-merger.service';
+export { SceneHeroPromotionService } from './scene-hero-promotion.service';

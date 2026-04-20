@@ -1025,6 +1025,12 @@ export function averageCoordinate(ring: Coordinate[]): Coordinate | null {
 
 ### 작업 항목
 
+- [X] 9.1 Building Shell 상수
+- [X] 9.2 Road 상수
+- [X] 9.3 Window 상수
+- [X] 9.4 Overpass 상수
+- [X] 9.5 Geometry Correction 상수
+
 #### 9.1 Building Shell 상수
 **파일**: `src/assets/compiler/building/building-mesh.shell.builder.ts`
 
@@ -1133,6 +1139,8 @@ const BASE_GROUND_OFFSET_ON_COLLISION_M = 0.06;
 
 ### 작업 항목
 
+- [X] 10.1 `void appendSceneDiagnosticsLog()` → `await` + 에러 처리
+
 #### 10.1 `void appendSceneDiagnosticsLog()` → `await` + 에러 처리
 
 **대상 파일**:
@@ -1171,6 +1179,10 @@ try {
 729라인, 847라인, 557라인 파일 분할
 
 ### 작업 항목
+
+- [X] 11.1 `scene-hero-override-applier.service.ts` 분할
+- [X] 11.2 `scene-generation.service.ts` 분할
+- [X] 11.3 `scene-asset-profile.service.ts` 분할
 
 #### 11.1 `scene-hero-override-applier.service.ts` (729라인) 분할
 

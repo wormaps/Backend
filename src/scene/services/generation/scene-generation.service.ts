@@ -13,41 +13,19 @@ import { getSceneDataDir } from '../../storage/scene-storage.utils';
 import { SceneQualityGateService } from './scene-quality-gate.service';
 import { SceneMidQaService } from '../qa';
 import { SceneTwinBuilderService } from '../twin';
-import { SceneWeatherLiveService } from '../live/scene-weather-live.service';
-import { SceneTrafficLiveService } from '../live/scene-traffic-live.service';
+import { SceneQueueManagerService } from './scene-queue-manager.service';
+import { SceneFailureHandlerService } from './scene-failure-handler.service';
+import { SceneSnapshotService } from './scene-snapshot.service';
 import type {
   SceneCreateOptions,
   SceneEntity,
-  SceneFailureCategory,
-  SceneQualityGateResult,
   SceneScale,
   StoredScene,
 } from '../../types/scene.types';
-import {
-  getSceneGenerationQueuePath,
-  releaseSceneGenerationLock,
-  tryAcquireSceneGenerationLock,
-  writeSceneGenerationQueueSnapshot,
-} from '../../storage/scene-storage.utils';
 
 @Injectable()
 export class SceneGenerationService implements OnApplicationShutdown {
-  private readonly maxGenerationAttempts = 2;
-  private readonly generationLockOwnerId = randomUUID();
-  private readonly generationQueue: string[] = [];
-  private readonly queuedSceneIds = new Set<string>();
-  private readonly recentFailures: Array<{
-    sceneId: string;
-    attempts: number;
-    status: 'FAILED';
-    failureCategory: SceneFailureCategory;
-    failureReason: string;
-    updatedAt: string;
-  }> = [];
   private readonly pendingCreateScenes = new Map<string, Promise<SceneEntity>>();
-  private isProcessingQueue = false;
-  private isShuttingDown = false;
-  private currentProcessingSceneId: string | null = null;
 
   constructor(
     private readonly sceneRepository: SceneRepository,
@@ -55,8 +33,9 @@ export class SceneGenerationService implements OnApplicationShutdown {
     private readonly sceneQualityGateService: SceneQualityGateService,
     private readonly sceneMidQaService: SceneMidQaService,
     private readonly sceneTwinBuilderService: SceneTwinBuilderService,
-    private readonly sceneWeatherLiveService: SceneWeatherLiveService,
-    private readonly sceneTrafficLiveService: SceneTrafficLiveService,
+    private readonly queueManager: SceneQueueManagerService,
+    private readonly failureHandler: SceneFailureHandlerService,
+    private readonly snapshotService: SceneSnapshotService,
     private readonly appLoggerService: AppLoggerService,
   ) {}
 
@@ -65,7 +44,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
     scale: SceneScale,
     options: SceneCreateOptions = {},
   ): Promise<SceneEntity> {
-    if (this.isShuttingDown) {
+    if (this.queueManager.isShuttingDownFlag) {
       throw new AppException({
         code: ERROR_CODES.SERVER_SHUTTING_DOWN,
         message: '서버 종료 중에는 Scene 생성을 시작할 수 없습니다.',
@@ -143,7 +122,8 @@ export class SceneGenerationService implements OnApplicationShutdown {
         scale,
         forceRegenerate: options.forceRegenerate ?? false,
       });
-      this.enqueueGeneration(sceneId);
+      this.queueManager.enqueue(sceneId);
+      void this.processQueue();
 
       return scene;
     })();
@@ -162,137 +142,35 @@ export class SceneGenerationService implements OnApplicationShutdown {
   }
 
   async waitForIdle(): Promise<void> {
-    while (this.isProcessingQueue || this.generationQueue.length > 0) {
+    while (this.queueManager.processingFlag || this.queueManager.queue.length > 0) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 
-  getQueueDebugSnapshot(): {
-    isProcessingQueue: boolean;
-    isShuttingDown: boolean;
-    currentProcessingSceneId: string | null;
-    queuedSceneIds: string[];
-    queueDepth: number;
-  } {
-    return {
-      isProcessingQueue: this.isProcessingQueue,
-      isShuttingDown: this.isShuttingDown,
-      currentProcessingSceneId: this.currentProcessingSceneId,
-      queuedSceneIds: [...this.queuedSceneIds],
-      queueDepth: this.generationQueue.length,
-    };
+  getQueueDebugSnapshot() {
+    return this.queueManager.getDebugSnapshot();
   }
 
-  getRecentFailures(limit = 10): Array<{
-    sceneId: string;
-    attempts: number;
-    status: 'FAILED';
-    failureCategory: SceneFailureCategory;
-    failureReason: string;
-    updatedAt: string;
-  }> {
-    return this.recentFailures.slice(0, Math.max(1, limit));
-  }
-
-  private recordQueueMetrics(): void {
-    appMetrics.setGauge(
-      'scene_queue_depth',
-      this.generationQueue.length,
-      {},
-      'Current scene generation queue depth.',
-    );
-    appMetrics.setGauge(
-      'scene_queue_processing',
-      this.isProcessingQueue ? 1 : 0,
-      {},
-      'Whether the scene generation queue is currently processing.',
-    );
-    void this.persistQueueSnapshot();
-  }
-
-  private buildRequestKey(query: string, scale: SceneScale): string {
-    return `${query.trim().toLowerCase()}::${scale}`;
-  }
-
-  private enqueueGeneration(sceneId: string): void {
-    if (this.isShuttingDown) {
-      return;
-    }
-
-    if (this.queuedSceneIds.has(sceneId)) {
-      return;
-    }
-
-    this.queuedSceneIds.add(sceneId);
-    this.generationQueue.push(sceneId);
-    this.recordQueueMetrics();
-    void this.processQueue();
-  }
-
-  private async processQueue(): Promise<void> {
-    if (this.isProcessingQueue) {
-      return;
-    }
-
-    this.isProcessingQueue = true;
-    try {
-      while (this.generationQueue.length > 0) {
-        const sceneId = this.generationQueue.shift();
-        if (!sceneId) {
-          continue;
-        }
-        this.queuedSceneIds.delete(sceneId);
-        const lockAcquired = await tryAcquireSceneGenerationLock(
-          sceneId,
-          this.generationLockOwnerId,
-        );
-        if (!lockAcquired) {
-          this.appLoggerService.warn('scene.generation.lock_skipped', {
-            sceneId,
-            ownerId: this.generationLockOwnerId,
-            step: 'queue',
-          });
-          this.recordQueueMetrics();
-          continue;
-        }
-
-        this.currentProcessingSceneId = sceneId;
-        this.recordQueueMetrics();
-        try {
-          await this.processGeneration(sceneId);
-        } finally {
-          this.currentProcessingSceneId = null;
-          await releaseSceneGenerationLock(
-            sceneId,
-            this.generationLockOwnerId,
-          );
-          this.recordQueueMetrics();
-        }
-      }
-    } finally {
-      this.currentProcessingSceneId = null;
-      this.isProcessingQueue = false;
-      this.recordQueueMetrics();
-    }
+  getRecentFailures(limit = 10) {
+    return this.queueManager.getRecentFailures(limit);
   }
 
   async onApplicationShutdown(): Promise<void> {
-    this.isShuttingDown = true;
+    this.queueManager.isShuttingDownFlag = true;
 
     await Promise.race([
       this.waitForIdle(),
       new Promise((resolve) => setTimeout(resolve, 30000)),
     ]);
 
-    const pending = new Set<string>(this.generationQueue);
-    if (this.currentProcessingSceneId) {
-      pending.add(this.currentProcessingSceneId);
+    const pending = new Set<string>(this.queueManager.queue);
+    if (this.queueManager.currentProcessingId) {
+      pending.add(this.queueManager.currentProcessingId);
     }
 
     await Promise.all(
       [...pending].map((sceneId) => this.failSceneIfUnfinished(sceneId)),
     );
-    await this.persistQueueSnapshot();
   }
 
   private async failSceneIfUnfinished(sceneId: string): Promise<void> {
@@ -323,13 +201,52 @@ export class SceneGenerationService implements OnApplicationShutdown {
       updated.scene.failureReason &&
       updated.scene.failureCategory
     ) {
-      this.recordFailure({
+      this.queueManager.recordFailure({
         sceneId,
         attempts: updated.attempts,
         failureCategory: updated.scene.failureCategory,
         failureReason: updated.scene.failureReason,
         updatedAt: updated.scene.updatedAt,
       });
+    }
+  }
+
+  private async processQueue(): Promise<void> {
+    if (this.queueManager.processingFlag) {
+      return;
+    }
+
+    this.queueManager.processingFlag = true;
+    try {
+      while (this.queueManager.queue.length > 0) {
+        const sceneId = await this.queueManager.dequeue();
+        if (!sceneId) {
+          continue;
+        }
+        const lockAcquired = await this.queueManager.acquireLock(sceneId);
+        if (!lockAcquired) {
+          this.appLoggerService.warn('scene.generation.lock_skipped', {
+            sceneId,
+            step: 'queue',
+          });
+          this.queueManager.recordMetrics();
+          continue;
+        }
+
+        this.queueManager.currentProcessingId = sceneId;
+        this.queueManager.recordMetrics();
+        try {
+          await this.processGeneration(sceneId);
+        } finally {
+          this.queueManager.currentProcessingId = null;
+          await this.queueManager.releaseLock(sceneId);
+          this.queueManager.recordMetrics();
+        }
+      }
+    } finally {
+      this.queueManager.currentProcessingId = null;
+      this.queueManager.processingFlag = false;
+      this.queueManager.recordMetrics();
     }
   }
 
@@ -351,38 +268,21 @@ export class SceneGenerationService implements OnApplicationShutdown {
         result.meta,
         result.detail,
       );
-      const weatherObserved =
-        await this.sceneWeatherLiveService.sampleWeatherByPlace(
+      const { snapshot: weatherSnapshot, observation: weatherObserved } =
+        await this.snapshotService.buildWeatherSnapshot(
           result.place,
           result.meta.generatedAt.slice(0, 10),
-          'DAY',
           storedScene.requestId ?? null,
         );
-      const weatherSnapshot = {
-        updatedAt: new Date().toISOString(),
-        weatherCode: resolveWeatherCode(weatherObserved.observation),
-        temperature: weatherObserved.observation?.temperatureCelsius ?? null,
-        preset:
-          weatherObserved.observation?.resolvedWeather.toLowerCase() ?? 'clear',
-        source: weatherObserved.observation?.source ?? 'OPEN_METEO_HISTORICAL',
-        observedAt: weatherObserved.observation?.localTime ?? null,
-      };
-      const trafficObserved =
-        await this.sceneTrafficLiveService.sampleTrafficByRoads(
+      const { snapshot: trafficSnapshot, observation: trafficObserved } =
+        await this.snapshotService.buildTrafficSnapshot(
           result.meta.roads.map((road) => ({
             objectId: road.objectId,
             center: road.center,
           })),
           storedScene.requestId ?? null,
         );
-      const trafficSnapshot = {
-        updatedAt: new Date().toISOString(),
-        segments: trafficObserved.segments,
-        degraded: trafficObserved.failedSegmentCount > 0,
-        failedSegmentCount: trafficObserved.failedSegmentCount,
-        provider: trafficObserved.provider,
-      };
-      const twinBuild = this.sceneTwinBuilderService.build({
+      const twinBuild = await this.sceneTwinBuilderService.build({
         sceneId,
         query: storedScene.query,
         scale: storedScene.scale,
@@ -443,7 +343,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
             weatherObserved.observation?.date ??
             weatherSnapshot.updatedAt.slice(0, 10),
           localTime: weatherSnapshot.observedAt ?? weatherSnapshot.updatedAt,
-          resolvedWeather: this.toWeatherType(weatherSnapshot.preset),
+          resolvedWeather: this.snapshotService.toWeatherType(weatherSnapshot.preset),
           temperatureCelsius: weatherSnapshot.temperature,
           precipitationMm: null,
           capturedAt: weatherSnapshot.updatedAt,
@@ -465,10 +365,10 @@ export class SceneGenerationService implements OnApplicationShutdown {
                 )
               : 0,
           segments: trafficSnapshot.segments,
-            degraded: trafficSnapshot.degraded,
-            failedSegmentCount: trafficSnapshot.failedSegmentCount,
-            capturedAt: trafficSnapshot.updatedAt,
-            upstreamEnvelopes: trafficObserved.upstreamEnvelopes,
+          degraded: trafficSnapshot.degraded,
+          failedSegmentCount: trafficSnapshot.failedSegmentCount,
+          capturedAt: trafficSnapshot.updatedAt,
+          upstreamEnvelopes: trafficObserved.upstreamEnvelopes,
         },
         scene: {
           ...current.scene,
@@ -482,7 +382,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
             : null,
           failureReason: qualityPass
             ? null
-            : this.buildQualityFailureReason(qualityGate),
+            : this.failureHandler.buildQualityFailureReason(qualityGate),
           failureCategory,
           qualityGate,
           updatedAt: new Date().toISOString(),
@@ -525,11 +425,11 @@ export class SceneGenerationService implements OnApplicationShutdown {
             thresholds: qualityGate.thresholds,
           },
         });
-        this.recordFailure({
+        this.queueManager.recordFailure({
           sceneId,
           attempts: storedScene.attempts + 1,
           failureCategory: 'QUALITY_GATE_REJECTED',
-          failureReason: this.buildQualityFailureReason(qualityGate),
+          failureReason: this.failureHandler.buildQualityFailureReason(qualityGate),
           updatedAt: new Date().toISOString(),
         });
         appMetrics.incrementCounter(
@@ -551,7 +451,11 @@ export class SceneGenerationService implements OnApplicationShutdown {
         step: 'generation',
         error,
       });
-      await this.handleGenerationFailure(sceneId, storedScene, error);
+      await this.failureHandler.handleGenerationFailure(
+        sceneId,
+        storedScene,
+        error,
+      );
       appMetrics.incrementCounter(
         'scene_generation_total',
         1,
@@ -567,197 +471,8 @@ export class SceneGenerationService implements OnApplicationShutdown {
     }
   }
 
-  private async handleGenerationFailure(
-    sceneId: string,
-    storedScene: StoredScene,
-    error: unknown,
-  ): Promise<void> {
-    const attempts = storedScene.attempts + 1;
-    const failureReason =
-      error instanceof Error ? error.message : 'Scene generation failed';
-    const qualityGate = this.resolveQualityGateFromError(error);
-    const failureCategory: SceneFailureCategory = qualityGate
-      ? 'QUALITY_GATE_REJECTED'
-      : 'GENERATION_ERROR';
-
-    if (attempts < this.maxGenerationAttempts) {
-      if (failureCategory === 'QUALITY_GATE_REJECTED') {
-        const updated = await this.sceneRepository.update(sceneId, (current) => ({
-          ...current,
-          attempts,
-          scene: {
-            ...current.scene,
-            status: 'FAILED',
-            failureReason,
-            failureCategory,
-            qualityGate,
-            updatedAt: new Date().toISOString(),
-          },
-        }));
-        if (updated?.scene.failureReason && updated.scene.failureCategory) {
-          this.recordFailure({
-            sceneId,
-            attempts,
-            failureCategory: updated.scene.failureCategory,
-            failureReason: updated.scene.failureReason,
-            updatedAt: updated.scene.updatedAt,
-          });
-        }
-        this.appLoggerService.warn('scene.quality_gate.non_retry', {
-          requestId: storedScene.requestId ?? null,
-          sceneId,
-          source: storedScene.generationSource ?? 'api',
-          step: 'quality_gate',
-          attempts,
-          failureReason,
-          failureCategory,
-        });
-        return;
-      }
-
-      this.appLoggerService.warn('scene.retrying', {
-        requestId: storedScene.requestId ?? null,
-        sceneId,
-        source: storedScene.generationSource ?? 'api',
-        step: 'retry',
-        attempts,
-        maxAttempts: this.maxGenerationAttempts,
-        failureReason,
-        failureCategory,
-      });
-      await this.sceneRepository.update(sceneId, (current) => ({
-        ...current,
-        attempts,
-        scene: {
-          ...current.scene,
-          status: 'PENDING',
-          failureReason,
-          failureCategory,
-          qualityGate,
-          updatedAt: new Date().toISOString(),
-        },
-      }));
-      this.enqueueGeneration(sceneId);
-      return;
-    }
-
-    await this.sceneRepository.update(sceneId, (current) => ({
-      ...current,
-      attempts,
-      scene: {
-        ...current.scene,
-        status: 'FAILED',
-        failureReason,
-        failureCategory,
-        qualityGate,
-        updatedAt: new Date().toISOString(),
-      },
-    }));
-    this.appLoggerService.error('scene.failed', {
-      requestId: storedScene.requestId ?? null,
-      sceneId,
-      source: storedScene.generationSource ?? 'api',
-      step: 'failed',
-      attempts,
-      failureReason,
-      failureCategory,
-    });
-    this.recordFailure({
-      sceneId,
-      attempts,
-      failureCategory,
-      failureReason,
-      updatedAt: new Date().toISOString(),
-    });
-  }
-
-  private resolveQualityGateFromError(
-    error: unknown,
-  ): SceneQualityGateResult | null {
-    if (!(error instanceof Error)) {
-      return null;
-    }
-
-    const maybeResult = (
-      error as Error & {
-        qualityGate?: SceneQualityGateResult;
-      }
-    ).qualityGate;
-    if (!maybeResult) {
-      return null;
-    }
-
-    return maybeResult;
-  }
-
-  private buildQualityFailureReason(
-    qualityGate: SceneQualityGateResult,
-  ): string {
-    const reasonCodes = qualityGate.reasonCodes;
-    if (reasonCodes.length === 0) {
-      return 'Quality gate rejected this scene.';
-    }
-    return `Quality gate rejected this scene: ${reasonCodes.join(', ')}`;
-  }
-
-  private recordFailure(entry: {
-    sceneId: string;
-    attempts: number;
-    failureCategory: SceneFailureCategory;
-    failureReason: string;
-    updatedAt: string;
-  }): void {
-    this.recentFailures.unshift({
-      sceneId: entry.sceneId,
-      attempts: entry.attempts,
-      status: 'FAILED',
-      failureCategory: entry.failureCategory,
-      failureReason: entry.failureReason,
-      updatedAt: entry.updatedAt,
-    });
-    if (this.recentFailures.length > 20) {
-      this.recentFailures.length = 20;
-    }
-    appMetrics.incrementCounter(
-      'scene_failures_total',
-      1,
-      { failureCategory: entry.failureCategory },
-      'Total recorded scene failures by category.',
-    );
-  }
-
-  private async persistQueueSnapshot(): Promise<void> {
-    try {
-      await writeSceneGenerationQueueSnapshot({
-        ownerId: this.generationLockOwnerId,
-        updatedAt: new Date().toISOString(),
-        isProcessingQueue: this.isProcessingQueue,
-        isShuttingDown: this.isShuttingDown,
-        currentProcessingSceneId: this.currentProcessingSceneId,
-        queuedSceneIds: [...this.queuedSceneIds],
-        queueDepth: this.generationQueue.length,
-      });
-    } catch (error) {
-      this.appLoggerService.warn('scene.queue.snapshot_failed', {
-        ownerId: this.generationLockOwnerId,
-        sceneGenerationQueuePath: getSceneGenerationQueuePath(),
-        error,
-      });
-    }
-  }
-
-  private async getStoredScene(sceneId: string): Promise<StoredScene> {
-    const storedScene = await this.sceneRepository.findById(sceneId);
-    if (!storedScene) {
-      throw new AppException({
-        code: ERROR_CODES.SCENE_NOT_FOUND,
-        message: 'Scene을 찾을 수 없습니다.',
-        detail: { sceneId },
-        status: HttpStatus.NOT_FOUND,
-      });
-    }
-
-    return storedScene;
+  private buildRequestKey(query: string, scale: SceneScale): string {
+    return `${query.trim().toLowerCase()}::${scale}`;
   }
 
   private buildSceneId(name: string, unique = false): string {
@@ -786,17 +501,18 @@ export class SceneGenerationService implements OnApplicationShutdown {
     return 600;
   }
 
-  private toWeatherType(preset: string): 'CLEAR' | 'CLOUDY' | 'RAIN' | 'SNOW' {
-    if (preset === 'cloudy') {
-      return 'CLOUDY';
+  private async getStoredScene(sceneId: string): Promise<StoredScene> {
+    const storedScene = await this.sceneRepository.findById(sceneId);
+    if (!storedScene) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_NOT_FOUND,
+        message: 'Scene을 찾을 수 없습니다.',
+        detail: { sceneId },
+        status: HttpStatus.NOT_FOUND,
+      });
     }
-    if (preset === 'rain') {
-      return 'RAIN';
-    }
-    if (preset === 'snow') {
-      return 'SNOW';
-    }
-    return 'CLEAR';
+
+    return storedScene;
   }
 
   private async isReusableScene(storedScene: StoredScene): Promise<boolean> {
@@ -824,24 +540,4 @@ export class SceneGenerationService implements OnApplicationShutdown {
       return false;
     }
   }
-}
-
-function resolveWeatherCode(
-  observation: {
-    resolvedWeather: string;
-  } | null,
-): number | null {
-  if (!observation) {
-    return null;
-  }
-  if (observation.resolvedWeather === 'CLOUDY') {
-    return 3;
-  }
-  if (observation.resolvedWeather === 'RAIN') {
-    return 61;
-  }
-  if (observation.resolvedWeather === 'SNOW') {
-    return 71;
-  }
-  return 0;
 }

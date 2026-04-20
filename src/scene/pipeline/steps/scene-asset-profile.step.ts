@@ -139,7 +139,15 @@ export class SceneAssetProfileStep {
       step: 'asset_profile',
       ...payload,
     });
-    void appendSceneDiagnosticsLog(meta.sceneId, 'asset_profile', payload);
+    try {
+      await appendSceneDiagnosticsLog(meta.sceneId, 'asset_profile', payload);
+    } catch (error) {
+      this.appLoggerService.warn('scene.diagnostics.log-failed', {
+        sceneId: meta.sceneId,
+        step: 'asset_profile',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     return {
       meta: updatedMeta,
       assetSelection,

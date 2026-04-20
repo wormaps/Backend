@@ -5,7 +5,12 @@ import { ScenePipelineModule } from './scene-pipeline.module';
 import { SceneQualityModule } from './scene-quality.module';
 import { SceneStorageModule } from './scene-storage.module';
 import { SceneVisionModule } from './scene-vision.module';
-import { SceneGenerationService } from '../services/generation';
+import {
+  SceneGenerationService,
+  SceneQueueManagerService,
+  SceneFailureHandlerService,
+  SceneSnapshotService,
+} from '../services/generation';
 
 @Module({
   imports: [
@@ -16,7 +21,17 @@ import { SceneGenerationService } from '../services/generation';
     SceneStorageModule,
     SceneVisionModule,
   ],
-  providers: [SceneGenerationService],
-  exports: [SceneGenerationService],
+  providers: [
+    SceneQueueManagerService,
+    SceneFailureHandlerService,
+    SceneSnapshotService,
+    SceneGenerationService,
+  ],
+  exports: [
+    SceneQueueManagerService,
+    SceneFailureHandlerService,
+    SceneSnapshotService,
+    SceneGenerationService,
+  ],
 })
 export class SceneGenerationModule {}

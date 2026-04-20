@@ -11,18 +11,18 @@ export class SceneHeroOverrideService {
     private readonly applier: SceneHeroOverrideApplierService,
   ) {}
 
-  applyOverrides(
+  async applyOverrides(
     place: ExternalPlaceDetail,
     meta: SceneMeta,
     detail: SceneDetail,
-  ): {
+  ): Promise<{
     meta: SceneMeta;
     detail: SceneDetail;
-  } {
+  }> {
     const manifest = this.matcher.findManifest(place);
     if (!manifest) {
       return { meta, detail };
     }
-    return this.applier.apply(meta, detail, manifest);
+    return await this.applier.apply(meta, detail, manifest);
   }
 }

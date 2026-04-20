@@ -31,20 +31,230 @@ import {
 export { createEmptyGeometry, mergeGeometryBuffers };
 export type { GeometryBuffers, Vec3 };
 
+/** 도로 base Y 오프셋 (m). 지면 약간 위로. */
 const ROAD_BASE_Y = 0.04;
+
+/** 도로 marking Y 오프셋 (m). 도로 base 위. */
 const ROAD_MARKING_Y = 0.094;
+
+/** 차선 오버레이 Y 오프셋 (m). */
 const LANE_OVERLAY_Y = 0.108;
+
+/** 히어로 차선 오버레이 Y 오프셋 (m). */
 const LANE_OVERLAY_HERO_Y = 0.114;
+
+/** 정지선 Y 오프셋 (m). */
 const STOP_LINE_Y = 0.1;
+
+/** 횡단보도 Y 오프셋 (m). 도로 marking 위. */
 const CROSSWALK_Y = 0.142;
+
+/** 히어로 횡단보도 Y 오프셋 (m). */
 const CROSSWALK_HERO_Y = 0.146;
+
+/** 횡단보도 스트라이프 Y 오프셋 (m). */
 const CROSSWALK_STRIPE_Y = 0.154;
+
+/** 교차로 오버레이 Y 오프셋 (m). */
 const JUNCTION_OVERLAY_Y = 0.182;
+
+/** 화살표 마크 Y 오프셋 (m). */
 const ARROW_MARK_Y = 0.19;
 
-const GROUND_RELIEF_RADIAL_AMPLITUDE = 0.072;
-const GROUND_RELIEF_LONG_WAVE_AMPLITUDE = 0.041;
-const GROUND_RELIEF_CROSS_WAVE_AMPLITUDE = 0.036;
+/** 지형 relief 격자 해상도 (9×9 grid). */
+const GROUND_GRID_RESOLUTION = 8;
+
+/** 지형 relief 방사형 진폭 (m). */
+const GROUND_RELIEF_RADIAL_AMPLITUDE_M = 0.072;
+
+/** 지형 relief 긴 파장 진폭 (m). */
+const GROUND_RELIEF_LONG_WAVE_AMPLITUDE_M = 0.041;
+
+/** 지형 relief 교차 파장 진폭 (m). */
+const GROUND_RELIEF_CROSS_WAVE_AMPLITUDE_M = 0.036;
+
+/** 도로 최소 너비 (m). */
+const MIN_ROAD_WIDTH_M = 3.2;
+
+/** 도로 가장자리 밴드 최소 너비 (m). */
+const MIN_ROAD_EDGE_BAND_WIDTH_M = 0.22;
+
+/** 도로 가장자리 밴드 최대 너비 (m). */
+const MAX_ROAD_EDGE_BAND_WIDTH_M = 0.42;
+
+/** 도로 가장자리 밴드 너비 비율. */
+const ROAD_EDGE_BAND_WIDTH_RATIO = 0.045;
+
+/** 도로 가장자리 밴드 높이 (m). */
+const ROAD_EDGE_BAND_HEIGHT_M = 0.02;
+
+/** 차선 너비 (m). */
+const LANE_LINE_WIDTH_M = 0.3;
+
+/** 정지선 너비 (m). */
+const STOP_LINE_WIDTH_M = 0.68;
+
+/** 횡단보도 marking 너비 (m). */
+const CROSSWALK_MARKING_WIDTH_M = 2.1;
+
+/** 정지선 데칼 너비 (m). */
+const STOP_LINE_DECAL_WIDTH_M = 1.2;
+
+/** 히어로 횡단보도 오버레이 너비 (m). */
+const CROSSWALK_OVERLAY_HERO_WIDTH_M = 4.8;
+
+/** 일반 횡단보도 오버레이 너비 (m). */
+const CROSSWALK_OVERLAY_WIDTH_M = 3.2;
+
+/** 히어로 레인 오버레이 너비 (m). */
+const LANE_OVERLAY_HERO_WIDTH_M = 0.52;
+
+/** 일반 레인 오버레이 너비 (m). */
+const LANE_OVERLAY_WIDTH_M = 0.46;
+
+/** 히어로 횡단보도 스트라이프 깊이 (m). */
+const HERO_CROSSWALK_STRIPE_DEPTH_M = 0.98;
+
+/** 히어로 횡단보도 스트라이프 깊이 배율. */
+const HERO_CROSSWALK_STRIPE_DEPTH_SCALE = 1.04;
+
+/** 히어로 횡단보도 절반 너비 (m). */
+const HERO_CROSSWALK_HALF_WIDTH_M = 8.6;
+
+/** 히어로 횡단보도 절반 너비 배율. */
+const HERO_CROSSWALK_HALF_WIDTH_SCALE = 1.06;
+
+/** 보도 최소 너비 (m). */
+const MIN_WALKWAY_WIDTH_M = 1.8;
+
+/** 보도 base Y 오프셋 (m). */
+const WALKWAY_BASE_Y = 0.026;
+
+/** 연석 높이 (m). */
+const CURB_HEIGHT_M = 0.15;
+
+/** 연석 너비 (m). */
+const CURB_WIDTH_M = 0.18;
+
+/** 중앙분리대 최소 너비 (m). */
+const MEDIAN_MIN_WIDTH_M = 8;
+
+/** 중앙분리대 너비 (m). */
+const MEDIAN_WIDTH_M = 1.2;
+
+/** 중앙분리대 너비 비율. */
+const MEDIAN_WIDTH_RATIO = 0.12;
+
+/** 중앙분리대 높이 (m). */
+const MEDIAN_HEIGHT_M = 0.12;
+
+/** 중앙분리대 추가 높이 (m). */
+const MEDIAN_EXTRA_HEIGHT_M = 0.01;
+
+/** 보도 가장자리 높이 (m). */
+const SIDEWALK_EDGE_HEIGHT_M = 0.1;
+
+/** 보도 가장자리 너비 (m). */
+const SIDEWALK_EDGE_WIDTH_M = 0.12;
+
+/** 횡단보도 최소 스트라이프 간격 (m). */
+const CROSSWALK_MIN_STRIPE_SPACING_M = 0.75;
+
+/** 횡단보도 스트라이프 간격 비율. */
+const CROSSWALK_STRIPE_SPACING_RATIO = 0.2;
+
+/** 주요 횡단보도 최소 스트라이프 수. */
+const PRINCIPAL_CROSSWALK_MIN_STRIPES = 10;
+
+/** 주요 횡단보도 최대 스트라이프 수. */
+const PRINCIPAL_CROSSWALK_MAX_STRIPES = 16;
+
+/** 주요 횡단보도 스트라이프 간격 (m). */
+const PRINCIPAL_CROSSWALK_STRIPE_SPACING_M = 0.92;
+
+/** 일반 횡단보도 최소 스트라이프 수. */
+const NORMAL_CROSSWALK_MIN_STRIPES = 7;
+
+/** 일반 횡단보도 최대 스트라이프 수. */
+const NORMAL_CROSSWALK_MAX_STRIPES = 12;
+
+/** 일반 횡단보도 스트라이프 간격 (m). */
+const NORMAL_CROSSWALK_STRIPE_SPACING_M = 1.08;
+
+/** 주요 횡단보도 스트라이프 깊이 (m). */
+const PRINCIPAL_CROSSWALK_STRIPE_DEPTH_M = 1.08;
+
+/** 주요 횡단보도 절반 너비 (m). */
+const PRINCIPAL_CROSSWALK_HALF_WIDTH_M = 9.6;
+
+/** 일반 횡단보도 절반 너비 (m). */
+const NORMAL_CROSSWALK_HALF_WIDTH_M = 6.3;
+
+/** 일반 횡단보도 스트라이프 깊이 (m). */
+const NORMAL_CROSSWALK_STRIPE_DEPTH_M = 0.94;
+
+/** Motorway/trunk 도로 너비 배율. */
+const MOTORWAY_WIDTH_SCALE = 1.14;
+
+/** Primary 도로 너비 배율. */
+const PRIMARY_WIDTH_SCALE = 1.08;
+
+/** Secondary 도로 너비 배율. */
+const SECONDARY_WIDTH_SCALE = 1.04;
+
+/** Tertiary 도로 너비 배율. */
+const TERTIARY_WIDTH_SCALE = 0.98;
+
+/** Residential/service 도로 너비 배율. */
+const RESIDENTIAL_WIDTH_SCALE = 0.9;
+
+/** 4차선 이상 도로 너비 배율. */
+const FOUR_LANE_WIDTH_SCALE = 1.08;
+
+/** 1차선 이하 도로 너비 배율. */
+const ONE_LANE_WIDTH_SCALE = 0.9;
+
+/** 보도 footway/pedestrian 너비 배율. */
+const FOOTWAY_WIDTH_SCALE = 1.08;
+
+/** 보도 steps/path 너비 배율. */
+const STEPS_PATH_WIDTH_SCALE = 0.9;
+
+/** Cobblestone/sett 도로 추가 높이 (m). */
+const COBBLESTONE_Y_OFFSET_M = 0.008;
+
+/** Gravel/unpaved 도로 추가 높이 (m). */
+const GRAVEL_Y_OFFSET_M = 0.004;
+
+/** Paving stones/tiles 보도 추가 높이 (m). */
+const PAVING_STONES_Y_OFFSET_M = 0.004;
+
+/** Wood 보도 추가 높이 (m). */
+const WOOD_Y_OFFSET_M = 0.006;
+
+/** DEM 샘플 최대 참조 수. */
+const MAX_DEM_SAMPLE_REFERENCES = 4;
+
+/** DEM 샘플 최소 거리 (m). */
+const MIN_DEM_SAMPLE_DISTANCE_M = 0.5;
+
+/** DEM relief 최소값 (m). */
+const MIN_DEM_RELIEF_M = -5;
+
+/** DEM relief 최대값 (m). */
+const MAX_DEM_RELIEF_M = 5;
+
+/** Ground relief 사인파 주파수. */
+const GROUND_RELIEF_SINE_FREQ = 0.00042;
+
+/** Ground relief 코사인파 주파수. */
+const GROUND_RELIEF_COS_FREQ = 0.00035;
+
+/** Ground base Y 오프셋 (m). */
+const GROUND_BASE_Y_OFFSET_M = -0.06;
+
+/** 거리 판정 임계값 (denom). */
+const DISTANCE_THRESHOLD_DENOM = 1e-9;
 
 export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const geometry = createEmptyGeometry();
@@ -54,7 +264,7 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
   const centerZ = (sw[2] + ne[2]) / 2;
   const radius = Math.max(1, Math.hypot(ne[0] - sw[0], ne[2] - sw[2]) / 2);
 
-  const GRID = 8;
+  const GRID = GROUND_GRID_RESOLUTION;
   const grid: Vec3[][] = [];
   for (let iz = 0; iz <= GRID; iz += 1) {
     const row: Vec3[] = [];
@@ -64,7 +274,7 @@ export function createGroundGeometry(sceneMeta: SceneMeta): GeometryBuffers {
       const tx = ix / GRID;
       const x = sw[0] + (ne[0] - sw[0]) * tx;
       const y =
-        -0.06 +
+        GROUND_BASE_Y_OFFSET_M +
         resolveGroundElevationY(sceneMeta, x, z, centerX, centerZ, radius);
       row.push([x, y, z]);
     }
@@ -115,7 +325,7 @@ export function createRoadBaseGeometry(
       origin,
       geometry,
       road.path,
-      Math.max(3.2, road.widthMeters * widthScale),
+      Math.max(MIN_ROAD_WIDTH_M, road.widthMeters * widthScale),
       ROAD_BASE_Y + yOffset,
     );
   }
@@ -132,9 +342,9 @@ export function createRoadEdgeGeometry(
       origin,
       geometry,
       road.path,
-      Math.max(3.2, road.widthMeters),
-      Math.max(0.22, Math.min(0.42, road.widthMeters * 0.045)),
-      0.02,
+      Math.max(MIN_ROAD_WIDTH_M, road.widthMeters),
+      Math.max(MIN_ROAD_EDGE_BAND_WIDTH_M, Math.min(MAX_ROAD_EDGE_BAND_WIDTH_M, road.widthMeters * ROAD_EDGE_BAND_WIDTH_RATIO)),
+      ROAD_EDGE_BAND_HEIGHT_M,
     );
   }
   return geometry;
@@ -148,10 +358,10 @@ export function createRoadMarkingsGeometry(
   for (const marking of markings) {
     const width =
       marking.type === 'LANE_LINE'
-        ? 0.3
+        ? LANE_LINE_WIDTH_M
         : marking.type === 'STOP_LINE'
-          ? 0.68
-          : 2.1;
+          ? STOP_LINE_WIDTH_M
+          : CROSSWALK_MARKING_WIDTH_M;
     pushPathStrips(origin, geometry, marking.path, width, ROAD_MARKING_Y);
   }
   return geometry;
@@ -176,14 +386,14 @@ export function createRoadDecalPathGeometry(
 
     const width =
       decal.type === 'STOP_LINE'
-        ? 1.2
+        ? STOP_LINE_DECAL_WIDTH_M
         : decal.type === 'CROSSWALK_OVERLAY'
           ? decal.emphasis === 'hero'
-            ? 4.8
-            : 3.2
+            ? CROSSWALK_OVERLAY_HERO_WIDTH_M
+            : CROSSWALK_OVERLAY_WIDTH_M
           : decal.emphasis === 'hero'
-            ? 0.52
-            : 0.46;
+            ? LANE_OVERLAY_HERO_WIDTH_M
+            : LANE_OVERLAY_WIDTH_M;
     const y =
       decal.type === 'STOP_LINE'
         ? STOP_LINE_Y
@@ -234,12 +444,12 @@ export function createRoadDecalStripeGeometry(
     const stripeCount = Math.max(1, decal.stripeSet.stripeCount);
     const heroStripe = decal.emphasis === 'hero';
     const stripeDepth = Math.max(
-      heroStripe ? 0.98 : 0.82,
-      decal.stripeSet.stripeDepth * (heroStripe ? 1.04 : 1),
+      heroStripe ? HERO_CROSSWALK_STRIPE_DEPTH_M : NORMAL_CROSSWALK_STRIPE_DEPTH_M,
+      decal.stripeSet.stripeDepth * (heroStripe ? HERO_CROSSWALK_STRIPE_DEPTH_SCALE : 1),
     );
     const halfWidth = Math.max(
-      heroStripe ? 8.6 : 5.8,
-      decal.stripeSet.halfWidth * (heroStripe ? 1.06 : 1),
+      heroStripe ? HERO_CROSSWALK_HALF_WIDTH_M : NORMAL_CROSSWALK_HALF_WIDTH_M,
+      decal.stripeSet.halfWidth * (heroStripe ? HERO_CROSSWALK_HALF_WIDTH_SCALE : 1),
     );
 
     for (let i = 0; i < stripeCount; i += 1) {
@@ -335,17 +545,17 @@ export function createCrosswalkGeometry(
     const normal = { x: -direction.z, z: direction.x };
     const length = Math.hypot(end[0] - start[0], end[2] - start[2]);
     const signalizedBoost = crossing.style === 'signalized' ? 1 : 0;
-    const halfWidth = crossing.principal ? 9.6 : 6.3;
+    const halfWidth = crossing.principal ? PRINCIPAL_CROSSWALK_HALF_WIDTH_M : NORMAL_CROSSWALK_HALF_WIDTH_M;
     const y = CROSSWALK_Y + resolveCrosswalkYOffset(crossing, roads);
     const corridorCapacity = Math.max(
       6,
-      Math.floor(length / Math.max(0.75, halfWidth * 0.2)),
+      Math.floor(length / Math.max(CROSSWALK_MIN_STRIPE_SPACING_M, halfWidth * CROSSWALK_STRIPE_SPACING_RATIO)),
     );
     const stripeCountBase = crossing.principal
-      ? Math.max(10, Math.min(16, Math.floor(length / 0.92) + signalizedBoost))
-      : Math.max(7, Math.min(12, Math.floor(length / 1.08) + signalizedBoost));
+      ? Math.max(PRINCIPAL_CROSSWALK_MIN_STRIPES, Math.min(PRINCIPAL_CROSSWALK_MAX_STRIPES, Math.floor(length / PRINCIPAL_CROSSWALK_STRIPE_SPACING_M) + signalizedBoost))
+      : Math.max(NORMAL_CROSSWALK_MIN_STRIPES, Math.min(NORMAL_CROSSWALK_MAX_STRIPES, Math.floor(length / NORMAL_CROSSWALK_STRIPE_SPACING_M) + signalizedBoost));
     const stripeCount = Math.min(stripeCountBase, corridorCapacity);
-    const stripeDepth = crossing.principal ? 1.08 : 0.94;
+    const stripeDepth = crossing.principal ? PRINCIPAL_CROSSWALK_STRIPE_DEPTH_M : NORMAL_CROSSWALK_STRIPE_DEPTH_M;
 
     for (let i = 0; i < stripeCount; i += 1) {
       const t = (i + 0.5) / stripeCount;
@@ -379,8 +589,8 @@ export function createWalkwayGeometry(
       origin,
       geometry,
       walkway.path,
-      Math.max(1.8, walkway.widthMeters * widthScale),
-      0.026 + yOffset,
+      Math.max(MIN_WALKWAY_WIDTH_M, walkway.widthMeters * widthScale),
+      WALKWAY_BASE_Y + yOffset,
     );
   }
   return geometry;
@@ -392,9 +602,9 @@ export function createCurbGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   for (const road of roads) {
-    const roadWidth = Math.max(3.2, road.widthMeters);
-    const curbHeight = 0.15;
-    const curbWidth = 0.18;
+    const roadWidth = Math.max(MIN_ROAD_WIDTH_M, road.widthMeters);
+    const curbHeight = CURB_HEIGHT_M;
+    const curbWidth = CURB_WIDTH_M;
     pushPathCurb(
       origin,
       geometry,
@@ -414,12 +624,12 @@ export function createMedianGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   for (const road of roads) {
-    const roadWidth = Math.max(3.2, road.widthMeters);
-    if (roadWidth < 8) {
+    const roadWidth = Math.max(MIN_ROAD_WIDTH_M, road.widthMeters);
+    if (roadWidth < MEDIAN_MIN_WIDTH_M) {
       continue;
     }
-    const medianWidth = Math.min(1.2, roadWidth * 0.12);
-    const medianHeight = 0.12;
+    const medianWidth = Math.min(MEDIAN_WIDTH_M, roadWidth * MEDIAN_WIDTH_RATIO);
+    const medianHeight = MEDIAN_HEIGHT_M;
     pushPathMedian(
       origin,
       geometry,
@@ -427,7 +637,7 @@ export function createMedianGeometry(
       roadWidth,
       medianWidth,
       medianHeight,
-      ROAD_BASE_Y + resolveRoadYOffset(road) + 0.01,
+      ROAD_BASE_Y + resolveRoadYOffset(road) + MEDIAN_EXTRA_HEIGHT_M,
     );
   }
   return geometry;
@@ -439,9 +649,9 @@ export function createSidewalkEdgeGeometry(
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
   for (const walkway of walkways) {
-    const walkwayWidth = Math.max(2, walkway.widthMeters);
-    const edgeHeight = 0.1;
-    const edgeWidth = 0.12;
+    const walkwayWidth = Math.max(MIN_WALKWAY_WIDTH_M, walkway.widthMeters);
+    const edgeHeight = SIDEWALK_EDGE_HEIGHT_M;
+    const edgeWidth = SIDEWALK_EDGE_WIDTH_M;
     pushPathSidewalkEdge(
       origin,
       geometry,
@@ -449,7 +659,7 @@ export function createSidewalkEdgeGeometry(
       walkwayWidth,
       edgeWidth,
       edgeHeight,
-      0.026 + resolveWalkwayYOffset(walkway),
+      WALKWAY_BASE_Y + resolveWalkwayYOffset(walkway),
     );
   }
   return geometry;
@@ -458,31 +668,31 @@ export function createSidewalkEdgeGeometry(
 function resolveRoadWidthScale(road: SceneMeta['roads'][number]): number {
   const className = road.roadClass.toLowerCase();
   if (className.includes('motorway') || className.includes('trunk')) {
-    return 1.14;
+    return MOTORWAY_WIDTH_SCALE;
   }
   if (className.includes('primary')) {
-    return 1.08;
+    return PRIMARY_WIDTH_SCALE;
   }
   if (className.includes('secondary')) {
-    return 1.04;
+    return SECONDARY_WIDTH_SCALE;
   }
   if (className.includes('tertiary')) {
-    return 0.98;
+    return TERTIARY_WIDTH_SCALE;
   }
   if (className.includes('residential') || className.includes('service')) {
-    return 0.9;
+    return RESIDENTIAL_WIDTH_SCALE;
   }
-  return road.laneCount >= 4 ? 1.08 : road.laneCount <= 1 ? 0.9 : 1;
+  return road.laneCount >= 4 ? FOUR_LANE_WIDTH_SCALE : road.laneCount <= 1 ? ONE_LANE_WIDTH_SCALE : 1;
 }
 
 function resolveRoadYOffset(road: SceneMeta['roads'][number]): number {
   const terrainOffset = road.terrainOffsetM ?? 0;
   const surface = road.surface?.toLowerCase() ?? '';
   if (surface.includes('cobblestone') || surface.includes('sett')) {
-    return terrainOffset + 0.008;
+    return terrainOffset + COBBLESTONE_Y_OFFSET_M;
   }
   if (surface.includes('gravel') || surface.includes('unpaved')) {
-    return terrainOffset + 0.004;
+    return terrainOffset + GRAVEL_Y_OFFSET_M;
   }
   return terrainOffset;
 }
@@ -492,10 +702,10 @@ function resolveWalkwayWidthScale(
 ): number {
   const type = walkway.walkwayType.toLowerCase();
   if (type.includes('footway') || type.includes('pedestrian')) {
-    return 1.08;
+    return FOOTWAY_WIDTH_SCALE;
   }
   if (type.includes('steps') || type.includes('path')) {
-    return 0.9;
+    return STEPS_PATH_WIDTH_SCALE;
   }
   return 1;
 }
@@ -504,10 +714,10 @@ function resolveWalkwayYOffset(walkway: SceneMeta['walkways'][number]): number {
   const terrainOffset = walkway.terrainOffsetM ?? 0;
   const surface = walkway.surface?.toLowerCase() ?? '';
   if (surface.includes('paving_stones') || surface.includes('tiles')) {
-    return terrainOffset + 0.004;
+    return terrainOffset + PAVING_STONES_Y_OFFSET_M;
   }
   if (surface.includes('wood')) {
-    return terrainOffset + 0.006;
+    return terrainOffset + WOOD_Y_OFFSET_M;
   }
   return terrainOffset;
 }
@@ -566,7 +776,7 @@ function distancePointToSegment2d(
   const apX = point[0] - start[0];
   const apY = point[1] - start[1];
   const denom = abX * abX + abY * abY;
-  if (denom <= 1e-9) {
+  if (denom <= DISTANCE_THRESHOLD_DENOM) {
     return Math.hypot(apX, apY);
   }
   const t = Math.max(0, Math.min(1, (apX * abX + apY * abY) / denom));
@@ -586,10 +796,10 @@ function resolveGroundReliefY(
   const dz = (z - centerZ) / radius;
   const radial = Math.max(0, 1 - Math.min(1, Math.hypot(dx, dz)));
   const longWave =
-    Math.sin((x + z) * 0.00042) * GROUND_RELIEF_LONG_WAVE_AMPLITUDE;
+    Math.sin((x + z) * GROUND_RELIEF_SINE_FREQ) * GROUND_RELIEF_LONG_WAVE_AMPLITUDE_M;
   const crossWave =
-    Math.cos((x - z) * 0.00035) * GROUND_RELIEF_CROSS_WAVE_AMPLITUDE;
-  const relief = radial * GROUND_RELIEF_RADIAL_AMPLITUDE + longWave + crossWave;
+    Math.cos((x - z) * GROUND_RELIEF_COS_FREQ) * GROUND_RELIEF_CROSS_WAVE_AMPLITUDE_M;
+  const relief = radial * GROUND_RELIEF_RADIAL_AMPLITUDE_M + longWave + crossWave;
   return Number(relief.toFixed(4));
 }
 
@@ -608,7 +818,7 @@ function resolveDemSampleRelief(
       const local = toLocalPoint(sceneMeta.origin, sample.location);
       const dx = local[0] - x;
       const dz = local[2] - z;
-      const distance = Math.max(0.5, Math.hypot(dx, dz));
+      const distance = Math.max(MIN_DEM_SAMPLE_DISTANCE_M, Math.hypot(dx, dz));
       const weight = 1 / distance;
       return {
         deltaHeight: sample.heightMeters - terrainProfile.baseHeightMeters,
@@ -616,7 +826,7 @@ function resolveDemSampleRelief(
       };
     })
     .sort((left, right) => right.weight - left.weight)
-    .slice(0, 4);
+    .slice(0, MAX_DEM_SAMPLE_REFERENCES);
 
   const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
   if (totalWeight <= 0) {

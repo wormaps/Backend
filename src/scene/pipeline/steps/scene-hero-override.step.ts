@@ -9,11 +9,11 @@ export class SceneHeroOverrideStep {
     private readonly sceneHeroOverrideService: SceneHeroOverrideService,
   ) {}
 
-  execute(
+  async execute(
     place: ExternalPlaceDetail,
     meta: SceneMeta,
     detail: SceneDetail,
-  ): { meta: SceneMeta; detail: SceneDetail } {
+  ): Promise<{ meta: SceneMeta; detail: SceneDetail }> {
     return this.sceneHeroOverrideService.applyOverrides(place, meta, detail);
   }
 }

@@ -14,25 +14,61 @@ import {
   resolveTerrainOffsetForPoints,
 } from './scene-geometry-correction.utils';
 
-const COLLISION_NEAR_ROAD_METERS = 3;
-const BASE_GROUND_OFFSET_ON_COLLISION_METERS = 0.06;
-const MAX_GROUND_OFFSET_ON_COLLISION_METERS = 0.24;
-const BUILDING_OVERLAP_PADDING_METERS = 0.35;
-const BUILDING_OVERLAP_GROUND_OFFSET_METERS = 0.08;
+/** 건물-도로 충돌 판정 거리 (m). 이 이내면 충돌로 간주. */
+const COLLISION_NEAR_ROAD_M = 3;
+
+/** 충돌 시 건물 바닥 오프셋 (m). 도로 위로 이동. */
+const BASE_GROUND_OFFSET_ON_COLLISION_M = 0.06;
+
+/** 충돌 시 건물 바닥 오프셋 최대값 (m). */
+const MAX_GROUND_OFFSET_ON_COLLISION_M = 0.24;
+
+/** 건물 간 중복 판정 패딩 (m). */
+const BUILDING_OVERLAP_PADDING_M = 0.35;
+
+/** 건물 간 중복 시 바닥 오프셋 (m). */
+const BUILDING_OVERLAP_GROUND_OFFSET_M = 0.08;
+
+/** 심각한 grounded gap 판정 임계값 (m). */
 const SEVERE_GROUNDED_GAP_OFFSET_THRESHOLD = 0.16;
+
+/** 지형 relief 스케일 계수. */
 const TERRAIN_RELIEF_SCALE = 0.5;
+
+/** 링 폐합을 위한 최소 정점 수. */
 const MIN_RING_VERTICES_FOR_CLOSURE = 3;
+
+/** Setback 사용 가능 최소 정점 수. */
 const MIN_SETBACK_USABLE_VERTICES = 3;
+
+/** Setback 단계 최대 안전 레벨 (붕괴 방지). */
 const MAX_SAFE_SETBACK_LEVELS_WITHOUT_COLLAPSE = 3;
 
+/** 중복 심각도 'low' 상한 (㎡). */
 const OVERLAP_SEVERITY_LOW_THRESHOLD_M2 = 2;
+
+/** 중복 심각도 'high' 하한 (㎡). */
 const OVERLAP_SEVERITY_HIGH_THRESHOLD_M2 = 15;
-const HEIGHT_STAGGER_BASE_METERS = 0.12;
-const HEIGHT_STAGGER_PER_AREA_M2 = 0.008;
-const MAX_HEIGHT_STAGGER_METERS = 0.8;
-const LATERAL_SEPARATION_BASE_METERS = 0.05;
-const LATERAL_SEPARATION_PER_AREA_M2 = 0.003;
-const MAX_LATERAL_SEPARATION_METERS = 0.3;
+
+/** 높이 stagger 기본값 (m). */
+const HEIGHT_STAGGER_BASE_M = 0.12;
+
+/** 높이 stagger 면적당 증가분 (m/㎡). */
+const HEIGHT_STAGGER_PER_AREA_M = 0.008;
+
+/** 높이 stagger 최대값 (m). */
+const MAX_HEIGHT_STAGGER_M = 0.8;
+
+/** 측면 분리 기본값 (m). */
+const LATERAL_SEPARATION_BASE_M = 0.05;
+
+/** 측면 분리 면적당 증가분 (m/㎡). */
+const LATERAL_SEPARATION_PER_AREA_M = 0.003;
+
+/** 측면 분리 최대값 (m). */
+const MAX_LATERAL_SEPARATION_M = 0.3;
+
+/** 복합 바닥 오프셋 감소 계수. */
 const COMBINED_GROUND_OFFSET_REDUCTION_FACTOR = 0.6;
 
 export interface GeometryCorrectionResult {
@@ -171,10 +207,10 @@ export function correctBuilding(
     : 0;
   const dynamicGroundOffset = Number(
     (
-      BASE_GROUND_OFFSET_ON_COLLISION_METERS +
+      BASE_GROUND_OFFSET_ON_COLLISION_M +
       gapRatio *
-        (MAX_GROUND_OFFSET_ON_COLLISION_METERS -
-          BASE_GROUND_OFFSET_ON_COLLISION_METERS)
+        (MAX_GROUND_OFFSET_ON_COLLISION_M -
+          BASE_GROUND_OFFSET_ON_COLLISION_M)
     ).toFixed(3),
   );
 
@@ -192,48 +228,48 @@ export function correctBuilding(
 
     switch (mitigationStrategy) {
       case 'ground_offset':
-        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS;
+        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_M;
         break;
       case 'height_stagger':
         heightStagger = Number(
           Math.min(
-            MAX_HEIGHT_STAGGER_METERS,
-            HEIGHT_STAGGER_BASE_METERS + overlapAreaM2 * HEIGHT_STAGGER_PER_AREA_M2,
+            MAX_HEIGHT_STAGGER_M,
+            HEIGHT_STAGGER_BASE_M + overlapAreaM2 * HEIGHT_STAGGER_PER_AREA_M,
           ).toFixed(3),
         );
-        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS * 0.5;
+        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_M * 0.5;
         break;
       case 'lateral_separation':
         lateralSeparation = Number(
           Math.min(
-            MAX_LATERAL_SEPARATION_METERS,
-            LATERAL_SEPARATION_BASE_METERS +
-              overlapAreaM2 * LATERAL_SEPARATION_PER_AREA_M2,
+            MAX_LATERAL_SEPARATION_M,
+            LATERAL_SEPARATION_BASE_M +
+              overlapAreaM2 * LATERAL_SEPARATION_PER_AREA_M,
           ).toFixed(3),
         );
-        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS * 0.3;
+        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_M * 0.3;
         break;
       case 'combined':
         overlapGroundOffset =
-          BUILDING_OVERLAP_GROUND_OFFSET_METERS *
+          BUILDING_OVERLAP_GROUND_OFFSET_M *
           COMBINED_GROUND_OFFSET_REDUCTION_FACTOR;
         heightStagger = Number(
           Math.min(
-            MAX_HEIGHT_STAGGER_METERS * 0.7,
-            HEIGHT_STAGGER_BASE_METERS +
-              overlapAreaM2 * HEIGHT_STAGGER_PER_AREA_M2 * 0.5,
+            MAX_HEIGHT_STAGGER_M * 0.7,
+            HEIGHT_STAGGER_BASE_M +
+              overlapAreaM2 * HEIGHT_STAGGER_PER_AREA_M * 0.5,
           ).toFixed(3),
         );
         lateralSeparation = Number(
           Math.min(
-            MAX_LATERAL_SEPARATION_METERS * 0.5,
-            LATERAL_SEPARATION_BASE_METERS +
-              overlapAreaM2 * LATERAL_SEPARATION_PER_AREA_M2 * 0.5,
+            MAX_LATERAL_SEPARATION_M * 0.5,
+            LATERAL_SEPARATION_BASE_M +
+              overlapAreaM2 * LATERAL_SEPARATION_PER_AREA_M * 0.5,
           ).toFixed(3),
         );
         break;
       default:
-        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_METERS;
+        overlapGroundOffset = BUILDING_OVERLAP_GROUND_OFFSET_M;
         break;
     }
   }
@@ -315,14 +351,14 @@ export function resolveRoadClearanceThreshold(
   }
 
   if (!nearestRoad) {
-    return COLLISION_NEAR_ROAD_METERS;
+    return COLLISION_NEAR_ROAD_M;
   }
 
   const laneWidthEstimate = Math.max(
     2.8,
     Math.min(4.2, nearestRoad.widthMeters / Math.max(1, nearestRoad.laneCount)),
   );
-  return Math.max(1, Math.min(COLLISION_NEAR_ROAD_METERS, laneWidthEstimate * 0.75));
+  return Math.max(1, Math.min(COLLISION_NEAR_ROAD_M, laneWidthEstimate * 0.75));
 }
 
 export function resolveBuildingOverlapObjectIds(
@@ -342,11 +378,11 @@ export function resolveBuildingOverlapObjectIds(
       candidateIndex += 1
     ) {
       const candidate = boxes[candidateIndex];
-      if (candidate.minX > current.maxX + BUILDING_OVERLAP_PADDING_METERS) {
+      if (candidate.minX > current.maxX + BUILDING_OVERLAP_PADDING_M) {
         break;
       }
 
-      if (hasAabbOverlap(current, candidate, BUILDING_OVERLAP_PADDING_METERS)) {
+      if (hasAabbOverlap(current, candidate, BUILDING_OVERLAP_PADDING_M)) {
         overlapObjectIds.add(current.objectId);
         overlapObjectIds.add(candidate.objectId);
       }

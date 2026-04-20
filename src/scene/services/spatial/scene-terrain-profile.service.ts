@@ -28,14 +28,14 @@ export interface TerrainProfileResolveInput {
 export class SceneTerrainProfileService {
   constructor(private readonly appLoggerService: AppLoggerService) {}
 
-  resolve(
+  async resolve(
     sceneId: string,
     input: TerrainProfileResolveInput,
-  ): SceneTerrainProfile {
+  ): Promise<SceneTerrainProfile> {
     const terrainPath = this.resolveTerrainPath(sceneId);
     if (!terrainPath || !existsSync(terrainPath)) {
       const flatProfile = this.buildFlatProfile();
-      this.logFlatProfile(sceneId, flatProfile);
+      await this.logFlatProfile(sceneId, flatProfile);
       return flatProfile;
     }
 
@@ -74,7 +74,7 @@ export class SceneTerrainProfileService {
             ? '로컬 terrain profile 파일은 발견했지만 유효한 elevation sample이 없습니다.'
             : `로컬 terrain sample이 ${rawSamples.length}개로 최소 기준(${MIN_SAMPLES_FOR_DEM}개) 미달입니다.`,
       };
-      this.logFlatProfile(sceneId, fileProfile);
+      await this.logFlatProfile(sceneId, fileProfile);
       return fileProfile;
     }
 
@@ -165,10 +165,10 @@ export class SceneTerrainProfileService {
     };
   }
 
-  private logFlatProfile(
+  private async logFlatProfile(
     sceneId: string,
     profile: SceneTerrainProfile,
-  ): void {
+  ): Promise<void> {
     this.appLoggerService.warn('scene.terrain_profile.flat_placeholder', {
       sceneId,
       step: 'terrain_profile',
@@ -177,16 +177,24 @@ export class SceneTerrainProfileService {
       hasElevationModel: profile.hasElevationModel,
     });
 
-    void appendSceneDiagnosticsLog(sceneId, 'terrain_profile', {
-      terrainProfile: {
-        mode: profile.mode,
-        source: profile.source,
-        hasElevationModel: profile.hasElevationModel,
-        heightReference: profile.heightReference,
-        sampleCount: profile.sampleCount,
-        sourcePath: profile.sourcePath,
-      },
-    });
+    try {
+      await appendSceneDiagnosticsLog(sceneId, 'terrain_profile', {
+        terrainProfile: {
+          mode: profile.mode,
+          source: profile.source,
+          hasElevationModel: profile.hasElevationModel,
+          heightReference: profile.heightReference,
+          sampleCount: profile.sampleCount,
+          sourcePath: profile.sourcePath,
+        },
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.diagnostics.log-failed', {
+        sceneId,
+        step: 'terrain_profile',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 

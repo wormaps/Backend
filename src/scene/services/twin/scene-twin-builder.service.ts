@@ -60,7 +60,7 @@ export class SceneTwinBuilderService {
     private readonly sceneTerrainProfileService: SceneTerrainProfileService,
   ) {}
 
-  build({
+  async build({
     sceneId,
     query,
     scale,
@@ -74,18 +74,18 @@ export class SceneTwinBuilderService {
     weatherSnapshot,
     trafficSnapshot,
     liveStateEnvelopes,
-  }: BuildSceneTwinArgs): {
+  }: BuildSceneTwinArgs): Promise<{
     twin: SceneTwinGraph;
     validation: ValidationReport;
-  } {
+  }> {
     const generatedAt = meta.generatedAt;
     const terrainProfile =
       meta.terrainProfile ??
-      this.sceneTerrainProfileService.resolve(sceneId, {
+      (await this.sceneTerrainProfileService.resolve(sceneId, {
         bounds: meta.bounds,
         origin: meta.origin,
         radiusM: meta.bounds.radiusM,
-      });
+      }));
 
     const snapshots = buildSourceSnapshots(
       sceneId,

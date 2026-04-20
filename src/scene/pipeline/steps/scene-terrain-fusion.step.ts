@@ -41,7 +41,7 @@ export class SceneTerrainFusionStep {
         step: 'terrain_fusion',
         path: existingPath,
       });
-      const profile = this.terrainProfileService.resolve(sceneId, {
+      const profile = await this.terrainProfileService.resolve(sceneId, {
         bounds,
         origin,
         radiusM,
@@ -63,7 +63,7 @@ export class SceneTerrainFusionStep {
         sceneId,
         step: 'terrain_fusion',
       });
-      const flatProfile = this.buildFlatProfile(sceneId);
+      const flatProfile = await this.buildFlatProfile(sceneId);
       return { terrainProfile: flatProfile, terrainFilePath: null };
     }
 
@@ -74,17 +74,25 @@ export class SceneTerrainFusionStep {
 
     const savedPath = await this.persistTerrainFile(sceneId, samples);
 
-    void appendSceneDiagnosticsLog(sceneId, 'terrain_fusion', {
-      terrainProfile: {
-        mode: profile.mode,
-        source: profile.source,
-        hasElevationModel: profile.hasElevationModel,
-        heightReference: profile.heightReference,
-        sampleCount: profile.sampleCount,
-        sourcePath: profile.sourcePath,
-      },
-      terrainFilePath: savedPath,
-    });
+    try {
+      await appendSceneDiagnosticsLog(sceneId, 'terrain_fusion', {
+        terrainProfile: {
+          mode: profile.mode,
+          source: profile.source,
+          hasElevationModel: profile.hasElevationModel,
+          heightReference: profile.heightReference,
+          sampleCount: profile.sampleCount,
+          sourcePath: profile.sourcePath,
+        },
+        terrainFilePath: savedPath,
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.diagnostics.log-failed', {
+        sceneId,
+        step: 'terrain_fusion',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     this.appLoggerService.info('scene.terrain_fusion.completed', {
       sceneId,
@@ -153,7 +161,7 @@ export class SceneTerrainFusionStep {
     }
   }
 
-  private buildFlatProfile(sceneId: string): SceneTerrainProfile {
+  private async buildFlatProfile(sceneId: string): Promise<SceneTerrainProfile> {
     this.appLoggerService.warn('scene.terrain_profile.flat_placeholder', {
       sceneId,
       step: 'terrain_fusion',
@@ -162,16 +170,24 @@ export class SceneTerrainFusionStep {
       hasElevationModel: false,
     });
 
-    void appendSceneDiagnosticsLog(sceneId, 'terrain_fusion', {
-      terrainProfile: {
-        mode: 'FLAT_PLACEHOLDER',
-        source: 'NONE',
-        hasElevationModel: false,
-        heightReference: 'ELLIPSOID_APPROX',
-        sampleCount: 0,
-        sourcePath: null,
-      },
-    });
+    try {
+      await appendSceneDiagnosticsLog(sceneId, 'terrain_fusion', {
+        terrainProfile: {
+          mode: 'FLAT_PLACEHOLDER',
+          source: 'NONE',
+          hasElevationModel: false,
+          heightReference: 'ELLIPSOID_APPROX',
+          sampleCount: 0,
+          sourcePath: null,
+        },
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.diagnostics.log-failed', {
+        sceneId,
+        step: 'terrain_fusion_flat',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return {
       mode: 'FLAT_PLACEHOLDER',

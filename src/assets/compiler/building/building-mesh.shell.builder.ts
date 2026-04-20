@@ -19,13 +19,113 @@ import {
   pushTriangle,
 } from './building-mesh.geometry-primitives';
 
-const MIN_FOUNDATION_DEPTH = 0.4;
-const MAX_FOUNDATION_DEPTH = 1.1;
+/** 건물 기초 최소 깊이 (m). 지반 안정성 기준. */
+const MIN_FOUNDATION_DEPTH_M = 0.4;
+
+/** 건물 기초 최대 깊이 (m). 지하주차장 고려. */
+const MAX_FOUNDATION_DEPTH_M = 1.1;
+
 /** Podium과 tower setback 사이 겹침 거리 (m). 0이면 join geometry로 연결. */
-const SETBACK_OVERLAP = 0.0;
+const SETBACK_OVERLAP_M = 0.0;
+
+/** Setback 시 링 면적 최소값 (㎡). 이보다 작으면 inset 중단. */
 const MIN_SETBACK_RING_AREA_M2 = 0.5;
+
+/** 지형 오프셋이 기초 깊이에 반영되는 비율. */
 const FOUNDATION_TERRAIN_SCALE = 0.3;
+
+/** 지형 오프셋이 기초 깊이에 반영되는 최대값 (m). */
 const MAX_FOUNDATION_TERRAIN_OFFSET = 0.5;
+
+/** Setback 단계당 기본 inset 비율 (12%). 건축물 퇴보 규정 기반. */
+const SETBACK_INSET_RATIO = 0.12;
+
+/** Setback 단계별 추가 inset 비율 (4%씩 증가). */
+const SETBACK_STAGE_INSET_INCREMENT = 0.04;
+
+/** Corner tower 건물용 setback 기본 inset 비율. */
+const CORNER_TOWER_SETBACK_BASE_RATIO = 0.18;
+
+/** Corner tower 건물용 setback 단계별 inset 증가분. */
+const CORNER_TOWER_SETBACK_STAGE_INCREMENT = 0.05;
+
+/** Slab midrise 건물용 setback 기본 inset 비율. */
+const SLAB_MIDRISE_SETBACK_BASE_RATIO = 0.08;
+
+/** Slab midrise 건물용 setback 단계별 inset 증가분. */
+const SLAB_MIDRISE_SETBACK_STAGE_INCREMENT = 0.03;
+
+/** Podium tower 건물용 tower inset 비율 (corner chamfer 없을 때). */
+const PODIUM_TOWER_INSET_RATIO_DEFAULT = 0.14;
+
+/** Podium tower 건물용 tower inset 비율 (corner chamfer 있을 때). */
+const PODIUM_TOWER_INSET_RATIO_CHAMFER = 0.2;
+
+/** LOD LOW 단순화 허용오차 (m). */
+const LOD_LOW_SIMPLIFY_TOLERANCE_M = 1.5;
+
+/** LOD MEDIUM 단순화 허용오차 (m). */
+const LOD_MEDIUM_SIMPLIFY_TOLERANCE_M = 0.8;
+
+/** 건물 높이 최소값 (m). */
+const MIN_BUILDING_HEIGHT_M = 4;
+
+/** Podium 높이 비율 (건물 높이의 52%). */
+const PODIUM_HEIGHT_RATIO = 0.52;
+
+/** Podium 최소 높이 (m). */
+const MIN_PODIUM_HEIGHT_M = 6;
+
+/** Podium 기본 층수. */
+const DEFAULT_PODIUM_LEVELS = 2;
+
+/** Podium 층당 높이 (m). */
+const PODIUM_LEVEL_HEIGHT_M = 4;
+
+/** Stepped tower base 높이 비율 (건물 높이의 58%). */
+const STEPPED_TOWER_BASE_RATIO = 0.58;
+
+/** Stepped tower base 최소 높이 (m). */
+const STEPPED_TOWER_BASE_MIN_HEIGHT_M = 8;
+
+/** Stepped tower 기본 단계 수. */
+const DEFAULT_STEPPED_TOWER_STAGES = 2;
+
+/** Stepped tower 최대 단계 수. */
+const MAX_STEPPED_TOWER_STAGES = 3;
+
+/** Gable/Hipped roof 최소 높이 (m). */
+const MIN_ROOF_BASE_HEIGHT_M = 3.2;
+
+/** Gable/Hipped roof 높이 비율 (건물 높이의 72%). */
+const ROOF_BASE_HEIGHT_RATIO = 0.72;
+
+/** Hero building 높이 최소값 (m). */
+const MIN_HERO_BUILDING_HEIGHT_M = 6;
+
+/** Hero building podium 높이 비율 (건물 높이의 45%). */
+const HERO_PODIUM_HEIGHT_RATIO = 0.45;
+
+/** Hero building podium 최소 높이 (m). */
+const HERO_MIN_PODIUM_HEIGHT_M = 5.5;
+
+/** Hero building podium 층당 높이 (m). */
+const HERO_PODIUM_LEVEL_HEIGHT_M = 3.8;
+
+/** Hero building 기본 setback 단계 수. */
+const HERO_DEFAULT_SETBACKS = 1;
+
+/** Ridge 길이 비율 (bounds의 60%). */
+const RIDGE_LENGTH_RATIO = 0.6;
+
+/** Ridge 최소 길이 (m). */
+const MIN_RIDGE_LENGTH_M = 1.0;
+
+/** Gable/Hipped roof 추가 높이 (m). */
+const ROOF_EXTRA_HEIGHT_M = 1.1;
+
+/** Simplify 후 면적 판정 임계값. */
+const SIMPLIFY_AREA_THRESHOLD = 0.001;
 
 export interface BuildingShellClosureMetrics {
   openShellCount: number;
@@ -74,7 +174,7 @@ export function collectBuildingShellClosureMetrics(
     if (strategy === 'stepped_tower' && setbackLevels > 0) {
       let currentRing = outerRing;
       for (let stage = 0; stage < setbackLevels; stage += 1) {
-        let nextRing = insetRing(currentRing, 0.12 + stage * 0.04);
+        let nextRing = insetRing(currentRing, SETBACK_INSET_RATIO + stage * SETBACK_STAGE_INSET_INCREMENT);
         if (nextRing.length < 3) {
           metrics.invalidSetbackJoinCount += 1;
           nextRing = [...currentRing];
@@ -216,22 +316,22 @@ function pushBuildingByStrategy(
   }
 
   const strategy = resolveBuildingGeometryStrategy(building, holes, outerRing);
-  const height = Math.max(4, building.heightMeters);
+  const height = Math.max(MIN_BUILDING_HEIGHT_M, building.heightMeters);
   const lodLevel = (building as { lodLevel?: string }).lodLevel ?? 'HIGH';
 
   const simplifiedRing =
     lodLevel === 'LOW'
-      ? simplifyRing(outerRing, 1.5)
+      ? simplifyRing(outerRing, LOD_LOW_SIMPLIFY_TOLERANCE_M)
       : lodLevel === 'MEDIUM'
-        ? simplifyRing(outerRing, 0.8)
+        ? simplifyRing(outerRing, LOD_MEDIUM_SIMPLIFY_TOLERANCE_M)
         : outerRing;
   const simplifiedHoles = lodLevel === 'LOW' ? [] : holes;
 
   switch (strategy) {
     case 'podium_tower': {
       const podiumHeight = Math.min(
-        height * 0.52,
-        Math.max(6, (building.podiumLevels ?? 2) * 4),
+        height * PODIUM_HEIGHT_RATIO,
+        Math.max(MIN_PODIUM_HEIGHT_M, (building.podiumLevels ?? DEFAULT_PODIUM_LEVELS) * PODIUM_LEVEL_HEIGHT_M),
       );
       pushExtrudedPolygon(
         geometry,
@@ -243,7 +343,7 @@ function pushBuildingByStrategy(
         buildingId,
       );
       if (lodLevel === 'HIGH') {
-        const insetRatio = building.cornerChamfer ? 0.2 : 0.14;
+        const insetRatio = building.cornerChamfer ? PODIUM_TOWER_INSET_RATIO_CHAMFER : PODIUM_TOWER_INSET_RATIO_DEFAULT;
         const towerRing = insetRing(simplifiedRing, insetRatio);
         if (towerRing.length >= 3) {
           const towerTop = Math.max(podiumHeight + 4, height);
@@ -251,12 +351,12 @@ function pushBuildingByStrategy(
             geometry,
             towerRing,
             [],
-            baseY + podiumHeight - SETBACK_OVERLAP,
+            baseY + podiumHeight - SETBACK_OVERLAP_M,
             baseY + towerTop,
             triangulate,
             buildingId,
           );
-          if (SETBACK_OVERLAP === 0) {
+          if (SETBACK_OVERLAP_M === 0) {
             pushSetbackJoinGeometry(
               geometry,
               simplifiedRing,
@@ -269,7 +369,7 @@ function pushBuildingByStrategy(
       break;
     }
     case 'stepped_tower': {
-      const baseTop = Math.max(8, height * 0.58);
+      const baseTop = Math.max(STEPPED_TOWER_BASE_MIN_HEIGHT_M, height * STEPPED_TOWER_BASE_RATIO);
       pushExtrudedPolygon(
         geometry,
         simplifiedRing,
@@ -282,22 +382,22 @@ function pushBuildingByStrategy(
       if (lodLevel === 'HIGH') {
         let currentRing = simplifiedRing;
         const stageCount = Math.max(
-          2,
-          Math.min(3, building.setbackLevels ?? 2),
+          DEFAULT_STEPPED_TOWER_STAGES,
+          Math.min(MAX_STEPPED_TOWER_STAGES, building.setbackLevels ?? DEFAULT_STEPPED_TOWER_STAGES),
         );
         let prevRing = simplifiedRing;
         let prevTop = baseTop;
         for (let stage = 0; stage < stageCount; stage += 1) {
-          currentRing = insetRing(currentRing, 0.12 + stage * 0.04);
+          currentRing = insetRing(currentRing, SETBACK_INSET_RATIO + stage * SETBACK_STAGE_INSET_INCREMENT);
           if (currentRing.length < 3) {
             currentRing = [...prevRing];
           }
           const stageMin =
             stage === 0
-              ? baseTop - SETBACK_OVERLAP
+              ? baseTop - SETBACK_OVERLAP_M
               : baseTop +
                 stage * ((height - baseTop) / stageCount) -
-                SETBACK_OVERLAP;
+                SETBACK_OVERLAP_M;
           const stageMax =
             stage === stageCount - 1
               ? height
@@ -311,7 +411,7 @@ function pushBuildingByStrategy(
             triangulate,
             buildingId,
           );
-          if (SETBACK_OVERLAP === 0) {
+          if (SETBACK_OVERLAP_M === 0) {
             pushSetbackJoinGeometry(
               geometry,
               prevRing,
@@ -326,7 +426,7 @@ function pushBuildingByStrategy(
       break;
     }
     case 'gable_lowrise': {
-      const roofBaseHeight = Math.max(3.2, height * 0.72);
+      const roofBaseHeight = Math.max(MIN_ROOF_BASE_HEIGHT_M, height * ROOF_BASE_HEIGHT_RATIO);
       pushExtrudedPolygon(
         geometry,
         simplifiedRing,
@@ -347,7 +447,7 @@ function pushBuildingByStrategy(
       break;
     }
     case 'hipped_lowrise': {
-      const roofBaseHeight = Math.max(3.2, height * 0.72);
+      const roofBaseHeight = Math.max(MIN_ROOF_BASE_HEIGHT_M, height * ROOF_BASE_HEIGHT_RATIO);
       pushExtrudedPolygon(
         geometry,
         simplifiedRing,
@@ -368,7 +468,7 @@ function pushBuildingByStrategy(
       break;
     }
     case 'pyramidal_lowrise': {
-      const roofBaseHeight = Math.max(3.2, height * 0.72);
+      const roofBaseHeight = Math.max(MIN_ROOF_BASE_HEIGHT_M, height * ROOF_BASE_HEIGHT_RATIO);
       pushExtrudedPolygon(
         geometry,
         simplifiedRing,
@@ -437,7 +537,7 @@ function pushHeroBuilding(
   ) => number[],
   foundationDepth: number,
 ): void {
-  const height = Math.max(6, building.heightMeters);
+  const height = Math.max(MIN_HERO_BUILDING_HEIGHT_M, building.heightMeters);
   const baseY = resolveBuildingVerticalBase(building);
   const buildingId = building.objectId;
   const baseMass = building.baseMass ?? 'podium_tower';
@@ -445,8 +545,8 @@ function pushHeroBuilding(
     building.podiumSpec?.levels ?? building.podiumLevels ?? 2;
   const setbacks = building.podiumSpec?.setbacks ?? building.setbackLevels ?? 1;
   const podiumHeight = Math.min(
-    height * 0.45,
-    Math.max(5.5, podiumLevels * 3.8),
+    height * HERO_PODIUM_HEIGHT_RATIO,
+    Math.max(HERO_MIN_PODIUM_HEIGHT_M, podiumLevels * HERO_PODIUM_LEVEL_HEIGHT_M),
   );
 
   if (baseMass === 'lowrise_strip') {
@@ -488,27 +588,27 @@ function pushHeroBuilding(
   let currentRing = outerRing;
   const stageCount =
     baseMass === 'stepped_tower' || baseMass === 'corner_tower'
-      ? Math.max(2, setbacks || 2)
-      : 1;
+      ? Math.max(DEFAULT_STEPPED_TOWER_STAGES, setbacks || DEFAULT_STEPPED_TOWER_STAGES)
+      : HERO_DEFAULT_SETBACKS;
   let prevRing = outerRing;
   let prevTop = podiumHeight;
   for (let stage = 0; stage < stageCount; stage += 1) {
     const insetRatio =
       baseMass === 'corner_tower'
-        ? 0.18 + stage * 0.05
+        ? CORNER_TOWER_SETBACK_BASE_RATIO + stage * CORNER_TOWER_SETBACK_STAGE_INCREMENT
         : baseMass === 'slab_midrise'
-          ? 0.08 + stage * 0.03
-          : 0.12 + stage * 0.04;
+          ? SLAB_MIDRISE_SETBACK_BASE_RATIO + stage * SLAB_MIDRISE_SETBACK_STAGE_INCREMENT
+          : SETBACK_INSET_RATIO + stage * SETBACK_STAGE_INSET_INCREMENT;
     currentRing = insetRing(currentRing, insetRatio);
     if (currentRing.length < 3) {
       currentRing = [...prevRing];
     }
     const stageMin =
       stage === 0
-        ? podiumHeight - SETBACK_OVERLAP
+        ? podiumHeight - SETBACK_OVERLAP_M
         : podiumHeight +
           stage * ((height - podiumHeight) / stageCount) -
-          SETBACK_OVERLAP;
+          SETBACK_OVERLAP_M;
     const stageMax =
       stage === stageCount - 1
         ? height
@@ -522,7 +622,7 @@ function pushHeroBuilding(
       triangulate,
       buildingId,
     );
-    if (SETBACK_OVERLAP === 0) {
+    if (SETBACK_OVERLAP_M === 0) {
       pushSetbackJoinGeometry(
         geometry,
         prevRing,
@@ -544,8 +644,8 @@ function resolveFoundationDepth(
     MAX_FOUNDATION_TERRAIN_OFFSET,
     terrainOffset * FOUNDATION_TERRAIN_SCALE,
   );
-  const base = MIN_FOUNDATION_DEPTH + groundOffset + terrainAdjustment;
-  return Math.min(MAX_FOUNDATION_DEPTH, Number(base.toFixed(3)));
+  const base = MIN_FOUNDATION_DEPTH_M + groundOffset + terrainAdjustment;
+  return Math.min(MAX_FOUNDATION_DEPTH_M, Number(base.toFixed(3)));
 }
 
 function triangulateRings(
@@ -656,8 +756,8 @@ function resolveRidgeForIrregularRing(
   const centroid = averagePoint(ring);
   const ridgeAlongX = bounds.width >= bounds.depth;
   const ridgeLength = Math.max(
-    (ridgeAlongX ? bounds.width : bounds.depth) * 0.6,
-    1.0,
+    (ridgeAlongX ? bounds.width : bounds.depth) * RIDGE_LENGTH_RATIO,
+    MIN_RIDGE_LENGTH_M,
   );
 
   const ridgeA: Vec3 = ridgeAlongX
@@ -677,7 +777,7 @@ function pushGableRoof(
   topHeight: number,
 ): void {
   const bounds = computeBounds(outerRing);
-  const ridgeHeight = Math.max(topHeight, roofBaseHeight + 1.1);
+  const ridgeHeight = Math.max(topHeight, roofBaseHeight + ROOF_EXTRA_HEIGHT_M);
   const { ridgeA, ridgeB, ridgeAlongX } = resolveRidgeForIrregularRing(
     outerRing,
     ridgeHeight,
@@ -723,7 +823,7 @@ function pushHippedRoof(
   topHeight: number,
 ): void {
   const bounds = computeBounds(outerRing);
-  const ridgeHeight = Math.max(topHeight, roofBaseHeight + 1.1);
+  const ridgeHeight = Math.max(topHeight, roofBaseHeight + ROOF_EXTRA_HEIGHT_M);
   const { ridgeA, ridgeB } = resolveRidgeForIrregularRing(
     outerRing,
     ridgeHeight,
@@ -769,7 +869,7 @@ function pushPyramidalRoof(
   topHeight: number,
 ): void {
   const bounds = computeBounds(outerRing);
-  const apexHeight = Math.max(topHeight, roofBaseHeight + 1.1);
+  const apexHeight = Math.max(topHeight, roofBaseHeight + ROOF_EXTRA_HEIGHT_M);
   const apex: Vec3 = [
     (bounds.minX + bounds.maxX) / 2,
     apexHeight,
@@ -888,7 +988,7 @@ function simplifyRing(ring: Vec3[], tolerance: number): Vec3[] {
     const cross =
       (next[0] - p[0]) * (nextNext[2] - p[2]) -
       (next[2] - p[2]) * (nextNext[0] - p[0]);
-    return Math.abs(cross) > 0.001;
+    return Math.abs(cross) > SIMPLIFY_AREA_THRESHOLD;
   });
 
   return hasArea ? result : ring;

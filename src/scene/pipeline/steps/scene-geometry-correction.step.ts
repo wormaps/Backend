@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { appendSceneDiagnosticsLog } from '../../storage/scene-storage.utils';
 import type {
   SceneDetail,
@@ -24,7 +25,11 @@ function createGeometryDiagnostic(
 
 @Injectable()
 export class SceneGeometryCorrectionStep {
-  execute(meta: SceneMeta, detail: SceneDetail): GeometryCorrectionResult {
+  constructor(
+    private readonly appLoggerService: AppLoggerService,
+  ) {}
+
+  async execute(meta: SceneMeta, detail: SceneDetail): Promise<GeometryCorrectionResult> {
     const roads = meta.roads.map((road) => correctRoad(road, meta));
     const walkways = meta.walkways.map((walkway) =>
       correctWalkway(walkway, meta),
@@ -183,38 +188,54 @@ export class SceneGeometryCorrectionStep {
     };
 
     if (correctedCount > correctedBuildings.length * 0.5) {
-      void appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction_warn', {
-        correctedCount,
-        totalBuildingCount: correctedBuildings.length,
-        ratio: Number((correctedCount / Math.max(1, correctedBuildings.length)).toFixed(3)),
-      });
+      try {
+        await appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction_warn', {
+          correctedCount,
+          totalBuildingCount: correctedBuildings.length,
+          ratio: Number((correctedCount / Math.max(1, correctedBuildings.length)).toFixed(3)),
+        });
+      } catch (error) {
+        this.appLoggerService.warn('scene.diagnostics.log-failed', {
+          sceneId: meta.sceneId,
+          step: 'geometry_correction_warn',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
-    void appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction', {
-      collisionRiskCount,
-      buildingOverlapCount,
-      groundedGapCount,
-      averageGroundOffsetM,
-      maxGroundOffsetM,
-      openShellCount,
-      roofWallGapCount,
-      invalidSetbackJoinCount,
-      terrainAnchoredBuildingCount,
-      terrainAnchoredRoadCount,
-      terrainAnchoredWalkwayCount,
-      averageTerrainOffsetM,
-      maxTerrainOffsetM,
-      transportTerrainCoverageRatio,
-      buildingCount: correctedBuildings.length,
-      roadCount: roads.length,
-      walkwayCount: walkways.length,
-      correctedCount,
-      totalOverlapAreaM2,
-      highSeverityOverlapCount,
-      mediumSeverityOverlapCount,
-      lowSeverityOverlapCount,
-      mitigationStrategies: overlapMitigationOutcomes.map((o) => o.strategy),
-    });
+    try {
+      await appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction', {
+        collisionRiskCount,
+        buildingOverlapCount,
+        groundedGapCount,
+        averageGroundOffsetM,
+        maxGroundOffsetM,
+        openShellCount,
+        roofWallGapCount,
+        invalidSetbackJoinCount,
+        terrainAnchoredBuildingCount,
+        terrainAnchoredRoadCount,
+        terrainAnchoredWalkwayCount,
+        averageTerrainOffsetM,
+        maxTerrainOffsetM,
+        transportTerrainCoverageRatio,
+        buildingCount: correctedBuildings.length,
+        roadCount: roads.length,
+        walkwayCount: walkways.length,
+        correctedCount,
+        totalOverlapAreaM2,
+        highSeverityOverlapCount,
+        mediumSeverityOverlapCount,
+        lowSeverityOverlapCount,
+        mitigationStrategies: overlapMitigationOutcomes.map((o) => o.strategy),
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.diagnostics.log-failed', {
+        sceneId: meta.sceneId,
+        step: 'geometry_correction',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return {
       meta: correctedMeta,

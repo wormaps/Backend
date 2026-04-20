@@ -48,6 +48,10 @@ import {
   SceneWeatherLiveService,
   SceneSignageVisionService,
   SceneVisionService,
+  SceneQueueManagerService,
+  SceneFailureHandlerService,
+  SceneSnapshotService,
+  AssetMaterialClassService,
 } from './services';
 import { SceneFacadeAtmosphereService } from './services/vision/scene-facade-atmosphere.service';
 import { SceneRepository } from './storage/scene.repository';
@@ -263,6 +267,7 @@ export async function createSceneSpecContext(options?: {
       SceneRoadVisionService,
       SceneSignageVisionService,
       SceneTwinBuilderService,
+      AssetMaterialClassService,
       SceneRepository,
       {
         provide: TtlCacheService,
@@ -372,6 +377,9 @@ export async function createSceneSpecContext(options?: {
           }),
         },
       },
+      SceneQueueManagerService,
+      SceneFailureHandlerService,
+      SceneSnapshotService,
       {
         provide: MapillaryClient,
         useValue: {
