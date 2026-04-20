@@ -364,6 +364,49 @@ export async function executeGlbBuild(
     },
   );
 
+  const postOptimizeTriangles = countDocumentTriangles(doc);
+  const triangleDelta = preOptimizeTriangles - postOptimizeTriangles;
+  const triangleReductionRatio =
+    preOptimizeTriangles > 0
+      ? Number((triangleDelta / preOptimizeTriangles).toFixed(3))
+      : 0;
+  const postOptimizeNodeCount = countDocumentNodes(doc);
+
+  state.appLoggerService.info('scene.glb_build.post_optimize_metrics', {
+    sceneId: contract.sceneId,
+    step: 'glb_build',
+    preOptimizeTriangles,
+    postOptimizeTriangles,
+    triangleDelta,
+    triangleReductionRatio,
+    nodeCount: postOptimizeNodeCount,
+  });
+
+  appMetrics.setGauge(
+    'glb_build_post_optimize_triangles',
+    postOptimizeTriangles,
+    {},
+    'Triangle count after mesh optimization.',
+  );
+  appMetrics.setGauge(
+    'glb_build_triangle_delta',
+    triangleDelta,
+    {},
+    'Triangle count reduction from optimization.',
+  );
+  appMetrics.setGauge(
+    'glb_build_triangle_reduction_ratio',
+    triangleReductionRatio,
+    {},
+    'Triangle reduction ratio (0-1) from optimization.',
+  );
+  appMetrics.setGauge(
+    'glb_build_node_count',
+    postOptimizeNodeCount,
+    {},
+    'GLB node count after optimization.',
+  );
+
   const io = new NodeIO();
   await registerNodeIoExtensions(io, contract.sceneId, state.appLoggerService);
   let glbBinary = await io.writeBinary(doc);
@@ -512,6 +555,24 @@ function countDocumentTriangles(doc: unknown): number {
         }
       }
     }
+  } catch {
+    void 0;
+  }
+  return total;
+}
+
+function countDocumentNodes(doc: unknown): number {
+  let total = 0;
+  try {
+    const docRecord = doc as Record<string, unknown>;
+    const getRoot = docRecord.getRoot as (() => unknown) | undefined;
+    if (typeof getRoot !== 'function') return total;
+    const root = getRoot() as Record<string, unknown>;
+    const listNodes = root.listNodes as (() => unknown[]) | undefined;
+    if (typeof listNodes !== 'function') return total;
+    const nodes = listNodes();
+    if (!Array.isArray(nodes)) return total;
+    total = nodes.length;
   } catch {
     void 0;
   }

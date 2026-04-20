@@ -203,9 +203,9 @@ describe('Phase 6 — GLB 빌드 시스템 안정화', () => {
       let maxZ = -Infinity;
 
       for (let i = 0; i < positions.length; i += 3) {
-        const x = positions[i];
-        const y = positions[i + 1];
-        const z = positions[i + 2];
+        const x = positions[i]!;
+        const y = positions[i + 1]!;
+        const z = positions[i + 2]!;
         if (x < minX) minX = x;
         if (y < minY) minY = y;
         if (z < minZ) minZ = z;

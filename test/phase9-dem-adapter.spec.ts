@@ -40,10 +40,10 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
     const samples = await adapter.fetchElevations(points);
 
     expect(samples).toHaveLength(64);
-    expect(samples[0].source).toBe('OPEN_ELEVATION');
-    expect(samples[0].location.lat).toBe(35.6);
-    expect(samples[0].location.lng).toBe(139.7);
-    expect(Number.isFinite(samples[0].heightMeters)).toBe(true);
+    expect(samples[0]!.source).toBe('OPEN_ELEVATION');
+    expect(samples[0]!.location.lat).toBe(35.6);
+    expect(samples[0]!.location.lng).toBe(139.7);
+    expect(Number.isFinite(samples[0]!.heightMeters)).toBe(true);
   });
 
   it('returns empty array on API 500 error', async () => {
@@ -131,6 +131,6 @@ describe('Phase 9.2 DemAdapter Infrastructure', () => {
 
     const samples = await adapter.fetchElevations(points);
     expect(samples).toHaveLength(1);
-    expect(samples[0].heightMeters).toBe(42.5);
+    expect(samples[0]!.heightMeters).toBe(42.5);
   });
 });

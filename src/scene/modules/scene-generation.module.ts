@@ -7,6 +7,9 @@ import { SceneStorageModule } from './scene-storage.module';
 import { SceneVisionModule } from './scene-vision.module';
 import {
   SceneGenerationService,
+  SceneGenerationOrchestratorService,
+  SceneGenerationExecutorService,
+  SceneGenerationResultService,
   SceneQueueManagerService,
   SceneFailureHandlerService,
   SceneSnapshotService,
@@ -25,12 +28,18 @@ import {
     SceneQueueManagerService,
     SceneFailureHandlerService,
     SceneSnapshotService,
+    SceneGenerationResultService,
+    SceneGenerationExecutorService,
+    SceneGenerationOrchestratorService,
     SceneGenerationService,
   ],
   exports: [
     SceneQueueManagerService,
     SceneFailureHandlerService,
     SceneSnapshotService,
+    SceneGenerationResultService,
+    SceneGenerationExecutorService,
+    SceneGenerationOrchestratorService,
     SceneGenerationService,
   ],
 })

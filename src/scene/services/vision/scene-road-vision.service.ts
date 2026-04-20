@@ -332,8 +332,8 @@ function buildBufferedCrossingPolygon(
   if (path.length < 2) {
     return undefined;
   }
-  const start = path[0];
-  const end = path[path.length - 1];
+  const start = path[0]!;
+  const end = path[path.length - 1]!;
   const dx = end.lng - start.lng;
   const dy = end.lat - start.lat;
   const metersPerLng =

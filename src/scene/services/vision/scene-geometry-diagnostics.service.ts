@@ -77,6 +77,7 @@ function ringHasVeryThinEdge(ring: Coordinate[]): boolean {
   for (let index = 0; index < ring.length; index += 1) {
     const current = ring[index];
     const next = ring[(index + 1) % ring.length];
+    if (!current || !next) continue;
     if (squaredDistance(current, next) <= 1.2 ** 2) {
       return true;
     }

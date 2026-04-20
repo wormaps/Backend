@@ -258,8 +258,8 @@ describe('Phase 14.1 Full Build Integration — Akihabara Fixture', () => {
     } else {
       delete process.env.SCENE_DATA_DIR;
     }
-    void rm(testTerrainDir, { recursive: true, force: true });
-    void rm(testSceneDataDir, { recursive: true, force: true });
+    await rm(testTerrainDir, { recursive: true, force: true });
+    await rm(testSceneDataDir, { recursive: true, force: true });
   });
 
   it('materialReuseRate is recorded', () => {
@@ -479,7 +479,7 @@ describe('Phase 14.3 Regression — Existing Behavior Preserved', () => {
     await controller.getSceneAsset(scene.sceneId, response);
 
     expect(sendFile).toHaveBeenCalled();
-    const calledPath = sendFile.mock.calls[0][0] as string;
+    const calledPath = sendFile.mock.calls[0]?.[0] as string;
     expect(calledPath).toContain('.glb');
   });
 

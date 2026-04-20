@@ -34,6 +34,9 @@ import {
   SceneFacadeVisionService,
   SceneFidelityPlannerService,
   SceneGenerationService,
+  SceneGenerationOrchestratorService,
+  SceneGenerationExecutorService,
+  SceneGenerationResultService,
   SceneGeometryDiagnosticsService,
   SceneMidQaService,
   SceneQualityGateService,
@@ -52,6 +55,8 @@ import {
   SceneFailureHandlerService,
   SceneSnapshotService,
   AssetMaterialClassService,
+  VisualArchetypeSelectionService,
+  ContextProfileService,
 } from './services';
 import { SceneFacadeAtmosphereService } from './services/vision/scene-facade-atmosphere.service';
 import { SceneRepository } from './storage/scene.repository';
@@ -235,6 +240,8 @@ export async function createSceneSpecContext(options?: {
       BuildingStyleResolverService,
       CuratedAssetResolverService,
       SceneAssetProfileService,
+      VisualArchetypeSelectionService,
+      ContextProfileService,
       SceneFacadeVisionService,
       SceneAtmosphereRecomputeService,
       SceneFidelityPlannerService,
@@ -328,6 +335,9 @@ export async function createSceneSpecContext(options?: {
           applyOverrides: vi.fn(),
         },
       },
+      SceneGenerationOrchestratorService,
+      SceneGenerationExecutorService,
+      SceneGenerationResultService,
       {
         provide: SceneQualityGateService,
         useValue: {

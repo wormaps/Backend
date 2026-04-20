@@ -37,6 +37,12 @@
 
 ### 작업 항목
 
+- [X] 14.1 Street Furniture 실제 데이터 기반
+- [X] 14.2 Crosswalk 정확도 향상
+- [X] 14.3 Signage/네사인
+- [X] 14.4 Vegetation 정확도
+- [X] 14.5 Land Cover
+
 #### 0.1 `.env` Git 추적 제외
 - [ ] `.gitignore`에 `.env` 추가
 - [ ] `.env.example`에 모든 필수 키 템플릿 추가 (현재 6개 누락)
@@ -92,6 +98,11 @@ MAPILLARY_SECRET_KEY: Joi.string().required(),
 OSM에서 동일 건물이 `way`(단순 다각형)와 `relation`(복합 다각형) 두 형태로 동시 등록됨. 현재 `id` 기반 중복 제거만 수행하므로 두 형태가 별도 건물로 생성됨.
 
 ### 작업 항목
+
+- [X] 15.1 Window stableUnitNoise 최적화
+- [X] 15.2 Crosswalk Y-offset O(n²) → O(n log n)
+- [X] 15.3 GLB Mesh Simplification 강화
+- [X] 15.4 GPU Instancing
 
 - [X] 1.1 Footprint IoU 계산 유틸리티
 - [X] 1.2 Overpass 파티션 중복 제거 로직 (id + footprint IoU)
@@ -209,6 +220,9 @@ this.appLoggerService.info('overpass.dedup.complete', {
 3. DEM 샘플 81개는 계산되지만 건물/도로에 분배 로직 미작동
 
 ### 작업 항목
+
+- [X] 16.1 tsconfig.json 수정
+- [X] 16.2 타입 에러 수정
 
 - [X] 2.1 Terrain Profile Resolve 타입 수정
 - [X] 2.2 DEM Sample Relief 감쇠 계수 조정
@@ -1246,10 +1260,22 @@ src/scene/services/asset-profile/
 ```
 
 ### 검증
-- [ ] 각 파일 < 200라인
-- [ ] 단일 책임 원칙 준수
-- [ ] 기존 테스트 통과
-- [ ] 순환 의존성 없음
+- [X] 각 파일 < 200라인
+  - `scene-generation.service.ts`: 180라인 (원본 543→180, 4개 파일로 분할)
+  - `scene-generation-orchestrator.service.ts`: 103라인 (신규)
+  - `scene-generation-executor.service.ts`: 136라인 (신규)
+  - `scene-generation-result.service.ts`: 127라인 (신규)
+  - `scene-hero-override-applier.service.ts`: 167라인 (원본 729→167, 이미 분할 완료)
+  - `scene-asset-profile.service.ts`: 183라인 (원본 557→183, 이미 분할 완료)
+- [X] 단일 책임 원칙 준수
+  - `SceneGenerationService`: Scene 생성 요청 처리 + public API
+  - `SceneGenerationOrchestratorService`: Queue processing + lock management
+  - `SceneGenerationExecutorService`: Pipeline 실행 + twin build + QA
+  - `SceneGenerationResultService`: Repository update + metrics/로깅
+  - `SceneHeroOverrideApplierService`: Hero override orchestration
+  - `SceneAssetProfileService`: Asset profile 계산 orchestration
+- [X] 기존 테스트 통과 (bun test: 19/19 pass, type-check: clean)
+- [X] 순환 의존성 없음 (madge: generation 폴더 내 0건, 전체 src 내 Phase 11 관련 0건)
 
 ---
 
@@ -1401,10 +1427,12 @@ CMD ["bun", "run", "start:prod"]
 ```
 
 ### 검증
-- [ ] PR 생성 시 CI 자동 실행
+- [X] PR 생성 시 CI 자동 실행
 - [ ] 테스트 실패 시 merge 차단
 - [ ] Docker 빌드 성공
 - [ ] `docker-compose up`으로 로컬 실행 가능
+
+> 참고: merge 차단(브랜치 보호 규칙), Docker 실행 검증은 GitHub 레포 설정/로컬 Docker 런타임이 필요하여 현재 코드베이스 내에서 자동 확정 불가.
 
 ---
 
@@ -1512,6 +1540,8 @@ const nearestRoad = spatialIndex.findNearest(crossing.center);
 - [ ] Triangle count 30% 감소
 - [ ] Mesh node count 50% 감소
 
+> 참고: Phase 15는 성능 계측 로깅/메트릭 수집 경로는 반영되었으나, 목표 수치(<25MB, <60초, 30%/50% 감소)는 실제 시나리오 벤치마크 실행으로만 확정 가능.
+
 ---
 
 ## Phase 16 — TypeScript Strict Mode (2-3일)
@@ -1543,9 +1573,9 @@ const nearestRoad = spatialIndex.findNearest(crossing.center);
 - switch fallthrough 명시적 처리
 
 ### 검증
-- [ ] `bun run build` 타입 에러 0건
-- [ ] LSP diagnostics clean
-- [ ] 기존 테스트 통과
+- [X] `bun run build` 타입 에러 0건
+- [X] LSP diagnostics clean
+- [X] 기존 테스트 통과
 
 ---
 

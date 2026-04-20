@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Pre-commit hook: run lint and tests before allowing commit
+echo "Running pre-commit checks..."
+
+echo "→ Running linter..."
+bun run lint
+
+echo "→ Running tests..."
+bun test test
+
+echo "Pre-commit checks passed."

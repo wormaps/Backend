@@ -59,10 +59,10 @@ describe('Phase 3 — Building Shell Geometry', () => {
       const result = insetRing(points, 0.12);
 
       expect(result).toHaveLength(4);
-      expect(result[0][1]).toBe(1.2);
-      expect(result[1][1]).toBe(1.5);
-      expect(result[2][1]).toBe(1.8);
-      expect(result[3][1]).toBe(1.3);
+      expect(result[0]![1]).toBe(1.2);
+      expect(result[1]![1]).toBe(1.5);
+      expect(result[2]![1]).toBe(1.8);
+      expect(result[3]![1]).toBe(1.3);
     });
   });
 
@@ -146,8 +146,8 @@ describe('Phase 3 — Building Shell Geometry', () => {
       const result = insetRing(points, 0.5);
 
       expect(result).toHaveLength(4);
-      expect(result[0][0]).toBeCloseTo(2.5);
-      expect(result[0][2]).toBeCloseTo(2.5);
+      expect(result[0]![0]).toBeCloseTo(2.5);
+      expect(result[0]![2]).toBeCloseTo(2.5);
     });
   });
 
