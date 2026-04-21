@@ -11,6 +11,46 @@ import {
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+export class SceneCorruptionError extends Error {
+  readonly kind: 'parse-failure' | 'partial-family' | 'empty-file';
+
+  constructor(kind: SceneCorruptionError['kind'], message: string) {
+    super(message);
+    this.name = 'SceneCorruptionError';
+    this.kind = kind;
+  }
+}
+
+export function parseSceneJson<T>(raw: string, label: string): T {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    throw new SceneCorruptionError('empty-file', `${label} is empty`);
+  }
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new SceneCorruptionError('parse-failure', `${label} JSON parse error: ${msg}`);
+  }
+}
+
+export async function readSceneJsonFile<T>(
+  filePath: string,
+  label: string,
+): Promise<T | null> {
+  let raw: string;
+  try {
+    raw = await readFile(filePath, 'utf8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      return null;
+    }
+    throw err;
+  }
+  return parseSceneJson<T>(raw, label);
+}
+
 export function getSceneDataDir(): string {
   const configured = process.env.SCENE_DATA_DIR?.trim();
   if (configured) {

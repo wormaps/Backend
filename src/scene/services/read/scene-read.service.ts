@@ -14,6 +14,10 @@ import type {
   StoredScene,
   ValidationReport,
 } from '../../types/scene.types';
+import {
+  assertSceneMetaIntegrity,
+  assertSceneDetailIntegrity,
+} from '../../utils/scene-assertions.utils';
 
 type ReadyStoredScene = StoredScene & {
   meta: SceneMeta;
@@ -225,12 +229,7 @@ export class SceneReadService {
 
   async getReadyScene(sceneId: string): Promise<ReadyStoredScene> {
     const storedScene = await this.getStoredScene(sceneId);
-    if (
-      storedScene.scene.status !== 'READY' ||
-      storedScene.meta === undefined ||
-      storedScene.detail === undefined ||
-      storedScene.place === undefined
-    ) {
+    if (storedScene.scene.status !== 'READY') {
       throw new AppException({
         code: ERROR_CODES.SCENE_NOT_READY,
         message: 'Scene 생성이 아직 완료되지 않았습니다.',
@@ -241,6 +240,50 @@ export class SceneReadService {
           failureCategory: storedScene.scene.failureCategory ?? null,
         },
         status: HttpStatus.CONFLICT,
+      });
+    }
+
+    if (
+      storedScene.meta === undefined ||
+      storedScene.detail === undefined ||
+      storedScene.place === undefined
+    ) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_NOT_READY,
+        message: 'Scene 생성이 아직 완료되지 않았습니다.',
+        detail: {
+          sceneId,
+          status: storedScene.scene.status,
+          missingFamilyMembers: {
+            meta: storedScene.meta === undefined,
+            detail: storedScene.detail === undefined,
+            place: storedScene.place === undefined,
+          },
+        },
+        status: HttpStatus.CONFLICT,
+      });
+    }
+
+    // Delegate read-contract validation to shared assertion helpers
+    assertSceneMetaIntegrity(storedScene.meta, storedScene.scene.sceneId);
+    assertSceneDetailIntegrity(storedScene.detail, storedScene.scene.sceneId);
+
+    // Place-family validation (lightweight, no shared helper yet)
+    const place = storedScene.place;
+    if (typeof place.placeId !== 'string' || place.placeId.length === 0) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_CORRUPT,
+        message: 'Scene 데이터가 손상되었습니다.',
+        detail: { sceneId, field: 'place.placeId' },
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    }
+    if (typeof place.displayName !== 'string' || place.displayName.length === 0) {
+      throw new AppException({
+        code: ERROR_CODES.SCENE_CORRUPT,
+        message: 'Scene 데이터가 손상되었습니다.',
+        detail: { sceneId, field: 'place.displayName' },
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
       });
     }
 
