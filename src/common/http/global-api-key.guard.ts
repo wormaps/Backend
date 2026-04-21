@@ -25,7 +25,14 @@ export class GlobalApiKeyGuard implements CanActivate {
 
     const requiredApiKey = process.env.INTERNAL_API_KEY?.trim();
     if (!requiredApiKey) {
-      return true;
+      throw new AppException({
+        code: ERROR_CODES.UNAUTHORIZED,
+        message: 'INTERNAL_API_KEY가 설정되지 않았습니다.',
+        detail: {
+          header: 'x-api-key',
+        },
+        status: HttpStatus.UNAUTHORIZED,
+      });
     }
 
     const request = context.switchToHttp().getRequest<Request>();

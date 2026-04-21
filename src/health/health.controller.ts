@@ -14,14 +14,31 @@ export class HealthController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: '헬스 체크' })
+  @ApiOperation({ summary: '헬스 체크 (필수 의존성 설정 반영)' })
   @ApiSuccessEnvelope({ model: HealthDataDto })
-  getHealth(): ResponsePayload<{ service: string; uptimeSeconds: number }> {
+  async getHealth(
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<
+    ResponsePayload<{
+      service: string;
+      uptimeSeconds: number;
+      requiredHealthy: boolean;
+      missingRequired: string[];
+    }>
+  > {
+    const configCheck = this.healthService.checkRequiredConfig();
+    if (!configCheck.healthy) {
+      response.status(503);
+    }
     return {
-      message: '서비스 상태가 정상입니다.',
+      message: configCheck.healthy
+        ? '서비스 상태가 정상입니다.'
+        : '필수 의존성 설정이 누락되었습니다.',
       data: {
         service: 'wormapb',
         uptimeSeconds: Math.round(process.uptime()),
+        requiredHealthy: configCheck.healthy,
+        missingRequired: configCheck.missing,
       },
     };
   }
@@ -50,6 +67,8 @@ export class HealthController {
         mapillary: boolean;
         tomtom: boolean;
       };
+      requiredHealthy: boolean;
+      missingRequired: string[];
     }>
   > {
     const result = await this.healthService.checkReadiness();
@@ -57,8 +76,8 @@ export class HealthController {
     return {
       message:
         result.status === 'ok'
-          ? '모든 외부 서비스가 정상입니다.'
-          : '일부 외부 서비스에 문제가 있습니다.',
+          ? '모든 필수 외부 서비스가 정상입니다.'
+          : '필수 외부 서비스에 문제가 있습니다.',
       data: result,
     };
   }

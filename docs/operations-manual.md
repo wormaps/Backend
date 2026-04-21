@@ -4,9 +4,22 @@
 
 ## 1. 건강 상태
 
-- `GET /api/health`
-- `GET /api/health/liveness`
-- `GET /api/health/readiness`
+### 1-1. 엔드포인트
+
+- `GET /api/health` — 필수 의존성 설정 반영. 필수 의존성(Google Places, Overpass)이 설정되지 않으면 **503** 반환.
+- `GET /api/health/liveness` — 프로세스 생존 확인. 항상 200.
+- `GET /api/health/readiness` — 외부 API 실제 연결 상태 확인. 필수 의존성 실패 시 **503** 반환.
+
+### 1-2. Readiness 판정 정책
+
+| 구분 | 의존성 | 실패 시 영향 |
+|---|---|---|
+| **필수** | `googlePlaces`, `overpass` | scene 생성 불가 → readiness `degraded` (503) |
+| **선택** | `mapillary`, `tomtom` | 외관/교통 정보 누락 가능 → readiness에는 영향 없음 |
+
+- `/api/health`는 설정 존재 여부만 확인 (HTTP 호출 없음).
+- `/api/health/readiness`는 실제 HTTP probe로 연결 상태를 확인한다.
+- 필수 의존성이 하나라도 실패하면 readiness는 `degraded`이며 `missingRequired`에 누락된 의존성 이름이 포함된다.
 
 ## 2. 씬 디버그
 

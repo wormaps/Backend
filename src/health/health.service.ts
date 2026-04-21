@@ -16,7 +16,20 @@ interface ReadinessChecks {
 interface ReadinessResult {
   status: 'ok' | 'degraded';
   checks: ReadinessChecks;
+  requiredHealthy: boolean;
+  missingRequired: string[];
 }
+
+/**
+ * Required dependencies: core functionality cannot operate without them.
+ * - googlePlaces: scene generation requires place lookup
+ * - overpass: scene generation requires building/road data
+ *
+ * Optional dependencies: enhance scene detail but are not blocking.
+ * - mapillary: facade/street detail (graceful degradation)
+ * - tomtom: traffic overlay (graceful degradation)
+ */
+const REQUIRED_DEPS = ['googlePlaces', 'overpass'] as const;
 
 @Injectable()
 export class HealthService {
@@ -44,11 +57,17 @@ export class HealthService {
       tomtom,
     };
 
-    const allHealthy = Object.values(checks).every(Boolean);
+    const missingRequired = REQUIRED_DEPS.filter(
+      (dep) => !checks[dep],
+    ) as string[];
+
+    const requiredHealthy = missingRequired.length === 0;
 
     return {
-      status: allHealthy ? 'ok' : 'degraded',
+      status: requiredHealthy ? 'ok' : 'degraded',
       checks,
+      requiredHealthy,
+      missingRequired,
     };
   }
 
@@ -114,7 +133,7 @@ export class HealthService {
   private async checkTomTom(): Promise<boolean> {
     const apiKey = this.configService.get<string>('TOMTOM_API_KEY')?.trim();
     if (!apiKey) {
-      return false;
+      return true;
     }
 
     return this.probe(
@@ -126,6 +145,25 @@ export class HealthService {
         },
       },
     );
+  }
+
+  /**
+   * Check required dependency configuration without making HTTP calls.
+   * Used by the base /health endpoint to reflect essential functionality
+   * availability without the latency of external probes.
+   */
+  checkRequiredConfig(): { healthy: boolean; missing: string[] } {
+    const googleKey = this.configService.get<string>('GOOGLE_API_KEY')?.trim();
+    const overpassUrls = this.configService.get<string>('OVERPASS_API_URLS')?.trim();
+
+    const missing: string[] = [];
+    if (!googleKey) missing.push('googlePlaces');
+    if (!overpassUrls) missing.push('overpass');
+
+    return {
+      healthy: missing.length === 0,
+      missing,
+    };
   }
 
   private async probe(url: string, init: RequestInit): Promise<boolean> {

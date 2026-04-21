@@ -28,6 +28,7 @@ import {
   validateSceneId,
 } from '../common/http/query-parsers';
 import { ApiErrorEnvelope, ApiSuccessEnvelope } from '../docs/decorators';
+import { HideInProduction } from '../common/http/hide-in-production.decorator';
 import {
   BootstrapResponseDto,
   CreateSceneRequestDto,
@@ -117,6 +118,7 @@ export class SceneController {
   }
 
   @Get('debug/queue')
+  @HideInProduction()
   @ApiOperation({ summary: 'Scene queue debug 정보 조회' })
   getQueueDebug(): ResponsePayload<{
     queue: SceneQueueDebugResponse;
@@ -132,6 +134,7 @@ export class SceneController {
   }
 
   @Get('debug/failures')
+  @HideInProduction()
   @ApiOperation({ summary: '최근 Scene 실패 이력 조회' })
   @ApiQuery({
     name: 'limit',
@@ -155,6 +158,7 @@ export class SceneController {
   }
 
   @Get(':sceneId/diagnostics')
+  @HideInProduction()
   @ApiOperation({ summary: 'Scene diagnostics 로그 조회' })
   @ApiParam({ name: 'sceneId', example: 'scene-seoul-city-hall' })
   @ApiQuery({

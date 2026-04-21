@@ -37,7 +37,13 @@ export class SceneGenerationResultService {
       qualityPass, startedAt,
     } = args;
 
-    const failureCategory = qualityPass ? null : 'QUALITY_GATE_REJECTED';
+    const qaFail = qa.summary === 'FAIL';
+    const overallPass = qualityPass && !qaFail;
+    const failureCategory = overallPass
+      ? null
+      : qaFail
+        ? 'QA_REJECTED'
+        : 'QUALITY_GATE_REJECTED';
     const weatherProvider = (weatherSnapshot.source === 'OPEN_METEO_HISTORICAL' || weatherSnapshot.source === 'OPEN_METEO_CURRENT')
       ? weatherSnapshot.source as 'OPEN_METEO_CURRENT' | 'OPEN_METEO_HISTORICAL'
       : 'OPEN_METEO_HISTORICAL';
@@ -80,9 +86,9 @@ export class SceneGenerationResultService {
         name: result.place.displayName,
         centerLat: result.place.location.lat,
         centerLng: result.place.location.lng,
-        status: qualityPass ? 'READY' : 'FAILED',
+        status: overallPass ? 'READY' : 'FAILED',
         assetUrl: result.assetPath ? `/api/scenes/${sceneId}/assets/base.glb` : null,
-        failureReason: qualityPass ? null : this.failureHandler.buildQualityFailureReason(qualityGate),
+        failureReason: overallPass ? null : this.buildFailureReason(qualityGate, qa),
         failureCategory,
         qualityGate,
         updatedAt: new Date().toISOString(),
@@ -95,10 +101,10 @@ export class SceneGenerationResultService {
       source: storedScene.generationSource ?? 'api',
     };
 
-    if (qualityPass) {
+    if (overallPass) {
       this.recordSuccess(logContext, qualityGate, startedAt);
     } else {
-      this.recordQualityFailure(logContext, qualityGate, startedAt);
+      this.recordQualityFailure(logContext, qualityGate, qa, startedAt);
     }
   }
 
@@ -115,13 +121,26 @@ export class SceneGenerationResultService {
   private recordQualityFailure(
     logContext: Record<string, unknown>,
     qualityGate: SceneQualityGateResult,
+    qa: MidQaReport,
     startedAt: number,
   ): void {
+    const qaFail = qa.summary === 'FAIL';
+    const failureCategory = qaFail ? 'QA_REJECTED' : 'QUALITY_GATE_REJECTED';
     this.appLoggerService.warn('scene.quality_gate.rejected', {
-      ...logContext, step: 'quality_gate', status: 'FAILED', failureCategory: 'QUALITY_GATE_REJECTED',
+      ...logContext, step: 'quality_gate', status: 'FAILED', failureCategory,
       qualityGate: { version: qualityGate.version, state: qualityGate.state, reasonCodes: qualityGate.reasonCodes, scores: qualityGate.scores, thresholds: qualityGate.thresholds },
+      qaSummary: qa.summary,
     });
     appMetrics.incrementCounter('scene_generation_total', 1, { outcome: 'failure' }, 'Total scene generation results by outcome.');
     appMetrics.observeDuration('scene_generation_duration_ms', Date.now() - startedAt, { outcome: 'failure' }, 'Scene generation duration in milliseconds.');
+  }
+
+  private buildFailureReason(qualityGate: SceneQualityGateResult, qa: MidQaReport): string | null {
+    const qaFail = qa.summary === 'FAIL';
+    if (qaFail) {
+      const failedChecks = qa.checks.filter((c) => c.state === 'FAIL').map((c) => c.id);
+      return `QA rejected this scene: ${failedChecks.join(', ')}`;
+    }
+    return this.failureHandler.buildQualityFailureReason(qualityGate);
   }
 }

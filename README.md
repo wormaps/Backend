@@ -139,4 +139,4 @@ src/docs/
 - `CORS_ALLOWED_ORIGINS`
 - `INTERNAL_API_KEY`
 
-`INTERNAL_API_KEY`가 설정되면 `health`를 제외한 API 엔드포인트는 `x-api-key`(또는 `Authorization: Bearer <key>`) 검증을 통과해야 합니다.
+`INTERNAL_API_KEY`는 **필수** 환경 변수입니다. 설정되지 않거나 비어 있으면 `health`, `metrics`를 제외한 모든 API 엔드포인트가 `401 UNAUTHORIZED`로 차단됩니다(fail closed). 유효한 키가 설정된 경우 `x-api-key` 헤더 또는 `Authorization: Bearer <key>`로 인증해야 합니다.

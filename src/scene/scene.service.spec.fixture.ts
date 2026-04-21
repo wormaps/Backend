@@ -263,7 +263,28 @@ export async function createSceneSpecContext(options?: {
       SceneWeatherLiveService,
       SceneTrafficLiveService,
       SceneLiveDataService,
-      SceneMidQaService,
+      {
+        provide: SceneMidQaService,
+        useValue: {
+          buildReport: vi.fn().mockResolvedValue({
+            reportId: 'midqa-spec',
+            sceneId: 'scene-seoul-city-hall',
+            generatedAt: '2026-04-04T00:00:00Z',
+            summary: 'PASS',
+            score: { overall: 0.9, confidence: 'high' },
+            checks: [
+              {
+                id: 'provider_trace',
+                state: 'PASS',
+                summary: '외부 provider trace 존재 여부',
+                metrics: { providerSnapshotCount: 3 },
+              },
+            ],
+            findings: [{ severity: 'info', message: '중간 QA에서 치명적 결함은 발견되지 않았습니다.' }],
+            references: { twinBuildId: 'twin-1', validationReportId: 'val-1' },
+          }),
+        },
+      },
       SceneTerrainProfileService,
       {
         provide: IDemPort,

@@ -6,6 +6,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { ApiExceptionFilter } from './common/http/api-exception.filter';
 import { ApiResponseInterceptor } from './common/http/api-response.interceptor';
 import { GlobalApiKeyGuard } from './common/http/global-api-key.guard';
+import { HideInProductionGuard } from './common/http/hide-in-production.guard';
 import { ensureRequestContext } from './common/http/request-context.util';
 import { setupSwagger } from './docs/setup';
 import { AppModule } from './app.module';
@@ -63,7 +64,7 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
-  app.useGlobalGuards(app.get(GlobalApiKeyGuard));
+  app.useGlobalGuards(app.get(GlobalApiKeyGuard), app.get(HideInProductionGuard));
   app.useGlobalInterceptors(new ApiResponseInterceptor());
   app.useGlobalFilters(new ApiExceptionFilter());
   setupSwagger(app);

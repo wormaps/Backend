@@ -459,7 +459,7 @@ export interface SceneFidelityPlan {
   sourceRegistry: SceneRealitySourceReference[];
 }
 
-export type SceneFailureCategory = 'GENERATION_ERROR' | 'QUALITY_GATE_REJECTED';
+export type SceneFailureCategory = 'GENERATION_ERROR' | 'QUALITY_GATE_REJECTED' | 'QA_REJECTED';
 
 export type SceneQualityGateState = 'PASS' | 'FAIL' | 'SKIPPED';
 

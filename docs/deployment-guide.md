@@ -24,6 +24,7 @@
 - `Scene` 데이터는 로컬 파일 저장소를 사용하므로 배포 환경의 writable storage가 필요하다.
 - health readiness는 외부 API 연결 상태에 의존한다.
 - bench 실행은 실제 외부 API 설정 상태에 따라 수치가 달라진다.
+- **필수 환경 변수**: `GOOGLE_API_KEY`, `OVERPASS_API_URLS`가 설정되지 않으면 `/api/health`가 503을 반환한다. Kubernetes readiness probe가 이를 사용하므로 배포 전 반드시 확인한다.
 
 ## 4. 실패 시 우선 확인
 
