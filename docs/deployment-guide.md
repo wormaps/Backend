@@ -34,6 +34,16 @@
   - terrain mode가 diagnostics와 contract에 명시됨
   - high latitude / invalid polygon / no DEM fixture 테스트 통과
 - terrain fallback이 발생하면 `GET /api/scenes/{sceneId}/diagnostics`와 diagnostics log에서 `FLAT_PLACEHOLDER` 여부를 먼저 확인한다.
+- Phase 5 이후에는 Resilience Gate 기준으로 다음을 함께 확인해야 한다:
+  - provider-specific retry policy가 적용됨
+  - Open Meteo serialization queue가 동작함
+  - circuit breaker state와 providerHealth snapshot이 관측됨
+  - 429 / timeout / 5xx fault injection 테스트가 통과함
+- provider 장애 시 우선 확인:
+  - `GET /api/health/readiness`의 `providerHealth`
+  - `circuit_breaker_state`
+  - `circuit_breaker_rejections_total`
+  - `external_api_requests_total`의 provider/outcome/statusClass labels
 
 ## 4. 실패 시 우선 확인
 

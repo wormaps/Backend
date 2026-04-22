@@ -79,6 +79,40 @@
   - `.github/workflows/ci.yml`
   - `bun run test`
   - `test/phase9-terrain-profile.spec.ts`
-  - `test/phase9-terrain-fusion.spec.ts`
-  - `test/phase4-high-latitude-spatial.spec.ts`
-  - `test/phase4-degenerate-geometry.spec.ts`
+- `test/phase9-terrain-fusion.spec.ts`
+- `test/phase4-high-latitude-spatial.spec.ts`
+- `test/phase4-degenerate-geometry.spec.ts`
+
+## 7. Provider resilience / Phase 5 메모
+
+- provider retry는 one-size-fits-all이 아니라 provider policy matrix를 따른다.
+- 현재 retry taxonomy:
+  - `rateLimit`: 429
+  - `timeout`: `TimeoutError`
+  - `serverError`: 5xx
+  - non-retryable 4xx는 breaker failure로 누적하지 않는다
+- provider policy matrix:
+  - `open-meteo`: retryOn=`rateLimit,serverError`, maxRetries=3
+  - `google-places`: retryOn=`rateLimit`, maxRetries=2
+  - `tomtom`: retryOn=`rateLimit,timeout`, maxRetries=2
+  - `mapillary`: retryOn=`rateLimit,serverError`, maxRetries=2
+  - `overpass`: retryOn=`rateLimit,timeout,serverError`, maxRetries=3
+- Open Meteo는 client boundary에서 직렬화 큐(concurrency=1)를 사용한다.
+- circuit breaker observability:
+  - `GET /api/health/readiness`
+  - `providerHealth.providers[*]`
+  - `circuit_breaker_state`
+  - `circuit_breaker_rejections_total`
+- provider state 해석:
+  - `healthy`: breaker closed + no active failure streak
+  - `degraded`: half-open 또는 failure streak 존재
+  - `open`: breaker open 상태, fast rejection 중
+- 최소 alert 기준:
+  - `circuit_breaker_state{provider="open-meteo"} == 2` 지속
+  - `circuit_breaker_rejections_total` 급증
+  - `external_api_requests_total{outcome="failure"}` 비율 상승
+- CI 확인 경로:
+  - `.github/workflows/ci.yml`
+  - `bun run test`
+  - `test/phase5-provider-resilience.spec.ts`
+  - `test/health-readiness.spec.ts`

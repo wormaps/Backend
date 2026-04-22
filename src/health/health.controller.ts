@@ -69,6 +69,15 @@ export class HealthController {
       };
       requiredHealthy: boolean;
       missingRequired: string[];
+      providerHealth: {
+        providers: Array<{
+          provider: string;
+          state: 'healthy' | 'degraded' | 'open';
+          failureCount: number;
+          lastTransitionAt: string | null;
+        }>;
+        trackedAt: string;
+      };
     }>
   > {
     const result = await this.healthService.checkReadiness();

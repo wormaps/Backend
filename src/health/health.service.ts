@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  circuitBreakerRegistry,
+  type CircuitBreakerStats,
+} from '../common/http/circuit-breaker';
 
 interface LivenessResult {
   status: 'ok';
@@ -13,11 +17,72 @@ interface ReadinessChecks {
   tomtom: boolean;
 }
 
+export type ProviderHealthState = 'healthy' | 'degraded' | 'open';
+
+export interface ProviderHealthEntry {
+  provider: string;
+  state: ProviderHealthState;
+  failureCount: number;
+  lastTransitionAt: string | null;
+}
+
+export interface ProviderHealthSnapshot {
+  providers: ProviderHealthEntry[];
+  trackedAt: string;
+}
+
+interface CircuitBreakerLike {
+  getStats(): CircuitBreakerStats;
+}
+
+interface CircuitBreakerRegistryLike {
+  breakers?: Map<string, CircuitBreakerLike>;
+}
+
+function toProviderHealthState(stats: CircuitBreakerStats): ProviderHealthState {
+  if (stats.state === 'open') {
+    return 'open';
+  }
+
+  if (stats.state === 'half-open' || stats.consecutiveFailures > 0) {
+    return 'degraded';
+  }
+
+  return 'healthy';
+}
+
+function snapshotProviderHealth(): ProviderHealthEntry[] {
+  const breakers = (circuitBreakerRegistry as unknown as CircuitBreakerRegistryLike).breakers;
+
+  if (!(breakers instanceof Map) || breakers.size === 0) {
+    return [];
+  }
+
+  return Array.from(breakers.entries())
+    .map(([provider, breaker]) => {
+      const stats = breaker.getStats();
+
+      if (stats.totalRequests === 0) {
+        return null;
+      }
+
+      return {
+        provider,
+        state: toProviderHealthState(stats),
+        failureCount: stats.consecutiveFailures,
+        lastTransitionAt: stats.lastFailureAt,
+      };
+    })
+    .filter((entry): entry is ProviderHealthEntry => entry !== null)
+    .sort((a, b) => a.provider.localeCompare(b.provider));
+}
+
 interface ReadinessResult {
   status: 'ok' | 'degraded';
   checks: ReadinessChecks;
   requiredHealthy: boolean;
   missingRequired: string[];
+  providerHealth: ProviderHealthSnapshot;
 }
 
 /**
@@ -68,6 +133,14 @@ export class HealthService {
       checks,
       requiredHealthy,
       missingRequired,
+      providerHealth: this.getProviderHealthSnapshot(),
+    };
+  }
+
+  getProviderHealthSnapshot(): ProviderHealthSnapshot {
+    return {
+      providers: snapshotProviderHealth(),
+      trackedAt: new Date().toISOString(),
     };
   }
 

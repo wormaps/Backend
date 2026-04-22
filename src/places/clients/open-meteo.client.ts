@@ -27,13 +27,58 @@ interface OpenMeteoResponse {
   };
 }
 
+/**
+ * Minimal in-memory semaphore for bounded concurrency.
+ * Ensures at most `limit` async operations execute concurrently.
+ * Phase 5: Open Meteo serialization uses limit=1.
+ */
+class BoundedSemaphore {
+  private active = 0;
+  private queue: Array<() => void> = [];
+
+  constructor(private readonly limit: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.active < this.limit) {
+      this.active++;
+      return;
+    }
+    await new Promise<void>((resolve) => this.queue.push(resolve));
+    this.active++;
+  }
+
+  release(): void {
+    this.active--;
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    } else {
+      this.active = Math.max(0, this.active);
+    }
+  }
+}
+
 @Injectable()
 export class OpenMeteoClient {
   private fetcher: FetchLike = fetch;
+  private readonly semaphore = new BoundedSemaphore(1);
 
   withFetcher(fetcher: FetchLike): this {
     this.fetcher = fetcher;
     return this;
+  }
+
+  /**
+   * Execute `fn` through the bounded-concurrency semaphore.
+   * Guarantees at most 1 upstream fetch is in-flight at any time.
+   */
+  private async serialized<T>(fn: () => Promise<T>): Promise<T> {
+    await this.semaphore.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.semaphore.release();
+    }
   }
 
   async getHistoricalObservation(
@@ -42,18 +87,20 @@ export class OpenMeteoClient {
     timeOfDay: TimeOfDay,
     requestId?: string | null,
   ): Promise<WeatherObservation | null> {
-    const response = await fetchJson<OpenMeteoResponse>(
-      {
-        provider: 'Open-Meteo Historical Weather',
-        url:
-          `https://archive-api.open-meteo.com/v1/archive?latitude=${place.location.lat}` +
-          `&longitude=${place.location.lng}` +
-          `&start_date=${date}&end_date=${date}` +
-          '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
-          '&timezone=auto',
-        requestId,
-      },
-      this.fetcher,
+    const response = await this.serialized(() =>
+      fetchJson<OpenMeteoResponse>(
+        {
+          provider: 'Open-Meteo Historical Weather',
+          url:
+            `https://archive-api.open-meteo.com/v1/archive?latitude=${place.location.lat}` +
+            `&longitude=${place.location.lng}` +
+            `&start_date=${date}&end_date=${date}` +
+            '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+            '&timezone=auto',
+          requestId,
+        },
+        this.fetcher,
+      ),
     );
 
     const targetHour = this.resolveHour(timeOfDay);
@@ -136,17 +183,19 @@ export class OpenMeteoClient {
     place: ExternalPlaceDetail,
     requestId?: string | null,
   ): Promise<WeatherObservation | null> {
-    const response = await fetchJson<OpenMeteoResponse>(
-      {
-        provider: 'Open-Meteo Current Weather',
-        url:
-          `https://api.open-meteo.com/v1/forecast?latitude=${place.location.lat}` +
-          `&longitude=${place.location.lng}` +
-          '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
-          '&timezone=auto',
-        requestId,
-      },
-      this.fetcher,
+    const response = await this.serialized(() =>
+      fetchJson<OpenMeteoResponse>(
+        {
+          provider: 'Open-Meteo Current Weather',
+          url:
+            `https://api.open-meteo.com/v1/forecast?latitude=${place.location.lat}` +
+            `&longitude=${place.location.lng}` +
+            '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+            '&timezone=auto',
+          requestId,
+        },
+        this.fetcher,
+      ),
     );
 
     const current = response.current;
@@ -184,17 +233,19 @@ export class OpenMeteoClient {
     observation: WeatherObservation | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
-    const response = await fetchJsonWithEnvelope<OpenMeteoResponse>(
-      {
-        provider: 'Open-Meteo Current Weather',
-        url:
-          `https://api.open-meteo.com/v1/forecast?latitude=${place.location.lat}` +
-          `&longitude=${place.location.lng}` +
-          '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
-          '&timezone=auto',
-        requestId,
-      },
-      this.fetcher,
+    const response = await this.serialized(() =>
+      fetchJsonWithEnvelope<OpenMeteoResponse>(
+        {
+          provider: 'Open-Meteo Current Weather',
+          url:
+            `https://api.open-meteo.com/v1/forecast?latitude=${place.location.lat}` +
+            `&longitude=${place.location.lng}` +
+            '&current=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+            '&timezone=auto',
+          requestId,
+        },
+        this.fetcher,
+      ),
     );
 
     const current = response.data.current;
@@ -240,18 +291,20 @@ export class OpenMeteoClient {
     observation: WeatherObservation | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
-    const response = await fetchJsonWithEnvelope<OpenMeteoResponse>(
-      {
-        provider: 'Open-Meteo Historical Weather',
-        url:
-          `https://archive-api.open-meteo.com/v1/archive?latitude=${place.location.lat}` +
-          `&longitude=${place.location.lng}` +
-          `&start_date=${date}&end_date=${date}` +
-          '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
-          '&timezone=auto',
-        requestId,
-      },
-      this.fetcher,
+    const response = await this.serialized(() =>
+      fetchJsonWithEnvelope<OpenMeteoResponse>(
+        {
+          provider: 'Open-Meteo Historical Weather',
+          url:
+            `https://archive-api.open-meteo.com/v1/archive?latitude=${place.location.lat}` +
+            `&longitude=${place.location.lng}` +
+            `&start_date=${date}&end_date=${date}` +
+            '&hourly=temperature_2m,precipitation,rain,snowfall,cloud_cover' +
+            '&timezone=auto',
+          requestId,
+        },
+        this.fetcher,
+      ),
     );
 
     const targetHour = this.resolveHour(timeOfDay);

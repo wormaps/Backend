@@ -2,6 +2,11 @@ import { HttpStatus } from '@nestjs/common';
 import { ERROR_CODES } from '../constants/error-codes';
 import { AppException } from '../errors/app.exception';
 import { appMetrics } from '../metrics/metrics.instance';
+import {
+  circuitBreakerRegistry,
+  CircuitBreakerOpenError,
+  normalizeProviderKey,
+} from './circuit-breaker';
 
 export interface FetchJsonOptions {
   url: string;
@@ -10,6 +15,79 @@ export interface FetchJsonOptions {
   timeoutMs?: number;
   requestId?: string | null;
   retryCount?: number;
+  policy?: RetryPolicy;
+}
+
+export type RetryableClass = 'rateLimit' | 'timeout' | 'serverError';
+
+export interface RetryPolicy {
+  retryOn: Set<RetryableClass>;
+  maxRetries: number;
+  backoffMs: (attempt: number) => number;
+}
+
+const DEFAULT_POLICIES: Record<string, RetryPolicy> = {
+  'open-meteo': {
+    retryOn: new Set<RetryableClass>(['rateLimit', 'serverError']),
+    maxRetries: 3,
+    backoffMs: (attempt: number) => 2 ** (attempt - 1) * 500,
+  },
+  'google-places': {
+    retryOn: new Set<RetryableClass>(['rateLimit']),
+    maxRetries: 2,
+    backoffMs: (attempt: number) => 2 ** (attempt - 1) * 250,
+  },
+  'tomtom': {
+    retryOn: new Set<RetryableClass>(['rateLimit', 'timeout']),
+    maxRetries: 2,
+    backoffMs: (attempt: number) => 2 ** (attempt - 1) * 300,
+  },
+  'mapillary': {
+    retryOn: new Set<RetryableClass>(['rateLimit', 'serverError']),
+    maxRetries: 2,
+    backoffMs: (attempt: number) => 2 ** (attempt - 1) * 400,
+  },
+  'overpass': {
+    retryOn: new Set<RetryableClass>(['rateLimit', 'timeout', 'serverError']),
+    maxRetries: 3,
+    backoffMs: (attempt: number) => 2 ** (attempt - 1) * 1000,
+  },
+};
+
+export function resolveRetryPolicy(provider: string, override?: RetryPolicy): RetryPolicy {
+  if (override) {
+    return override;
+  }
+  const normalized = provider.toLowerCase();
+  for (const [key, policy] of Object.entries(DEFAULT_POLICIES)) {
+    if (normalized.includes(key)) {
+      return policy;
+    }
+  }
+  return {
+    retryOn: new Set<RetryableClass>(['rateLimit']),
+    maxRetries: 2,
+    backoffMs: (attempt: number) => 2 ** (attempt - 1) * 250,
+  };
+}
+
+export function classifyRetryable(
+  status: number | null,
+  error: unknown,
+): RetryableClass | null {
+  if (status === 429) {
+    return 'rateLimit';
+  }
+  if (status !== null && status >= 500 && status < 600) {
+    return 'serverError';
+  }
+  if (error instanceof DOMException && error.name === 'TimeoutError') {
+    return 'timeout';
+  }
+  if (error instanceof Error && error.name === 'TimeoutError') {
+    return 'timeout';
+  }
+  return null;
 }
 
 export interface FetchJsonEnvelope {
@@ -45,9 +123,22 @@ export async function fetchJsonWithEnvelope<T>(
   options: FetchJsonOptions,
   fetcher: FetchLike = fetch,
 ): Promise<{ data: T; envelope: FetchJsonEnvelope }> {
+  const breaker = circuitBreakerRegistry.get(options.provider);
+
+  if (!breaker.canExecute()) {
+    appMetrics.incrementCounter(
+      'circuit_breaker_rejections_total',
+      1,
+      { provider: normalizeProviderKey(options.provider) },
+      'Circuit breaker fast rejections by provider.',
+    );
+    throw new CircuitBreakerOpenError(options.provider, breaker.getRetryAfterMs());
+  }
+
   const requestedAt = new Date().toISOString();
   const startedAt = Date.now();
-  const maxRetries = Math.max(0, options.retryCount ?? 2);
+  const policy = resolveRetryPolicy(options.provider, options.policy);
+  const maxRetries = Math.max(0, options.retryCount ?? policy.maxRetries);
   let lastResponse: Response | null = null;
   let attempt = 0;
 
@@ -64,6 +155,15 @@ export async function fetchJsonWithEnvelope<T>(
         signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
       });
     } catch (error) {
+      const classification = classifyRetryable(null, error);
+      if (
+        classification !== null &&
+        policy.retryOn.has(classification) &&
+        attempt <= maxRetries
+      ) {
+        await sleep(policy.backoffMs(attempt));
+        continue;
+      }
       const envelope = buildEnvelope(
         options,
         requestedAt,
@@ -77,6 +177,7 @@ export async function fetchJsonWithEnvelope<T>(
         'failure',
         Date.now() - startedAt,
       );
+      breaker.recordFailure();
       throw new AppException({
         code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
         message: `${options.provider} 요청에 실패했습니다.`,
@@ -89,12 +190,17 @@ export async function fetchJsonWithEnvelope<T>(
       });
     }
 
-    if (lastResponse.status !== 429 || attempt > maxRetries) {
+    const classification = classifyRetryable(lastResponse.status, null);
+    if (classification === null || !policy.retryOn.has(classification) || attempt > maxRetries) {
       break;
     }
 
-    const retryAfterMs = resolveRetryAfterMs(lastResponse.headers.get('retry-after'));
-    await sleep(Math.max(0, retryAfterMs ?? 0) || 2 ** (attempt - 1) * 250);
+    if (classification === 'rateLimit') {
+      const retryAfterMs = resolveRetryAfterMs(lastResponse.headers.get('retry-after'));
+      await sleep(Math.max(0, retryAfterMs ?? 0) || policy.backoffMs(attempt));
+    } else {
+      await sleep(policy.backoffMs(attempt));
+    }
   }
 
   const response = lastResponse as Response;
@@ -116,6 +222,11 @@ export async function fetchJsonWithEnvelope<T>(
       Date.now() - startedAt,
       response.status,
     );
+    // Only count terminal failures (retryable errors after retries exhausted)
+    const classification = classifyRetryable(response.status, null);
+    if (classification !== null && policy.retryOn.has(classification)) {
+      breaker.recordFailure();
+    }
     throw new AppException({
       code: ERROR_CODES.EXTERNAL_API_REQUEST_FAILED,
       message: `${options.provider} 응답이 비정상입니다.`,
@@ -153,6 +264,7 @@ export async function fetchJsonWithEnvelope<T>(
     Date.now() - startedAt,
     response.status,
   );
+  breaker.recordSuccess();
   return {
     data: data as T,
     envelope,

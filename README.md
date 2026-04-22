@@ -100,6 +100,21 @@ bun run scene:shibuya
   - `test/phase4-high-latitude-spatial.spec.ts`
   - `test/phase4-degenerate-geometry.spec.ts`
 
+## Provider resilience 메모
+
+- provider retry는 provider-specific policy matrix를 사용합니다.
+- retry taxonomy:
+  - `rateLimit`: 429
+  - `timeout`: `TimeoutError`
+  - `serverError`: 5xx
+  - non-retryable 4xx는 breaker failure로 누적하지 않습니다.
+- Open Meteo는 in-memory 직렬화 큐(concurrency=1)를 사용합니다.
+- provider-scoped circuit breaker가 있고, Open Meteo current/historical는 같은 `open-meteo` scope를 공유합니다.
+- health readiness는 `providerHealth` snapshot으로 degraded/open provider를 노출합니다.
+- 관련 검증 테스트:
+  - `test/phase5-provider-resilience.spec.ts`
+  - `test/health-readiness.spec.ts`
+
 ## 개발 문서
 
 - 대형 파일 분해(500 LOC 기준) 결과 및 모듈 책임:

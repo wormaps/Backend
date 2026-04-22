@@ -594,6 +594,14 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 ## 13. Phase 5. Provider Resilience
 
+현재 상태:
+
+- provider별 retry matrix가 `fetch-json.ts`에 반영되었다
+- Open Meteo client는 in-memory 직렬화 큐로 upstream fetch concurrency를 1로 제한한다
+- provider-scoped in-memory circuit breaker가 추가되었고 `open-meteo` scope 기준으로 상태를 공유한다
+- readiness surface는 `providerHealth` snapshot으로 degraded/open provider 상태를 노출한다
+- breaker state와 fast rejection은 metrics로 관측 가능하다
+
 진입 조건:
 
 - Geography Gate 통과
@@ -641,11 +649,47 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 체크리스트:
 
-- [ ] model: provider failure taxonomy가 정의되었다
-- [ ] code: retry, queue, breaker가 provider별로 구현되었다
-- [ ] tests: 429, timeout, 5xx fault injection 테스트가 추가되었다
-- [ ] ops: provider health metrics와 alerts 기준이 정의되었다
-- [ ] docs: provider policy matrix가 문서화되었다
+- [X] model: provider failure taxonomy가 정의되었다
+- [X] code: retry, queue, breaker가 provider별로 구현되었다
+- [X] tests: 429, timeout, 5xx fault injection 테스트가 추가되었다
+- [X] ops: provider health metrics와 alerts 기준이 정의되었다
+- [X] docs: provider policy matrix가 문서화되었다
+- model evidence:
+  - provider failure taxonomy:
+    - `rateLimit`: HTTP 429 / `Retry-After` 기반 backoff 대상
+    - `timeout`: `TimeoutError` 기반 transient failure
+    - `serverError`: HTTP 5xx 계열 retryable provider failure
+    - non-retryable 4xx는 circuit breaker failure로 누적되지 않는다
+  - provider state model:
+    - breaker state: `closed` / `open` / `half-open`
+    - health snapshot state: `healthy` / `degraded` / `open`
+- code evidence:
+  - `src/common/http/fetch-json.ts`: provider-specific retry policy, fault classification, fast rejection, breaker integration
+  - `src/places/clients/open-meteo.client.ts`: bounded concurrency semaphore(1)로 직렬화 큐 구현
+  - `src/common/http/circuit-breaker.ts`: provider-scoped in-memory circuit breaker 및 normalization(`open-meteo`)
+  - `src/health/health.service.ts`: readiness에 `providerHealth` snapshot 노출
+- test evidence:
+  - `test/phase5-provider-resilience.spec.ts`: 429 / timeout / 5xx fault injection, retry matrix, Open Meteo serialization, breaker state transition 검증
+  - `test/health-readiness.spec.ts`: readiness `providerHealth` snapshot 및 required readiness semantics 유지 검증
+- ops evidence:
+  - metrics:
+    - `external_api_requests_total`
+    - `external_api_request_duration_ms`
+    - `circuit_breaker_state`
+    - `circuit_breaker_rejections_total`
+  - provider health snapshot:
+    - `GET /api/health/readiness`
+    - `providerHealth.providers[*].provider/state/failureCount/lastTransitionAt`
+  - alert 기준(최소 운영 기준):
+    - `circuit_breaker_state{provider="open-meteo"} == 2` 지속
+    - `circuit_breaker_rejections_total` 급증
+    - `external_api_requests_total{outcome="failure"}` 비율 상승
+- provider policy matrix:
+  - `open-meteo`: retryOn=`rateLimit,serverError`, maxRetries=3, breaker+serialization 적용
+  - `google-places`: retryOn=`rateLimit`, maxRetries=2
+  - `tomtom`: retryOn=`rateLimit,timeout`, maxRetries=2
+  - `mapillary`: retryOn=`rateLimit,serverError`, maxRetries=2
+  - `overpass`: retryOn=`rateLimit,timeout,serverError`, maxRetries=3
 
 롤백 기준:
 
