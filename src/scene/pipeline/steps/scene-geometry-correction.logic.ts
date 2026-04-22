@@ -405,7 +405,8 @@ export function resolveOverlapAreas(
   const areas = new Map<string, number>();
   const boxes = meta.buildings
     .map((building) => toBuildingFootprintBounds(building, meta.origin.lat, meta.origin.lng))
-    .filter((item): item is BuildingFootprintBounds => item !== null);
+    .filter((item): item is BuildingFootprintBounds => item !== null)
+    .sort((left, right) => left.minX - right.minX);
 
   for (let i = 0; i < boxes.length; i += 1) {
     for (let j = i + 1; j < boxes.length; j += 1) {
@@ -413,6 +414,9 @@ export function resolveOverlapAreas(
       const right = boxes[j];
       if (!left || !right) {
         continue;
+      }
+      if (right.minX > left.maxX) {
+        break;
       }
       if (!overlapObjectIds.has(left.objectId) && !overlapObjectIds.has(right.objectId)) {
         continue;
