@@ -9,6 +9,10 @@ import {
 } from '../src/assets/internal/glb-build/glb-build-material-cache';
 import { averagePoint } from '../src/assets/internal/glb-build/geometry/glb-build-geometry-primitives.utils';
 import { resolveSceneVariationProfile } from '../src/assets/internal/glb-build/glb-build-variation.utils';
+import {
+  createGlbBuildRunnerState,
+  type GlbBuildRunnerState,
+} from '../src/assets/internal/glb-build/glb-build-runner.pipeline';
 
 describe('Phase 6 — GLB 빌드 시스템 안정화', () => {
   describe('6.2 Triangle budget — Math.floor로 소수점 제거', () => {
@@ -246,6 +250,148 @@ describe('Phase 6 — GLB 빌드 시스템 안정화', () => {
       expect(resolveSkippedReason({ sourceCount: 0, selectedCount: 0 })).toBe(
         'missing_source',
       );
+    });
+  });
+
+  describe('6.7 Build state isolation — per-invocation freshness', () => {
+    function makeFakeServices() {
+      return {
+        appLoggerService: {
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        },
+        sceneAssetProfileService: {
+          buildSceneMetaWithAssetSelection: () => ({}),
+        },
+      } as any;
+    }
+
+    it('createGlbBuildRunnerState returns a fresh object each call', () => {
+      const services = makeFakeServices();
+      const state1 = createGlbBuildRunnerState(services as any);
+      const state2 = createGlbBuildRunnerState(services as any);
+
+      expect(state1).not.toBe(state2);
+      expect(state1.currentMeshDiagnostics).not.toBe(state2.currentMeshDiagnostics);
+      expect(state1.semanticGroupNodes).not.toBe(state2.semanticGroupNodes);
+      expect(state1.materialCacheStats).not.toBe(state2.materialCacheStats);
+      expect(state1.graphIntents).not.toBe(state2.graphIntents);
+      expect(state1.stageGraphIntents).not.toBe(state2.stageGraphIntents);
+      expect(state1.triangleBudget).not.toBe(state2.triangleBudget);
+      expect(state1.triangleBudget.budgetProtectedMeshNames).not.toBe(
+        state2.triangleBudget.budgetProtectedMeshNames,
+      );
+      expect(state1.triangleBudget.budgetProtectedMeshPrefixes).not.toBe(
+        state2.triangleBudget.budgetProtectedMeshPrefixes,
+      );
+    });
+
+    it('triangle budget counters start at zero per invocation', () => {
+      const services = makeFakeServices();
+      const state = createGlbBuildRunnerState(services as any);
+
+      expect(state.triangleBudget.totalTriangleCount).toBe(0);
+      expect(state.triangleBudget.protectedTriangleCount).toBe(0);
+      expect(state.triangleBudget.totalTriangleBudget).toBe(2_500_000);
+      expect(state.triangleBudget.protectedTriangleReserve).toBe(180_000);
+    });
+
+    it('material cache stats start at zero per invocation', () => {
+      const services = makeFakeServices();
+      const state = createGlbBuildRunnerState(services as any);
+
+      expect(state.materialCacheStats.hits).toBe(0);
+      expect(state.materialCacheStats.misses).toBe(0);
+    });
+
+    it('mesh diagnostics array starts empty per invocation', () => {
+      const services = makeFakeServices();
+      const state = createGlbBuildRunnerState(services as any);
+
+      expect(state.currentMeshDiagnostics).toEqual([]);
+      expect(state.currentMeshDiagnostics.length).toBe(0);
+    });
+
+    it('semantic group nodes map starts empty per invocation', () => {
+      const services = makeFakeServices();
+      const state = createGlbBuildRunnerState(services as any);
+
+      expect(state.semanticGroupNodes.size).toBe(0);
+    });
+
+    it('graph intents arrays start empty per invocation', () => {
+      const services = makeFakeServices();
+      const state = createGlbBuildRunnerState(services as any);
+
+      expect(state.graphIntents).toEqual([]);
+      expect(state.stageGraphIntents).toEqual([]);
+    });
+
+    it('mutating one state does not affect another (no cross-run leakage)', () => {
+      const services = makeFakeServices();
+      const state1 = createGlbBuildRunnerState(services as any);
+      const state2 = createGlbBuildRunnerState(services as any);
+
+      // Simulate build 1 mutating its state
+      state1.currentMeshDiagnostics.push({
+        name: 'test-mesh',
+        vertices: 100,
+        triangles: 50,
+        skipped: false,
+      });
+      state1.triangleBudget.totalTriangleCount = 500_000;
+      state1.triangleBudget.protectedTriangleCount = 100_000;
+      state1.materialCacheStats.hits = 42;
+      state1.materialCacheStats.misses = 17;
+      state1.semanticGroupNodes.set('scene_root', {});
+      state1.graphIntents.push({
+        meshName: 'test',
+        semanticCategory: 'test',
+        sourceObjectIdsCount: 0,
+      });
+      state1.stageGraphIntents.push({
+        stage: 'transport',
+        semanticCategory: 'transport',
+      });
+
+      // Build 2 state must remain pristine
+      expect(state2.currentMeshDiagnostics.length).toBe(0);
+      expect(state2.triangleBudget.totalTriangleCount).toBe(0);
+      expect(state2.triangleBudget.protectedTriangleCount).toBe(0);
+      expect(state2.materialCacheStats.hits).toBe(0);
+      expect(state2.materialCacheStats.misses).toBe(0);
+      expect(state2.semanticGroupNodes.size).toBe(0);
+      expect(state2.graphIntents.length).toBe(0);
+      expect(state2.stageGraphIntents.length).toBe(0);
+    });
+
+    it('budget protected mesh names set is independent per invocation', () => {
+      const services = makeFakeServices();
+      const state1 = createGlbBuildRunnerState(services as any);
+      const state2 = createGlbBuildRunnerState(services as any);
+
+      state1.triangleBudget.budgetProtectedMeshNames.add('custom_mesh');
+      expect(state1.triangleBudget.budgetProtectedMeshNames.has('custom_mesh')).toBe(true);
+      expect(state2.triangleBudget.budgetProtectedMeshNames.has('custom_mesh')).toBe(false);
+    });
+
+    it('budget protected mesh prefixes array is independent per invocation', () => {
+      const services = makeFakeServices();
+      const state1 = createGlbBuildRunnerState(services as any);
+      const state2 = createGlbBuildRunnerState(services as any);
+
+      state1.triangleBudget.budgetProtectedMeshPrefixes.push('custom_prefix_');
+      expect(state1.triangleBudget.budgetProtectedMeshPrefixes).toContain('custom_prefix_');
+      expect(state2.triangleBudget.budgetProtectedMeshPrefixes).not.toContain('custom_prefix_');
+    });
+
+    it('services are correctly wired into state', () => {
+      const services = makeFakeServices();
+      const state = createGlbBuildRunnerState(services as any);
+
+      expect(state.appLoggerService).toBe(services.appLoggerService);
+      expect(state.sceneAssetProfileService).toBe(services.sceneAssetProfileService);
     });
   });
 });

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { fetchJson, fetchJsonWithEnvelope } from '../../common/http/fetch-json';
 import type { FetchLike } from '../../common/http/fetch-json';
 import type { FetchJsonEnvelope } from '../../common/http/fetch-json';
+import { BoundedSemaphore } from '../../common/concurrency/bounded-semaphore';
 import {
   ExternalPlaceDetail,
   WeatherObservation,
@@ -25,37 +26,6 @@ interface OpenMeteoResponse {
     snowfall?: number[];
     cloud_cover?: number[];
   };
-}
-
-/**
- * Minimal in-memory semaphore for bounded concurrency.
- * Ensures at most `limit` async operations execute concurrently.
- * Phase 5: Open Meteo serialization uses limit=1.
- */
-class BoundedSemaphore {
-  private active = 0;
-  private queue: Array<() => void> = [];
-
-  constructor(private readonly limit: number) {}
-
-  async acquire(): Promise<void> {
-    if (this.active < this.limit) {
-      this.active++;
-      return;
-    }
-    await new Promise<void>((resolve) => this.queue.push(resolve));
-    this.active++;
-  }
-
-  release(): void {
-    this.active--;
-    const next = this.queue.shift();
-    if (next) {
-      next();
-    } else {
-      this.active = Math.max(0, this.active);
-    }
-  }
 }
 
 @Injectable()

@@ -47,6 +47,8 @@ bun run bench:scene
 - 테스트 코드는 `test/` 폴더에 둡니다.
 - `src/` 내부에는 테스트를 두지 않습니다.
 - 벤치마크는 `bun run bench:scene` 으로 실행합니다.
+- phase 6 load fixture는 `SCENE_BENCH_PROFILE=phase6-load bun run bench:scene` 로 실행합니다.
+- 벤치마크 결과 JSON은 기본적으로 `data/benchmark/scene-benchmark-report.json`에 기록됩니다.
 
 시부야 smoke:
 

@@ -136,6 +136,24 @@ describe('Phase 6 scene integration', () => {
     );
   });
 
+  it('creates unique scene ids for concurrent forceRegenerate requests', async () => {
+    const target = context!;
+    seedHappyPathMocks(target);
+
+    const [first, second] = await Promise.all([
+      target.generationService.createScene('Seoul City Hall', 'MEDIUM', {
+        forceRegenerate: true,
+      }),
+      target.generationService.createScene('Seoul City Hall', 'MEDIUM', {
+        forceRegenerate: true,
+      }),
+    ]);
+
+    expect(first.sceneId).not.toBe(second.sceneId);
+    expect(first.sceneId.startsWith('scene-seoul-city-hall-')).toBe(true);
+    expect(second.sceneId.startsWith('scene-seoul-city-hall-')).toBe(true);
+  });
+
   it('retries a pipeline failure and succeeds on the second attempt', async () => {
     const target = context!;
     target.googlePlacesClient.searchText.mockResolvedValue([placeDetail]);

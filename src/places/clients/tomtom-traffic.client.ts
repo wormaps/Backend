@@ -4,6 +4,7 @@ import { AppException } from '../../common/errors/app.exception';
 import { fetchJson, fetchJsonWithEnvelope } from '../../common/http/fetch-json';
 import type { FetchLike } from '../../common/http/fetch-json';
 import type { FetchJsonEnvelope } from '../../common/http/fetch-json';
+import { BoundedSemaphore } from '../../common/concurrency/bounded-semaphore';
 import { Coordinate } from '../types/place.types';
 
 interface TomTomFlowSegmentResponse {
@@ -20,53 +21,72 @@ interface TomTomFlowSegmentResponse {
 @Injectable()
 export class TomTomTrafficClient {
   private fetcher: FetchLike = fetch;
+  /**
+   * Bounded concurrency for TomTom traffic API calls.
+   * Phase 6: Limits concurrent flow-segment requests to prevent fan-out.
+   */
+  private readonly semaphore = new BoundedSemaphore(4);
 
   withFetcher(fetcher: FetchLike): this {
     this.fetcher = fetcher;
     return this;
   }
 
+  /**
+   * Execute `fn` through the bounded-concurrency semaphore.
+   */
+  private async bounded<T>(fn: () => Promise<T>): Promise<T> {
+    await this.semaphore.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.semaphore.release();
+    }
+  }
+
   async getFlowSegment(
     point: Coordinate,
     requestId?: string | null,
   ): Promise<TomTomFlowSegmentResponse | null> {
-    const apiKey = process.env.TOMTOM_API_KEY;
-    if (!apiKey) {
-      throw new AppException({
-        code: ERROR_CODES.EXTERNAL_API_NOT_CONFIGURED,
-        message: 'TOMTOM_API_KEY 환경 변수가 설정되지 않았습니다.',
-        detail: {
-          env: 'TOMTOM_API_KEY',
-        },
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-      });
-    }
-
-    let lastError: unknown;
-    for (const host of this.resolveHosts(point)) {
-      try {
-        const apiKeyHeader = {
-          'X-TomTom-Api-Key': apiKey,
-        };
-        return await fetchJson<TomTomFlowSegmentResponse>(
-          {
-            provider: 'TomTom Traffic Flow Segment',
-            url:
-              `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
-              `?point=${point.lat},${point.lng}`,
-            init: {
-              headers: apiKeyHeader,
-            },
-            requestId,
+    return this.bounded(async () => {
+      const apiKey = process.env.TOMTOM_API_KEY;
+      if (!apiKey) {
+        throw new AppException({
+          code: ERROR_CODES.EXTERNAL_API_NOT_CONFIGURED,
+          message: 'TOMTOM_API_KEY 환경 변수가 설정되지 않았습니다.',
+          detail: {
+            env: 'TOMTOM_API_KEY',
           },
-          this.fetcher,
-        );
-      } catch (error) {
-        lastError = error;
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        });
       }
-    }
 
-    throw lastError;
+      let lastError: unknown;
+      for (const host of this.resolveHosts(point)) {
+        try {
+          const apiKeyHeader = {
+            'X-TomTom-Api-Key': apiKey,
+          };
+          return await fetchJson<TomTomFlowSegmentResponse>(
+            {
+              provider: 'TomTom Traffic Flow Segment',
+              url:
+                `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
+                `?point=${point.lat},${point.lng}`,
+              init: {
+                headers: apiKeyHeader,
+              },
+              requestId,
+            },
+            this.fetcher,
+          );
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError;
+    });
   }
 
   async getFlowSegmentWithEnvelope(
@@ -76,75 +96,77 @@ export class TomTomTrafficClient {
     data: TomTomFlowSegmentResponse | null;
     upstreamEnvelopes: FetchJsonEnvelope[];
   }> {
-    const apiKey = process.env.TOMTOM_API_KEY;
-    if (!apiKey) {
-      throw new AppException({
-        code: ERROR_CODES.EXTERNAL_API_NOT_CONFIGURED,
-        message: 'TOMTOM_API_KEY 환경 변수가 설정되지 않았습니다.',
-        detail: {
-          env: 'TOMTOM_API_KEY',
-        },
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-      });
-    }
-
-    const envelopes: FetchJsonEnvelope[] = [];
-    let lastError: unknown;
-    for (const host of this.resolveHosts(point)) {
-      try {
-        const apiKeyHeader = {
-          'X-TomTom-Api-Key': apiKey,
-        };
-        const response = await fetchJsonWithEnvelope<TomTomFlowSegmentResponse>(
-          {
-            provider: 'TomTom Traffic Flow Segment',
-            url:
-              `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
-              `?point=${point.lat},${point.lng}`,
-            init: {
-              headers: apiKeyHeader,
-            },
-            requestId,
+    return this.bounded(async () => {
+      const apiKey = process.env.TOMTOM_API_KEY;
+      if (!apiKey) {
+        throw new AppException({
+          code: ERROR_CODES.EXTERNAL_API_NOT_CONFIGURED,
+          message: 'TOMTOM_API_KEY 환경 변수가 설정되지 않았습니다.',
+          detail: {
+            env: 'TOMTOM_API_KEY',
           },
-          this.fetcher,
-        );
-        envelopes.push(response.envelope);
-        return {
-          data: response.data,
-          upstreamEnvelopes: envelopes,
-        };
-      } catch (error) {
-        if (
-          typeof error === 'object' &&
-          error !== null &&
-          'response' in error &&
-          typeof (error as { response?: unknown }).response === 'object' &&
-          (error as { response?: unknown }).response !== null &&
-          'detail' in
-            ((error as { response: Record<string, unknown> })
-              .response as Record<string, unknown>)
-        ) {
-          const detail = (
-            (error as { response: Record<string, unknown> }).response as Record<
-              string,
-              unknown
-            >
-          ).detail;
-          if (
-            typeof detail === 'object' &&
-            detail !== null &&
-            'upstreamEnvelope' in (detail as Record<string, unknown>)
-          ) {
-            const envelope = (detail as Record<string, unknown>)
-              .upstreamEnvelope as FetchJsonEnvelope;
-            envelopes.push(envelope);
-          }
-        }
-        lastError = error;
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        });
       }
-    }
 
-    throw lastError;
+      const envelopes: FetchJsonEnvelope[] = [];
+      let lastError: unknown;
+      for (const host of this.resolveHosts(point)) {
+        try {
+          const apiKeyHeader = {
+            'X-TomTom-Api-Key': apiKey,
+          };
+          const response = await fetchJsonWithEnvelope<TomTomFlowSegmentResponse>(
+            {
+              provider: 'TomTom Traffic Flow Segment',
+              url:
+                `https://${host}/traffic/services/4/flowSegmentData/absolute/14/json` +
+                `?point=${point.lat},${point.lng}`,
+              init: {
+                headers: apiKeyHeader,
+              },
+              requestId,
+            },
+            this.fetcher,
+          );
+          envelopes.push(response.envelope);
+          return {
+            data: response.data,
+            upstreamEnvelopes: envelopes,
+          };
+        } catch (error) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'response' in error &&
+            typeof (error as { response?: unknown }).response === 'object' &&
+            (error as { response?: unknown }).response !== null &&
+            'detail' in
+              ((error as { response: Record<string, unknown> })
+                .response as Record<string, unknown>)
+          ) {
+            const detail = (
+              (error as { response: Record<string, unknown> }).response as Record<
+                string,
+                unknown
+              >
+            ).detail;
+            if (
+              typeof detail === 'object' &&
+              detail !== null &&
+              'upstreamEnvelope' in (detail as Record<string, unknown>)
+            ) {
+              const envelope = (detail as Record<string, unknown>)
+                .upstreamEnvelope as FetchJsonEnvelope;
+              envelopes.push(envelope);
+            }
+          }
+          lastError = error;
+        }
+      }
+
+      throw lastError;
+    });
   }
 
   private resolveBaseHost(point: Coordinate): string {

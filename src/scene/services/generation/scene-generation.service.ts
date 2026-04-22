@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/errors/app.exception';
 import { AppLoggerService } from '../../../common/logging/app-logger.service';
@@ -124,9 +125,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
   }
 
   async waitForIdle(): Promise<void> {
-    while (this.queueManager.processingFlag || this.queueManager.queue.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+    await this.queueManager.waitForIdle();
   }
 
   getQueueDebugSnapshot() {
@@ -145,6 +144,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
       new Promise((resolve) => setTimeout(resolve, 30000)),
     ]);
 
+    await this.queueManager.flushSnapshot();
     await this.orchestrator.failPendingScenes();
   }
 
@@ -165,7 +165,7 @@ export class SceneGenerationService implements OnApplicationShutdown {
       return base;
     }
 
-    return `${base}-${Date.now().toString(36)}`;
+    return `${base}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
   }
 
   private resolveRadius(scale: SceneScale): number {

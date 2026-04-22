@@ -364,10 +364,7 @@ export function resolveRoadClearanceThreshold(
 export function resolveBuildingOverlapObjectIds(
   meta: SceneMeta,
 ): Set<string> {
-  const boxes = meta.buildings
-    .map((building) => toBuildingFootprintBounds(building, meta.origin.lat, meta.origin.lng))
-    .filter((item): item is BuildingFootprintBounds => item !== null)
-    .sort((left, right) => left.minX - right.minX);
+  const boxes = buildSortedFootprintBounds(meta);
   const overlapObjectIds = new Set<string>();
 
   for (let index = 0; index < boxes.length; index += 1) {
@@ -403,19 +400,19 @@ export function resolveOverlapAreas(
   overlapObjectIds: ReadonlySet<string>,
 ): Map<string, number> {
   const areas = new Map<string, number>();
-  const boxes = meta.buildings
-    .map((building) => toBuildingFootprintBounds(building, meta.origin.lat, meta.origin.lng))
-    .filter((item): item is BuildingFootprintBounds => item !== null)
-    .sort((left, right) => left.minX - right.minX);
+  const boxes = buildSortedFootprintBounds(meta);
 
   for (let i = 0; i < boxes.length; i += 1) {
+    const left = boxes[i];
+    if (!left) {
+      continue;
+    }
     for (let j = i + 1; j < boxes.length; j += 1) {
-      const left = boxes[i];
       const right = boxes[j];
-      if (!left || !right) {
+      if (!right) {
         continue;
       }
-      if (right.minX > left.maxX) {
+      if (right.minX > left.maxX + BUILDING_OVERLAP_PADDING_M) {
         break;
       }
       if (!overlapObjectIds.has(left.objectId) && !overlapObjectIds.has(right.objectId)) {
@@ -437,6 +434,16 @@ export function resolveOverlapAreas(
     }
   }
   return areas;
+}
+
+/** Shared helper: build sorted footprint bounds to avoid duplicate work. */
+function buildSortedFootprintBounds(
+  meta: SceneMeta,
+): BuildingFootprintBounds[] {
+  return meta.buildings
+    .map((building) => toBuildingFootprintBounds(building, meta.origin.lat, meta.origin.lng))
+    .filter((item): item is BuildingFootprintBounds => item !== null)
+    .sort((left, right) => left.minX - right.minX);
 }
 
 function resolveOverlapSeverity(

@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { GlbBuilderService } from '../src/assets/glb-builder.service';
+import { appMetrics } from '../src/common/metrics/metrics.instance';
 import { GooglePlacesClient } from '../src/places/clients/google-places.client';
 import { MapillaryClient } from '../src/places/clients/mapillary.client';
 import { OpenMeteoClient } from '../src/places/clients/open-meteo.client';
@@ -10,34 +11,18 @@ import { OverpassClient } from '../src/places/clients/overpass.client';
 import { TomTomTrafficClient } from '../src/places/clients/tomtom-traffic.client';
 import { placeDetail, placePackage } from '../src/scene/scene.service.spec.fixture';
 import { SceneService } from '../src/scene/scene.service';
-import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
-import type { SceneScale } from '../src/scene/types/scene.types';
-
-type BenchmarkMode = 'stubbed' | 'live';
-
-interface BenchmarkSample {
-  sceneId: string;
-  createSceneMs: number;
-  waitForIdleMs: number;
-  totalMs: number;
-  rssMb: number;
-  heapUsedMb: number;
-  status: string;
-}
+import { getSceneDataDir, writeFileAtomically } from '../src/scene/storage/scene-storage.utils';
+import {
+  buildBenchmarkPlan,
+  summarizeBenchmarkCase,
+  summarizeBenchmarkReport,
+  type BenchmarkCasePlan,
+  type BenchmarkCaseResult,
+  type BenchmarkSample,
+} from './scene-benchmark.plan';
 
 async function main() {
-  const mode = parseBenchmarkMode(process.env.SCENE_BENCH_MODE?.trim() || 'stubbed');
-  const query = process.env.SCENE_BENCH_QUERY?.trim() || 'Seoul City Hall';
-  const scale = parseSceneScale(process.env.SCENE_BENCH_SCALE?.trim() || 'MEDIUM');
-  const iterations = parsePositiveInteger(
-    process.env.SCENE_BENCH_ITERATIONS?.trim() || '1',
-    1,
-  );
-  const concurrency = parsePositiveInteger(
-    process.env.SCENE_BENCH_CONCURRENCY?.trim() || '1',
-    1,
-  );
-
+  const plan = buildBenchmarkPlan(process.env);
   const sceneDataDir = getSceneDataDir();
   await mkdir(sceneDataDir, { recursive: true });
 
@@ -45,7 +30,7 @@ async function main() {
     imports: [AppModule],
   });
 
-  if (mode === 'stubbed') {
+  if (plan.mode === 'stubbed') {
     moduleBuilder
       .overrideProvider(GooglePlacesClient)
       .useValue(createGooglePlacesStub())
@@ -62,19 +47,19 @@ async function main() {
   const moduleRef = await moduleBuilder.compile();
   const sceneService = moduleRef.get(SceneService);
   const glbBuilderService = moduleRef.get(GlbBuilderService);
-  const samples: BenchmarkSample[] = [];
+  const caseResults: BenchmarkCaseResult[] = [];
 
   console.log(
     JSON.stringify(
       {
-        mode,
-        query,
-        scale,
-        iterations,
-        concurrency,
-        sceneDataDir,
+        mode: plan.mode,
+        profile: plan.profile,
+        outputPath: plan.outputPath,
+        sceneDataDir: plan.sceneDataDir,
+        concurrencyLimit: plan.concurrencyLimit,
+        cases: plan.cases,
         note:
-          mode === 'live'
+          plan.mode === 'live'
             ? 'Live mode uses external APIs and may fail if credentials or network are unavailable.'
             : 'Stubbed mode uses fixed fixtures to measure the internal generation path.',
       },
@@ -83,20 +68,86 @@ async function main() {
     ),
   );
 
-  for (let iteration = 0; iteration < iterations; iteration += 1) {
+  for (const benchmarkCase of plan.cases) {
+    caseResults.push(await runBenchmarkCase(sceneService, benchmarkCase));
+  }
+
+  const report = summarizeBenchmarkReport({
+    plan,
+    caseResults,
+    metricsSnapshot: appMetrics.snapshot(),
+  });
+
+  await writeFileAtomically(plan.outputPath, JSON.stringify(report, null, 2), 'utf8');
+
+  console.log(
+    JSON.stringify(
+      {
+        mode: plan.mode,
+        profile: plan.profile,
+        glbBuilder: {
+          provider: glbBuilderService.constructor.name,
+        },
+        caseCount: caseResults.length,
+        reportPath: plan.outputPath,
+        statusCounts: report.statusCounts,
+        metricsSnapshot: report.metricsSnapshot,
+        aggregate: report.aggregate,
+        cases: caseResults.map((result) => ({
+          query: result.fixture.query,
+          scale: result.fixture.scale,
+          iterations: result.fixture.iterations,
+          requestedConcurrency: result.fixture.requestedConcurrency,
+          effectiveConcurrency: result.fixture.concurrency,
+          aggregate: result.aggregate,
+          concurrentBatch: result.concurrentBatch,
+        })),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function runBenchmarkCase(
+  sceneService: SceneService,
+  benchmarkCase: BenchmarkCasePlan,
+): Promise<BenchmarkCaseResult> {
+  const samples: BenchmarkSample[] = [];
+
+  for (let iteration = 0; iteration < benchmarkCase.iterations; iteration += 1) {
     const startedAt = performance.now();
     const createStartedAt = performance.now();
-    const created = await sceneService.createScene(query, scale, {
-      forceRegenerate: true,
-      source: 'smoke',
-      requestId: `scene_bench_${Date.now().toString(36)}_${iteration}`,
-    });
+    const created = await sceneService.createScene(
+      benchmarkCase.query,
+      benchmarkCase.scale,
+      {
+        forceRegenerate: true,
+        source: 'smoke',
+        requestId: `scene_bench_${Date.now().toString(36)}_${iteration}`,
+      },
+    );
     const createSceneMs = performance.now() - createStartedAt;
 
     const waitStartedAt = performance.now();
     await sceneService.waitForIdle();
     const waitForIdleMs = performance.now() - waitStartedAt;
     const totalMs = performance.now() - startedAt;
+    const finished = await sceneService.getScene(created.sceneId);
+    if (finished.status !== 'READY') {
+      console.warn(
+        JSON.stringify(
+          {
+            sceneId: finished.sceneId,
+            status: finished.status,
+            failureReason: finished.failureReason ?? null,
+            failureCategory: finished.failureCategory ?? null,
+          },
+          null,
+          2,
+        ),
+      );
+    }
 
     samples.push({
       sceneId: created.sceneId,
@@ -105,15 +156,18 @@ async function main() {
       totalMs,
       rssMb: roundMb(process.memoryUsage().rss),
       heapUsedMb: roundMb(process.memoryUsage().heapUsed),
-      status: created.status,
+      status: finished.status,
+      failureReason: finished.failureReason ?? null,
+      failureCategory: finished.failureCategory ?? null,
     });
   }
 
-  if (concurrency > 1) {
+  let concurrentBatch: BenchmarkCaseResult['concurrentBatch'];
+  if (benchmarkCase.concurrency > 1) {
     const concurrentStartedAt = performance.now();
     const results = await Promise.all(
-      Array.from({ length: concurrency }, (_value, index) =>
-        sceneService.createScene(query, scale, {
+      Array.from({ length: benchmarkCase.concurrency }, (_value, index) =>
+        sceneService.createScene(benchmarkCase.query, benchmarkCase.scale, {
           forceRegenerate: true,
           source: 'smoke',
           requestId: `scene_bench_concurrent_${Date.now().toString(36)}_${index}`,
@@ -121,88 +175,19 @@ async function main() {
       ),
     );
     await sceneService.waitForIdle();
-    const concurrentTotalMs = performance.now() - concurrentStartedAt;
-    console.log(
-      JSON.stringify(
-        {
-          concurrentBatch: {
-            requested: concurrency,
-            uniqueSceneIds: new Set(results.map((item) => item.sceneId)).size,
-            totalMs: concurrentTotalMs,
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    concurrentBatch = {
+      requested: benchmarkCase.requestedConcurrency,
+      effective: benchmarkCase.concurrency,
+      uniqueSceneIds: new Set(results.map((item) => item.sceneId)).size,
+      totalMs: performance.now() - concurrentStartedAt,
+    };
   }
 
-  const summary = {
-    mode,
-    query,
-    scale,
-    iterations,
-    concurrency,
-    glbBuilder: {
-      provider: glbBuilderService.constructor.name,
-    },
-    samples,
-    aggregate: {
-      createSceneMs: aggregate(samples.map((sample) => sample.createSceneMs)),
-      waitForIdleMs: aggregate(samples.map((sample) => sample.waitForIdleMs)),
-      totalMs: aggregate(samples.map((sample) => sample.totalMs)),
-      rssMb: aggregate(samples.map((sample) => sample.rssMb)),
-      heapUsedMb: aggregate(samples.map((sample) => sample.heapUsedMb)),
-    },
-  };
-
-  console.log(JSON.stringify(summary, null, 2));
-}
-
-function parseBenchmarkMode(input: string): BenchmarkMode {
-  const normalized = input.toLowerCase();
-  if (normalized === 'live' || normalized === 'stubbed') {
-    return normalized;
-  }
-  throw new Error('Invalid SCENE_BENCH_MODE. Expected live or stubbed.');
-}
-
-function parseSceneScale(input: string): SceneScale {
-  const allowed: SceneScale[] = ['SMALL', 'MEDIUM', 'LARGE'];
-  const normalized = input.toUpperCase();
-  if (allowed.includes(normalized as SceneScale)) {
-    return normalized as SceneScale;
-  }
-  throw new Error(
-    `Invalid SCENE_BENCH_SCALE=${input}. Expected one of ${allowed.join(', ')}.`,
-  );
-}
-
-function parsePositiveInteger(input: string, fallback: number): number {
-  const value = Number.parseInt(input, 10);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
+  return summarizeBenchmarkCase(benchmarkCase, samples, concurrentBatch);
 }
 
 function roundMb(value: number): number {
   return Number((value / (1024 * 1024)).toFixed(2));
-}
-
-function aggregate(values: number[]): {
-  min: number;
-  max: number;
-  avg: number;
-} {
-  if (values.length === 0) {
-    return { min: 0, max: 0, avg: 0 };
-  }
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const avg = values.reduce((sum, current) => sum + current, 0) / values.length;
-  return {
-    min: Number(min.toFixed(2)),
-    max: Number(max.toFixed(2)),
-    avg: Number(avg.toFixed(2)),
-  };
 }
 
 function createGooglePlacesStub() {
@@ -287,7 +272,9 @@ function createTomTomTrafficStub() {
   };
 }
 
-void main().catch((error: Error) => {
-  console.error(error.stack ?? error.message);
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith('scene-benchmark.ts')) {
+  void main().catch((error: Error) => {
+    console.error(error.stack ?? error.message);
+    process.exit(1);
+  });
+}

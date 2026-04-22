@@ -82,6 +82,53 @@ export interface GlbBuildRunnerState {
   triangleBudget: TriangleBudgetState;
 }
 
+/**
+ * Create a fresh, isolated build state for a single GLB build invocation.
+ * This prevents cross-run leakage and makes the runner safe for repeated
+ * or concurrent invocations — no shared mutable state survives between builds.
+ */
+export function createGlbBuildRunnerState(args: {
+  appLoggerService: AppLoggerService;
+  sceneAssetProfileService: SceneAssetProfileService;
+}): GlbBuildRunnerState {
+  return {
+    currentMeshDiagnostics: [],
+    appLoggerService: args.appLoggerService,
+    sceneAssetProfileService: args.sceneAssetProfileService,
+    materialCacheStats: { hits: 0, misses: 0 },
+    semanticGroupNodes: new Map<string, unknown>(),
+    graphIntents: [],
+    stageGraphIntents: [],
+    triangleBudget: {
+      totalTriangleBudget: 2_500_000,
+      totalTriangleCount: 0,
+      protectedTriangleCount: 0,
+      protectedTriangleReserve: 180_000,
+      budgetProtectedMeshNames: new Set<string>([
+        'road_base',
+        'road_edges',
+        'road_markings',
+        'lane_overlay',
+        'crosswalk_overlay',
+        'junction_overlay',
+        'building_windows',
+        'building_roof_surfaces_cool',
+        'building_roof_surfaces_warm',
+        'building_roof_surfaces_neutral',
+        'building_roof_accents_cool',
+        'building_roof_accents_warm',
+        'building_roof_accents_neutral',
+        'building_entrances',
+        'building_roof_equipment',
+        'traffic_lights',
+        'street_lights',
+        'sign_poles',
+      ]),
+      budgetProtectedMeshPrefixes: ['building_panels_', 'building_shells_'],
+    },
+  };
+}
+
 export function logGlbBuildStabilitySignals(args: {
   appLoggerService: AppLoggerService;
   sceneId: string;
@@ -128,10 +175,6 @@ export async function executeGlbBuild(
   const buildStartedAt = Date.now();
   const buildMemoryStart = process.memoryUsage();
   const buildTimeoutMs = resolveGlbBuildTimeoutMsFromEnv();
-  state.triangleBudget.totalTriangleCount = 0;
-  state.triangleBudget.protectedTriangleCount = 0;
-  state.materialCacheStats = { hits: 0, misses: 0 };
-  state.semanticGroupNodes.clear();
   const gltf = await import('@gltf-transform/core');
   const transformFunctionsModule = await import('@gltf-transform/functions');
   const meshoptimizerModule = await loadMeshoptimizerModule();
@@ -165,10 +208,6 @@ export async function executeGlbBuild(
     contract,
     state.semanticGroupNodes,
   );
-  state.currentMeshDiagnostics = [];
-  state.stageGraphIntents = [];
-  state.graphIntents = [];
-
   const assetSelection = contract.assetSelection;
   const largeSceneBuildingCount = contract.buildings.length;
   logGlbBuildStabilitySignals({

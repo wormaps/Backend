@@ -11,15 +11,20 @@ import {
 import type { SceneFailureCategory } from '../../types/scene.types';
 import type { FailureEntry, QueueDebugSnapshot } from './scene-queue-manager.types';
 
+const SNAPSHOT_DEBOUNCE_MS = 250;
+
 @Injectable()
 export class SceneQueueManagerService {
   private readonly generationLockOwnerId = randomUUID();
   private readonly generationQueue: string[] = [];
   private readonly queuedSceneIds = new Set<string>();
   private readonly recentFailures: FailureEntry[] = [];
+  private readonly idleListeners: Array<() => void> = [];
   private isProcessingQueue = false;
   private isShuttingDown = false;
   private currentProcessingSceneId: string | null = null;
+  private snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingSnapshot = false;
 
   constructor(private readonly appLoggerService: AppLoggerService) {}
 
@@ -45,6 +50,9 @@ export class SceneQueueManagerService {
 
   set processingFlag(value: boolean) {
     this.isProcessingQueue = value;
+    if (!value) {
+      this.notifyIdleIfApplicable();
+    }
   }
 
   get queue(): string[] {
@@ -67,6 +75,7 @@ export class SceneQueueManagerService {
     const sceneId = this.generationQueue.shift();
     if (sceneId) {
       this.queuedSceneIds.delete(sceneId);
+      this.notifyIdleIfApplicable();
     }
     return sceneId;
   }
@@ -92,7 +101,8 @@ export class SceneQueueManagerService {
       {},
       'Whether the scene generation queue is currently processing.',
     );
-    void this.persistQueueSnapshot();
+    this.schedulePersistSnapshot();
+    this.notifyIdleIfApplicable();
   }
 
   getDebugSnapshot(): QueueDebugSnapshot {
@@ -107,6 +117,56 @@ export class SceneQueueManagerService {
 
   getRecentFailures(limit = 10): FailureEntry[] {
     return this.recentFailures.slice(0, Math.max(1, limit));
+  }
+
+  /**
+   * Returns a promise that resolves when the queue becomes idle
+   * (not processing and empty). If already idle, resolves immediately.
+   */
+  waitForIdle(): Promise<void> {
+    if (!this.isProcessingQueue && this.generationQueue.length === 0) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      this.idleListeners.push(resolve);
+    });
+  }
+
+  /**
+   * Immediately flush any pending debounced snapshot write.
+   * Useful during shutdown to ensure the final state is persisted.
+   */
+  async flushSnapshot(): Promise<void> {
+    if (this.snapshotTimer !== null) {
+      clearTimeout(this.snapshotTimer);
+      this.snapshotTimer = null;
+    }
+    if (this.pendingSnapshot) {
+      this.pendingSnapshot = false;
+      await this.persistQueueSnapshot();
+    }
+  }
+
+  private schedulePersistSnapshot(): void {
+    this.pendingSnapshot = true;
+    if (this.snapshotTimer !== null) {
+      return;
+    }
+    this.snapshotTimer = setTimeout(() => {
+      this.snapshotTimer = null;
+      this.pendingSnapshot = false;
+      void this.persistQueueSnapshot();
+    }, SNAPSHOT_DEBOUNCE_MS);
+  }
+
+  private notifyIdleIfApplicable(): void {
+    if (this.isProcessingQueue || this.generationQueue.length > 0) {
+      return;
+    }
+    const listeners = this.idleListeners.splice(0, this.idleListeners.length);
+    for (const listener of listeners) {
+      listener();
+    }
   }
 
   recordFailure(entry: {

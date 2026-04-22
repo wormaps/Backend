@@ -742,11 +742,11 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 체크리스트:
 
-- [ ] model: bounded concurrency와 throughput policy가 정의되었다
-- [ ] code: overlap, Promise, diagnostics 병목 개선이 구현되었다
-- [ ] tests: benchmark와 load fixture가 추가되었다
-- [ ] ops: throughput metrics가 수집된다
-- [ ] docs: large scene 운영 한계와 기준이 문서화되었다
+ - [x] model: bounded concurrency와 throughput policy가 정의되었다
+ - [x] code: overlap, Promise, diagnostics 병목 개선이 구현되었다
+ - [x] tests: benchmark와 load fixture가 추가되었다
+ - [x] ops: throughput metrics가 수집된다
+ - [x] docs: large scene 운영 한계와 기준이 문서화되었다
 
 롤백 기준:
 
