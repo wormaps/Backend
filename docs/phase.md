@@ -427,8 +427,9 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 - code 반영 완료
 - glTF preflight fail closed, TEXCOORD_0 경로, triangulation fallback evidence, correctedRatio advisory signal 반영 완료
 - representative smoke 기준 Shibuya / Akihabara는 더 이상 TEXCOORD preflight로 실패하지 않음
-- 다만 representative scene은 아직 `observed_coverage` QA reject 상태이며, Visual Gate 종료 기준은 아직 미충족
-- model / ops는 아직 미완료이며 phase 공식 종료는 보류 상태
+- representative scene 최신 결과는 Shibuya / Akihabara 모두 `qualityGate=PASS`, `scene.status=READY`, `QA summary=WARN` 상태다
+- representative scene의 `observed_coverage`는 baseline(0.008) 대비 증가했지만 아직 WARN(Shibuya 0.056, Akihabara 0.056)이며, Visual Gate close 기준의 정량 임계치는 아직 문서에 명시되지 않았다
+- phase 공식 종료는 Visual Gate close 해석과 남은 문서 동기화가 끝날 때까지 보류 상태다
 
 진입 조건:
 
@@ -473,6 +474,7 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
   - Pass rule: representative scene의 appearance coverage와 ratio가 baseline보다 유의미하게 증가
   - Block rule: fallback box 비율이 감소하지 않음
   - Evidence: QA diff report, representative scene screenshots or metrics
+  - Current representative evidence: baseline `observedAppearanceCoverage=0.008` → latest Shibuya `0.056`, Akihabara `0.056`; both representative scenes report `fallbackMassingRate=0`
 
 종료 기준:
 
@@ -482,11 +484,24 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 체크리스트:
 
-- [ ] model: asset fidelity rule과 fallback taxonomy가 정의되었다
+- [X] model: asset fidelity rule과 fallback taxonomy가 정의되었다
 - [X] code: UV, material compatibility, fallback classification이 구현되었다
 - [X] tests: glTF contract와 representative scene regression test가 추가되었다
-- [ ] ops: asset validation 결과를 CI에서 확인 가능하다
+- [X] ops: asset validation 결과를 CI에서 확인 가능하다
 - [X] docs: asset build quality rule이 문서화되었다
+- model evidence:
+  - textured asset: texture binding이 있는 primitive는 compatible vertex attributes(`TEXCOORD_0`)를 반드시 가져야 한다
+  - fallback taxonomy:
+    - `polygon_budget_exceeded` / `polygon_budget_reserved_for_critical`: 예산 제한으로 인한 skip
+    - `missing_source`: upstream source 부재로 인한 skip
+    - `empty_or_invalid_geometry`: geometry 정합성 실패로 인한 skip
+    - `TRIANGULATION_FALLBACK`: build는 지속하되 evidence-only metric으로 노출되는 geometry fallback
+  - advisory-only signals:
+    - `triangulationFallbackCount`
+    - `correctedRatio`
+- ops evidence:
+  - CI는 `.github/workflows/ci.yml`에서 `bun run type-check`, `bun run test`, `bun run build`를 수행한다
+  - Phase 3 관련 회귀 증거는 `test/phase3-texcoord-preflight.spec.ts`, `test/phase3-texcoord-geometry.spec.ts`, `test/phase3-triangulation-fallback-metric.spec.ts`, `test/phase3-observed-coverage-mapillary.spec.ts`로 확인한다
 
 롤백 기준:
 

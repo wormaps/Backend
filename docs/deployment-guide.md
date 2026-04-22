@@ -27,6 +27,8 @@
 - **필수 환경 변수**: `GOOGLE_API_KEY`, `OVERPASS_API_URLS`가 설정되지 않으면 `/api/health`가 503을 반환한다. Kubernetes readiness probe가 이를 사용하므로 배포 전 반드시 확인한다.
 - Phase 3 이후에는 representative smoke에서 TEXCOORD preflight / glTF validator / QA reject 여부를 함께 확인해야 한다.
 - representative scene이 `QA_REJECTED` 이면 asset build가 성공했더라도 Visual Gate는 통과한 것으로 보지 않는다.
+- representative scene이 `READY`이고 `qualityGate=PASS`여도 `QA summary=WARN`이면 Phase 3 close는 별도 판단이 필요하다. 특히 `observed_coverage`가 baseline 대비 얼마나 증가했는지와 해당 증가폭의 정량 기준이 문서화됐는지까지 확인한다.
+- CI baseline evidence는 `.github/workflows/ci.yml`의 `bun run type-check`, `bun run test`, `bun run build`와 Phase 3 회귀 테스트들로 확인한다.
 
 ## 4. 실패 시 우선 확인
 

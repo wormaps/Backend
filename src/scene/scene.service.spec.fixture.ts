@@ -387,6 +387,7 @@ export async function createSceneSpecContext(options?: {
               maxMissingSourceWarn: 48,
             },
             meshSummary: {
+              totalMeshNodeCount: 0,
               totalSkipped: 0,
               polygonBudgetExceededCount: 0,
               criticalPolygonBudgetExceededCount: 0,
@@ -394,6 +395,7 @@ export async function createSceneSpecContext(options?: {
               criticalEmptyOrInvalidGeometryCount: 0,
               selectionCutCount: 0,
               missingSourceCount: 0,
+              triangulationFallbackCount: 0,
             },
             artifactRefs: {
               diagnosticsLogPath: '/tmp/diagnostics.log',

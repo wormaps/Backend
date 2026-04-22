@@ -114,6 +114,7 @@ describe('Phase 1 QA FAIL blocks READY promotion', () => {
         maxMissingSourceWarn: 48,
       },
       meshSummary: {
+        totalMeshNodeCount: 0,
         totalSkipped: 0,
         polygonBudgetExceededCount: 0,
         criticalPolygonBudgetExceededCount: 0,

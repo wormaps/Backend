@@ -519,6 +519,7 @@ export interface SceneQualityGateScores {
 }
 
 export interface SceneQualityGateMeshSummary {
+  totalMeshNodeCount: number;
   totalSkipped: number;
   polygonBudgetExceededCount: number;
   criticalPolygonBudgetExceededCount: number;

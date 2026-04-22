@@ -4,11 +4,65 @@ import type {
   MidQaCheck,
   MidQaReport,
   SceneDetail,
+  SceneFacadeHint,
   SceneMeta,
   SceneTwinGraph,
   ValidationGateState,
   ValidationReport,
 } from '../../types/scene.types';
+
+/**
+ * Determines whether a facade hint should be counted as "observed" from
+ * Mapillary evidence. A hint counts as observed when it has inferenceReasonCodes,
+ * is not weak evidence, and it is not the fully-missing Mapillary case.
+ */
+function isMapillaryObservedFacadeHint(hint: SceneFacadeHint): boolean {
+  const codes = hint.inferenceReasonCodes;
+  if (!codes?.length) {
+    return false;
+  }
+  if (hint.weakEvidence === true) {
+    return false;
+  }
+  const hasMissingMapillaryImages = codes.includes('MISSING_MAPILLARY_IMAGES');
+  const hasMissingMapillaryFeatures = codes.includes('MISSING_MAPILLARY_FEATURES');
+  return !(hasMissingMapillaryImages && hasMissingMapillaryFeatures);
+}
+
+/**
+ * Pure helper: computes observed appearance coverage by combining:
+ * 1. OSM-tag-based counts (coloredBuildings + materialBuildings)
+ * 2. Mapillary-observed facade hints (derived from inferenceReasonCodes)
+ *
+ * Thresholds remain unchanged: PASS>=0.15, WARN>=0.05, FAIL<0.05.
+ */
+function computeObservedAppearanceCoverage(args: {
+  coloredBuildings: number;
+  materialBuildings: number;
+  facadeHints: SceneFacadeHint[];
+}): {
+  observedAppearanceCoverage: number;
+  osmTagObservedCount: number;
+  mapillaryObservedFacadeHintCount: number;
+  totalObservedCount: number;
+} {
+  const { coloredBuildings, materialBuildings, facadeHints } = args;
+  const osmTagObservedCount = coloredBuildings + materialBuildings;
+  const mapillaryObservedFacadeHintCount = facadeHints.filter(
+    isMapillaryObservedFacadeHint,
+  ).length;
+  const totalObservedCount = osmTagObservedCount + mapillaryObservedFacadeHintCount;
+  const observedAppearanceCoverage = Math.min(
+    1,
+    totalObservedCount / Math.max(facadeHints.length, 1),
+  );
+  return {
+    observedAppearanceCoverage,
+    osmTagObservedCount,
+    mapillaryObservedFacadeHintCount,
+    totalObservedCount,
+  };
+}
 
 @Injectable()
 export class SceneMidQaService {
@@ -59,12 +113,12 @@ export class SceneMidQaService {
     const defaultedEvidenceCount = twin.evidence.filter(
       (item) => item.provenance === 'defaulted',
     ).length;
-    const observedAppearanceCoverage = Math.min(
-      1,
-      (detail.provenance.osmTagCoverage.coloredBuildings +
-        detail.provenance.osmTagCoverage.materialBuildings) /
-        Math.max(detail.facadeHints.length, 1),
-    );
+    const coverageResult = computeObservedAppearanceCoverage({
+      coloredBuildings: detail.provenance.osmTagCoverage.coloredBuildings,
+      materialBuildings: detail.provenance.osmTagCoverage.materialBuildings,
+      facadeHints: detail.facadeHints,
+    });
+    const { observedAppearanceCoverage, osmTagObservedCount, mapillaryObservedFacadeHintCount, totalObservedCount } = coverageResult;
     const qaChecks: MidQaCheck[] = [
       {
         id: 'provider_trace',
@@ -112,6 +166,9 @@ export class SceneMidQaService {
           inferredEvidenceCount,
           defaultedEvidenceCount,
           facadeHintCount: detail.facadeHints.length,
+          osmTagObservedCount,
+          mapillaryObservedFacadeHintCount,
+          totalObservedCount,
         },
       },
       {

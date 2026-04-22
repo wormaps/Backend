@@ -3,6 +3,9 @@ import type {
   SceneQualityGateThresholds,
 } from '../../../types/scene.types';
 
+const ADAPTIVE_SKIPPED_WARN_RATIO = 0.12;
+const ADAPTIVE_MISSING_SOURCE_WARN_RATIO = 0.012;
+
 export function shouldEnforceCriticalGeometryForPhase(
   phase?: SceneFidelityPlan['phase'],
 ): boolean {
@@ -50,5 +53,32 @@ export function resolveSceneQualityGateThresholds(
     criticalInvalidGeometryMax: 0,
     maxSkippedMeshesWarn: 180,
     maxMissingSourceWarn: 48,
+  };
+}
+
+export function resolveAdaptiveMeshWarnThresholds(input: {
+  thresholds: Pick<
+    SceneQualityGateThresholds,
+    'maxSkippedMeshesWarn' | 'maxMissingSourceWarn'
+  >;
+  totalMeshNodeCount?: number;
+}): Pick<SceneQualityGateThresholds, 'maxSkippedMeshesWarn' | 'maxMissingSourceWarn'> {
+  const totalMeshNodeCount = Math.max(0, Math.floor(input.totalMeshNodeCount ?? 0));
+  const scaledSkippedWarn = Math.ceil(
+    totalMeshNodeCount * ADAPTIVE_SKIPPED_WARN_RATIO,
+  );
+  const scaledMissingSourceWarn = Math.ceil(
+    totalMeshNodeCount * ADAPTIVE_MISSING_SOURCE_WARN_RATIO,
+  );
+
+  return {
+    maxSkippedMeshesWarn: Math.max(
+      input.thresholds.maxSkippedMeshesWarn,
+      scaledSkippedWarn,
+    ),
+    maxMissingSourceWarn: Math.max(
+      input.thresholds.maxMissingSourceWarn,
+      scaledMissingSourceWarn,
+    ),
   };
 }

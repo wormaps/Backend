@@ -24,6 +24,7 @@ import {
 import { resolveSceneQualityGateMeshSummary } from './quality-gate/scene-quality-gate-mesh-summary';
 import { resolveSceneOracleApproval } from './quality-gate/scene-quality-gate-oracle-approval';
 import {
+  resolveAdaptiveMeshWarnThresholds,
   resolveSceneQualityGateThresholds,
   shouldEnforceCriticalGeometryForPhase,
 } from './quality-gate/scene-quality-gate-thresholds';
@@ -57,34 +58,43 @@ export class SceneQualityGateService {
     const meshSummary = await resolveSceneQualityGateMeshSummary(
       sceneMeta.sceneId,
     );
+    const adaptiveWarnThresholds = resolveAdaptiveMeshWarnThresholds({
+      thresholds,
+      totalMeshNodeCount: meshSummary.totalMeshNodeCount,
+    });
+    const effectiveThresholds = {
+      ...thresholds,
+      ...adaptiveWarnThresholds,
+    };
     const reasonCodes: SceneQualityGateReasonCode[] = [];
 
-    if ((fidelityPlan?.coverageGapRatio ?? 0) > thresholds.coverageGapMax) {
+    if ((fidelityPlan?.coverageGapRatio ?? 0) > effectiveThresholds.coverageGapMax) {
       reasonCodes.push('COVERAGE_GAP_PRESENT');
     }
-    if (metrics.score.overall < thresholds.overallMin) {
+    if (metrics.score.overall < effectiveThresholds.overallMin) {
       reasonCodes.push('OVERALL_SCORE_BELOW_MIN');
     }
-    if (metrics.score.breakdown.structure < thresholds.structureMin) {
+    if (metrics.score.breakdown.structure < effectiveThresholds.structureMin) {
       reasonCodes.push('STRUCTURE_SCORE_BELOW_MIN');
     }
     if (
-      metrics.score.breakdown.placeReadability < thresholds.placeReadabilityMin
+      metrics.score.breakdown.placeReadability <
+        effectiveThresholds.placeReadabilityMin
     ) {
       reasonCodes.push('PLACE_READABILITY_SCORE_BELOW_MIN');
     }
-    if (modeComparison.delta.overallScore < thresholds.modeDeltaOverallMin) {
+    if (modeComparison.delta.overallScore < effectiveThresholds.modeDeltaOverallMin) {
       reasonCodes.push('MODE_DELTA_BELOW_MIN');
     }
     if (
       meshSummary.criticalPolygonBudgetExceededCount >
-      thresholds.criticalPolygonBudgetExceededMax
+      effectiveThresholds.criticalPolygonBudgetExceededMax
     ) {
       reasonCodes.push('CRITICAL_BUDGET_SKIP');
     }
     if (
       meshSummary.criticalEmptyOrInvalidGeometryCount >
-      thresholds.criticalInvalidGeometryMax
+      effectiveThresholds.criticalInvalidGeometryMax
     ) {
       reasonCodes.push('CRITICAL_INVALID_GEOMETRY');
     }
@@ -131,10 +141,12 @@ export class SceneQualityGateService {
     if (oracleApproval.required && oracleApproval.state !== 'APPROVED') {
       reasonCodes.push('ORACLE_APPROVAL_REQUIRED');
     }
-    if (meshSummary.totalSkipped > thresholds.maxSkippedMeshesWarn) {
+    if (meshSummary.totalSkipped > effectiveThresholds.maxSkippedMeshesWarn) {
       reasonCodes.push('MESH_SKIPPED_COUNT_ABOVE_WARN_MAX');
     }
-    if (meshSummary.missingSourceCount > thresholds.maxMissingSourceWarn) {
+    if (
+      meshSummary.missingSourceCount > effectiveThresholds.maxMissingSourceWarn
+    ) {
       reasonCodes.push('MISSING_SOURCE_COUNT_ABOVE_WARN_MAX');
     }
 
@@ -170,10 +182,10 @@ export class SceneQualityGateService {
         },
         modeDeltaOverallScore: modeComparison.delta.overallScore,
       },
-      thresholds,
-      meshSummary,
-      artifactRefs,
-      oracleApproval,
+        thresholds: effectiveThresholds,
+        meshSummary,
+        artifactRefs,
+        oracleApproval,
       decidedAt: new Date().toISOString(),
     };
   }

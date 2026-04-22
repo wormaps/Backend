@@ -47,4 +47,13 @@
 - glTF validator는 secondary confirmation으로 계속 실행한다.
 - triangulation fallback은 `triangulationFallbackCount`로 evidence-only 노출된다.
 - geometry correction은 `correctedRatio`로 advisory signal을 남긴다.
-- representative smoke에서 asset build는 통과하더라도 QA `observed_coverage` 때문에 scene이 `QA_REJECTED` 될 수 있다. 이 경우는 Visual Gate 미충족으로 본다.
+- representative smoke의 최신 기준에서는 `qualityGate=PASS`와 `scene.status=READY`를 먼저 확인하고, 그 다음 `QA summary`와 `observed_coverage` 수치를 함께 본다.
+- 현재 representative evidence는 Shibuya / Akihabara 모두 `QA summary=WARN`이며 `observed_coverage`가 baseline(0.008) 대비 증가한 상태다. Visual Gate close 여부는 이 증가폭을 충분한 것으로 볼 정량 기준이 문서화됐는지까지 함께 확인해야 한다.
+- CI 확인 경로:
+  - `.github/workflows/ci.yml`
+  - `bun run type-check`
+  - `bun run test`
+  - `test/phase3-texcoord-preflight.spec.ts`
+  - `test/phase3-texcoord-geometry.spec.ts`
+  - `test/phase3-triangulation-fallback-metric.spec.ts`
+  - `test/phase3-observed-coverage-mapillary.spec.ts`

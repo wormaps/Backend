@@ -32,6 +32,7 @@ export async function resolveSceneQualityGateMeshSummary(
   sceneId: string,
 ): Promise<SceneQualityGateMeshSummary> {
   const emptySummary: SceneQualityGateMeshSummary = {
+    totalMeshNodeCount: 0,
     totalSkipped: 0,
     polygonBudgetExceededCount: 0,
     criticalPolygonBudgetExceededCount: 0,
@@ -86,6 +87,7 @@ export async function resolveSceneQualityGateMeshSummary(
   const triangulationFallbackCount = latest?.triangulationFallbackCount ?? 0;
 
   return {
+    totalMeshNodeCount: meshNodes.length,
     totalSkipped: skippedNodes.length,
     polygonBudgetExceededCount: polygonBudgetNodes.length,
     criticalPolygonBudgetExceededCount: polygonBudgetNodes.filter((node) =>
