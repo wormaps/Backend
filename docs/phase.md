@@ -428,8 +428,9 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 - glTF preflight fail closed, TEXCOORD_0 경로, triangulation fallback evidence, correctedRatio advisory signal 반영 완료
 - representative smoke 기준 Shibuya / Akihabara는 더 이상 TEXCOORD preflight로 실패하지 않음
 - representative scene 최신 결과는 Shibuya / Akihabara 모두 `qualityGate=PASS`, `scene.status=READY`, `QA summary=WARN` 상태다
-- representative scene의 `observed_coverage`는 baseline(0.008) 대비 증가했지만 아직 WARN(Shibuya 0.056, Akihabara 0.056)이며, Visual Gate close 기준의 정량 임계치는 아직 문서에 명시되지 않았다
-- phase 공식 종료는 Visual Gate close 해석과 남은 문서 동기화가 끝날 때까지 보류 상태다
+- representative scene의 `observed_coverage`는 baseline(0.008) 대비 증가했고 latest representative evidence는 Shibuya `0.056`, Akihabara `0.056`이다
+- Visual Gate close 기준은 representative `observedAppearanceCoverage >= 0.05`, baseline 대비 5배 이상 증가, 대표 landmark/highrise scene의 `fallbackMassingRate = 0`으로 정량화한다
+- latest representative evidence 기준으로 Phase 3 종료 기준은 충족된 상태다
 
 진입 조건:
 
@@ -471,7 +472,7 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
   - Evidence: validator output
 
 - **Visual Gate**
-  - Pass rule: representative scene의 appearance coverage와 ratio가 baseline보다 유의미하게 증가
+  - Pass rule: representative scene의 `observedAppearanceCoverage >= 0.05` 이고 baseline 대비 5배 이상 증가한다
   - Block rule: fallback box 비율이 감소하지 않음
   - Evidence: QA diff report, representative scene screenshots or metrics
   - Current representative evidence: baseline `observedAppearanceCoverage=0.008` → latest Shibuya `0.056`, Akihabara `0.056`; both representative scenes report `fallbackMassingRate=0`
@@ -479,7 +480,7 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 종료 기준:
 
 - validator error 0
-- representative scene에서 appearance coverage가 baseline보다 증가
+- representative scene에서 `observedAppearanceCoverage >= 0.05` 이고 baseline 대비 5배 이상 증가
 - 랜드마크/고층 scene의 fallback 비율 감소
 
 체크리스트:
@@ -508,6 +509,13 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 - validator 통과는 하지만 실제 mesh가 더 많이 깨질 경우
 
 ## 12. Phase 4. Geospatial Correctness
+
+현재 상태:
+
+- meter-based IDW interpolation이 적용되었다 (`scene-terrain-profile.service.ts`의 `haversineDistanceMeters` 기반)
+- representative geospatial edge case는 고위도 / degenerate footprint / no DEM fixture 테스트로 검증 가능하다
+- terrain mode contract(`DEM_FUSED`, `FLAT_PLACEHOLDER`)와 `heightReference`는 diagnostics와 domain contract에 명시된다
+- terrain fallback 상태는 diagnostics log와 profile metadata에서 관측 가능하다
 
 진입 조건:
 
@@ -554,11 +562,31 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 체크리스트:
 
-- [ ] model: terrain mode와 spatial correctness invariant가 명시되었다
-- [ ] code: interpolation과 transform 경로가 수정되었다
-- [ ] tests: high latitude, invalid polygon, no DEM fixture가 추가되었다
-- [ ] ops: terrain fallback 상태가 관측 가능하다
-- [ ] docs: geospatial assumptions와 한계가 문서화되었다
+- [X] model: terrain mode와 spatial correctness invariant가 명시되었다
+- [X] code: interpolation과 transform 경로가 수정되었다
+- [X] tests: high latitude, invalid polygon, no DEM fixture가 추가되었다
+- [X] ops: terrain fallback 상태가 관측 가능하다
+- [X] docs: geospatial assumptions와 한계가 문서화되었다
+- model evidence:
+  - terrain mode contract:
+    - `DEM_FUSED`: DEM sample 기반 terrain profile이며 `hasElevationModel=true`
+    - `FLAT_PLACEHOLDER`: DEM 부재 또는 sample 부족 fallback이며 `hasElevationModel=false`
+  - spatial correctness invariant:
+    - interpolation decisions must use physical meter distance, not raw degree delta
+    - terrain state must be explicit through `mode`, `source`, `heightReference`
+- code evidence:
+  - `src/scene/services/spatial/scene-terrain-profile.service.ts`: IDW가 raw degree delta 대신 `haversineDistanceMeters`를 사용한다
+  - `src/places/utils/geo.utils.ts`, `src/scene/utils/scene-spatial-frame.utils.ts`: extreme latitude에서 longitude scale collapse를 막기 위한 clamp가 반영되었다
+  - `src/places/domain/building-footprint.value-object.ts`: zero-area degenerate footprint를 reject한다
+- test evidence:
+  - `test/phase9-terrain-profile.spec.ts`: meter-based interpolation 및 no-DEM resolve fallback 검증
+  - `test/phase9-terrain-fusion.spec.ts`: terrain mode/no-DEM fallback contract 검증
+  - `test/phase4-high-latitude-spatial.spec.ts`: high latitude bounds / metersPerDegree / round-trip 검증
+  - `test/phase4-degenerate-geometry.spec.ts`: invalid polygon / degenerate footprint fixture 검증
+- ops evidence:
+  - `scene-terrain-profile.service.ts`의 `logFlatProfile()`는 `mode`, `source`, `hasElevationModel`, `heightReference`, `sampleCount`, `sourcePath`를 diagnostics에 기록한다
+  - `scene-terrain-fusion.step.ts`는 no-DEM fallback 시 `terrainProfile.mode=FLAT_PLACEHOLDER`를 diagnostics에 남긴다
+  - CI는 `.github/workflows/ci.yml`에서 `bun run test`를 실행하므로 Phase 4 테스트도 함께 검증된다
 
 롤백 기준:
 

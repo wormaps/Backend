@@ -207,6 +207,27 @@ function clampElevation(value: number): number {
   return Math.max(-500, Math.min(9000, value));
 }
 
+/**
+ * Haversine distance between two lat/lng points in meters.
+ * Uses Earth mean radius 6,371,000 m.
+ */
+function haversineDistanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6_371_000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 function interpolateIdw(
   samples: TerrainSample[],
   lat: number,
@@ -220,11 +241,14 @@ function interpolateIdw(
   let weightedSum = 0;
 
   for (const sample of samples) {
-    const dLat = sample.location.lat - lat;
-    const dLng = sample.location.lng - lng;
-    const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+    const distance = haversineDistanceMeters(
+      sample.location.lat,
+      sample.location.lng,
+      lat,
+      lng,
+    );
 
-    if (distance < 1e-9) {
+    if (distance < 0.01) {
       return sample.heightMeters;
     }
 

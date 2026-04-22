@@ -182,7 +182,32 @@ function sanitizeRing(ring: Coordinate[]): Coordinate[] {
     }
   }
 
+  if (deduped.length < 3) {
+    throw new Error(
+      'BuildingFootprintVo는 최소 3개의 유효한 좌표가 필요합니다.',
+    );
+  }
+
+  const anchor = deduped[0]!;
+  const localRing = deduped.map((point) => toLocalPoint(anchor, point));
+  const localArea = signedAreaLocal(localRing);
+  if (Math.abs(localArea) < 1e-6) {
+    throw new Error(
+      'BuildingFootprintVo는 면적이 0인 degenerate polygon을 허용하지 않습니다.',
+    );
+  }
+
   return deduped;
+}
+
+function signedAreaLocal(points: LocalPoint[]): number {
+  let area = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const current = points[i]!;
+    const next = points[(i + 1) % points.length]!;
+    area += current.x * next.y - next.x * current.y;
+  }
+  return area / 2;
 }
 
 function resolveUnionBounds(left: LocalPoint[], right: LocalPoint[]) {

@@ -47,18 +47,24 @@ export function createBoundsFromCenterRadius(
   const metersPerLat = 111_320;
   const metersPerLng = 111_320 * Math.cos((center.lat * Math.PI) / 180);
   const latDelta = radiusM / metersPerLat;
-  const lngDelta = radiusM / metersPerLng;
+  const lngDelta = radiusM / Math.max(metersPerLng, 100);
 
   return {
     northEast: {
-      lat: center.lat + latDelta,
-      lng: center.lng + lngDelta,
+      lat: Math.min(center.lat + latDelta, 90),
+      lng: clampLng(center.lng + lngDelta),
     },
     southWest: {
-      lat: center.lat - latDelta,
-      lng: center.lng - lngDelta,
+      lat: Math.max(center.lat - latDelta, -90),
+      lng: clampLng(center.lng - lngDelta),
     },
   };
+}
+
+function clampLng(value: number): number {
+  if (value > 180) return 180;
+  if (value < -180) return -180;
+  return value;
 }
 
 export function coordinatesEqual(a: Coordinate, b: Coordinate): boolean {

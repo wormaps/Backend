@@ -56,7 +56,18 @@ export class SceneTerrainFusionStep {
       pointCount: gridPoints.length,
     });
 
-    const samples = await this.demPort.fetchElevations(gridPoints);
+    let samples: TerrainSample[];
+    try {
+      samples = await this.demPort.fetchElevations(gridPoints);
+    } catch (error) {
+      this.appLoggerService.warn('scene.terrain_fusion.dem_failed', {
+        sceneId,
+        step: 'terrain_fusion',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      const flatProfile = await this.buildFlatProfile(sceneId);
+      return { terrainProfile: flatProfile, terrainFilePath: null };
+    }
 
     if (samples.length === 0) {
       this.appLoggerService.warn('scene.terrain_fusion.dem_failed', {

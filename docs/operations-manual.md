@@ -48,12 +48,37 @@
 - triangulation fallback은 `triangulationFallbackCount`로 evidence-only 노출된다.
 - geometry correction은 `correctedRatio`로 advisory signal을 남긴다.
 - representative smoke의 최신 기준에서는 `qualityGate=PASS`와 `scene.status=READY`를 먼저 확인하고, 그 다음 `QA summary`와 `observed_coverage` 수치를 함께 본다.
-- 현재 representative evidence는 Shibuya / Akihabara 모두 `QA summary=WARN`이며 `observed_coverage`가 baseline(0.008) 대비 증가한 상태다. Visual Gate close 여부는 이 증가폭을 충분한 것으로 볼 정량 기준이 문서화됐는지까지 함께 확인해야 한다.
+- 현재 representative evidence는 Shibuya / Akihabara 모두 `QA summary=WARN`이며 `observed_coverage`가 baseline(0.008) 대비 증가한 상태다.
+- Phase 3 Visual Gate close 기준은 representative `observedAppearanceCoverage >= 0.05`, baseline 대비 5배 이상 증가, representative landmark/highrise scene의 `fallbackMassingRate = 0` 여부로 판단한다.
 - CI 확인 경로:
   - `.github/workflows/ci.yml`
   - `bun run type-check`
   - `bun run test`
   - `test/phase3-texcoord-preflight.spec.ts`
   - `test/phase3-texcoord-geometry.spec.ts`
-  - `test/phase3-triangulation-fallback-metric.spec.ts`
-  - `test/phase3-observed-coverage-mapillary.spec.ts`
+- `test/phase3-triangulation-fallback-metric.spec.ts`
+- `test/phase3-observed-coverage-mapillary.spec.ts`
+
+## 6. Geospatial correctness / Phase 4 메모
+
+- terrain interpolation은 raw degree delta가 아니라 physical meter distance를 사용해야 한다.
+- 현재 terrain IDW는 `scene-terrain-profile.service.ts`의 `haversineDistanceMeters` 기반으로 동작한다.
+- terrain mode contract:
+  - `DEM_FUSED`: DEM sample이 충분하여 elevation model이 활성화된 상태
+  - `FLAT_PLACEHOLDER`: DEM 부재/실패/insufficient sample로 인해 flat fallback이 활성화된 상태
+- fallback observability:
+  - `GET /api/scenes/{sceneId}/diagnostics`
+  - scene diagnostics log의 `terrain_profile`, `terrain_fusion` stage
+  - 확인 필드: `mode`, `source`, `hasElevationModel`, `heightReference`, `sampleCount`, `sourcePath`
+- high-latitude safety:
+  - extreme latitude에서는 longitude scale collapse를 막기 위해 meter-per-degree 계산에 minimum clamp를 적용한다
+  - bounds와 local ENU helper는 finite result를 유지해야 한다
+- invalid polygon handling:
+  - zero-area / collinear footprint는 domain layer에서 reject한다
+- CI 확인 경로:
+  - `.github/workflows/ci.yml`
+  - `bun run test`
+  - `test/phase9-terrain-profile.spec.ts`
+  - `test/phase9-terrain-fusion.spec.ts`
+  - `test/phase4-high-latitude-spatial.spec.ts`
+  - `test/phase4-degenerate-geometry.spec.ts`

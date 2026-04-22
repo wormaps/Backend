@@ -15,9 +15,10 @@ export function resolveMetersPerDegree(anchor: Coordinate): {
   metersPerLat: number;
   metersPerLng: number;
 } {
+  const rawMetersPerLng = 111_320 * Math.cos((anchor.lat * Math.PI) / 180);
   return {
     metersPerLat: 111_320,
-    metersPerLng: 111_320 * Math.cos((anchor.lat * Math.PI) / 180),
+    metersPerLng: Math.max(rawMetersPerLng, 100),
   };
 }
 

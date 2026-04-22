@@ -86,6 +86,20 @@ bun run scene:shibuya
 - `weather`, `traffic`는 현재 `.glb`에 bake되지 않습니다.
 - `GET /api/scenes/{sceneId}/bootstrap`의 `glbSources`로 어떤 데이터가 GLB에 반영됐는지 확인할 수 있습니다.
 
+## Geospatial correctness 메모
+
+- terrain interpolation은 degree delta가 아니라 meter distance 기준으로 계산합니다.
+- terrain mode는 명시적 contract를 사용합니다:
+  - `DEM_FUSED`: DEM sample 기반 elevation model 사용
+  - `FLAT_PLACEHOLDER`: DEM 부재/실패/insufficient sample fallback
+- high latitude에서는 longitude scale collapse를 막기 위해 meter-per-degree 계산에 minimum clamp를 둡니다.
+- invalid polygon / degenerate footprint는 domain validation에서 reject합니다.
+- 관련 검증 테스트:
+  - `test/phase9-terrain-profile.spec.ts`
+  - `test/phase9-terrain-fusion.spec.ts`
+  - `test/phase4-high-latitude-spatial.spec.ts`
+  - `test/phase4-degenerate-geometry.spec.ts`
+
 ## 개발 문서
 
 - 대형 파일 분해(500 LOC 기준) 결과 및 모듈 책임:

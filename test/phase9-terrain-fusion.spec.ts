@@ -139,4 +139,129 @@ describe('Phase 9.3 TerrainFusion Application', () => {
     expect(last.lat).toBe(35.61);
     expect(last.lng).toBe(139.71);
   });
+
+  describe('no-DEM fallback behavior', () => {
+    it('returns FLAT_PLACEHOLDER with explicit mode contract when DemAdapter returns empty', async () => {
+      vi.spyOn(mocks.demPort, 'fetchElevations').mockResolvedValue([]);
+
+      const result = await step.execute({
+        sceneId: 'phase9-no-dem-1',
+        bounds: {
+          northEast: { lat: 35.61, lng: 139.71 },
+          southWest: { lat: 35.59, lng: 139.69 },
+        },
+        origin: { lat: 35.6, lng: 139.7 },
+        radiusM: 300,
+      });
+
+      // Explicit terrain mode assertions for no-DEM scenario
+      expect(result.terrainProfile.mode).toBe('FLAT_PLACEHOLDER');
+      expect(result.terrainProfile.source).toBe('NONE');
+      expect(result.terrainProfile.hasElevationModel).toBe(false);
+      expect(result.terrainProfile.heightReference).toBe('ELLIPSOID_APPROX');
+      expect(result.terrainProfile.sampleCount).toBe(0);
+      expect(result.terrainProfile.baseHeightMeters).toBe(0);
+      expect(result.terrainProfile.interpolateElevation).toBeUndefined();
+      expect(result.terrainFilePath).toBeNull();
+    });
+
+    it('returns FLAT_PLACEHOLDER when DemAdapter throws', async () => {
+      vi.spyOn(mocks.demPort, 'fetchElevations').mockRejectedValue(
+        new Error('DEM service unavailable'),
+      );
+
+      const result = await step.execute({
+        sceneId: 'phase9-no-dem-2',
+        bounds: {
+          northEast: { lat: 35.61, lng: 139.71 },
+          southWest: { lat: 35.59, lng: 139.69 },
+        },
+        origin: { lat: 35.6, lng: 139.7 },
+        radiusM: 300,
+      });
+
+      expect(result.terrainProfile.mode).toBe('FLAT_PLACEHOLDER');
+      expect(result.terrainProfile.hasElevationModel).toBe(false);
+      expect(result.terrainFilePath).toBeNull();
+    });
+
+    it('returns FLAT_PLACEHOLDER when DemAdapter returns fewer than MIN_SAMPLES_FOR_DEM', async () => {
+      const insufficientSamples: TerrainSample[] = [
+        { location: { lat: 35.6, lng: 139.7 }, heightMeters: 40, source: 'OPEN_ELEVATION' },
+      ];
+      vi.spyOn(mocks.demPort, 'fetchElevations').mockResolvedValue(insufficientSamples);
+      vi.spyOn(mocks.terrainProfileService, 'buildFromSamples').mockReturnValue({
+        mode: 'FLAT_PLACEHOLDER',
+        source: 'NONE',
+        hasElevationModel: false,
+        heightReference: 'ELLIPSOID_APPROX',
+        baseHeightMeters: 0,
+        sampleCount: 0,
+        minHeightMeters: 0,
+        maxHeightMeters: 0,
+        sourcePath: null,
+        notes: 'insufficient samples',
+        samples: [],
+      });
+
+      const result = await step.execute({
+        sceneId: 'phase9-no-dem-3',
+        bounds: {
+          northEast: { lat: 35.61, lng: 139.71 },
+          southWest: { lat: 35.59, lng: 139.69 },
+        },
+        origin: { lat: 35.6, lng: 139.7 },
+        radiusM: 300,
+      });
+
+      expect(result.terrainProfile.mode).toBe('FLAT_PLACEHOLDER');
+      expect(result.terrainProfile.hasElevationModel).toBe(false);
+    });
+  });
+
+  describe('DEM-backed mode assertions', () => {
+    it('returns DEM_FUSED with full mode contract when samples are sufficient', async () => {
+      const samples: TerrainSample[] = [
+        { location: { lat: 35.6, lng: 139.7 }, heightMeters: 40, source: 'OPEN_ELEVATION' },
+        { location: { lat: 35.601, lng: 139.7 }, heightMeters: 42, source: 'OPEN_ELEVATION' },
+        { location: { lat: 35.6, lng: 139.701 }, heightMeters: 41, source: 'OPEN_ELEVATION' },
+        { location: { lat: 35.601, lng: 139.701 }, heightMeters: 43, source: 'OPEN_ELEVATION' },
+      ];
+
+      vi.spyOn(mocks.demPort, 'fetchElevations').mockResolvedValue(samples);
+      vi.spyOn(mocks.terrainProfileService, 'buildFromSamples').mockReturnValue({
+        mode: 'DEM_FUSED',
+        source: 'OPEN_ELEVATION',
+        hasElevationModel: true,
+        heightReference: 'LOCAL_DEM',
+        baseHeightMeters: 40,
+        sampleCount: 4,
+        minHeightMeters: 40,
+        maxHeightMeters: 43,
+        sourcePath: null,
+        notes: 'test',
+        samples,
+        interpolateElevation: vi.fn(),
+      });
+
+      const result = await step.execute({
+        sceneId: 'phase9-dem-1',
+        bounds: {
+          northEast: { lat: 35.61, lng: 139.71 },
+          southWest: { lat: 35.59, lng: 139.69 },
+        },
+        origin: { lat: 35.6, lng: 139.7 },
+        radiusM: 300,
+      });
+
+      // Explicit terrain mode assertions for DEM-backed scenario
+      expect(result.terrainProfile.mode).toBe('DEM_FUSED');
+      expect(result.terrainProfile.source).toBe('OPEN_ELEVATION');
+      expect(result.terrainProfile.hasElevationModel).toBe(true);
+      expect(result.terrainProfile.heightReference).toBe('LOCAL_DEM');
+      expect(result.terrainProfile.sampleCount).toBe(4);
+      expect(result.terrainProfile.interpolateElevation).toBeDefined();
+      expect(result.terrainFilePath).toMatch(/\.terrain\.json$/);
+    });
+  });
 });
