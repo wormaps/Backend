@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test';
-import { hasCriticalCollision } from '../src/scene/services/generation/quality-gate/scene-quality-gate-geometry';
+import {
+  hasAdvisoryHighCorrectionRatio,
+  hasCriticalCollision,
+} from '../src/scene/services/generation/quality-gate/scene-quality-gate-geometry';
 
 describe('Phase 8 geometry correction quality gate', () => {
   it('fails on high severity overlap even when road collision is zero', () => {
@@ -44,6 +47,75 @@ describe('Phase 8 geometry correction quality gate', () => {
           } as any,
         ],
         totalBuildingCount: 4004,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('Phase 3 Unit 4 correctedRatio advisory signal', () => {
+  it('returns true when correctedRatio exceeds 0.5 advisory threshold', () => {
+    expect(
+      hasAdvisoryHighCorrectionRatio({
+        geometryDiagnostics: [
+          {
+            objectId: '__geometry_correction__',
+            correctedRatio: 0.932,
+          } as any,
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false when correctedRatio is below 0.5', () => {
+    expect(
+      hasAdvisoryHighCorrectionRatio({
+        geometryDiagnostics: [
+          {
+            objectId: '__geometry_correction__',
+            correctedRatio: 0.15,
+          } as any,
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when correctedRatio is exactly at threshold (0.5)', () => {
+    expect(
+      hasAdvisoryHighCorrectionRatio({
+        geometryDiagnostics: [
+          {
+            objectId: '__geometry_correction__',
+            correctedRatio: 0.5,
+          } as any,
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when geometryDiagnostics is undefined', () => {
+    expect(
+      hasAdvisoryHighCorrectionRatio({
+        geometryDiagnostics: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when geometryDiagnostics is empty', () => {
+    expect(
+      hasAdvisoryHighCorrectionRatio({
+        geometryDiagnostics: [],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when correctedRatio is missing', () => {
+    expect(
+      hasAdvisoryHighCorrectionRatio({
+        geometryDiagnostics: [
+          {
+            objectId: '__geometry_correction__',
+          } as any,
+        ],
       }),
     ).toBe(false);
   });

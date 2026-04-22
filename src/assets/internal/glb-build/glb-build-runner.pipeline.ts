@@ -65,6 +65,11 @@ import {
 import { createGraphIntent, StageGraphIntent } from './glb-build-graph-intent';
 import { createCrosswalkGeometry } from './glb-build-utils';
 import type { GlbInputContract } from './glb-build-contract';
+import { createTriangulationFallbackTracker } from '../../compiler/building';
+import {
+  runTexcoordPreflight,
+  formatTexcoordPreflightError,
+} from './glb-build-texcoord-preflight';
 
 export interface GlbBuildRunnerState {
   currentMeshDiagnostics: MeshNodeDiagnostic[];
@@ -299,6 +304,8 @@ export async function executeGlbBuild(
     assetSelection.buildings,
   );
 
+  const triangulationFallbackTracker = createTriangulationFallbackTracker();
+
   addBuildingAndHeroMeshes(
     {
       addMeshNode: addMeshNodeBound,
@@ -315,6 +322,7 @@ export async function executeGlbBuild(
       modePolicy,
       staticAtmosphere: contract.staticAtmosphere,
       createBuildingRoofAccentGeometry,
+      triangulationFallbackTracker,
     },
     { doc, Accessor, scene, buffer },
     contract,
@@ -409,6 +417,19 @@ export async function executeGlbBuild(
 
   const io = new NodeIO();
   await registerNodeIoExtensions(io, contract.sceneId, state.appLoggerService);
+
+  // Phase 3 Unit 2: Texture compatibility preflight — fail closed before serialization.
+  const texcoordPreflight = runTexcoordPreflight(doc);
+  if (!texcoordPreflight.valid) {
+    state.appLoggerService.error('scene.glb_build.texcoord_preflight_failed', {
+      sceneId: contract.sceneId,
+      step: 'glb_build',
+      issueCount: texcoordPreflight.issues.length,
+      issues: texcoordPreflight.issues,
+    });
+    throw new Error(formatTexcoordPreflightError(texcoordPreflight));
+  }
+
   let glbBinary = await io.writeBinary(doc);
   if (glbBinary.byteLength > 30 * 1024 * 1024) {
     state.appLoggerService.warn('scene.glb_build.size_budget_retry', {
@@ -518,6 +539,7 @@ export async function executeGlbBuild(
     facadeMaterialProfile: facadeMaterialProfile as Record<string, unknown>,
     variationProfile: variationProfile as unknown as Record<string, unknown>,
     materialReuseDiagnostics,
+    triangulationFallbackCount: triangulationFallbackTracker.count,
   });
 
   return outputPath;

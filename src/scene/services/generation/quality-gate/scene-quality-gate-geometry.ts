@@ -13,6 +13,7 @@ interface GeometryDiagnosticsShape {
   terrainAnchoredRoadCount?: number;
   terrainAnchoredWalkwayCount?: number;
   transportTerrainCoverageRatio?: number;
+  correctedRatio?: number;
 }
 
 type SceneGeometryDiagnosticWithCorrection = {
@@ -27,6 +28,7 @@ type SceneGeometryDiagnosticWithCorrection = {
   terrainAnchoredRoadCount?: number;
   terrainAnchoredWalkwayCount?: number;
   transportTerrainCoverageRatio?: number;
+  correctedRatio?: number;
 };
 
 export function hasCriticalCollision(args: {
@@ -99,6 +101,19 @@ export function hasCriticalTerrainTransportAlignment(args: {
   );
 }
 
+/**
+ * Phase 3 advisory: returns true when correctedRatio exceeds the advisory threshold.
+ * This is evidence-only — it does NOT block the build.
+ * A high correctedRatio suggests geometry correction may be masking asset regressions.
+ */
+export function hasAdvisoryHighCorrectionRatio(args: {
+  geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined;
+}): boolean {
+  const marker = findGeometryCorrectionDiagnostics(args.geometryDiagnostics);
+  const ratio = marker?.correctedRatio ?? 0;
+  return ratio > 0.5;
+}
+
 export function findGeometryCorrectionDiagnostics(
   geometryDiagnostics: SceneDetail['geometryDiagnostics'] | undefined,
 ): GeometryDiagnosticsShape | null {
@@ -122,5 +137,6 @@ export function findGeometryCorrectionDiagnostics(
     terrainAnchoredRoadCount: marker.terrainAnchoredRoadCount,
     terrainAnchoredWalkwayCount: marker.terrainAnchoredWalkwayCount,
     transportTerrainCoverageRatio: marker.transportTerrainCoverageRatio,
+    correctedRatio: marker.correctedRatio,
   };
 }

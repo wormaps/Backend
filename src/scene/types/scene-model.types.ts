@@ -277,6 +277,7 @@ export interface SceneGeometryDiagnostic {
   mediumSeverityOverlapCount?: number;
   lowSeverityOverlapCount?: number;
   correctedCount?: number;
+  correctedRatio?: number;
 }
 
 export interface SceneAssetCounts {

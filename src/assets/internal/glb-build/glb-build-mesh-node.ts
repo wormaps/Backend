@@ -197,6 +197,16 @@ export function addMeshNode(
     )
     .setMaterial(material);
 
+  if (geometry.uvs && geometry.uvs.length > 0) {
+    primitive.setAttribute(
+      'TEXCOORD_0',
+      doc
+        .createAccessor(`${name}-uvs`, buffer)
+        .setArray(new Float32Array(geometry.uvs))
+        .setType(AccessorRef.Type.VEC2),
+    );
+  }
+
   const semanticCategory =
     trace.semanticCategory ?? resolveSemanticCategory(name);
   const semanticMetadataCoverage =
@@ -292,6 +302,14 @@ export function isGeometryValid(geometry: GeometryBuffers): boolean {
     geometry.normals.some((value) => !Number.isFinite(value))
   ) {
     throw new Error('GLB geometry contains non-finite vertex data.');
+  }
+
+  if (
+    geometry.uvs !== undefined &&
+    geometry.uvs.length > 0 &&
+    geometry.uvs.length !== geometry.positions.length / 3 * 2
+  ) {
+    throw new Error('GLB geometry UV buffer length does not match vertex count.');
   }
 
   return true;

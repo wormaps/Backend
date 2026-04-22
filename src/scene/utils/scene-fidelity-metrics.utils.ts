@@ -25,6 +25,7 @@ export interface SceneFidelityMetricsReport {
     districtMaterialDiversity: number;
     heroOverrideRate: number;
     fallbackProceduralRate: number;
+    triangulationFallbackRate: number;
     weakEvidenceRatio: number;
     landmarkCoverage: number;
     crosswalkCompleteness: number;
@@ -43,6 +44,9 @@ export interface SceneFidelityMetricsReport {
 export function buildSceneFidelityMetricsReport(
   sceneMeta: SceneMeta,
   sceneDetail: SceneDetail,
+  overrides?: {
+    triangulationFallbackCount?: number;
+  },
 ): SceneFidelityMetricsReport {
   const plan = sceneDetail.fidelityPlan ?? sceneMeta.fidelityPlan;
   const currentMode = plan?.currentMode ?? 'PROCEDURAL_ONLY';
@@ -100,6 +104,12 @@ export function buildSceneFidelityMetricsReport(
       sceneMeta.buildings.filter(
         (building) => building.geometryStrategy === 'fallback_massing',
       ).length / Math.max(1, sceneMeta.buildings.length)
+    ).toFixed(3),
+  );
+  const triangulationFallbackCount = overrides?.triangulationFallbackCount ?? 0;
+  const triangulationFallbackRate = Number(
+    (
+      triangulationFallbackCount / Math.max(1, sceneMeta.buildings.length)
     ).toFixed(3),
   );
   const weakEvidenceRatio = Number(
@@ -197,6 +207,7 @@ export function buildSceneFidelityMetricsReport(
       districtMaterialDiversity: materialDiversity,
       heroOverrideRate,
       fallbackProceduralRate,
+      triangulationFallbackRate,
       weakEvidenceRatio,
       landmarkCoverage,
       crosswalkCompleteness,

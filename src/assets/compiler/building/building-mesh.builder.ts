@@ -1,6 +1,8 @@
 export {
   createBuildingShellGeometry,
   collectBuildingShellClosureMetrics,
+  createTriangulationFallbackTracker,
+  type TriangulationFallbackTracker,
 } from './building-mesh.shell.builder';
 export { createBuildingPanelsGeometry } from './building-mesh.panels.builder';
 export {

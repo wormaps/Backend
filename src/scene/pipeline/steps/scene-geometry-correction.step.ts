@@ -139,6 +139,12 @@ export class SceneGeometryCorrectionStep {
       (outcome) => outcome.severity === 'low',
     ).length;
 
+    const totalBuildingCount = correctedBuildings.length;
+    const correctedRatio =
+      totalBuildingCount > 0
+        ? Number((correctedCount / totalBuildingCount).toFixed(3))
+        : 0;
+
     const correctedMeta: SceneMeta = {
       ...meta,
       roads,
@@ -183,16 +189,18 @@ export class SceneGeometryCorrectionStep {
           mediumSeverityOverlapCount,
           lowSeverityOverlapCount,
           correctedCount,
+          correctedRatio,
         },
       ],
     };
 
-    if (correctedCount > correctedBuildings.length * 0.5) {
+    if (correctedRatio > 0.5) {
       try {
         await appendSceneDiagnosticsLog(meta.sceneId, 'geometry_correction_warn', {
           correctedCount,
           totalBuildingCount: correctedBuildings.length,
-          ratio: Number((correctedCount / Math.max(1, correctedBuildings.length)).toFixed(3)),
+          ratio: correctedRatio,
+          advisory: 'correctedRatio exceeds 0.5 — geometry correction may be masking asset regressions',
         });
       } catch (error) {
         this.appLoggerService.warn('scene.diagnostics.log-failed', {
@@ -223,6 +231,7 @@ export class SceneGeometryCorrectionStep {
         roadCount: roads.length,
         walkwayCount: walkways.length,
         correctedCount,
+        correctedRatio,
         totalOverlapAreaM2,
         highSeverityOverlapCount,
         mediumSeverityOverlapCount,

@@ -49,6 +49,7 @@ export interface MeshAddDelegate {
       positions: number[];
       normals: number[];
       indices: number[];
+      uvs?: number[];
     },
     material: any,
     trace?: {
@@ -82,7 +83,7 @@ export interface RunnerStageHooks {
     origin: SceneMeta['origin'],
     crossings: SceneDetail['crossings'],
     roads?: SceneMeta['roads'],
-  ) => { positions: number[]; normals: number[]; indices: number[] };
+  ) => { positions: number[]; normals: number[]; indices: number[]; uvs?: number[] };
   triangulateRings: (
     outerRing: [number, number, number][],
     holes: [number, number, number][][],
@@ -102,11 +103,11 @@ export interface RunnerStageHooks {
     origin: SceneMeta['origin'],
     items: SceneDetail['streetFurniture'],
     type: SceneDetail['streetFurniture'][number]['type'],
-  ) => { positions: number[]; normals: number[]; indices: number[] };
+  ) => { positions: number[]; normals: number[]; indices: number[]; uvs?: number[] };
   createPoiGeometry: (
     origin: SceneMeta['origin'],
     pois: SceneMeta['pois'],
-  ) => { positions: number[]; normals: number[]; indices: number[] };
+  ) => { positions: number[]; normals: number[]; indices: number[]; uvs?: number[] };
   createLandCoverGeometry: (
     origin: SceneMeta['origin'],
     covers: SceneDetail['landCovers'],
@@ -116,12 +117,12 @@ export interface RunnerStageHooks {
       holes?: number[],
       dimensions?: number,
     ) => number[],
-  ) => { positions: number[]; normals: number[]; indices: number[] };
+  ) => { positions: number[]; normals: number[]; indices: number[]; uvs?: number[] };
   createLinearFeatureGeometry: (
     origin: SceneMeta['origin'],
     features: SceneDetail['linearFeatures'],
     type: SceneDetail['linearFeatures'][number]['type'],
-  ) => { positions: number[]; normals: number[]; indices: number[] };
+  ) => { positions: number[]; normals: number[]; indices: number[]; uvs?: number[] };
   buildGroupedBuildingShells: (
     sceneMeta: SceneMeta,
     sceneDetail: SceneDetail,
@@ -165,7 +166,7 @@ export interface RunnerStageHooks {
     ) => number[],
     tone: 'cool' | 'warm' | 'neutral',
     staticAtmosphere?: SceneStaticAtmosphereProfile,
-  ) => { positions: number[]; normals: number[]; indices: number[] };
+  ) => { positions: number[]; normals: number[]; indices: number[]; uvs?: number[] };
   addBuildingAndHeroMeshes: (
     ctx: MeshAddContext,
     sceneMeta: SceneMeta,

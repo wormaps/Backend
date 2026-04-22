@@ -19,6 +19,7 @@ export interface SceneModeComparisonRow {
   emissiveAvg: number;
   wetnessAvg: number;
   fallbackProceduralRate: number;
+  triangulationFallbackRate: number;
   heroOverrideRate: number;
   generationMs: number | null;
   glbBytes: number | null;
@@ -43,6 +44,7 @@ export interface SceneModeComparisonReport {
     emissiveAvg: number;
     wetnessAvg: number;
     fallbackProceduralRate: number;
+    triangulationFallbackRate: number;
     heroOverrideRate: number;
     generationMs: number | null;
     glbBytes: number | null;
@@ -89,6 +91,9 @@ export function buildSceneModeComparisonReport(
       fallbackProceduralRate: round(
         targetRow.fallbackProceduralRate - baselineRow.fallbackProceduralRate,
       ),
+      triangulationFallbackRate: round(
+        targetRow.triangulationFallbackRate - baselineRow.triangulationFallbackRate,
+      ),
       heroOverrideRate: round(
         targetRow.heroOverrideRate - baselineRow.heroOverrideRate,
       ),
@@ -122,6 +127,7 @@ function buildComparisonRow(
     emissiveAvg: metrics.quality.emissiveAvg,
     wetnessAvg: metrics.quality.wetnessAvg,
     fallbackProceduralRate: metrics.quality.fallbackProceduralRate,
+    triangulationFallbackRate: metrics.quality.triangulationFallbackRate,
     heroOverrideRate: metrics.quality.heroOverrideRate,
     generationMs: runStats.generationMs,
     glbBytes: runStats.glbBytes,

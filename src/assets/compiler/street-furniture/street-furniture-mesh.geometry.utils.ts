@@ -19,6 +19,14 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
     geometry.positions.push(...v);
   }
 
+  // Deterministic planar UVs (XZ projection, normalized to 0-1 within box footprint)
+  const widthX = Math.max(0.001, max[0] - min[0]);
+  const widthZ = Math.max(0.001, max[2] - min[2]);
+  const uvs: number[] = [];
+  for (const v of vertices) {
+    uvs.push((v[0] - min[0]) / widthX, (v[2] - min[2]) / widthZ);
+  }
+
   const faces: Array<{ normal: Vec3; indices: number[] }> = [
     { normal: [0, 0, -1], indices: [0, 1, 2, 3] },
     { normal: [0, 0, 1], indices: [4, 7, 6, 5] },
@@ -70,6 +78,10 @@ export function pushBox(geometry: GeometryBuffers, min: Vec3, max: Vec3): void {
       normal = [0, 1, 0];
     }
     geometry.normals.push(...normal);
+  }
+
+  if (geometry.uvs !== undefined) {
+    geometry.uvs.push(...uvs);
   }
 
   geometry.indices.push(
@@ -145,6 +157,9 @@ export function pushCylinder(
     geometry.positions.push(x, topY, z);
     geometry.normals.push(Math.cos(angle), 0, Math.sin(angle));
     geometry.normals.push(Math.cos(angle), 0, Math.sin(angle));
+    if (geometry.uvs !== undefined) {
+      geometry.uvs.push(i / segments, 0, i / segments, 1);
+    }
   }
 
   for (let i = 0; i < segments; i += 1) {
@@ -190,6 +205,9 @@ export function pushTaperedCylinder(
       normalY / normalLen,
       sin / normalLen,
     );
+    if (geometry.uvs !== undefined) {
+      geometry.uvs.push(i / segments, 0, i / segments, 1);
+    }
   }
 
   for (let i = 0; i < segments; i += 1) {

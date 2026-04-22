@@ -121,6 +121,7 @@ describe('Phase 1 QA FAIL blocks READY promotion', () => {
         criticalEmptyOrInvalidGeometryCount: 0,
         selectionCutCount: 0,
         missingSourceCount: 0,
+        triangulationFallbackCount: 0,
       },
       artifactRefs: {
         diagnosticsLogPath: '/tmp/diagnostics.log',

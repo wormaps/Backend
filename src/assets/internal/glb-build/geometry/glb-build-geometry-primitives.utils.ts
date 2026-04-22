@@ -15,6 +15,7 @@ export function createEmptyGeometry(): GeometryBuffers {
     positions: [],
     normals: [],
     indices: [],
+    uvs: [],
   };
 }
 
@@ -60,6 +61,9 @@ export function pushTriangle(
   geometry.positions.push(...a, ...b, ...c);
   geometry.normals.push(...normal, ...normal, ...normal);
   geometry.indices.push(baseIndex, baseIndex + 1, baseIndex + 2);
+  if (geometry.uvs !== undefined) {
+    geometry.uvs.push(a[0], a[2], b[0], b[2], c[0], c[2]);
+  }
 }
 
 export function pushQuad(

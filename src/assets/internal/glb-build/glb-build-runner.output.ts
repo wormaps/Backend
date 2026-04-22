@@ -32,6 +32,7 @@ export interface FinalizeGlbBuildArgs {
   facadeMaterialProfile: Record<string, unknown>;
   variationProfile: Record<string, unknown>;
   materialReuseDiagnostics?: MaterialReuseDiagnostics;
+  triangulationFallbackCount: number;
 }
 
 export async function finalizeGlbBuildArtifacts(
@@ -58,6 +59,7 @@ export async function finalizeGlbBuildArtifacts(
     sceneScoreReport: buildSceneFidelityMetricsReport(
       args.adaptiveMeta,
       args.contract,
+      { triangulationFallbackCount: args.triangulationFallbackCount },
     ),
     sceneModeComparisonReport: comparisonReport,
     assetSelection: {
@@ -99,6 +101,7 @@ export async function finalizeGlbBuildArtifacts(
     districtAtmosphereProfiles: args.contract.districtAtmosphereProfiles,
     extensionIntents: args.contract.extensionIntents,
     loadingHints: args.contract.loadingHints,
+    triangulationFallbackCount: args.triangulationFallbackCount,
   };
 
   args.appLoggerService.info('scene.glb_build.diagnostics', {

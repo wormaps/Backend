@@ -39,3 +39,12 @@
 - 동일 씬이 실패 상태면 원인 제거 후 재생성한다.
 - 동일 요청 재사용이 기대와 다르면 queue snapshot과 cache snapshot을 본다.
 - 외부 API 장애가 반복되면 bench와 통합 테스트를 분리해서 본다.
+
+## 5. Asset validation / Phase 3 메모
+
+- GLB build는 serialization 전에 TEXCOORD preflight를 수행한다.
+- 실제 texture가 bound 된 primitive에 `TEXCOORD_0`가 없으면 build는 fail closed 된다.
+- glTF validator는 secondary confirmation으로 계속 실행한다.
+- triangulation fallback은 `triangulationFallbackCount`로 evidence-only 노출된다.
+- geometry correction은 `correctedRatio`로 advisory signal을 남긴다.
+- representative smoke에서 asset build는 통과하더라도 QA `observed_coverage` 때문에 scene이 `QA_REJECTED` 될 수 있다. 이 경우는 Visual Gate 미충족으로 본다.

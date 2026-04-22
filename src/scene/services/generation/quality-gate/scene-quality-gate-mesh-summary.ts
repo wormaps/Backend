@@ -25,6 +25,7 @@ interface ParsedDiagnosticsEntry {
     skipped?: boolean;
     skippedReason?: string;
   }>;
+  triangulationFallbackCount?: number;
 }
 
 export async function resolveSceneQualityGateMeshSummary(
@@ -38,6 +39,7 @@ export async function resolveSceneQualityGateMeshSummary(
     criticalEmptyOrInvalidGeometryCount: 0,
     selectionCutCount: 0,
     missingSourceCount: 0,
+    triangulationFallbackCount: 0,
   };
 
   let raw = '';
@@ -81,6 +83,8 @@ export async function resolveSceneQualityGateMeshSummary(
     (node) => node.skippedReason === 'empty_or_invalid_geometry',
   );
 
+  const triangulationFallbackCount = latest?.triangulationFallbackCount ?? 0;
+
   return {
     totalSkipped: skippedNodes.length,
     polygonBudgetExceededCount: polygonBudgetNodes.length,
@@ -97,6 +101,7 @@ export async function resolveSceneQualityGateMeshSummary(
     missingSourceCount: skippedNodes.filter(
       (node) => node.skippedReason === 'missing_source',
     ).length,
+    triangulationFallbackCount,
   };
 }
 

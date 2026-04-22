@@ -282,6 +282,12 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 ## 9. Phase 1. Safety and Invariant Restoration
 
+현재 상태:
+
+- code / tests / ops / docs 반영 완료
+- model 문서화는 추가 정리가 필요함
+- 본 phase의 핵심 불변식(private fail closed, QA fail blocks READY, degraded dependency visibility)은 코드/테스트/운영 문서 기준으로 충족됨
+
 진입 조건:
 
 - baseline evidence가 기록되어 있을 것
@@ -337,16 +343,23 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 체크리스트:
 
 - [ ] model: Access policy와 Quality decision rule이 문서화되었다
-- [ ] code: fail close와 READY blocking 경로가 구현되었다
-- [ ] tests: 인증 우회와 quality fail state transition 테스트가 추가되었다
-- [ ] ops: readiness 판정 기준이 운영 문서에 반영되었다
-- [ ] docs: 본 phase 결과가 문서와 README에 반영되었다
+- [X] code: fail close와 READY blocking 경로가 구현되었다
+- [X] tests: 인증 우회와 quality fail state transition 테스트가 추가되었다
+- [X] ops: readiness 판정 기준이 운영 문서에 반영되었다
+- [X] docs: 본 phase 결과가 문서와 README에 반영되었다
 
 롤백 기준:
 
 - health endpoint가 정상 동작을 못 하거나 기존 public route를 잘못 차단할 경우
 
 ## 10. Phase 2. Persistence and Contract Recovery
+
+현재 상태:
+
+- code 반영 완료
+- corrupted / partial / malformed read contract 테스트는 반영 완료
+- model / ops / bootstrap contract versioning 문서는 아직 미반영
+- auto-repair / regeneration은 이번 phase에서 구현하지 않고 fail closed + explicit corruption으로 제한함
 
 진입 조건:
 
@@ -398,7 +411,7 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 체크리스트:
 
 - [ ] model: StoredScene family consistency rule이 문서화되었다
-- [ ] code: repository read/write path에 schema validation이 들어갔다
+- [X] code: repository read/write path에 schema validation이 들어갔다
 - [ ] tests: partial write, parse failure, repair flow 테스트가 추가되었다
 - [ ] ops: corrupted scene 복구 절차가 운영 문서에 추가되었다
 - [ ] docs: bootstrap contract versioning 정책이 문서화되었다
@@ -408,6 +421,14 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 - 기존 scene를 더 이상 읽지 못하는 호환성 파손이 발생할 경우
 
 ## 11. Phase 3. Asset Fidelity and Geometry Recovery
+
+현재 상태:
+
+- code 반영 완료
+- glTF preflight fail closed, TEXCOORD_0 경로, triangulation fallback evidence, correctedRatio advisory signal 반영 완료
+- representative smoke 기준 Shibuya / Akihabara는 더 이상 TEXCOORD preflight로 실패하지 않음
+- 다만 representative scene은 아직 `observed_coverage` QA reject 상태이며, Visual Gate 종료 기준은 아직 미충족
+- model / ops는 아직 미완료이며 phase 공식 종료는 보류 상태
 
 진입 조건:
 
@@ -462,10 +483,10 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 체크리스트:
 
 - [ ] model: asset fidelity rule과 fallback taxonomy가 정의되었다
-- [ ] code: UV, material compatibility, fallback classification이 구현되었다
-- [ ] tests: glTF contract와 representative scene regression test가 추가되었다
+- [X] code: UV, material compatibility, fallback classification이 구현되었다
+- [X] tests: glTF contract와 representative scene regression test가 추가되었다
 - [ ] ops: asset validation 결과를 CI에서 확인 가능하다
-- [ ] docs: asset build quality rule이 문서화되었다
+- [X] docs: asset build quality rule이 문서화되었다
 
 롤백 기준:
 

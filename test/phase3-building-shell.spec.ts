@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
 import {
+  createTriangulationFallbackTracker,
   insetRing,
   pushExtrudedPolygon,
   resolveBuildingVerticalBase,
@@ -117,6 +118,132 @@ describe('Phase 3 — Building Shell Geometry', () => {
 
       expect(warnSpy).not.toHaveBeenCalled();
       console.warn = originalWarn;
+    });
+  });
+
+  describe('3.4 Triangulation Fallback Tracking (Evidence-Only)', () => {
+    it('increments tracker when triangulation returns empty', () => {
+      const tracker = createTriangulationFallbackTracker();
+      const geometry = createEmptyGeometry();
+      const outerRing: Vec3[] = [
+        [0, 0, 0],
+        [10, 0, 0],
+        [10, 0, 10],
+        [0, 0, 10],
+      ];
+
+      const failingTriangulate = mock(() => []);
+
+      pushExtrudedPolygon(
+        geometry,
+        outerRing,
+        [],
+        0,
+        10,
+        failingTriangulate,
+        'test-building-1',
+        tracker,
+      );
+
+      expect(tracker.count).toBe(1);
+    });
+
+    it('does not increment tracker when triangulation succeeds', () => {
+      const tracker = createTriangulationFallbackTracker();
+      const geometry = createEmptyGeometry();
+      const outerRing: Vec3[] = [
+        [0, 0, 0],
+        [10, 0, 0],
+        [10, 0, 10],
+        [0, 0, 10],
+      ];
+
+      pushExtrudedPolygon(
+        geometry,
+        outerRing,
+        [],
+        0,
+        10,
+        mockTriangulate,
+        'test-building-2',
+        tracker,
+      );
+
+      expect(tracker.count).toBe(0);
+    });
+
+    it('accumulates count across multiple fallback calls', () => {
+      const tracker = createTriangulationFallbackTracker();
+      const geometry = createEmptyGeometry();
+      const outerRing: Vec3[] = [
+        [0, 0, 0],
+        [10, 0, 0],
+        [10, 0, 10],
+        [0, 0, 10],
+      ];
+      const failingTriangulate = mock(() => []);
+
+      pushExtrudedPolygon(
+        geometry,
+        outerRing,
+        [],
+        0,
+        10,
+        failingTriangulate,
+        'building-a',
+        tracker,
+      );
+      pushExtrudedPolygon(
+        geometry,
+        outerRing,
+        [],
+        0,
+        10,
+        failingTriangulate,
+        'building-b',
+        tracker,
+      );
+      pushExtrudedPolygon(
+        geometry,
+        outerRing,
+        [],
+        0,
+        10,
+        failingTriangulate,
+        'building-c',
+        tracker,
+      );
+
+      expect(tracker.count).toBe(3);
+    });
+
+    it('does not throw when tracker is undefined (backward compatible)', () => {
+      const geometry = createEmptyGeometry();
+      const outerRing: Vec3[] = [
+        [0, 0, 0],
+        [10, 0, 0],
+        [10, 0, 10],
+        [0, 0, 10],
+      ];
+      const failingTriangulate = mock(() => []);
+
+      expect(() =>
+        pushExtrudedPolygon(
+          geometry,
+          outerRing,
+          [],
+          0,
+          10,
+          failingTriangulate,
+          'test-building',
+          undefined,
+        ),
+      ).not.toThrow();
+    });
+
+    it('tracker starts at zero from factory', () => {
+      const tracker = createTriangulationFallbackTracker();
+      expect(tracker.count).toBe(0);
     });
   });
 

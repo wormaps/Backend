@@ -526,6 +526,7 @@ export interface SceneQualityGateMeshSummary {
   criticalEmptyOrInvalidGeometryCount: number;
   selectionCutCount: number;
   missingSourceCount: number;
+  triangulationFallbackCount: number;
 }
 
 export interface SceneQualityGateArtifactRefs {

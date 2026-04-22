@@ -137,6 +137,14 @@ const INITIAL_SHELL_CLOSURE_METRICS: BuildingShellClosureMetrics = {
   invalidSetbackJoinCount: 0,
 };
 
+export interface TriangulationFallbackTracker {
+  count: number;
+}
+
+export function createTriangulationFallbackTracker(): TriangulationFallbackTracker {
+  return { count: 0 };
+}
+
 export function collectBuildingShellClosureMetrics(
   origin: Coordinate,
   buildings: SceneMeta['buildings'],
@@ -200,6 +208,7 @@ export function createBuildingShellGeometry(
     holes?: number[],
     dimensions?: number,
   ) => number[],
+  fallbackTracker?: TriangulationFallbackTracker,
 ): GeometryBuffers {
   const geometry = createEmptyGeometry();
 
@@ -215,7 +224,7 @@ export function createBuildingShellGeometry(
       continue;
     }
 
-    pushBuildingByStrategy(geometry, building, outerRing, holes, triangulate);
+    pushBuildingByStrategy(geometry, building, outerRing, holes, triangulate, fallbackTracker);
   }
 
   return geometry;
@@ -248,6 +257,7 @@ export function pushExtrudedPolygon(
     dimensions?: number,
   ) => number[],
   buildingId?: string,
+  fallbackTracker?: TriangulationFallbackTracker,
 ): void {
   const triangulated = triangulateRings(outerRing, holes, triangulate);
   if (triangulated.length === 0) {
@@ -257,6 +267,9 @@ export function pushExtrudedPolygon(
         ringVertexCount: outerRing.length,
         holeCount: holes.length,
       });
+    }
+    if (fallbackTracker) {
+      fallbackTracker.count += 1;
     }
     const bounds = computeBounds(outerRing);
     pushBox(
@@ -298,6 +311,7 @@ function pushBuildingByStrategy(
     holes?: number[],
     dimensions?: number,
   ) => number[],
+  fallbackTracker?: TriangulationFallbackTracker,
 ): void {
   const foundationDepth = resolveFoundationDepth(building);
   const baseY = resolveBuildingVerticalBase(building);
@@ -311,6 +325,7 @@ function pushBuildingByStrategy(
       holes,
       triangulate,
       foundationDepth,
+      fallbackTracker,
     );
     return;
   }
@@ -341,6 +356,7 @@ function pushBuildingByStrategy(
         baseY + podiumHeight,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       if (lodLevel === 'HIGH') {
         const insetRatio = building.cornerChamfer ? PODIUM_TOWER_INSET_RATIO_CHAMFER : PODIUM_TOWER_INSET_RATIO_DEFAULT;
@@ -355,6 +371,7 @@ function pushBuildingByStrategy(
             baseY + towerTop,
             triangulate,
             buildingId,
+            fallbackTracker,
           );
           if (SETBACK_OVERLAP_M === 0) {
             pushSetbackJoinGeometry(
@@ -378,6 +395,7 @@ function pushBuildingByStrategy(
         baseY + baseTop,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       if (lodLevel === 'HIGH') {
         let currentRing = simplifiedRing;
@@ -410,6 +428,7 @@ function pushBuildingByStrategy(
             baseY + stageMax,
             triangulate,
             buildingId,
+            fallbackTracker,
           );
           if (SETBACK_OVERLAP_M === 0) {
             pushSetbackJoinGeometry(
@@ -435,6 +454,7 @@ function pushBuildingByStrategy(
         baseY + roofBaseHeight,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       if (lodLevel === 'HIGH') {
         pushGableRoof(
@@ -456,6 +476,7 @@ function pushBuildingByStrategy(
         baseY + roofBaseHeight,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       if (lodLevel === 'HIGH') {
         pushHippedRoof(
@@ -477,6 +498,7 @@ function pushBuildingByStrategy(
         baseY + roofBaseHeight,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       if (lodLevel === 'HIGH') {
         pushPyramidalRoof(
@@ -497,6 +519,7 @@ function pushBuildingByStrategy(
         baseY + height,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       break;
     }
@@ -519,6 +542,7 @@ function pushBuildingByStrategy(
         baseY + height,
         triangulate,
         buildingId,
+        fallbackTracker,
       );
       break;
     }
@@ -536,6 +560,7 @@ function pushHeroBuilding(
     dimensions?: number,
   ) => number[],
   foundationDepth: number,
+  fallbackTracker?: TriangulationFallbackTracker,
 ): void {
   const height = Math.max(MIN_HERO_BUILDING_HEIGHT_M, building.heightMeters);
   const baseY = resolveBuildingVerticalBase(building);
@@ -558,6 +583,7 @@ function pushHeroBuilding(
       baseY + height,
       triangulate,
       buildingId,
+      fallbackTracker,
     );
     return;
   }
@@ -571,6 +597,7 @@ function pushHeroBuilding(
       baseY + height,
       triangulate,
       buildingId,
+      fallbackTracker,
     );
     return;
   }
@@ -583,6 +610,7 @@ function pushHeroBuilding(
     baseY + podiumHeight,
     triangulate,
     buildingId,
+    fallbackTracker,
   );
 
   let currentRing = outerRing;
@@ -621,6 +649,7 @@ function pushHeroBuilding(
       baseY + stageMax,
       triangulate,
       buildingId,
+      fallbackTracker,
     );
     if (SETBACK_OVERLAP_M === 0) {
       pushSetbackJoinGeometry(

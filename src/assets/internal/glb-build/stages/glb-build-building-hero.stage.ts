@@ -12,6 +12,7 @@ import {
   createHeroCanopyGeometry,
   createHeroRoofUnitGeometry,
   createLandmarkExtrasGeometry,
+  type TriangulationFallbackTracker,
 } from '../../../compiler/building';
 import type { BuildingWindowGeometryOptions } from '../../../compiler/building/building-mesh.window.builder';
 import {
@@ -94,7 +95,9 @@ export function addBuildingAndHeroMeshes(
     | 'modePolicy'
     | 'staticAtmosphere'
     | 'createBuildingRoofAccentGeometry'
-  >,
+  > & {
+    triangulationFallbackTracker?: TriangulationFallbackTracker;
+  },
   ctx: MeshAddContext,
   sceneMeta: GlbInputContract,
   sceneDetail: GlbInputContract,
@@ -150,6 +153,7 @@ export function addBuildingAndHeroMeshes(
         sceneMeta.origin,
         group.buildings,
         triangulate,
+        hooks.triangulationFallbackTracker,
       ),
       createBuildingShellMaterial(
         ctx.doc,
