@@ -116,3 +116,57 @@
   - `bun run test`
   - `test/phase5-provider-resilience.spec.ts`
   - `test/health-readiness.spec.ts`
+
+## 8. Phase 7 QA Policy and Regression Suite
+
+### 8-1. QA Fail But Release Pass 금지 정책
+
+- QA summary가 `FAIL`인 scene은 **어떤 경우에도** `READY`로 승격되지 않는다.
+- 이는 `SceneGenerationResultService.persist()`에서 강제되며, quality gate 통과 여부와 무관하다.
+- 실패한 scene은 `status=FAILED`, `failureCategory=QA_REJECTED`로 기록된다.
+- 수동 우회 경로는 존재하지 않는다. 배포는 QA 통과 scene만으로 구성된다.
+
+### 8-2. Representative Regression Suite
+
+대표 8개 scene에 대한 회귀 검증은 다음 테스트 파일에서 수행된다.
+
+| 테스트 파일 | 검증 대상 |
+|---|---|
+| `test/phase1-qa-fail-blocks-ready.spec.ts` | QA FAIL → READY 차단, QA_REJECTED 분류 |
+| `test/phase7-representative-regression.spec.ts` | representative 8-scene QA table contract |
+| `test/phase7-failure-paths.spec.ts` | parse failure, stale lock, retry, quality gate blocking |
+| `test/phase3-regression-evidence.spec.ts` | UV contract, preflight, triangulation fallback, correctedRatio 회귀 |
+| `test/phase7-weather-provider.spec.ts` | weather provider fallback → UNKNOWN |
+| `test/phase7-traffic-provider.spec.ts` | traffic provider fallback → UNAVAILABLE |
+
+전체 테스트 실행: `bun test`
+
+### 8-3. QA Table 재생성 절차
+
+`bun run scene:qa-table`은 8개 representative scene의 현재 상태를 집계하여 `data/scene/scene-qa-8-table.json`에 기록한다.
+
+**실행 시기:**
+- 배포 전 필수 검증 단계
+- scene 재생성 후 품질 확인
+- CI/CD 파이프라인에서 선택적 실행
+
+**대표 scene 목록:**
+1. Shibuya Scramble Crossing, Tokyo
+2. Gangnam Station Intersection, Seoul
+3. N Seoul Tower, Seoul
+4. Yeoksam-dong Residential Area, Seoul
+5. Incheon Industrial Complex, Incheon
+6. Han River Banpo Hangang Park, Seoul
+7. Haeundae Beach, Busan
+8. Bulguksa Temple, Gyeongju
+
+**출력 확인 항목:**
+- `readyCount` / `pendingCount` / `failedCount` — failedCount > 0이면 배포 차단
+- 각 row의 `readyGate.passed` — false인 scene은 배포 대상 제외
+- `score.provisional` — true인 scene은 점수 확정 전이므로 참고용
+- `recommendations` — 자동 생성된 개선 제안
+
+**QA Table과 Regression Suite의 관계:**
+- QA Table은 **현재 상태의 스냅샷**을 제공한다 (8개 representative scene).
+- Regression Suite는 **코드 변경이 기존 품질을 훼손하지 않았는지** 검증한다.
+- 배포 전 둘 다 확인해야 한다: QA Table로 현재 품질 상태를 보고, Regression Suite로 회귀 여부를 확인한다.

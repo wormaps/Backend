@@ -797,11 +797,28 @@ phase 순서는 기술 우선순위가 아니라 도메인 의존성 순서다.
 
 체크리스트:
 
-- [ ] model: quality decision lifecycle이 문서화되었다
-- [ ] code: release blocking rules가 반영되었다
-- [ ] tests: regression suite와 failure path tests가 추가되었다
-- [ ] ops: qa-table 재생성 절차와 기준이 문서화되었다
-- [ ] docs: QA fail but release pass 금지 정책이 문서화되었다
+- [X] model: quality decision lifecycle이 문서화되었다
+- [X] code: release blocking rules가 반영되었다
+- [X] tests: regression suite와 failure path tests가 추가되었다
+- [X] ops: qa-table 재생성 절차와 기준이 문서화되었다
+- [X] docs: QA fail but release pass 금지 정책이 문서화되었다
+
+Phase 7 현재 상태:
+
+- code / tests / ops / docs 반영 완료
+- model 문서는 domain invariant (§4), Quality Gate Matrix (§17), Regression Gate 정의 충족
+- 본 phase의 핵심 불변식(QA fail but release pass 금지, representative QA-table contract regression 운영)은 코드/테스트/운영 문서 기준으로 충족됨
+- release blocking rules 구현 증거:
+  - `test/phase1-qa-fail-blocks-ready.spec.ts`: QA summary=FAIL 시 status=FAILED, failureCategory=QA_REJECTED 검증
+  - `test/phase7-representative-regression.spec.ts`: representative 8-scene QA table contract 검증
+  - `test/phase7-failure-paths.spec.ts`: parse failure, stale lock, retry, QUALITY_GATE_REJECTED, QA_REJECTED 검증
+  - `test/phase7-weather-provider.spec.ts`: weather provider fallback → UNKNOWN provider 검증
+  - `test/phase7-traffic-provider.spec.ts`: traffic provider fallback → UNAVAILABLE provider 검증
+  - `test/phase3-regression-evidence.spec.ts`: UV contract + preflight + triangulation fallback + correctedRatio 통합 회귀 검증
+  - `scripts/build-scene-qa-table.ts`: 8개 representative scene에 대한 QA table 재생성 (`bun run scene:qa-table`)
+- ops / docs 문서화:
+  - `docs/deployment-guide.md` §4: release-blocking rules 및 QA 정책
+  - `docs/operations-manual.md` §8: qa-table 재생성 절차 및 representative regression suite 운영
 
 롤백 기준:
 

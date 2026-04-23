@@ -45,7 +45,46 @@
   - `circuit_breaker_rejections_total`
   - `external_api_requests_total`의 provider/outcome/statusClass labels
 
-## 4. 실패 시 우선 확인
+## 4. Phase 7 Release-Blocking Rules
+
+Phase 7은 QA 실패가 배포 경로로 우회되는 것을 원천 차단한다. 아래 규칙은 advisory가 아니라 binary gate다.
+
+### 4-1. QA Fail But Release Pass 금지
+
+- **규칙**: `QA summary=FAIL`인 scene은 어떤 경우에도 `READY` 상태가 될 수 없으며, 배포 대상에서 제외된다.
+- **근거**: `test/phase1-qa-fail-blocks-ready.spec.ts` — QA FAIL 시 `status=FAILED`, `failureCategory=QA_REJECTED`로 고정됨.
+- **차단 경로**: `SceneGenerationResultService.persist()`에서 QA summary가 FAIL이면 quality gate 통과 여부와 무관하게 scene을 FAILED로 처리한다.
+- **예외 없음**: 수동 override, admin bypass, force-ready 같은 경로는 존재하지 않는다.
+
+### 4-2. 배포 전 필수 검증 명령
+
+배포 전 아래 명령을 순서대로 실행하고 전부를 통과해야 한다.
+
+| 순서 | 명령 | 목적 |
+|---|---|---|
+| 1 | `bun run type-check` | 정적 타입 검증 |
+| 2 | `bun test` | 전체 테스트 스위트 (QA fail blocking 포함) |
+| 3 | `bun run bench:scene` | 성능 벤치마크 (필요 시) |
+| 4 | `bun run scene:qa-table` | representative 8개 scene QA table 재생성 및 검증 |
+
+### 4-3. QA Table 판정 기준
+
+`bun run scene:qa-table`이 생성하는 `data/scene/scene-qa-8-table.json`에서 다음을 확인한다.
+
+- `readyCount`: READY 상태인 scene 수
+- `failedCount`: FAILED 상태인 scene 수 — **0이 아니면 배포 차단**
+- 각 row의 `readyGate.passed`: false인 scene이 있으면 해당 scene은 배포 대상에서 제외
+- `score.provisional`: true인 scene은 점수가 확정되지 않은 것이므로 참고용으로만 사용
+
+### 4-4. Regression Gate
+
+- representative scene regression suite는 `test/phase3-regression-evidence.spec.ts`에서 검증한다.
+- representative 8-scene QA table contract는 `test/phase7-representative-regression.spec.ts`에서 검증한다.
+- failure-path regression은 `test/phase7-failure-paths.spec.ts`에서 검증한다.
+- weather/traffic provider fallback은 `test/phase7-weather-provider.spec.ts`, `test/phase7-traffic-provider.spec.ts`에서 검증한다.
+- CI(`.github/workflows/ci.yml`)에서 `bun test`가 regression suite를 포함하여 실행된다.
+
+## 5. 실패 시 우선 확인
 
 - 외부 API 키 누락
 - `SCENE_DATA_DIR` writable 여부
