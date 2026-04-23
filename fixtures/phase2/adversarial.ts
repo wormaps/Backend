@@ -1,4 +1,4 @@
-import { defaultScope, fixtureIssue, snapshot } from './shared';
+import { defaultScope, snapshot } from './shared';
 import type { Phase2Fixture } from './types';
 
 const snapshotPartialArtifacts = {
@@ -27,6 +27,7 @@ export const adversarialFixtures: Phase2Fixture[] = [
       qaIssueDistribution: {
         PROVIDER_SNAPSHOT_FAILED: 1,
       },
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: snapshotPartialArtifacts,
     },
@@ -39,14 +40,28 @@ export const adversarialFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-adversarial-duplicated-footprints',
     scope: defaultScope,
     snapshots: [
-      snapshot('adversarial-duplicated-footprints', 'osm-duplicated-footprints', 'osm', 'success', [
-        fixtureIssue('SCENE_DUPLICATED_FOOTPRINT'),
-      ]),
+      snapshot(
+        'adversarial-duplicated-footprints',
+        'osm-duplicated-footprints',
+        'osm',
+        'success',
+        'fixture://duplicate-footprint',
+      ),
+      snapshot(
+        'adversarial-duplicated-footprints',
+        'osm-duplicated-footprints-peer',
+        'osm',
+        'success',
+        'fixture://building-peer',
+      ),
     ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {
         SCENE_DUPLICATED_FOOTPRINT: 1,
+      },
+      relationshipDistribution: {
+        duplicates: 1,
       },
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
@@ -67,15 +82,20 @@ export const adversarialFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-adversarial-self-intersecting-polygon',
     scope: defaultScope,
     snapshots: [
-      snapshot('adversarial-self-intersecting-polygon', 'osm-self-intersection', 'osm', 'success', [
-        fixtureIssue('GEOMETRY_SELF_INTERSECTION', 'critical'),
-      ]),
+      snapshot(
+        'adversarial-self-intersecting-polygon',
+        'osm-self-intersection',
+        'osm',
+        'success',
+        'fixture://self-intersection',
+      ),
     ],
     expected: {
       finalState: 'QUARANTINED',
       qaIssueDistribution: {
         GEOMETRY_SELF_INTERSECTION: 1,
       },
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
@@ -95,14 +115,28 @@ export const adversarialFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-adversarial-road-building-overlap',
     scope: defaultScope,
     snapshots: [
-      snapshot('adversarial-road-building-overlap', 'osm-road-building-overlap', 'osm', 'success', [
-        fixtureIssue('SCENE_ROAD_BUILDING_OVERLAP', 'critical'),
-      ]),
+      snapshot(
+        'adversarial-road-building-overlap',
+        'osm-road-building-overlap',
+        'osm',
+        'success',
+        'fixture://road-building-overlap',
+      ),
+      snapshot(
+        'adversarial-road-building-overlap',
+        'osm-road-building-overlap-peer',
+        'osm',
+        'success',
+        'fixture://building-peer',
+      ),
     ],
     expected: {
       finalState: 'QUARANTINED',
       qaIssueDistribution: {
         SCENE_ROAD_BUILDING_OVERLAP: 1,
+      },
+      relationshipDistribution: {
+        conflicts: 1,
       },
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
@@ -123,15 +157,20 @@ export const adversarialFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-adversarial-coordinate-outlier',
     scope: defaultScope,
     snapshots: [
-      snapshot('adversarial-coordinate-outlier', 'osm-coordinate-outlier', 'osm', 'success', [
-        fixtureIssue('SPATIAL_COORDINATE_OUTLIER'),
-      ]),
+      snapshot(
+        'adversarial-coordinate-outlier',
+        'osm-coordinate-outlier',
+        'osm',
+        'success',
+        'fixture://coordinate-outlier',
+      ),
     ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {
         SPATIAL_COORDINATE_OUTLIER: 1,
       },
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
@@ -151,15 +190,20 @@ export const adversarialFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-adversarial-extreme-terrain-slope',
     scope: defaultScope,
     snapshots: [
-      snapshot('adversarial-extreme-terrain-slope', 'osm-extreme-terrain-slope', 'osm', 'success', [
-        fixtureIssue('SPATIAL_EXTREME_TERRAIN_SLOPE'),
-      ]),
+      snapshot(
+        'adversarial-extreme-terrain-slope',
+        'osm-extreme-terrain-slope',
+        'osm',
+        'success',
+        'fixture://extreme-terrain-slope',
+      ),
     ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {
         SPATIAL_EXTREME_TERRAIN_SLOPE: 1,
       },
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
@@ -179,15 +223,20 @@ export const adversarialFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-adversarial-provider-policy-violation',
     scope: defaultScope,
     snapshots: [
-      snapshot('adversarial-provider-policy-violation', 'google-policy-risk', 'google_places', 'success', [
-        fixtureIssue('COMPLIANCE_PROVIDER_POLICY_RISK'),
-      ]),
+      snapshot(
+        'adversarial-provider-policy-violation',
+        'google-policy-risk',
+        'google_places',
+        'success',
+        'fixture://provider-policy-risk',
+      ),
     ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {
         COMPLIANCE_PROVIDER_POLICY_RISK: 1,
       },
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,

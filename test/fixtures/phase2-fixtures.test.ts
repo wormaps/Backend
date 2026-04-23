@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test';
 import { baselineFixtures, adversarialFixtures } from '../../fixtures/phase2';
 import { createWorMapMvpApp } from '../../src/main';
 import type { QaIssue } from '../../packages/contracts/qa';
+import type { SceneRelationship } from '../../packages/contracts/twin-scene-graph';
 
 function issueDistribution(issues: QaIssue[]) {
   return issues.reduce<Record<string, number>>((distribution, issue) => {
@@ -15,6 +16,13 @@ function expectedDistribution(distribution: Record<string, number | undefined>) 
   return Object.fromEntries(
     Object.entries(distribution).filter((entry): entry is [string, number] => entry[1] !== undefined),
   );
+}
+
+function relationshipDistribution(relationships: SceneRelationship[]) {
+  return relationships.reduce<Record<string, number>>((distribution, relationship) => {
+    distribution[relationship.relation] = (distribution[relationship.relation] ?? 0) + 1;
+    return distribution;
+  }, {});
 }
 
 describe('phase 2 fixtures first', () => {
@@ -35,6 +43,20 @@ describe('phase 2 fixtures first', () => {
     if (!('qaResult' in result) || result.qaResult === undefined) {
       throw new Error('Expected QA report artifact.');
     }
+
+    if (!('normalizedEntityBundle' in result) || result.normalizedEntityBundle === undefined) {
+      throw new Error('Expected normalized entity bundle artifact.');
+    }
+
+    if (!('twinSceneGraph' in result) || result.twinSceneGraph === undefined) {
+      throw new Error('Expected twin scene graph artifact.');
+    }
+
+    expect(result.normalizedEntityBundle.entities.length).toBe(fixture.snapshots.filter((snapshot) => snapshot.status !== 'failed').length);
+    expect(result.twinSceneGraph.entities.length).toBe(result.normalizedEntityBundle.entities.length);
+    expect(relationshipDistribution(result.twinSceneGraph.relationships)).toEqual(
+      expectedDistribution(fixture.expected.relationshipDistribution),
+    );
 
     expect(issueDistribution(result.qaResult.issues)).toEqual(
       expectedDistribution(fixture.expected.qaIssueDistribution),
@@ -64,6 +86,16 @@ describe('phase 2 fixtures first', () => {
 
     if (!('qaResult' in result) || result.qaResult === undefined) {
       throw new Error('Expected QA report artifact.');
+    }
+
+    if (fixture.expected.artifacts.evidenceGraph && 'normalizedEntityBundle' in result && result.normalizedEntityBundle !== undefined) {
+      expect(result.normalizedEntityBundle.issues.length).toBeGreaterThan(0);
+    }
+
+    if ('twinSceneGraph' in result && result.twinSceneGraph !== undefined) {
+      expect(relationshipDistribution(result.twinSceneGraph.relationships)).toEqual(
+        expectedDistribution(fixture.expected.relationshipDistribution),
+      );
     }
 
     expect(issueDistribution(result.qaResult.issues)).toEqual(

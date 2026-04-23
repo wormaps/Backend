@@ -19,12 +19,13 @@ export const baselineFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-baseline-clean-core-block',
     scope: defaultScope,
     snapshots: [
-      snapshot('baseline-clean-core-block', 'osm-clean-core', 'osm'),
-      snapshot('baseline-clean-core-block', 'weather-clean-core', 'open_meteo'),
+      snapshot('baseline-clean-core-block', 'osm-clean-core', 'osm', 'success', 'fixture://clean-core-block'),
+      snapshot('baseline-clean-core-block', 'weather-clean-core', 'open_meteo', 'success', 'fixture://weather-baseline'),
     ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {},
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: completedArtifacts,
     },
@@ -37,12 +38,15 @@ export const baselineFixtures: Phase2Fixture[] = [
     snapshotBundleId: 'bundle-baseline-basic-road-scene',
     scope: defaultScope,
     snapshots: [
-      snapshot('baseline-basic-road-scene', 'osm-basic-road', 'osm'),
-      snapshot('baseline-basic-road-scene', 'traffic-basic-road', 'tomtom'),
+      snapshot('baseline-basic-road-scene', 'osm-basic-road', 'osm', 'success', 'fixture://basic-road-scene'),
+      snapshot('baseline-basic-road-scene', 'traffic-basic-road', 'tomtom', 'success', 'fixture://basic-traffic-scene'),
     ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {},
+      relationshipDistribution: {
+        matches_traffic_fragment: 1,
+      },
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: completedArtifacts,
     },
@@ -54,10 +58,19 @@ export const baselineFixtures: Phase2Fixture[] = [
     buildId: 'build-baseline-basic-terrain-scene',
     snapshotBundleId: 'bundle-baseline-basic-terrain-scene',
     scope: defaultScope,
-    snapshots: [snapshot('baseline-basic-terrain-scene', 'osm-basic-terrain', 'osm')],
+    snapshots: [
+      snapshot(
+        'baseline-basic-terrain-scene',
+        'osm-basic-terrain',
+        'osm',
+        'success',
+        'fixture://basic-terrain-scene',
+      ),
+    ],
     expected: {
       finalState: 'COMPLETED',
       qaIssueDistribution: {},
+      relationshipDistribution: {},
       realityTier: 'PLACEHOLDER_SCENE',
       artifacts: completedArtifacts,
     },
