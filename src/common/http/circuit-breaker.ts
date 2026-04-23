@@ -10,6 +10,20 @@ export interface CircuitBreakerStats {
   totalFailures: number;
 }
 
+export interface ProviderHealthSnapshotEntry {
+  provider: string;
+  state: 'healthy' | 'degraded' | 'open';
+  consecutiveFailures: number;
+  lastFailureAt: string | null;
+  totalRequests: number;
+  totalFailures: number;
+}
+
+export interface CircuitBreakerRestoreSnapshot {
+  providers: ProviderHealthSnapshotEntry[];
+  trackedAt: string;
+}
+
 export class CircuitBreakerOpenError extends Error {
   constructor(
     public readonly provider: string,
@@ -112,6 +126,15 @@ export class CircuitBreaker {
     this.publishStateMetric();
   }
 
+  restoreFromStats(stats: CircuitBreakerStats): void {
+    this.state = stats.state;
+    this.consecutiveFailures = stats.consecutiveFailures;
+    this.lastFailureAt = stats.lastFailureAt ? Date.parse(stats.lastFailureAt) : null;
+    this.totalRequests = stats.totalRequests;
+    this.totalFailures = stats.totalFailures;
+    this.publishStateMetric();
+  }
+
   private shouldAttemptRecovery(): boolean {
     if (this.lastFailureAt === null) {
       return false;
@@ -183,6 +206,24 @@ export class CircuitBreakerRegistry {
   getStats(provider: string): CircuitBreakerStats | null {
     const key = normalizeProviderKey(provider);
     return this.breakers.get(key)?.getStats() ?? null;
+  }
+
+  restoreFromSnapshot(snapshot: CircuitBreakerRestoreSnapshot): void {
+    for (const entry of snapshot.providers) {
+      const key = normalizeProviderKey(entry.provider);
+      const breaker = this.get(key);
+
+      const circuitState: CircuitState =
+        entry.state === 'open' ? 'open' : 'closed';
+
+      breaker.restoreFromStats({
+        state: circuitState,
+        consecutiveFailures: entry.consecutiveFailures,
+        lastFailureAt: entry.lastFailureAt,
+        totalRequests: entry.totalRequests,
+        totalFailures: entry.totalFailures,
+      });
+    }
   }
 }
 

@@ -134,6 +134,7 @@
 |---|---|
 | `test/phase1-qa-fail-blocks-ready.spec.ts` | QA FAIL → READY 차단, QA_REJECTED 분류 |
 | `test/phase7-representative-regression.spec.ts` | representative 8-scene QA table contract |
+| `test/phase7-qa-table-gate.spec.ts` | core 5-scene gate fail-closed, tail 3-scene non-blocking |
 | `test/phase7-failure-paths.spec.ts` | parse failure, stale lock, retry, quality gate blocking |
 | `test/phase3-regression-evidence.spec.ts` | UV contract, preflight, triangulation fallback, correctedRatio 회귀 |
 | `test/phase7-weather-provider.spec.ts` | weather provider fallback → UNKNOWN |
@@ -143,12 +144,20 @@
 
 ### 8-3. QA Table 재생성 절차
 
-`bun run scene:qa-table`은 8개 representative scene의 현재 상태를 집계하여 `data/scene/scene-qa-8-table.json`에 기록한다.
+`bun run scene:qa-table`은 8개 representative scene의 현재 상태를 집계하여 `data/scene/scene-qa-table.json`에 기록한다.
+
+`bun run scene:generate-test-scenes`는 동일한 8개 representative scene의 live evidence를 먼저 생성한다.
+
+`bun run scene:qa-table`은 `data/scene/scene-qa-table.json`에 기록한다.
 
 **실행 시기:**
 - 배포 전 필수 검증 단계
 - scene 재생성 후 품질 확인
 - CI/CD 파이프라인에서 선택적 실행
+
+**권장 순서:**
+1. `bun run scene:generate-test-scenes`
+2. `bun run scene:qa-table`
 
 **대표 scene 목록:**
 1. Shibuya Scramble Crossing, Tokyo

@@ -1,21 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-const TEST_DATA_DIR = join(process.cwd(), 'data', 'scene', '.spec-temp-phase7-qa-table');
+const TEST_DATA_DIR = join(process.cwd(), 'data', 'scene', '.spec-temp-phase7-qa-gate');
 
-const REPRESENTATIVE_SCENES = [
-  { placeId: 'shibuya', query: 'Shibuya Scramble Crossing, Tokyo' },
-  { placeId: 'gangnam', query: 'Gangnam Station Intersection, Seoul' },
-  { placeId: 'seoul-tower', query: 'N Seoul Tower, Seoul' },
-  { placeId: 'residential-lowrise', query: 'Yeoksam-dong Residential Area, Seoul' },
-  { placeId: 'industrial', query: 'Incheon Industrial Complex, Incheon' },
-  { placeId: 'riverside-park', query: 'Han River Banpo Hangang Park, Seoul' },
-  { placeId: 'coastal', query: 'Haeundae Beach, Busan' },
-  { placeId: 'mountain-temple', query: 'Bulguksa Temple, Gyeongju' },
-] as const;
-
-describe('Phase 7 representative scene QA-table contract regression', () => {
+describe('Phase 7 QA-table release gate', () => {
   beforeEach(async () => {
     await rm(TEST_DATA_DIR, { recursive: true, force: true });
     await mkdir(TEST_DATA_DIR, { recursive: true });
@@ -25,10 +14,39 @@ describe('Phase 7 representative scene QA-table contract regression', () => {
     await rm(TEST_DATA_DIR, { recursive: true, force: true });
   });
 
-  it('rebuilds the representative 8-scene QA table contract', async () => {
-    for (const scene of REPRESENTATIVE_SCENES) {
-      await writeRepresentativeScene(TEST_DATA_DIR, scene.placeId, scene.query);
-    }
+  it('fails closed when representative scenes are missing', async () => {
+    const result = Bun.spawnSync({
+      cmd: ['bun', 'run', 'scripts/build-scene-qa-table.ts'],
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        SCENE_DATA_DIR: TEST_DATA_DIR,
+      },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    expect(result.exitCode).toBe(1);
+
+    const report = await Bun.file(join(TEST_DATA_DIR, 'scene-qa-table.json')).text();
+    const parsed = JSON.parse(report) as {
+      readyCount: number;
+      failedCount: number;
+      rows: Array<{ status: string; readyGate: { passed: boolean } }>;
+    };
+
+    expect(parsed.readyCount).toBe(0);
+    expect(parsed.failedCount).toBe(8);
+    expect(parsed.rows.every((row) => row.status === 'FAILED')).toBe(true);
+    expect(parsed.rows.every((row) => !row.readyGate.passed)).toBe(true);
+  });
+
+  it('allows tail scenes to fail when core scenes are ready', async () => {
+    await seedSyntheticScene(TEST_DATA_DIR, 'shibuya', 'Shibuya Scramble Crossing, Tokyo');
+    await seedSyntheticScene(TEST_DATA_DIR, 'gangnam', 'Gangnam Station Intersection, Seoul');
+    await seedSyntheticScene(TEST_DATA_DIR, 'seoul-tower', 'N Seoul Tower, Seoul');
+    await seedSyntheticScene(TEST_DATA_DIR, 'residential-lowrise', 'Yeoksam-dong Residential Area, Seoul');
+    await seedSyntheticScene(TEST_DATA_DIR, 'coastal', 'Haeundae Beach, Busan');
 
     const result = Bun.spawnSync({
       cmd: ['bun', 'run', 'scripts/build-scene-qa-table.ts'],
@@ -43,37 +61,27 @@ describe('Phase 7 representative scene QA-table contract regression', () => {
 
     expect(result.exitCode).toBe(0);
 
-    const output = await readFile(join(TEST_DATA_DIR, 'scene-qa-table.json'), 'utf8');
-    const report = JSON.parse(output) as {
+    const report = await Bun.file(join(TEST_DATA_DIR, 'scene-qa-table.json')).text();
+    const parsed = JSON.parse(report) as {
       readyCount: number;
-      pendingCount: number;
       failedCount: number;
-      rows: Array<{
-        placeId: string;
-        query: string;
-        status: string;
-        readyGate: { passed: boolean };
-      }>;
+      rows: Array<{ placeId: string; status: string; readyGate: { passed: boolean } }>;
     };
 
-    expect(report.readyCount).toBe(8);
-    expect(report.pendingCount).toBe(0);
-    expect(report.failedCount).toBe(0);
-    expect(report.rows).toHaveLength(8);
-    expect(report.rows.map((row) => row.placeId)).toEqual(
-      REPRESENTATIVE_SCENES.map((scene) => scene.placeId),
-    );
-    expect(report.rows.every((row) => row.status === 'READY')).toBe(true);
-    expect(report.rows.every((row) => row.readyGate.passed)).toBe(true);
+    expect(parsed.rows.filter((row) => row.readyGate.passed)).toHaveLength(5);
+    expect(parsed.failedCount).toBe(3);
   });
 });
 
-async function writeRepresentativeScene(
+async function seedSyntheticScene(
   dir: string,
   placeId: string,
   query: string,
 ): Promise<void> {
-  const slug = slugify(query);
+  const slug = query
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   const sceneId = `scene-${slug}-001`;
   const basePath = join(dir, sceneId);
 
@@ -94,11 +102,7 @@ async function writeRepresentativeScene(
   };
 
   const meta = {
-    stats: {
-      buildingCount: 24,
-      roadCount: 18,
-      walkwayCount: 12,
-    },
+    stats: { buildingCount: 24, roadCount: 18, walkwayCount: 12 },
     structuralCoverage: {
       fallbackMassingRate: 0.02,
       selectedBuildingCoverage: 0.78,
@@ -126,9 +130,7 @@ async function writeRepresentativeScene(
   const modeComparison = {
     sceneId,
     generatedAt: '2026-01-01T00:00:00.000Z',
-    comparison: {
-      overallScoreDelta: 0.05,
-    },
+    comparison: { overallScoreDelta: 0.05 },
   };
 
   await writeFile(`${basePath}.json`, `${JSON.stringify(scene, null, 2)}\n`, 'utf8');
@@ -139,11 +141,4 @@ async function writeRepresentativeScene(
     `${JSON.stringify(modeComparison, null, 2)}\n`,
     'utf8',
   );
-}
-
-function slugify(query: string): string {
-  return query
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 }

@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { access, mkdir, readFile } from 'node:fs/promises';
+import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppModule } from '../src/app.module';
 import { SceneService } from '../src/scene/scene.service';
@@ -55,6 +55,14 @@ const TEST_PLACES: TestPlace[] = [
     scale: 'SMALL',
   },
 ];
+
+const CORE_REPRESENTATIVE_PLACES = new Set([
+  'shibuya',
+  'gangnam',
+  'seoul-tower',
+  'residential-lowrise',
+  'coastal',
+]);
 
 interface GenerationResult {
   place: TestPlace;
@@ -172,6 +180,9 @@ async function main() {
   console.log('\n=== Summary ===');
   const ready = results.filter((r) => r.status === 'READY').length;
   const failed = results.filter((r) => r.status === 'FAILED').length;
+  const coreFailed = results.filter(
+    (r) => r.status !== 'READY' && CORE_REPRESENTATIVE_PLACES.has(r.place.id),
+  ).length;
   console.log(`Total: ${results.length}, Ready: ${ready}, Failed: ${failed}`);
 
   if (failed > 0) {
@@ -199,6 +210,13 @@ async function main() {
 
   console.log('\n=== JSON Summary ===');
   console.log(JSON.stringify(summary, null, 2));
+
+  if (coreFailed > 0) {
+    console.error(
+      `\nCore representative scene gate failed: ${coreFailed} required scene(s) are not READY.`,
+    );
+    process.exitCode = 1;
+  }
 }
 
 async function fileExists(path: string): Promise<boolean> {

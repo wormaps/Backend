@@ -65,21 +65,23 @@ Phase 7은 QA 실패가 배포 경로로 우회되는 것을 원천 차단한다
 | 1 | `bun run type-check` | 정적 타입 검증 |
 | 2 | `bun test` | 전체 테스트 스위트 (QA fail blocking 포함) |
 | 3 | `bun run bench:scene` | 성능 벤치마크 (필요 시) |
-| 4 | `bun run scene:qa-table` | representative 8개 scene QA table 재생성 및 검증 |
+| 4 | `bun run scene:generate-test-scenes` | representative 8개 scene live evidence 생성 |
+| 5 | `bun run scene:qa-table` | representative 8개 scene QA table 재생성 및 core gate |
 
 ### 4-3. QA Table 판정 기준
 
-`bun run scene:qa-table`이 생성하는 `data/scene/scene-qa-8-table.json`에서 다음을 확인한다.
+`bun run scene:qa-table`이 생성하는 `data/scene/scene-qa-table.json`에서 다음을 확인한다.
 
 - `readyCount`: READY 상태인 scene 수
 - `failedCount`: FAILED 상태인 scene 수 — **0이 아니면 배포 차단**
 - 각 row의 `readyGate.passed`: false인 scene이 있으면 해당 scene은 배포 대상에서 제외
 - `score.provisional`: true인 scene은 점수가 확정되지 않은 것이므로 참고용으로만 사용
 
-### 4-4. Regression Gate
+### 4-4. Regression Gate 
 
 - representative scene regression suite는 `test/phase3-regression-evidence.spec.ts`에서 검증한다.
 - representative 8-scene QA table contract는 `test/phase7-representative-regression.spec.ts`에서 검증한다.
+- representative live gate는 `test/phase7-qa-table-gate.spec.ts`와 `scripts/build-scene-qa-table.ts`에서 core 5-scene 기준 fail-closed로 동작한다.
 - failure-path regression은 `test/phase7-failure-paths.spec.ts`에서 검증한다.
 - weather/traffic provider fallback은 `test/phase7-weather-provider.spec.ts`, `test/phase7-traffic-provider.spec.ts`에서 검증한다.
 - CI(`.github/workflows/ci.yml`)에서 `bun test`가 regression suite를 포함하여 실행된다.

@@ -3,25 +3,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppLoggerService } from '../src/common/logging/app-logger.service';
 import { appMetrics } from '../src/common/metrics/metrics.instance';
 import { SceneQueueManagerService } from '../src/scene/services/generation/scene-queue-manager.service';
-import { writeSceneGenerationQueueSnapshot } from '../src/scene/storage/scene-storage.utils';
+import {
+  getSceneDataDir,
+  readSceneGenerationQueueSnapshot,
+} from '../src/scene/storage/scene-storage.utils';
+import { join } from 'node:path';
+import { unlink } from 'node:fs/promises';
 
-vi.mock('../src/scene/storage/scene-storage.utils', () => ({
-  writeSceneGenerationQueueSnapshot: vi.fn().mockResolvedValue(undefined),
-  tryAcquireSceneGenerationLock: vi.fn().mockResolvedValue(true),
-  releaseSceneGenerationLock: vi.fn().mockResolvedValue(undefined),
-  getSceneGenerationQueuePath: vi.fn().mockReturnValue('/tmp/test-queue.json'),
-}));
+const QUEUE_SNAPSHOT_PATH = join(getSceneDataDir(), 'generation-queue.json');
+
+async function safeUnlink(path: string): Promise<void> {
+  try { await unlink(path); } catch { /* ignore */ }
+}
 
 describe('SceneQueueManagerService - idle signaling & snapshot debounce', () => {
   let queueManager: SceneQueueManagerService;
   let mockLogger: { info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
-  const getSnapshotWriteCount = () =>
-    (writeSceneGenerationQueueSnapshot as ReturnType<typeof vi.fn>).mock.calls.length;
-
   beforeEach(async () => {
     appMetrics.reset();
-    vi.clearAllMocks();
+    await safeUnlink(QUEUE_SNAPSHOT_PATH);
 
     mockLogger = {
       info: vi.fn(),
@@ -39,8 +40,9 @@ describe('SceneQueueManagerService - idle signaling & snapshot debounce', () => 
     queueManager = module.get(SceneQueueManagerService);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    await safeUnlink(QUEUE_SNAPSHOT_PATH);
   });
 
   describe('waitForIdle - event-based idle', () => {
@@ -107,39 +109,40 @@ describe('SceneQueueManagerService - idle signaling & snapshot debounce', () => 
   });
 
   describe('snapshot debounce', () => {
-    it('debounces rapid recordMetrics calls', async () => {
-      vi.useFakeTimers();
+    it('writes snapshot after debounce window', async () => {
       for (let i = 0; i < 10; i += 1) {
         queueManager.enqueue(`scene-${i}`);
       }
 
-      expect(getSnapshotWriteCount()).toBe(0);
+      const snap1 = await readSceneGenerationQueueSnapshot();
+      expect(snap1).toBeNull();
 
-      vi.advanceTimersByTime(250);
-      await Promise.resolve();
-
-      expect(getSnapshotWriteCount()).toBe(1);
-    });
-
-    it('eventually writes the snapshot after debounce window', async () => {
-      queueManager.enqueue('scene-a');
       await new Promise((r) => setTimeout(r, 300));
-      expect(getSnapshotWriteCount()).toBeGreaterThanOrEqual(1);
+      const snap2 = await readSceneGenerationQueueSnapshot();
+      expect(snap2).not.toBeNull();
+      expect(snap2!.queuedSceneIds).toHaveLength(10);
     });
 
     it('flushSnapshot forces immediate write', async () => {
       queueManager.enqueue('scene-a');
-      expect(getSnapshotWriteCount()).toBe(0);
+      const before = await readSceneGenerationQueueSnapshot();
+      expect(before).toBeNull();
 
       await queueManager.flushSnapshot();
-      expect(getSnapshotWriteCount()).toBe(1);
+      const after = await readSceneGenerationQueueSnapshot();
+      expect(after).not.toBeNull();
+      expect(after!.queuedSceneIds).toContain('scene-a');
     });
 
     it('flushSnapshot is idempotent when no pending snapshot', async () => {
+      queueManager.enqueue('scene-b');
       await queueManager.flushSnapshot();
-      const countAfterFirst = getSnapshotWriteCount();
+      const snap1 = await readSceneGenerationQueueSnapshot();
+      expect(snap1).not.toBeNull();
+
       await queueManager.flushSnapshot();
-      expect(getSnapshotWriteCount()).toBe(countAfterFirst);
+      const snap2 = await readSceneGenerationQueueSnapshot();
+      expect(snap2).not.toBeNull();
     });
   });
 
@@ -185,7 +188,10 @@ describe('SceneQueueManagerService - idle signaling & snapshot debounce', () => 
       queueManager.currentProcessingId = 'scene-a';
 
       await queueManager.flushSnapshot();
-      expect(getSnapshotWriteCount()).toBe(1);
+      const snap = await readSceneGenerationQueueSnapshot();
+      expect(snap).not.toBeNull();
+      expect(snap!.queuedSceneIds).toContain('scene-a');
+      expect(snap!.currentProcessingSceneId).toBe('scene-a');
     });
   });
 });

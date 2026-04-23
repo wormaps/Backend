@@ -72,6 +72,26 @@ export function getSceneGenerationQueuePath(): string {
   return join(getSceneDataDir(), 'generation-queue.json');
 }
 
+export function getSceneRecentFailuresPath(): string {
+  return join(getSceneDataDir(), 'recent-failures.json');
+}
+
+export function getProviderHealthSnapshotPath(): string {
+  return join(getSceneDataDir(), 'provider-health.json');
+}
+
+export interface SceneRecentFailuresSnapshot {
+  failures: Array<{
+    sceneId: string;
+    attempts: number;
+    status: 'FAILED';
+    failureCategory: string;
+    failureReason: string;
+    updatedAt: string;
+  }>;
+  updatedAt: string;
+}
+
 export interface SceneGenerationQueueSnapshot {
   ownerId: string;
   updatedAt: string;
@@ -80,6 +100,18 @@ export interface SceneGenerationQueueSnapshot {
   currentProcessingSceneId: string | null;
   queuedSceneIds: string[];
   queueDepth: number;
+}
+
+export interface ProviderHealthSnapshotFile {
+  providers: Array<{
+    provider: string;
+    state: 'healthy' | 'degraded' | 'open';
+    consecutiveFailures: number;
+    lastFailureAt: string | null;
+    totalRequests: number;
+    totalFailures: number;
+  }>;
+  trackedAt: string;
 }
 
 export async function appendSceneDiagnosticsLog(
@@ -120,6 +152,47 @@ export async function writeSceneGenerationQueueSnapshot(
     getSceneGenerationQueuePath(),
     JSON.stringify(snapshot, null, 2),
     'utf8',
+  );
+}
+
+export async function writeSceneRecentFailuresSnapshot(
+  snapshot: SceneRecentFailuresSnapshot,
+): Promise<void> {
+  await writeFileAtomically(
+    getSceneRecentFailuresPath(),
+    JSON.stringify(snapshot, null, 2),
+    'utf8',
+  );
+}
+
+export async function readSceneRecentFailuresSnapshot(): Promise<SceneRecentFailuresSnapshot | null> {
+  return readSceneJsonFile<SceneRecentFailuresSnapshot>(
+    getSceneRecentFailuresPath(),
+    'recent-failures',
+  );
+}
+
+export async function readSceneGenerationQueueSnapshot(): Promise<SceneGenerationQueueSnapshot | null> {
+  return readSceneJsonFile<SceneGenerationQueueSnapshot>(
+    getSceneGenerationQueuePath(),
+    'generation-queue',
+  );
+}
+
+export async function writeProviderHealthSnapshot(
+  snapshot: ProviderHealthSnapshotFile,
+): Promise<void> {
+  await writeFileAtomically(
+    getProviderHealthSnapshotPath(),
+    JSON.stringify(snapshot, null, 2),
+    'utf8',
+  );
+}
+
+export async function readProviderHealthSnapshot(): Promise<ProviderHealthSnapshotFile | null> {
+  return readSceneJsonFile<ProviderHealthSnapshotFile>(
+    getProviderHealthSnapshotPath(),
+    'provider-health',
   );
 }
 

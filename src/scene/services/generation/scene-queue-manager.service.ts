@@ -4,9 +4,12 @@ import { AppLoggerService } from '../../../common/logging/app-logger.service';
 import { appMetrics } from '../../../common/metrics/metrics.instance';
 import {
   getSceneGenerationQueuePath,
+  readSceneGenerationQueueSnapshot,
+  readSceneRecentFailuresSnapshot,
   releaseSceneGenerationLock,
   tryAcquireSceneGenerationLock,
   writeSceneGenerationQueueSnapshot,
+  writeSceneRecentFailuresSnapshot,
 } from '../../storage/scene-storage.utils';
 import type { SceneFailureCategory } from '../../types/scene.types';
 import type { FailureEntry, QueueDebugSnapshot } from './scene-queue-manager.types';
@@ -25,6 +28,8 @@ export class SceneQueueManagerService {
   private currentProcessingSceneId: string | null = null;
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingSnapshot = false;
+  private failureSnapshotTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingFailureSnapshot = false;
 
   constructor(private readonly appLoggerService: AppLoggerService) {}
 
@@ -145,6 +150,14 @@ export class SceneQueueManagerService {
       this.pendingSnapshot = false;
       await this.persistQueueSnapshot();
     }
+    if (this.failureSnapshotTimer !== null) {
+      clearTimeout(this.failureSnapshotTimer);
+      this.failureSnapshotTimer = null;
+    }
+    if (this.pendingFailureSnapshot) {
+      this.pendingFailureSnapshot = false;
+      await this.persistFailuresSnapshot();
+    }
   }
 
   private schedulePersistSnapshot(): void {
@@ -193,6 +206,7 @@ export class SceneQueueManagerService {
       { failureCategory: entry.failureCategory },
       'Total recorded scene failures by category.',
     );
+    this.schedulePersistFailures();
   }
 
   private async persistQueueSnapshot(): Promise<void> {
@@ -212,6 +226,76 @@ export class SceneQueueManagerService {
         sceneGenerationQueuePath: getSceneGenerationQueuePath(),
         error,
       });
+    }
+  }
+
+  private schedulePersistFailures(): void {
+    this.pendingFailureSnapshot = true;
+    if (this.failureSnapshotTimer !== null) {
+      return;
+    }
+    this.failureSnapshotTimer = setTimeout(() => {
+      this.failureSnapshotTimer = null;
+      this.pendingFailureSnapshot = false;
+      void this.persistFailuresSnapshot();
+    }, SNAPSHOT_DEBOUNCE_MS);
+  }
+
+  private async persistFailuresSnapshot(): Promise<void> {
+    try {
+      await writeSceneRecentFailuresSnapshot({
+        failures: this.recentFailures,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.appLoggerService.warn('scene.failures.snapshot_failed', {
+        error,
+      });
+    }
+  }
+
+  /**
+   * Restore queue and failure state from persisted snapshots.
+   * Called once during application bootstrap to rehydrate runtime state
+   * after a restart. Only re-queues scenes that are still PENDING on disk.
+   */
+  async restoreFromSnapshot(
+    findPendingSceneIds: (sceneIds: string[]) => Promise<string[]>,
+  ): Promise<void> {
+    try {
+      const queueSnapshot = await readSceneGenerationQueueSnapshot();
+      if (queueSnapshot) {
+        const stillPending = await findPendingSceneIds(queueSnapshot.queuedSceneIds);
+        for (const sceneId of stillPending) {
+          if (!this.queuedSceneIds.has(sceneId)) {
+            this.queuedSceneIds.add(sceneId);
+            this.generationQueue.push(sceneId);
+          }
+        }
+        this.appLoggerService.info('scene.queue.restored', {
+          queuedCount: stillPending.length,
+          totalInSnapshot: queueSnapshot.queuedSceneIds.length,
+        });
+      }
+    } catch (error) {
+      this.appLoggerService.warn('scene.queue.restore_failed', { error });
+    }
+
+    try {
+      const failuresSnapshot = await readSceneRecentFailuresSnapshot();
+      if (failuresSnapshot?.failures) {
+        for (const entry of failuresSnapshot.failures) {
+          this.recentFailures.push(entry as FailureEntry);
+        }
+        if (this.recentFailures.length > 20) {
+          this.recentFailures.length = 20;
+        }
+        this.appLoggerService.info('scene.failures.restored', {
+          restoredCount: failuresSnapshot.failures.length,
+        });
+      }
+    } catch (error) {
+      this.appLoggerService.warn('scene.failures.restore_failed', { error });
     }
   }
 }

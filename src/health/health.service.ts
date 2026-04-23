@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   circuitBreakerRegistry,
   type CircuitBreakerStats,
 } from '../common/http/circuit-breaker';
+import {
+  readProviderHealthSnapshot,
+  writeProviderHealthSnapshot,
+} from '../scene/storage/scene-storage.utils';
 
 interface LivenessResult {
   status: 'ok';
@@ -97,8 +101,12 @@ interface ReadinessResult {
 const REQUIRED_DEPS = ['googlePlaces', 'overpass'] as const;
 
 @Injectable()
-export class HealthService {
+export class HealthService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.restoreProviderHealthSnapshot();
+  }
 
   checkLiveness(): LivenessResult {
     return {
@@ -142,6 +150,45 @@ export class HealthService {
       providers: snapshotProviderHealth(),
       trackedAt: new Date().toISOString(),
     };
+  }
+
+  async persistProviderHealthSnapshot(): Promise<void> {
+    const snapshot = this.getProviderHealthSnapshot();
+    const breakers = (circuitBreakerRegistry as unknown as CircuitBreakerRegistryLike).breakers;
+
+    const enrichedProviders = snapshot.providers.map((entry) => {
+      const breaker = breakers?.get(entry.provider);
+      const stats = breaker?.getStats();
+      return {
+        provider: entry.provider,
+        state: entry.state,
+        consecutiveFailures: entry.failureCount,
+        lastFailureAt: entry.lastTransitionAt,
+        totalRequests: stats?.totalRequests ?? 0,
+        totalFailures: stats?.totalFailures ?? 0,
+      };
+    });
+
+    await writeProviderHealthSnapshot({
+      providers: enrichedProviders,
+      trackedAt: snapshot.trackedAt,
+    });
+  }
+
+  async restoreProviderHealthSnapshot(): Promise<void> {
+    try {
+      const snapshot = await readProviderHealthSnapshot();
+      if (!snapshot || snapshot.providers.length === 0) {
+        return;
+      }
+
+      circuitBreakerRegistry.restoreFromSnapshot({
+        providers: snapshot.providers,
+        trackedAt: snapshot.trackedAt,
+      });
+    } catch {
+      // restore is best-effort; missing or corrupt file should not block startup
+    }
   }
 
   private async checkGooglePlaces(): Promise<boolean> {

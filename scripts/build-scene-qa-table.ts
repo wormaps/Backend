@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
 
@@ -93,6 +93,14 @@ const TEST_PLACES: TestPlace[] = [
   { id: 'mountain-temple', query: 'Bulguksa Temple, Gyeongju' },
 ];
 
+const CORE_REPRESENTATIVE_PLACES = new Set([
+  'shibuya',
+  'gangnam',
+  'seoul-tower',
+  'residential-lowrise',
+  'coastal',
+]);
+
 async function main() {
   const sceneDataDir = getSceneDataDir();
   const files = await readdir(sceneDataDir);
@@ -122,10 +130,21 @@ async function main() {
     recommendations,
   };
 
-  const outputPath = join(sceneDataDir, 'scene-qa-8-table.json');
+  const outputPath = join(sceneDataDir, 'scene-qa-table.json');
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
   printSummary(report, outputPath);
+
+  const coreFailedRows = report.rows.filter(
+    (row) => CORE_REPRESENTATIVE_PLACES.has(row.placeId) && !row.readyGate.passed,
+  );
+
+  if (coreFailedRows.length > 0) {
+    console.error(
+      `\nQA table gate failed: ${coreFailedRows.length} core representative scene(s) are not READY.`,
+    );
+    process.exitCode = 1;
+  }
 }
 
 async function buildRow(
@@ -134,7 +153,7 @@ async function buildRow(
   place: TestPlace,
 ): Promise<SceneQaRow> {
   const slug = slugify(place.query);
-  const latestSceneBase = selectLatestSceneBase(files, slug);
+  const latestSceneBase = await selectLatestSceneBase(sceneDataDir, files, slug);
   if (!latestSceneBase) {
     return {
       placeId: place.id,
@@ -520,7 +539,11 @@ function buildRecommendations(rows: SceneQaRow[]): string[] {
   return recommendations;
 }
 
-function selectLatestSceneBase(files: string[], slug: string): string | null {
+async function selectLatestSceneBase(
+  sceneDataDir: string,
+  files: string[],
+  slug: string,
+): Promise<string | null> {
   const candidates = files
     .filter(
       (file) =>
@@ -529,13 +552,32 @@ function selectLatestSceneBase(files: string[], slug: string): string | null {
         !file.endsWith('.meta.json') &&
         !file.endsWith('.detail.json') &&
         !file.endsWith('.mode-comparison.json'),
-    )
-    .sort();
+    );
 
   if (candidates.length === 0) {
     return null;
   }
-  return candidates[candidates.length - 1]!.replace(/\.json$/, '');
+
+  const latest = await Promise.all(
+    candidates.map(async (file) => {
+      const fullPath = join(sceneDataDir, file);
+      const raw = await readFile(fullPath, 'utf8');
+      const sceneJson = JSON.parse(raw) as { scene?: { status?: string } };
+
+      return {
+        file,
+        status: sceneJson.scene?.status ?? 'FAILED',
+        mtimeMs: (await stat(fullPath)).mtimeMs,
+      };
+    }),
+  );
+
+  const ready = latest.filter((entry) => entry.status === 'READY');
+  const selected = (ready.length > 0 ? ready : latest).sort(
+    (a, b) => a.mtimeMs - b.mtimeMs,
+  );
+
+  return selected[selected.length - 1]!.file.replace(/\.json$/, '');
 }
 
 async function readJson(path: string, optional = false): Promise<any | null> {

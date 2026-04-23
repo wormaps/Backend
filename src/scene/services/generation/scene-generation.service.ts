@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { HttpStatus, Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ERROR_CODES } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/errors/app.exception';
@@ -14,7 +14,7 @@ import type {
 } from '../../types/scene.types';
 
 @Injectable()
-export class SceneGenerationService implements OnApplicationShutdown {
+export class SceneGenerationService implements OnModuleInit, OnApplicationShutdown {
   private readonly pendingCreateScenes = new Map<string, Promise<SceneEntity>>();
 
   constructor(
@@ -126,6 +126,19 @@ export class SceneGenerationService implements OnApplicationShutdown {
 
   async waitForIdle(): Promise<void> {
     await this.queueManager.waitForIdle();
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.queueManager.restoreFromSnapshot(async (sceneIds) => {
+      const pending: string[] = [];
+      for (const sceneId of sceneIds) {
+        const stored = await this.sceneRepository.findById(sceneId);
+        if (stored?.scene.status === 'PENDING') {
+          pending.push(sceneId);
+        }
+      }
+      return pending;
+    });
   }
 
   getQueueDebugSnapshot() {

@@ -50,7 +50,7 @@ bun run scene:qa-table
 - 벤치마크는 `bun run bench:scene` 으로 실행합니다.
 - phase 6 load fixture는 `SCENE_BENCH_PROFILE=phase6-load bun run bench:scene` 로 실행합니다.
 - 벤치마크 결과 JSON은 기본적으로 `data/benchmark/scene-benchmark-report.json`에 기록됩니다.
-- representative QA table은 `bun run scene:qa-table`로 재생성하며, 결과는 `data/scene/scene-qa-8-table.json`에 기록됩니다.
+- representative QA table은 `bun run scene:qa-table`로 재생성하며, 결과는 `data/scene/scene-qa-table.json`에 기록됩니다.
 - **Phase 7 규칙**: QA summary=FAIL인 scene은 READY가 될 수 없으며, 배포 대상에서 제외됩니다. (`test/phase1-qa-fail-blocks-ready.spec.ts`)
 - representative 8-scene QA table contract regression은 `test/phase7-representative-regression.spec.ts`에서 확인합니다.
 
