@@ -1,5 +1,6 @@
 import type { SourceProvider, SourceSnapshot } from '../../packages/contracts/source-snapshot';
 import type { SceneScope } from '../../packages/contracts/twin-scene-graph';
+import type { QaIssue, QaIssueCode, QaIssueSeverity } from '../../packages/contracts/qa';
 
 export const defaultScope: SceneScope = {
   center: { lat: 37.4979, lng: 127.0276 },
@@ -15,6 +16,7 @@ export function snapshot(
   id: string,
   provider: SourceProvider,
   status: SourceSnapshot['status'] = 'success',
+  issues: QaIssue[] = [],
 ): SourceSnapshot {
   return {
     id,
@@ -34,5 +36,23 @@ export function snapshot(
       retentionPolicy: provider === 'google_places' ? 'id_only' : 'cache_allowed',
       policyVersion: '1.0.0',
     },
+    issues,
+  };
+}
+
+export function fixtureIssue(
+  code: QaIssueCode,
+  severity: QaIssueSeverity = 'major',
+): QaIssue {
+  return {
+    code,
+    severity,
+    scope: code.startsWith('COMPLIANCE_')
+      ? 'provider'
+      : code.startsWith('GEOMETRY_') || code.startsWith('SPATIAL_') || code.startsWith('SCENE_')
+        ? 'scene'
+        : 'provider',
+    message: `Fixture issue: ${code}`,
+    action: severity === 'critical' ? 'fail_build' : 'warn_only',
   };
 }

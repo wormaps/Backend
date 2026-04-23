@@ -2,6 +2,8 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   isQaIssueCode,
+  isRegisteredQaIssueCode,
+  QA_ISSUE_CODES,
   QA_ISSUE_CODE_PREFIXES,
 } from '../../packages/contracts/qa';
 import {
@@ -14,9 +16,19 @@ describe('contract registries', () => {
   it('keeps QA issue codes namespace-based', () => {
     expect(QA_ISSUE_CODE_PREFIXES).toContain('PROVIDER_');
     expect(QA_ISSUE_CODE_PREFIXES).toContain('COMPLIANCE_');
+    expect(QA_ISSUE_CODE_PREFIXES).toContain('SCENE_');
     expect(isQaIssueCode('PROVIDER_SNAPSHOT_MISSING')).toBe(true);
     expect(isQaIssueCode('COMPLIANCE_PROVIDER_POLICY_RISK')).toBe(true);
     expect(isQaIssueCode('INVALID_POLYGON')).toBe(false);
+  });
+
+  it('keeps MVP QA issue codes registered explicitly', () => {
+    expect(QA_ISSUE_CODES).toContain('GEOMETRY_SELF_INTERSECTION');
+    expect(QA_ISSUE_CODES).toContain('SCENE_ROAD_BUILDING_OVERLAP');
+    expect(QA_ISSUE_CODES).toContain('SPATIAL_COORDINATE_OUTLIER');
+    expect(QA_ISSUE_CODES).toContain('COMPLIANCE_PROVIDER_POLICY_RISK');
+    expect(isRegisteredQaIssueCode('GEOMETRY_SELF_INTERSECTION')).toBe(true);
+    expect(isRegisteredQaIssueCode('GEOMETRY_UNKNOWN')).toBe(false);
   });
 
   it('includes operational build states needed for v2 clean slate', () => {
@@ -31,7 +43,7 @@ describe('contract registries', () => {
   it('versions every public artifact schema', () => {
     expect(SCHEMA_VERSION_SET_V1).toEqual({
       sourceSnapshotSchema: 'source-snapshot.v1',
-      normalizedEntitySchema: 'normalized-entity.v1',
+      normalizedEntitySchema: 'normalized-entity-bundle.v1',
       evidenceGraphSchema: 'evidence-graph.v1',
       twinSceneGraphSchema: 'twin-scene-graph.v1',
       renderIntentSchema: 'render-intent.v1',

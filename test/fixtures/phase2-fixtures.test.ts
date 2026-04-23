@@ -25,6 +25,7 @@ describe('phase 2 fixtures first', () => {
     expect(fixture.snapshots.every((snapshot) => snapshot.sceneId === fixture.sceneId)).toBe(true);
     expect(result.build.currentState()).toBe(fixture.expected.finalState);
     expect('evidenceGraph' in result).toBe(fixture.expected.artifacts.evidenceGraph);
+    expect('normalizedEntityBundle' in result).toBe(true);
     expect('twinSceneGraph' in result).toBe(fixture.expected.artifacts.twinSceneGraph);
     expect('renderIntentSet' in result).toBe(fixture.expected.artifacts.renderIntentSet);
     expect('meshPlan' in result).toBe(fixture.expected.artifacts.meshPlan);
@@ -47,6 +48,7 @@ describe('phase 2 fixtures first', () => {
     expect(fixture.snapshots.every((snapshot) => snapshot.sceneId === fixture.sceneId)).toBe(true);
     expect(result.build.currentState()).toBe(fixture.expected.finalState);
     expect('evidenceGraph' in result).toBe(fixture.expected.artifacts.evidenceGraph);
+    expect('normalizedEntityBundle' in result).toBe(fixture.expected.artifacts.evidenceGraph);
     expect('twinSceneGraph' in result).toBe(fixture.expected.artifacts.twinSceneGraph);
     expect('renderIntentSet' in result).toBe(fixture.expected.artifacts.renderIntentSet);
     expect('meshPlan' in result).toBe(fixture.expected.artifacts.meshPlan);

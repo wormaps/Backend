@@ -1,6 +1,7 @@
 import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
 import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
 import type { GlbCompilerService } from '../../glb/application/glb-compiler.service';
+import type { NormalizedEntityBuilderService } from '../../normalization/application/normalized-entity-builder.service';
 import type { SnapshotCollectorService } from '../../providers/application/snapshot-collector.service';
 import type { QaGateService } from '../../qa/application/qa-gate.service';
 import type { MeshPlanBuilderService } from '../../render/application/mesh-plan-builder.service';
@@ -21,6 +22,7 @@ export type SceneBuildMvpInput = {
 export class SceneBuildOrchestratorService {
   constructor(
     private readonly snapshotCollector: SnapshotCollectorService,
+    private readonly normalizedEntityBuilder: NormalizedEntityBuilderService,
     private readonly evidenceGraphBuilder: EvidenceGraphBuilderService,
     private readonly twinGraphBuilder: TwinGraphBuilderService,
     private readonly renderIntentResolver: RenderIntentResolverService,
@@ -55,16 +57,21 @@ export class SceneBuildOrchestratorService {
     }
 
     build.transitionTo('SNAPSHOT_COLLECTED');
-    build.transitionTo('GRAPH_BUILDING');
-    const evidenceGraph = this.evidenceGraphBuilder.build(
+    build.transitionTo('NORMALIZING');
+    const normalizedEntityBundle = this.normalizedEntityBuilder.build(
       input.sceneId,
       input.snapshotBundleId,
       collected.value.snapshots,
     );
+    build.transitionTo('NORMALIZED');
+
+    build.transitionTo('GRAPH_BUILDING');
+    const evidenceGraph = this.evidenceGraphBuilder.build(normalizedEntityBundle);
     const twinSceneGraph = this.twinGraphBuilder.build(
       input.sceneId,
       input.scope,
       evidenceGraph,
+      normalizedEntityBundle,
     );
     build.transitionTo('GRAPH_BUILT');
 
@@ -101,7 +108,7 @@ export class SceneBuildOrchestratorService {
         complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
       });
 
-      return { build, evidenceGraph, twinSceneGraph, renderIntentSet, meshPlan, qaResult, manifest };
+      return { build, normalizedEntityBundle, evidenceGraph, twinSceneGraph, renderIntentSet, meshPlan, qaResult, manifest };
     }
 
     build.transitionTo('COMPLETED');
@@ -117,6 +124,6 @@ export class SceneBuildOrchestratorService {
       complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
     });
 
-    return { build, evidenceGraph, twinSceneGraph, renderIntentSet, meshPlan, qaResult, glbArtifact, manifest };
+    return { build, normalizedEntityBundle, evidenceGraph, twinSceneGraph, renderIntentSet, meshPlan, qaResult, glbArtifact, manifest };
   }
 }

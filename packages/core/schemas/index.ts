@@ -11,7 +11,7 @@ export type SchemaVersionSet = {
 
 export const SCHEMA_VERSION_SET_V1: SchemaVersionSet = {
   sourceSnapshotSchema: 'source-snapshot.v1',
-  normalizedEntitySchema: 'normalized-entity.v1',
+  normalizedEntitySchema: 'normalized-entity-bundle.v1',
   evidenceGraphSchema: 'evidence-graph.v1',
   twinSceneGraphSchema: 'twin-scene-graph.v1',
   renderIntentSchema: 'render-intent.v1',
@@ -19,4 +19,3 @@ export const SCHEMA_VERSION_SET_V1: SchemaVersionSet = {
   qaSchema: 'qa.v1',
   manifestSchema: 'manifest.v1',
 };
-

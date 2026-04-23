@@ -25,6 +25,7 @@
 - [Twin Scene Graph](../docs/03-contracts/twin-scene-graph.md)
 - [Render Intent Set](../docs/03-contracts/render-intent-set.md)
 - [Mesh Plan](../docs/03-contracts/mesh-plan.md)
+- [Normalized Entity](../docs/03-contracts/normalized-entity.md)
 - [Build Manifest](../docs/03-contracts/build-manifest.md)
 - [QA Issue Registry](../docs/03-contracts/qa-issue-registry.md)
 

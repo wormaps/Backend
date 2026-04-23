@@ -1,9 +1,15 @@
 import type { EvidenceGraph } from '../../../packages/contracts/evidence-graph';
+import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
 import type { TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
 import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
 
 export class TwinGraphBuilderService {
-  build(sceneId: string, scope: SceneScope, evidenceGraph: EvidenceGraph): TwinSceneGraph {
+  build(
+    sceneId: string,
+    scope: SceneScope,
+    evidenceGraph: EvidenceGraph,
+    normalizedBundle: NormalizedEntityBundle,
+  ): TwinSceneGraph {
     return {
       sceneId,
       scope,
@@ -24,7 +30,7 @@ export class TwinGraphBuilderService {
         defaultedRatio: 1,
         coreEntityCount: 0,
         contextEntityCount: 0,
-        qualityIssues: [],
+        qualityIssues: normalizedBundle.issues,
       },
     };
   }

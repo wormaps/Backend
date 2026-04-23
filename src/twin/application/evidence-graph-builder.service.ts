@@ -1,25 +1,26 @@
 import type { EvidenceGraph } from '../../../packages/contracts/evidence-graph';
-import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
+import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
 
 export class EvidenceGraphBuilderService {
-  build(sceneId: string, snapshotBundleId: string, snapshots: SourceSnapshot[]): EvidenceGraph {
+  build(normalizedBundle: NormalizedEntityBundle): EvidenceGraph {
     return {
-      id: `evidence:${sceneId}:${snapshotBundleId}`,
-      sceneId,
-      snapshotBundleId,
-      nodes: snapshots.map((snapshot) => ({
-        id: `evidence:${snapshot.id}`,
-        sourceEntityRef: {
-          provider: snapshot.provider,
-          sourceId: snapshot.id,
-          sourceSnapshotId: snapshot.id,
-        },
-        provenance: snapshot.status === 'success' ? 'observed' : 'defaulted',
-        confidence: snapshot.status === 'success' ? 1 : 0,
-        reasonCodes: snapshot.status === 'success' ? ['SNAPSHOT_AVAILABLE'] : ['SNAPSHOT_NOT_SUCCESSFUL'],
-        valueHash: snapshot.responseHash,
+      id: `evidence:${normalizedBundle.sceneId}:${normalizedBundle.snapshotBundleId}`,
+      sceneId: normalizedBundle.sceneId,
+      snapshotBundleId: normalizedBundle.snapshotBundleId,
+      nodes: normalizedBundle.entities.map((entity) => ({
+        id: `evidence:${entity.id}`,
+        entityId: entity.id,
+        sourceEntityRef: entity.sourceEntityRefs[0],
+        provenance: entity.issues.length === 0 ? 'observed' : 'defaulted',
+        confidence: entity.issues.length === 0 ? 1 : 0.25,
+        reasonCodes: entity.issues.length === 0 ? ['NORMALIZED_ENTITY_AVAILABLE'] : ['NORMALIZED_ENTITY_HAS_ISSUES'],
       })),
-      edges: [],
+      edges: normalizedBundle.issues.map((issue, index) => ({
+        from: `normalized:${index}`,
+        to: `issue:${issue.code}`,
+        relation: 'supports',
+        reasonCodes: [issue.code],
+      })),
       generatedAt: new Date(0).toISOString(),
       evidencePolicyVersion: 'evidence-policy.v1',
     };

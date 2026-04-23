@@ -1,5 +1,6 @@
 import { SceneBuildOrchestratorService } from './application/scene-build-orchestrator.service';
 import type { GlbCompilerService } from '../glb/application/glb-compiler.service';
+import type { NormalizedEntityBuilderService } from '../normalization/application/normalized-entity-builder.service';
 import type { SnapshotCollectorService } from '../providers/application/snapshot-collector.service';
 import type { QaGateService } from '../qa/application/qa-gate.service';
 import type { MeshPlanBuilderService } from '../render/application/mesh-plan-builder.service';
@@ -10,6 +11,7 @@ import { BuildManifestFactory } from './application/build-manifest.factory';
 
 export type BuildModuleDependencies = {
   snapshotCollector: SnapshotCollectorService;
+  normalizedEntityBuilder: NormalizedEntityBuilderService;
   evidenceGraphBuilder: EvidenceGraphBuilderService;
   twinGraphBuilder: TwinGraphBuilderService;
   renderIntentResolver: RenderIntentResolverService;
@@ -24,6 +26,7 @@ export function createBuildModule(dependencies: BuildModuleDependencies) {
     services: {
       sceneBuildOrchestrator: new SceneBuildOrchestratorService(
         dependencies.snapshotCollector,
+        dependencies.normalizedEntityBuilder,
         dependencies.evidenceGraphBuilder,
         dependencies.twinGraphBuilder,
         dependencies.renderIntentResolver,
