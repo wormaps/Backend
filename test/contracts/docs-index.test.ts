@@ -3,12 +3,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
 
 const docsRoot = join(import.meta.dir, '../../docs');
+const wikiRoot = join(import.meta.dir, '../../wiki');
 
-describe('docs wiki index', () => {
+describe('wiki index', () => {
   it('links only to existing markdown documents', () => {
-    const indexPath = join(docsRoot, '00-wiki-index.md');
+    const indexPath = join(wikiRoot, 'Home.md');
     const index = readFileSync(indexPath, 'utf8');
-    const links = [...index.matchAll(/\]\((\.\/[^)]+\.md)\)/g)]
+    const links = [...index.matchAll(/\]\(((?:\.\.?\/)[^)]+\.md)\)/g)]
       .map((match) => match[1])
       .filter((link): link is string => typeof link === 'string');
 
