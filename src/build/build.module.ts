@@ -6,6 +6,7 @@ import type { MeshPlanBuilderService } from '../render/application/mesh-plan-bui
 import type { RenderIntentResolverService } from '../render/application/render-intent-resolver.service';
 import type { EvidenceGraphBuilderService } from '../twin/application/evidence-graph-builder.service';
 import type { TwinGraphBuilderService } from '../twin/application/twin-graph-builder.service';
+import { BuildManifestFactory } from './application/build-manifest.factory';
 
 export type BuildModuleDependencies = {
   snapshotCollector: SnapshotCollectorService;
@@ -29,6 +30,7 @@ export function createBuildModule(dependencies: BuildModuleDependencies) {
         dependencies.meshPlanBuilder,
         dependencies.qaGate,
         dependencies.glbCompiler,
+        new BuildManifestFactory(),
       ),
     },
   } as const;

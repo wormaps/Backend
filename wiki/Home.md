@@ -56,3 +56,4 @@
 - [Repo Structure](../docs/07-implementation/repo-structure.md)
 - [Coding Standards](../docs/07-implementation/coding-standards.md)
 - [Src DDD MVP Skeleton](./src-ddd-mvp.md)
+- [Phase 2 Fixtures First](./phase2-fixtures-first.md)
