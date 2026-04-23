@@ -49,6 +49,9 @@ export class NormalizedEntityBuilderService {
         if (this.hasHint(snapshot, 'extreme-terrain-slope')) {
           return 'terrain';
         }
+        if (this.hasHint(snapshot, 'terrain')) {
+          return 'terrain';
+        }
         if (this.hasHint(snapshot, 'road')) {
           return 'road';
         }
@@ -71,7 +74,7 @@ export class NormalizedEntityBuilderService {
     const payloadRef = snapshot.payloadRef ?? '';
 
     if (payloadRef.includes('duplicate-footprint')) {
-      return [this.issue('SCENE_DUPLICATED_FOOTPRINT', 'major', 'warn_only')];
+      return [this.issue('SCENE_DUPLICATED_FOOTPRINT', 'major', 'strip_detail')];
     }
 
     if (payloadRef.includes('self-intersection')) {
@@ -83,15 +86,15 @@ export class NormalizedEntityBuilderService {
     }
 
     if (payloadRef.includes('coordinate-outlier')) {
-      return [this.issue('SPATIAL_COORDINATE_OUTLIER', 'major', 'warn_only')];
+      return [this.issue('SPATIAL_COORDINATE_OUTLIER', 'major', 'downgrade_tier')];
     }
 
     if (payloadRef.includes('extreme-terrain-slope')) {
-      return [this.issue('SPATIAL_EXTREME_TERRAIN_SLOPE', 'major', 'warn_only')];
+      return [this.issue('SPATIAL_EXTREME_TERRAIN_SLOPE', 'major', 'downgrade_tier')];
     }
 
     if (payloadRef.includes('provider-policy-risk')) {
-      return [this.issue('COMPLIANCE_PROVIDER_POLICY_RISK', 'major', 'warn_only', 'provider')];
+      return [this.issue('COMPLIANCE_PROVIDER_POLICY_RISK', 'major', 'downgrade_tier', 'provider')];
     }
 
     return [];

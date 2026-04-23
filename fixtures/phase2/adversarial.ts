@@ -28,7 +28,11 @@ export const adversarialFixtures: Phase2Fixture[] = [
         PROVIDER_SNAPSHOT_FAILED: 1,
       },
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      initialRealityTier: 'PLACEHOLDER_SCENE',
+      provisionalRealityTier: 'PLACEHOLDER_SCENE',
+      finalRealityTier: 'PLACEHOLDER_SCENE',
+      meshPrimitiveDistribution: {},
+      materialRoleDistribution: {},
       artifacts: snapshotPartialArtifacts,
     },
   },
@@ -63,7 +67,20 @@ export const adversarialFixtures: Phase2Fixture[] = [
       relationshipDistribution: {
         duplicates: 1,
       },
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        placeholder: 1,
+        massing: 1,
+      },
+      meshPrimitiveDistribution: {
+        building_massing: 2,
+      },
+      materialRoleDistribution: {
+        debug: 1,
+        building: 1,
+      },
+      initialRealityTier: 'PROCEDURAL_MODEL',
+      provisionalRealityTier: 'PROCEDURAL_MODEL',
+      finalRealityTier: 'PROCEDURAL_MODEL',
       artifacts: {
         evidenceGraph: true,
         twinSceneGraph: true,
@@ -96,7 +113,14 @@ export const adversarialFixtures: Phase2Fixture[] = [
         GEOMETRY_SELF_INTERSECTION: 1,
       },
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        excluded: 1,
+      },
+      meshPrimitiveDistribution: {},
+      materialRoleDistribution: {},
+      initialRealityTier: 'PLACEHOLDER_SCENE',
+      provisionalRealityTier: 'PLACEHOLDER_SCENE',
+      finalRealityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
         twinSceneGraph: true,
@@ -138,7 +162,19 @@ export const adversarialFixtures: Phase2Fixture[] = [
       relationshipDistribution: {
         conflicts: 1,
       },
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        placeholder: 2,
+      },
+      meshPrimitiveDistribution: {
+        road: 1,
+        building_massing: 1,
+      },
+      materialRoleDistribution: {
+        debug: 1,
+      },
+      initialRealityTier: 'PLACEHOLDER_SCENE',
+      provisionalRealityTier: 'PLACEHOLDER_SCENE',
+      finalRealityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
         twinSceneGraph: true,
@@ -171,7 +207,18 @@ export const adversarialFixtures: Phase2Fixture[] = [
         SPATIAL_COORDINATE_OUTLIER: 1,
       },
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        placeholder: 1,
+      },
+      meshPrimitiveDistribution: {
+        poi_marker: 1,
+      },
+      materialRoleDistribution: {
+        debug: 1,
+      },
+      initialRealityTier: 'PLACEHOLDER_SCENE',
+      provisionalRealityTier: 'PLACEHOLDER_SCENE',
+      finalRealityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
         twinSceneGraph: true,
@@ -204,7 +251,18 @@ export const adversarialFixtures: Phase2Fixture[] = [
         SPATIAL_EXTREME_TERRAIN_SLOPE: 1,
       },
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        placeholder: 1,
+      },
+      meshPrimitiveDistribution: {
+        terrain: 1,
+      },
+      materialRoleDistribution: {
+        debug: 1,
+      },
+      initialRealityTier: 'PLACEHOLDER_SCENE',
+      provisionalRealityTier: 'PLACEHOLDER_SCENE',
+      finalRealityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
         twinSceneGraph: true,
@@ -237,7 +295,18 @@ export const adversarialFixtures: Phase2Fixture[] = [
         COMPLIANCE_PROVIDER_POLICY_RISK: 1,
       },
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        placeholder: 1,
+      },
+      meshPrimitiveDistribution: {
+        poi_marker: 1,
+      },
+      materialRoleDistribution: {
+        debug: 1,
+      },
+      initialRealityTier: 'PLACEHOLDER_SCENE',
+      provisionalRealityTier: 'PLACEHOLDER_SCENE',
+      finalRealityTier: 'PLACEHOLDER_SCENE',
       artifacts: {
         evidenceGraph: true,
         twinSceneGraph: true,

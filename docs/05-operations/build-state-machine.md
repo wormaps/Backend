@@ -26,3 +26,9 @@
 ## Active Artifact
 
 `COMPLETED` 상태의 최신 successful build만 active가 될 수 있다.
+
+## Note
+
+- `QA_RUNNING`은 preflight gate로도 사용될 수 있다.
+- current MVP에서는 `MESH_PLANNED -> QA_RUNNING -> GLB_BUILDING` 경로를 허용한다.
+- critical issue가 있으면 GLB compile 전에 `QUARANTINED`로 종료할 수 있다.

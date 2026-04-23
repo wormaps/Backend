@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 
 import { baselineFixtures, adversarialFixtures } from '../../fixtures/phase2';
+import type { RenderIntent } from '../../packages/contracts/render-intent';
+import type { MaterialPlan, MeshPlanNode } from '../../packages/contracts/mesh-plan';
 import { createWorMapMvpApp } from '../../src/main';
 import type { QaIssue } from '../../packages/contracts/qa';
 import type { SceneRelationship } from '../../packages/contracts/twin-scene-graph';
@@ -21,6 +23,27 @@ function expectedDistribution(distribution: Record<string, number | undefined>) 
 function relationshipDistribution(relationships: SceneRelationship[]) {
   return relationships.reduce<Record<string, number>>((distribution, relationship) => {
     distribution[relationship.relation] = (distribution[relationship.relation] ?? 0) + 1;
+    return distribution;
+  }, {});
+}
+
+function visualModeDistribution(intents: RenderIntent[]) {
+  return intents.reduce<Record<string, number>>((distribution, intent) => {
+    distribution[intent.visualMode] = (distribution[intent.visualMode] ?? 0) + 1;
+    return distribution;
+  }, {});
+}
+
+function primitiveDistribution(nodes: MeshPlanNode[]) {
+  return nodes.reduce<Record<string, number>>((distribution, node) => {
+    distribution[node.primitive] = (distribution[node.primitive] ?? 0) + 1;
+    return distribution;
+  }, {});
+}
+
+function materialRoleDistribution(materials: MaterialPlan[]) {
+  return materials.reduce<Record<string, number>>((distribution, material) => {
+    distribution[material.role] = (distribution[material.role] ?? 0) + 1;
     return distribution;
   }, {});
 }
@@ -52,11 +75,33 @@ describe('phase 2 fixtures first', () => {
       throw new Error('Expected twin scene graph artifact.');
     }
 
+    if (!('renderIntentSet' in result) || result.renderIntentSet === undefined) {
+      throw new Error('Expected render intent set artifact.');
+    }
+
     expect(result.normalizedEntityBundle.entities.length).toBe(fixture.snapshots.filter((snapshot) => snapshot.status !== 'failed').length);
     expect(result.twinSceneGraph.entities.length).toBe(result.normalizedEntityBundle.entities.length);
     expect(relationshipDistribution(result.twinSceneGraph.relationships)).toEqual(
       expectedDistribution(fixture.expected.relationshipDistribution),
     );
+    expect(visualModeDistribution(result.renderIntentSet.intents)).toEqual(
+      expectedDistribution(fixture.expected.visualModeDistribution ?? {}),
+    );
+    expect(primitiveDistribution(result.meshPlan.nodes)).toEqual(
+      expectedDistribution(fixture.expected.meshPrimitiveDistribution ?? {}),
+    );
+    expect(materialRoleDistribution(result.meshPlan.materials)).toEqual(
+      expectedDistribution(fixture.expected.materialRoleDistribution ?? {}),
+    );
+    if (fixture.expected.initialRealityTier !== undefined) {
+      expect(result.twinSceneGraph.metadata.initialRealityTierCandidate).toBe(fixture.expected.initialRealityTier);
+    }
+    if (fixture.expected.provisionalRealityTier !== undefined) {
+      expect(result.renderIntentSet.tier.provisional).toBe(fixture.expected.provisionalRealityTier);
+    }
+    if (fixture.expected.finalRealityTier !== undefined) {
+      expect(result.qaResult.finalTier).toBe(fixture.expected.finalRealityTier);
+    }
 
     expect(issueDistribution(result.qaResult.issues)).toEqual(
       expectedDistribution(fixture.expected.qaIssueDistribution),
@@ -96,6 +141,29 @@ describe('phase 2 fixtures first', () => {
       expect(relationshipDistribution(result.twinSceneGraph.relationships)).toEqual(
         expectedDistribution(fixture.expected.relationshipDistribution),
       );
+      if (fixture.expected.initialRealityTier !== undefined) {
+        expect(result.twinSceneGraph.metadata.initialRealityTierCandidate).toBe(fixture.expected.initialRealityTier);
+      }
+    }
+
+    if ('renderIntentSet' in result && result.renderIntentSet !== undefined) {
+      expect(visualModeDistribution(result.renderIntentSet.intents)).toEqual(
+        expectedDistribution(fixture.expected.visualModeDistribution ?? {}),
+      );
+      if (fixture.expected.provisionalRealityTier !== undefined) {
+        expect(result.renderIntentSet.tier.provisional).toBe(fixture.expected.provisionalRealityTier);
+      }
+    }
+    if ('meshPlan' in result && result.meshPlan !== undefined) {
+      expect(primitiveDistribution(result.meshPlan.nodes)).toEqual(
+        expectedDistribution(fixture.expected.meshPrimitiveDistribution ?? {}),
+      );
+      expect(materialRoleDistribution(result.meshPlan.materials)).toEqual(
+        expectedDistribution(fixture.expected.materialRoleDistribution ?? {}),
+      );
+    }
+    if (fixture.expected.finalRealityTier !== undefined) {
+      expect(result.qaResult.finalTier).toBe(fixture.expected.finalRealityTier);
     }
 
     expect(issueDistribution(result.qaResult.issues)).toEqual(

@@ -1,7 +1,8 @@
 import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
 import type { QaIssue } from '../../../packages/contracts/qa';
-import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
-import type { TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
+import type { RenderIntent, RenderIntentSet } from '../../../packages/contracts/render-intent';
+import type { RealityTier, TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
+import type { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
 
 export type QaGateInput = {
   graph: TwinSceneGraph;
@@ -12,9 +13,15 @@ export type QaGateInput = {
 export type QaGateResult = {
   passed: boolean;
   issues: QaIssue[];
+  effectiveIntentSet: RenderIntentSet;
+  intentAdjusted: boolean;
+  finalTier: RealityTier;
+  finalTierReasonCodes: string[];
 };
 
 export class QaGateService {
+  constructor(private readonly realityTierResolver: RealityTierResolverService) {}
+
   evaluate(input: QaGateInput): QaGateResult {
     const issues = [
       ...input.graph.metadata.qualityIssues,
@@ -33,9 +40,53 @@ export class QaGateService {
       ),
     ];
 
+    const effectiveIntentSet = this.stripDetailIfNeeded(input.intentSet, issues);
+    const finalTier = this.realityTierResolver.resolveFinal(effectiveIntentSet.tier.provisional, issues);
+
     return {
       passed: issues.every((issue) => issue.severity !== 'critical'),
       issues,
+      effectiveIntentSet,
+      intentAdjusted: effectiveIntentSet !== input.intentSet,
+      finalTier: finalTier.tier,
+      finalTierReasonCodes: finalTier.reasonCodes,
+    };
+  }
+
+  private stripDetailIfNeeded(intentSet: RenderIntentSet, issues: QaIssue[]): RenderIntentSet {
+    const shouldStripDetail = issues.some((issue) => issue.action === 'strip_detail');
+    if (!shouldStripDetail) {
+      return intentSet;
+    }
+
+    let changed = false;
+    const intents: RenderIntent[] = intentSet.intents.map((intent) => {
+      if (intent.visualMode !== 'structural_detail' && intent.visualMode !== 'landmark_asset') {
+        return intent;
+      }
+
+      changed = true;
+      return {
+        ...intent,
+        visualMode: 'massing' as const,
+        allowedDetails: {
+          windows: false,
+          entrances: false,
+          roofEquipment: false,
+          facadeMaterial: false,
+          signage: false,
+        },
+        reasonCodes: [...intent.reasonCodes, 'QA_STRIP_DETAIL_APPLIED'],
+      };
+    });
+
+    if (!changed) {
+      return intentSet;
+    }
+
+    return {
+      ...intentSet,
+      intents,
     };
   }
 }

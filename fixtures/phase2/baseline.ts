@@ -26,7 +26,21 @@ export const baselineFixtures: Phase2Fixture[] = [
       finalState: 'COMPLETED',
       qaIssueDistribution: {},
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        placeholder: 1,
+        massing: 1,
+      },
+      meshPrimitiveDistribution: {
+        poi_marker: 1,
+        terrain: 1,
+      },
+      materialRoleDistribution: {
+        debug: 1,
+        terrain: 1,
+      },
+      initialRealityTier: 'STRUCTURAL_TWIN',
+      provisionalRealityTier: 'PROCEDURAL_MODEL',
+      finalRealityTier: 'PROCEDURAL_MODEL',
       artifacts: completedArtifacts,
     },
   },
@@ -47,7 +61,20 @@ export const baselineFixtures: Phase2Fixture[] = [
       relationshipDistribution: {
         matches_traffic_fragment: 1,
       },
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        massing: 1,
+        traffic_overlay: 1,
+      },
+      meshPrimitiveDistribution: {
+        road: 2,
+      },
+      materialRoleDistribution: {
+        road: 1,
+        debug: 1,
+      },
+      initialRealityTier: 'STRUCTURAL_TWIN',
+      provisionalRealityTier: 'PROCEDURAL_MODEL',
+      finalRealityTier: 'PROCEDURAL_MODEL',
       artifacts: completedArtifacts,
     },
   },
@@ -71,7 +98,18 @@ export const baselineFixtures: Phase2Fixture[] = [
       finalState: 'COMPLETED',
       qaIssueDistribution: {},
       relationshipDistribution: {},
-      realityTier: 'PLACEHOLDER_SCENE',
+      visualModeDistribution: {
+        massing: 1,
+      },
+      meshPrimitiveDistribution: {
+        terrain: 1,
+      },
+      materialRoleDistribution: {
+        terrain: 1,
+      },
+      initialRealityTier: 'STRUCTURAL_TWIN',
+      provisionalRealityTier: 'PROCEDURAL_MODEL',
+      finalRealityTier: 'PROCEDURAL_MODEL',
       artifacts: completedArtifacts,
     },
   },

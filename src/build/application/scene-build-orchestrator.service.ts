@@ -9,6 +9,7 @@ import type { RenderIntentResolverService } from '../../render/application/rende
 import type { EvidenceGraphBuilderService } from '../../twin/application/evidence-graph-builder.service';
 import type { TwinGraphBuilderService } from '../../twin/application/twin-graph-builder.service';
 import { BuildManifestFactory } from './build-manifest.factory';
+import type { SceneBuildRunResult } from './scene-build-run-result';
 import { SceneBuildAggregate } from '../domain/scene-build.aggregate';
 
 export type SceneBuildMvpInput = {
@@ -32,7 +33,7 @@ export class SceneBuildOrchestratorService {
     private readonly manifestFactory: BuildManifestFactory,
   ) {}
 
-  run(input: SceneBuildMvpInput) {
+  run(input: SceneBuildMvpInput): SceneBuildRunResult {
     const build = SceneBuildAggregate.request(input.sceneId, input.buildId);
     build.transitionTo('SNAPSHOT_COLLECTING');
 
@@ -41,6 +42,9 @@ export class SceneBuildOrchestratorService {
       const qaResult = {
         passed: false,
         issues: this.snapshotCollector.failedSnapshotIssues(input.snapshots),
+        finalTier: 'PLACEHOLDER_SCENE' as const,
+        finalTierReasonCodes: ['SNAPSHOT_COLLECTION_FAILED'],
+        intentAdjusted: false,
       };
       build.transitionTo(collected.error);
       const manifest = this.manifestFactory.create({
@@ -53,7 +57,14 @@ export class SceneBuildOrchestratorService {
         complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
       });
 
-      return { build, collected, qaResult, manifest };
+      return {
+        kind: 'snapshot_failure',
+        build,
+        state: collected.error,
+        collected,
+        qaResult,
+        manifest,
+      };
     }
 
     build.transitionTo('SNAPSHOT_COLLECTED');
@@ -80,19 +91,26 @@ export class SceneBuildOrchestratorService {
     build.transitionTo('RENDER_INTENT_RESOLVED');
 
     build.transitionTo('MESH_PLANNING');
-    const meshPlan = this.meshPlanBuilder.build(renderIntentSet);
+    let effectiveRenderIntentSet = renderIntentSet;
+    let meshPlan = this.meshPlanBuilder.build(twinSceneGraph, effectiveRenderIntentSet);
     build.transitionTo('MESH_PLANNED');
 
-    build.transitionTo('GLB_BUILDING');
-    const glbArtifact = this.glbCompiler.compile(meshPlan);
-    build.transitionTo('GLB_BUILT');
-
     build.transitionTo('QA_RUNNING');
-    const qaResult = this.qaGate.evaluate({
+    let qaResult = this.qaGate.evaluate({
       graph: twinSceneGraph,
-      intentSet: renderIntentSet,
+      intentSet: effectiveRenderIntentSet,
       meshPlan,
     });
+
+    if (qaResult.intentAdjusted) {
+      effectiveRenderIntentSet = qaResult.effectiveIntentSet;
+      meshPlan = this.meshPlanBuilder.build(twinSceneGraph, effectiveRenderIntentSet);
+      qaResult = this.qaGate.evaluate({
+        graph: twinSceneGraph,
+        intentSet: effectiveRenderIntentSet,
+        meshPlan,
+      });
+    }
 
     if (!qaResult.passed) {
       build.transitionTo('QUARANTINED');
@@ -103,14 +121,34 @@ export class SceneBuildOrchestratorService {
         scopeId: input.scope.focusPlaceId ?? input.sceneId,
         snapshotBundleId: input.snapshotBundleId,
         snapshots: collected.value.snapshots,
-        renderIntentSet,
+        renderIntentSet: effectiveRenderIntentSet,
         meshPlan,
         complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
       });
 
-      return { build, normalizedEntityBundle, evidenceGraph, twinSceneGraph, renderIntentSet, meshPlan, qaResult, manifest };
+      return {
+        kind: 'quarantined',
+        build,
+        state: 'QUARANTINED',
+        normalizedEntityBundle,
+        evidenceGraph,
+        twinSceneGraph,
+        renderIntentSet: effectiveRenderIntentSet,
+        meshPlan,
+        qaResult: {
+          passed: qaResult.passed,
+          issues: qaResult.issues,
+          finalTier: qaResult.finalTier,
+          finalTierReasonCodes: qaResult.finalTierReasonCodes,
+          intentAdjusted: qaResult.intentAdjusted,
+        },
+        manifest,
+      };
     }
 
+    build.transitionTo('GLB_BUILDING');
+    const glbArtifact = this.glbCompiler.compile(meshPlan);
+    build.transitionTo('GLB_BUILT');
     build.transitionTo('COMPLETED');
     const manifest = this.manifestFactory.create({
       sceneId: input.sceneId,
@@ -118,12 +156,30 @@ export class SceneBuildOrchestratorService {
       state: build.currentState(),
       scopeId: input.scope.focusPlaceId ?? input.sceneId,
       snapshotBundleId: input.snapshotBundleId,
-        snapshots: collected.value.snapshots,
-      renderIntentSet,
+      snapshots: collected.value.snapshots,
+      renderIntentSet: effectiveRenderIntentSet,
       meshPlan,
       complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
     });
 
-    return { build, normalizedEntityBundle, evidenceGraph, twinSceneGraph, renderIntentSet, meshPlan, qaResult, glbArtifact, manifest };
+    return {
+      kind: 'completed',
+      build,
+      state: 'COMPLETED',
+      normalizedEntityBundle,
+      evidenceGraph,
+      twinSceneGraph,
+      renderIntentSet: effectiveRenderIntentSet,
+      meshPlan,
+      qaResult: {
+        passed: qaResult.passed,
+        issues: qaResult.issues,
+        finalTier: qaResult.finalTier,
+        finalTierReasonCodes: qaResult.finalTierReasonCodes,
+        intentAdjusted: qaResult.intentAdjusted,
+      },
+      glbArtifact,
+      manifest,
+    };
   }
 }

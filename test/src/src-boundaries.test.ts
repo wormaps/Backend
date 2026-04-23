@@ -13,6 +13,7 @@ describe('src MVP boundaries', () => {
     expect(app.modules.map((module) => module.name)).toEqual([
       'providers',
       'normalization',
+      'reality',
       'twin',
       'render',
       'qa',
