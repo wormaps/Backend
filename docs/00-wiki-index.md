@@ -53,3 +53,4 @@
 - [Phase Plan](./07-implementation/phase-plan.md)
 - [Repo Structure](./07-implementation/repo-structure.md)
 - [Coding Standards](./07-implementation/coding-standards.md)
+- [Src DDD MVP Skeleton](./07-implementation/src-ddd-mvp.md)

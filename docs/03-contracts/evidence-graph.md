@@ -4,6 +4,7 @@ Evidence Graph는 source와 entity/property 사이의 근거 연결망이다.
 
 ## 역할
 
+- graph artifact id 제공
 - observed support 기록
 - inferred derivation 기록
 - defaulted reason 기록

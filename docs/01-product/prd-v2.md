@@ -543,6 +543,7 @@ Evidence Graph는 독립 단계로 유지한다.
 
 ```ts
 type EvidenceGraph = {
+  id: string;
   sceneId: string;
   snapshotBundleId: string;
   nodes: EvidenceNode[];

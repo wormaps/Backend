@@ -38,6 +38,7 @@ export type EvidenceEdge = {
 };
 
 export type EvidenceGraph = {
+  id: string;
   sceneId: string;
   snapshotBundleId: string;
   nodes: EvidenceNode[];
@@ -45,4 +46,3 @@ export type EvidenceGraph = {
   generatedAt: string;
   evidencePolicyVersion: string;
 };
-
