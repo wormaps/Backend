@@ -35,6 +35,38 @@ type WorMapGltfExtras = {
     sidecarRef?: string;
   };
 };
+
+type WorMapGltfSidecar = {
+  worMap: {
+    schemaVersion: string;
+    sidecarRef: string;
+    sceneId: string;
+    buildId: string;
+    snapshotBundleId: string;
+    finalTier: string;
+    finalTierReasonCodes: string[];
+    qaSummary: {
+      issueCount: number;
+      criticalCount: number;
+      majorCount: number;
+      minorCount: number;
+      infoCount: number;
+      topCodes: string[];
+    };
+    schemaVersions: Record<string, string>;
+    meshSummary: {
+      nodeCount: number;
+      materialCount: number;
+      primitiveCounts: Record<string, number>;
+    };
+    attribution: {
+      required: boolean;
+      entries: Array<{ provider: string; label: string; url?: string }>;
+    };
+    extrasValidationStamp: string;
+    validationStamp: string;
+  };
+};
 ```
 
 ## Placement
@@ -61,5 +93,5 @@ Sidecar metadata must preserve the same build identity and validation stamp.
 
 ## Current Project State
 
-The current repository does not yet write glTF extras into the binary.
-This page defines the target contract for the next stage.
+The repository defines the extras/sidecar contract shape.
+Phase 19 still requires real GLB byte emission and byte-level validation before it can be considered complete.

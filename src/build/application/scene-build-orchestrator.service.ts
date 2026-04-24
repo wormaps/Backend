@@ -54,7 +54,7 @@ export class SceneBuildOrchestratorService {
     };
   }
 
-  run(input: SceneBuildMvpInput): SceneBuildRunResult {
+  async run(input: SceneBuildMvpInput): Promise<SceneBuildRunResult> {
     const build = SceneBuildAggregate.request(input.sceneId, input.buildId);
     build.transitionTo('SNAPSHOT_COLLECTING');
 
@@ -174,8 +174,10 @@ export class SceneBuildOrchestratorService {
     }
 
     build.transitionTo('GLB_BUILDING');
-    const glbArtifact = this.glbCompiler.compile({
+    const glbArtifact = await this.glbCompiler.compile({
       meshPlan,
+      buildId: input.buildId,
+      snapshotBundleId: input.snapshotBundleId,
       finalTier: qaResult.finalTier,
       qaSummary: this.summarizeQa(qaResult.issues),
     });
@@ -195,7 +197,7 @@ export class SceneBuildOrchestratorService {
       qaSummary: this.summarizeQa(qaResult.issues),
     });
 
-    const glbValidation = this.glbValidation.validate({
+    const glbValidation = await this.glbValidation.validate({
       manifest: manifestCandidate,
       artifact: glbArtifact,
       meshPlan,

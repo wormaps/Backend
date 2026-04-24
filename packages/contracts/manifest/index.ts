@@ -20,6 +20,58 @@ export type QaSummary = {
   topCodes: string[];
 };
 
+export type GlbMeshSummary = {
+  nodeCount: number;
+  materialCount: number;
+  primitiveCounts: Record<string, number>;
+};
+
+export type SerializedJson<T> = {
+  value: T;
+  json: string;
+  jsonHash: string;
+};
+
+export type WorMapGltfExtras = {
+  worMap: {
+    schemaVersion: string;
+    sceneId: string;
+    buildId: string;
+    snapshotBundleId: string;
+    finalTier: RealityTier;
+    finalTierReasonCodes: string[];
+    qaSummary: QaSummary;
+    schemaVersions: SchemaVersionSet;
+    meshSummary: GlbMeshSummary;
+    artifactHash: string;
+    validationStamp: string;
+    sidecarRef?: string;
+  };
+};
+
+export type WorMapGltfSidecar = {
+  worMap: {
+    schemaVersion: string;
+    sidecarRef: string;
+    sceneId: string;
+    buildId: string;
+    snapshotBundleId: string;
+    finalTier: RealityTier;
+    finalTierReasonCodes: string[];
+    qaSummary: QaSummary;
+    schemaVersions: SchemaVersionSet;
+    meshSummary: GlbMeshSummary;
+    attribution: AttributionSummary;
+    extrasValidationStamp: string;
+    validationStamp: string;
+  };
+};
+
+export type WorMapGltfMetadataExport = {
+  extras: SerializedJson<WorMapGltfExtras>;
+  sidecar?: SerializedJson<WorMapGltfSidecar>;
+};
+
 export const SCENE_BUILD_STATES = [
   'REQUESTED',
   'SNAPSHOT_COLLECTING',

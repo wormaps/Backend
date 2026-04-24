@@ -44,8 +44,8 @@ Any mismatch is critical.
 
 ## Current Project State
 
-The current implementation still uses placeholder artifact metadata.
-That is acceptable only as an interim stub; it is not the target contract.
+The current implementation validates manifest / artifact consistency and the emitted GLB contract.
+This is a hard gate, not a placeholder workflow.
 
 ## Non-Goals
 

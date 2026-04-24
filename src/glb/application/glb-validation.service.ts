@@ -2,6 +2,10 @@ import type { SceneBuildManifest, QaSummary } from '../../../packages/contracts/
 import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
 import type { QaIssue } from '../../../packages/contracts/qa';
 import type { GlbArtifact } from './glb-compiler.service';
+import { createHash } from 'node:crypto';
+import { validateBytes } from 'gltf-validator';
+
+import { computeCanonicalGlbArtifactHash } from './glb-artifact-hash';
 
 export type GlbValidationInput = {
   manifest: SceneBuildManifest;
@@ -15,10 +19,11 @@ export type GlbValidationResult = {
 };
 
 export class GlbValidationService {
-  validate(input: GlbValidationInput): GlbValidationResult {
+  async validate(input: GlbValidationInput): Promise<GlbValidationResult> {
     const issues = [
       ...this.validateConsistency(input.manifest, input.artifact, input.meshPlan),
       ...this.validateMeshPlan(input.meshPlan),
+      ...(await this.validateArtifactBytes(input.artifact)),
     ];
 
     return {
@@ -93,6 +98,96 @@ export class GlbValidationService {
           'Render policy version differs between manifest and mesh plan.',
         ),
       );
+    }
+
+    const worMap = artifact.gltfMetadata.extras.value.worMap;
+
+    if (worMap.sceneId !== manifest.sceneId || worMap.buildId !== manifest.buildId) {
+      issues.push(
+        this.issue(
+          'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+          'critical',
+          'fail_build',
+          'scene',
+          'glTF extras identity does not match the manifest.',
+        ),
+      );
+    }
+
+    if (worMap.snapshotBundleId !== manifest.snapshotBundleId) {
+      issues.push(
+        this.issue(
+          'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+          'critical',
+          'fail_build',
+          'scene',
+          'glTF extras snapshot bundle does not match the manifest.',
+        ),
+      );
+    }
+
+    if (worMap.artifactHash !== artifact.artifactHash) {
+      issues.push(
+        this.issue(
+          'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+          'critical',
+          'fail_build',
+          'scene',
+          'glTF extras artifact hash does not match the GLB artifact hash.',
+        ),
+      );
+    }
+
+    if (worMap.validationStamp !== this.hashJson({ ...worMap, validationStamp: undefined })) {
+      issues.push(
+        this.issue(
+          'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+          'critical',
+          'fail_build',
+          'scene',
+          'glTF extras validation stamp is invalid.',
+        ),
+      );
+    }
+
+    if (artifact.gltfMetadata.extras.jsonHash !== this.hashJson(artifact.gltfMetadata.extras.value)) {
+      issues.push(
+        this.issue(
+          'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+          'critical',
+          'fail_build',
+          'scene',
+          'glTF extras round-trip hash is invalid.',
+        ),
+      );
+    }
+
+    if (artifact.gltfMetadata.sidecar !== undefined) {
+      const sidecar = artifact.gltfMetadata.sidecar.value.worMap;
+
+      if (sidecar.extrasValidationStamp !== worMap.validationStamp) {
+        issues.push(
+          this.issue(
+            'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+            'critical',
+            'fail_build',
+            'scene',
+            'Sidecar does not reference the extras validation stamp.',
+          ),
+        );
+      }
+
+      if (sidecar.validationStamp !== this.hashJson({ ...sidecar, validationStamp: undefined })) {
+        issues.push(
+          this.issue(
+            'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
+            'critical',
+            'fail_build',
+            'scene',
+            'Sidecar validation stamp is invalid.',
+          ),
+        );
+      }
     }
 
     return issues;
@@ -197,6 +292,73 @@ export class GlbValidationService {
     return issues;
   }
 
+  private async validateArtifactBytes(artifact: GlbArtifact): Promise<QaIssue[]> {
+    const issues: QaIssue[] = [];
+
+    try {
+      const canonicalHash = await computeCanonicalGlbArtifactHash(artifact.bytes);
+      if (canonicalHash !== artifact.artifactHash) {
+        issues.push(
+          this.issue(
+            'DCC_GLB_BINARY_HASH_MISMATCH',
+            'critical',
+            'fail_build',
+            'scene',
+            `Canonical GLB hash ${canonicalHash} does not match the recorded artifact hash ${artifact.artifactHash}.`,
+          ),
+        );
+      }
+    } catch (error) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_VALIDATOR_ERROR',
+          'critical',
+          'fail_build',
+          'scene',
+          `Failed to canonicalize emitted GLB bytes: ${this.describeError(error)}`,
+        ),
+      );
+      return issues;
+    }
+
+    try {
+      const report = await validateBytes(artifact.bytes, {
+        uri: artifact.artifactRef,
+        format: 'glb',
+        maxIssues: 0,
+        writeTimestamp: false,
+      });
+
+      const errorCount = report.issues?.numErrors ?? 0;
+      if (errorCount > 0) {
+        const firstIssue = report.issues?.messages?.[0];
+        issues.push(
+          this.issue(
+            'DCC_GLB_VALIDATOR_ERROR',
+            'critical',
+            'fail_build',
+            'scene',
+            this.describeValidatorFailure(errorCount, report.issues?.numWarnings ?? 0, firstIssue),
+            errorCount,
+            0,
+          ),
+        );
+      }
+    } catch (error) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_VALIDATOR_ERROR',
+          'critical',
+          'fail_build',
+          'scene',
+          `glTF validator rejected emitted GLB: ${this.describeError(error)}`,
+        ),
+      );
+    }
+
+    return issues;
+  }
+
   private sameQaSummary(left: QaSummary, right: QaSummary): boolean {
     return (
       left.issueCount === right.issueCount &&
@@ -212,6 +374,27 @@ export class GlbValidationService {
     return left.length === right.length && left.every((value, index) => value === right[index]);
   }
 
+  private hashJson(value: unknown): string {
+    return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
+  }
+
+  private describeValidatorFailure(
+    errorCount: number,
+    warningCount: number,
+    firstIssue: { code?: string; message?: string } | undefined,
+  ): string {
+    const suffix = firstIssue === undefined ? 'No validator issue details were returned.' : `${firstIssue.code ?? 'UNKNOWN'}: ${firstIssue.message ?? 'No message.'}`;
+    return `glTF validator reported ${errorCount} error(s) and ${warningCount} warning(s). ${suffix}`;
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return String(error);
+  }
+
   private isFinitePoint(point: MeshPlanNode['pivot']): boolean {
     return Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z);
   }
@@ -222,6 +405,8 @@ export class GlbValidationService {
     action: QaIssue['action'],
     scope: QaIssue['scope'],
     message: string,
+    metric?: number,
+    threshold?: number,
   ): QaIssue {
     return {
       code,
@@ -229,6 +414,8 @@ export class GlbValidationService {
       scope,
       message,
       action,
+      ...(metric !== undefined ? { metric } : {}),
+      ...(threshold !== undefined ? { threshold } : {}),
     };
   }
 }

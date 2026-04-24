@@ -11,6 +11,10 @@ Validation is a hard gate, not a hinting layer.
 - PRD v2.3 §20: QA Severity & Gate Control
 - PRD v2.3 §23.2: MVP Quality Criteria
 - `docs/04-quality/dcc-glb-validation.md`
+- [Manifest / Artifact Consistency](./manifest-artifact-consistency.md)
+- [glTF Extras Schema](./gltf-extras-schema.md)
+- [Oracle Feedback](./oracle-dcc-glb-validation-feedback.md)
+- [GLB Artifact And Manifest Metadata](./glb-artifact-and-manifest-metadata.md)
 
 ## Validation Order
 
@@ -70,6 +74,12 @@ If validation fails after artifact generation:
 - do not mark the build `COMPLETED`
 - keep the artifact quarantined or fail the build
 - preserve the diagnostic report for replay and audit
+
+## Export Contract
+
+- validation must inspect the emitted GLB bytes
+- extras and sidecar are contract surfaces, not completion shortcuts
+- metadata scaffolding alone does not satisfy Phase 19 closure
 
 ## Non-Goals
 

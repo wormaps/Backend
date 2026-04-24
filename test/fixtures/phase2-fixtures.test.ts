@@ -49,9 +49,9 @@ function materialRoleDistribution(materials: MaterialPlan[]) {
 }
 
 describe('phase 2 fixtures first', () => {
-  it.each(baselineFixtures)('$id produces the expected baseline artifact chain', (fixture) => {
+  it.each(baselineFixtures)('$id produces the expected baseline artifact chain', async (fixture) => {
     const app = createWorMapMvpApp();
-    const result = app.services.sceneBuildOrchestrator.run(fixture);
+    const result = await app.services.sceneBuildOrchestrator.run(fixture);
 
     expect(fixture.snapshots.every((snapshot) => snapshot.sceneId === fixture.sceneId)).toBe(true);
     expect(result.build.currentState()).toBe(fixture.expected.finalState);
@@ -113,9 +113,9 @@ describe('phase 2 fixtures first', () => {
     );
   });
 
-  it.each(adversarialFixtures)('$id preserves expected failure state and manifest', (fixture) => {
+  it.each(adversarialFixtures)('$id preserves expected failure state and manifest', async (fixture) => {
     const app = createWorMapMvpApp();
-    const result = app.services.sceneBuildOrchestrator.run(fixture);
+    const result = await app.services.sceneBuildOrchestrator.run(fixture);
 
     expect(fixture.snapshots.every((snapshot) => snapshot.sceneId === fixture.sceneId)).toBe(true);
     expect(result.build.currentState()).toBe(fixture.expected.finalState);

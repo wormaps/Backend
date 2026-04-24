@@ -59,6 +59,7 @@
 - [Phase Plan](../docs/07-implementation/phase-plan.md)
 - [Repo Structure](../docs/07-implementation/repo-structure.md)
 - [Coding Standards](../docs/07-implementation/coding-standards.md)
+- [Oracle DCC GLB Validation Feedback](./oracle-dcc-glb-validation-feedback.md)
 - [Src DDD MVP Skeleton](./src-ddd-mvp.md)
 - [Phase 2 Fixtures First](./phase2-fixtures-first.md)
 - [Normalized To Twin Projection](./normalized-to-twin-projection.md)

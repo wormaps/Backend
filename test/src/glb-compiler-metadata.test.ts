@@ -3,9 +3,11 @@ import { describe, expect, it } from 'bun:test';
 import { GlbCompilerService } from '../../src/glb/application/glb-compiler.service';
 
 describe('glb compiler metadata', () => {
-  it('includes mesh and QA summaries in the artifact contract', () => {
+  it('includes mesh and QA summaries in the artifact contract', async () => {
     const compiler = new GlbCompilerService();
-    const artifact = compiler.compile({
+    const artifact = await compiler.compile({
+      buildId: 'build-glb',
+      snapshotBundleId: 'bundle-glb',
       meshPlan: {
         sceneId: 'scene-glb',
         renderPolicyVersion: 'render-policy.v1',
@@ -53,6 +55,8 @@ describe('glb compiler metadata', () => {
     expect(artifact.finalTier).toBe('PROCEDURAL_MODEL');
     expect(artifact.qaSummary.issueCount).toBe(1);
     expect(artifact.artifactHash).toMatch(/^sha256:/);
+    expect(artifact.gltfMetadata.extras.value.worMap.sceneId).toBe('scene-glb');
+    expect(artifact.gltfMetadata.extras.value.worMap.artifactHash).toBe(artifact.artifactHash);
     expect(artifact.meshSummary).toEqual({
       nodeCount: 2,
       materialCount: 2,

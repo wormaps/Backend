@@ -1157,6 +1157,9 @@ GLB Compiler 허용 사항:
 
 GLB artifact는 저장 전후로 검증한다.
 
+Phase 19는 compiler가 persisted binary GLB bytes를 생성하고, validation이 그 bytes를 기준으로 통과할 때만 종료된다.
+metadata-only scaffolding은 Phase 19 completion으로 간주하지 않는다.
+
 필수 검증:
 
 - glTF validator 통과
@@ -1279,6 +1282,9 @@ GLB/DCC QA:
 - empty node count
 - parent pivot validity
 - relationship line noise risk
+- manifest / artifact consistency
+- extras / sidecar validation stamp integrity
+- binary export hash integrity
 
 Compliance QA:
 
@@ -1457,6 +1463,12 @@ critical geometry issue = 0
 critical DCC issue = 0
 quality gate critical issue hidden as warn = 0
 provider policy critical issue = 0
+manifest / artifact mismatch = 0
+extras / sidecar stamp mismatch = 0
+duplicate node id = 0
+orphan node = 0
+parent cycle = 0
+missing material ref = 0
 ```
 
 ### 23.3 Deterministic Replay

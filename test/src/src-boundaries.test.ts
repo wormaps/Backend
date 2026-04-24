@@ -33,9 +33,9 @@ describe('src MVP boundaries', () => {
     expect(glbCompiler).not.toContain('SourceEntityRef');
   });
 
-  it('runs the placeholder-scene MVP path without provider APIs', () => {
+  it('runs the placeholder-scene MVP path without provider APIs', async () => {
     const app = createWorMapMvpApp();
-    const result = app.services.sceneBuildOrchestrator.run({
+    const result = await app.services.sceneBuildOrchestrator.run({
       sceneId: 'scene_1',
       buildId: 'build_1',
       snapshotBundleId: 'bundle_1',
