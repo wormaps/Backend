@@ -27,6 +27,8 @@ describe('contract registries', () => {
     expect(QA_ISSUE_CODES).toContain('SCENE_ROAD_BUILDING_OVERLAP');
     expect(QA_ISSUE_CODES).toContain('SPATIAL_COORDINATE_OUTLIER');
     expect(QA_ISSUE_CODES).toContain('COMPLIANCE_PROVIDER_POLICY_RISK');
+    expect(QA_ISSUE_CODES).toContain('DCC_GLB_ORPHAN_NODE');
+    expect(QA_ISSUE_CODES).toContain('REPLAY_MANIFEST_ARTIFACT_MISMATCH');
     expect(isRegisteredQaIssueCode('GEOMETRY_SELF_INTERSECTION')).toBe(true);
     expect(isRegisteredQaIssueCode('GEOMETRY_UNKNOWN')).toBe(false);
   });

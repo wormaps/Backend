@@ -91,6 +91,16 @@ describe('public contract shapes', () => {
       packageVersions: {},
       inputHashes: {},
       artifactHashes: {},
+      finalTier: 'PLACEHOLDER_SCENE',
+      finalTierReasonCodes: ['NO_ENTITIES'],
+      qaSummary: {
+        issueCount: 0,
+        criticalCount: 0,
+        majorCount: 0,
+        minorCount: 0,
+        infoCount: 0,
+        topCodes: [],
+      },
       attribution: { required: false, entries: [] },
       complianceIssues: [],
     } satisfies SceneBuildManifest;

@@ -1,9 +1,11 @@
-import type { SceneBuildManifest, SceneBuildState } from '../../../packages/contracts/manifest';
+import type { QaSummary, SceneBuildManifest, SceneBuildState } from '../../../packages/contracts/manifest';
 import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
 import type { QaIssue } from '../../../packages/contracts/qa';
 import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
 import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
+import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
 import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
+import type { GlbArtifact } from '../../glb/application/glb-compiler.service';
 
 export type BuildManifestInput = {
   sceneId: string;
@@ -14,7 +16,11 @@ export type BuildManifestInput = {
   snapshots: SourceSnapshot[];
   renderIntentSet?: RenderIntentSet;
   meshPlan?: MeshPlan;
+  glbArtifact?: GlbArtifact;
   complianceIssues?: QaIssue[];
+  finalTier: RealityTier;
+  finalTierReasonCodes: string[];
+  qaSummary: QaSummary;
 };
 
 export class BuildManifestFactory {
@@ -38,7 +44,14 @@ export class BuildManifestFactory {
       inputHashes: Object.fromEntries(
         input.snapshots.map((snapshot) => [snapshot.id, snapshot.responseHash ?? snapshot.queryHash]),
       ),
-      artifactHashes: {},
+      artifactHashes: input.glbArtifact
+        ? {
+            glb: input.glbArtifact.artifactHash,
+          }
+        : {},
+      finalTier: input.finalTier,
+      finalTierReasonCodes: input.finalTierReasonCodes,
+      qaSummary: input.qaSummary,
       attribution: {
         required: input.snapshots.some((snapshot) => snapshot.compliance.attributionRequired),
         entries: input.snapshots

@@ -1,5 +1,6 @@
 import { SceneBuildOrchestratorService } from './application/scene-build-orchestrator.service';
 import type { GlbCompilerService } from '../glb/application/glb-compiler.service';
+import type { GlbValidationService } from '../glb/application/glb-validation.service';
 import type { NormalizedEntityBuilderService } from '../normalization/application/normalized-entity-builder.service';
 import type { SnapshotCollectorService } from '../providers/application/snapshot-collector.service';
 import type { QaGateService } from '../qa/application/qa-gate.service';
@@ -18,6 +19,7 @@ export type BuildModuleDependencies = {
   meshPlanBuilder: MeshPlanBuilderService;
   qaGate: QaGateService;
   glbCompiler: GlbCompilerService;
+  glbValidation: GlbValidationService;
 };
 
 export function createBuildModule(dependencies: BuildModuleDependencies) {
@@ -33,6 +35,7 @@ export function createBuildModule(dependencies: BuildModuleDependencies) {
         dependencies.meshPlanBuilder,
         dependencies.qaGate,
         dependencies.glbCompiler,
+        dependencies.glbValidation,
         new BuildManifestFactory(),
       ),
     },

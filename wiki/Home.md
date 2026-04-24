@@ -35,6 +35,9 @@
 - [Confidence Scoring](../docs/04-quality/confidence-scoring.md)
 - [Geometry Validation](../docs/04-quality/geometry-validation.md)
 - [DCC GLB Validation](../docs/04-quality/dcc-glb-validation.md)
+- [DCC / GLB Validation](./dcc-glb-validation.md)
+- [Manifest / Artifact Consistency](./manifest-artifact-consistency.md)
+- [glTF Extras Schema](./gltf-extras-schema.md)
 - [Deterministic Replay](../docs/04-quality/deterministic-replay.md)
 
 ## Operations
@@ -66,3 +69,4 @@
 - [Render Intent Policy And Tier Resolution](./render-intent-policy-tier-resolution.md)
 - [QA Final Tier And Control](./qa-final-tier-and-control.md)
 - [Mesh Plan Intent Projection](./mesh-plan-intent-projection.md)
+- [GLB Artifact And Manifest Metadata](./glb-artifact-and-manifest-metadata.md)

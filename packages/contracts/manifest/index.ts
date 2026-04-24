@@ -1,5 +1,6 @@
 import type { SchemaVersionSet } from '../../core/schemas';
 import type { QaIssue } from '../qa';
+import type { RealityTier } from '../twin-scene-graph';
 
 export type AttributionSummary = {
   required: boolean;
@@ -8,6 +9,15 @@ export type AttributionSummary = {
     label: string;
     url?: string;
   }>;
+};
+
+export type QaSummary = {
+  issueCount: number;
+  criticalCount: number;
+  majorCount: number;
+  minorCount: number;
+  infoCount: number;
+  topCodes: string[];
 };
 
 export const SCENE_BUILD_STATES = [
@@ -57,6 +67,9 @@ export type SceneBuildManifest = {
   packageVersions: Record<string, string>;
   inputHashes: Record<string, string>;
   artifactHashes: Record<string, string>;
+  finalTier: RealityTier;
+  finalTierReasonCodes: string[];
+  qaSummary: QaSummary;
   attribution: AttributionSummary;
   complianceIssues: QaIssue[];
 };

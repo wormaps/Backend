@@ -16,6 +16,7 @@ const buildModule = createBuildModule({
   meshPlanBuilder: renderModule.services.meshPlanBuilder,
   qaGate: qaModule.services.qaGate,
   glbCompiler: glbModule.services.glbCompiler,
+  glbValidation: glbModule.services.glbValidation,
 });
 
 export const appModule = {

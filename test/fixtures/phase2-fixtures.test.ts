@@ -101,7 +101,12 @@ describe('phase 2 fixtures first', () => {
     }
     if (fixture.expected.finalRealityTier !== undefined) {
       expect(result.qaResult.finalTier).toBe(fixture.expected.finalRealityTier);
+      expect(result.manifest.finalTier).toBe(fixture.expected.finalRealityTier);
     }
+    if ('glbArtifact' in result && result.glbArtifact !== undefined) {
+      expect(result.manifest.artifactHashes.glb).toBe(result.glbArtifact.artifactHash);
+    }
+    expect(result.manifest.qaSummary.issueCount).toBe(result.qaResult.issues.length);
 
     expect(issueDistribution(result.qaResult.issues)).toEqual(
       expectedDistribution(fixture.expected.qaIssueDistribution),
@@ -128,6 +133,10 @@ describe('phase 2 fixtures first', () => {
 
     expect(result.manifest.state).toBe(fixture.expected.finalState);
     expect(result.manifest.snapshotBundleId).toBe(fixture.snapshotBundleId);
+    if (fixture.expected.finalRealityTier !== undefined) {
+      expect(result.manifest.finalTier).toBe(fixture.expected.finalRealityTier);
+    }
+    expect(result.manifest.qaSummary.issueCount).toBe(result.qaResult.issues.length);
 
     if (!('qaResult' in result) || result.qaResult === undefined) {
       throw new Error('Expected QA report artifact.');
@@ -164,6 +173,10 @@ describe('phase 2 fixtures first', () => {
     }
     if (fixture.expected.finalRealityTier !== undefined) {
       expect(result.qaResult.finalTier).toBe(fixture.expected.finalRealityTier);
+    }
+
+    if ('glbArtifact' in result && result.glbArtifact !== undefined) {
+      expect(result.manifest.artifactHashes.glb).toBe(result.glbArtifact.artifactHash);
     }
 
     expect(issueDistribution(result.qaResult.issues)).toEqual(

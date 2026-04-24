@@ -5,6 +5,7 @@
 - empty node with no children = 0
 - parent pivot missing count = 0
 - critical glTF validator error = 0
+- manifest / artifact mismatch = fail build
 - relationship line noise risk는 QA에 기록
 
 ## Blender Smoke

@@ -17,6 +17,11 @@ export const QA_ISSUE_CODES = [
   'SCENE_ROAD_BUILDING_OVERLAP',
   'GEOMETRY_SELF_INTERSECTION',
   'DCC_MATERIAL_MISSING',
+  'DCC_GLB_DUPLICATE_NODE_ID',
+  'DCC_GLB_INVALID_PIVOT',
+  'DCC_GLB_ORPHAN_NODE',
+  'DCC_GLB_PARENT_CYCLE',
+  'REPLAY_MANIFEST_ARTIFACT_MISMATCH',
 ] as const satisfies readonly QaIssueCode[];
 
 export type RegisteredQaIssueCode = (typeof QA_ISSUE_CODES)[number];
