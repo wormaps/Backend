@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
-import { Document, NodeIO } from '@gltf-transform/core';
+import type { TypedArray } from '@gltf-transform/core';
+import { Buffer, Document, NodeIO } from '@gltf-transform/core';
 
 import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
 import type { QaSummary, WorMapGltfMetadataExport } from '../../../packages/contracts/manifest';
@@ -62,8 +63,12 @@ export class GlbCompilerService {
 
       const mesh = document.createMesh(meshNode.name);
       const primitive = document.createPrimitive();
-      const positions = this.createPositions(document, buffer, meshNode.pivot);
-      const indices = this.createIndices(document, buffer);
+      const positionsArray = this.createPositions(meshNode.pivot, meshNode.primitive);
+      const positions = document.createAccessor('positions')
+        .setArray(positionsArray as TypedArray)
+        .setType('VEC3')
+        .setBuffer(buffer);
+      const indices = this.createIndices(document, buffer, positionsArray);
       primitive.setAttribute('POSITION', positions);
       primitive.setIndices(indices);
       primitive.setMode(4);
@@ -154,22 +159,64 @@ export class GlbCompilerService {
     };
   }
 
-  private createPositions(document: Document, buffer: ReturnType<Document['createBuffer']>, pivot: { x: number; y: number; z: number }) {
-    const positions = document.createAccessor('positions').setArray(
-      new Float32Array([
-        pivot.x, pivot.y, pivot.z,
-        pivot.x + 1, pivot.y, pivot.z,
-        pivot.x, pivot.y, pivot.z + 1,
-      ]),
-    ).setType('VEC3').setBuffer(buffer);
+  private createPositions(
+    pivot: { x: number; y: number; z: number },
+    primitive: string,
+  ): Float32Array {
+    const { x, y, z } = pivot;
 
-    return positions;
+    switch (primitive) {
+      case 'building_massing': {
+        return new Float32Array([
+          x, y, z,
+          x + 1, y, z,
+          x + 1, y, z + 1,
+          x, y, z,
+          x + 1, y, z + 1,
+          x, y, z + 1,
+        ]);
+      }
+      case 'road':
+      case 'walkway': {
+        return new Float32Array([
+          x - 0.5, y, z,
+          x + 0.5, y, z,
+          x + 0.5, y, z + 0.5,
+          x - 0.5, y, z,
+          x + 0.5, y, z + 0.5,
+          x - 0.5, y, z + 0.5,
+        ]);
+      }
+      case 'terrain': {
+        return new Float32Array([
+          x - 1, y, z - 1,
+          x + 1, y, z - 1,
+          x + 1, y, z + 1,
+          x - 1, y, z - 1,
+          x + 1, y, z + 1,
+          x - 1, y, z + 1,
+        ]);
+      }
+      default: {
+        return new Float32Array([
+          x, y + 0.5, z,
+          x + 0.3, y, z + 0.3,
+          x - 0.3, y, z - 0.3,
+        ]);
+      }
+    }
   }
 
-  private createIndices(document: Document, buffer: ReturnType<Document['createBuffer']>) {
-    return document.createAccessor('indices').setArray(
-      new Uint16Array([0, 1, 2]),
-    ).setType('SCALAR').setBuffer(buffer);
+  private createIndices(document: Document, buffer: Buffer, positions: Float32Array) {
+    const count = positions.length / 3;
+    const indices = new Uint16Array(count);
+    for (let i = 0; i < count; i++) {
+      indices[i] = i;
+    }
+    return document.createAccessor('indices')
+      .setArray(indices)
+      .setType('SCALAR')
+      .setBuffer(buffer);
   }
 
   private computeArtifactHash(bytes: Uint8Array): string {

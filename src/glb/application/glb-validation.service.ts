@@ -2,6 +2,7 @@ import type { SceneBuildManifest, QaSummary } from '../../../packages/contracts/
 import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
 import type { QaIssue } from '../../../packages/contracts/qa';
 import type { GlbArtifact } from './glb-compiler.service';
+import { Document, NodeIO } from '@gltf-transform/core';
 import { createHash } from 'node:crypto';
 import { validateBytes } from 'gltf-validator';
 
@@ -292,6 +293,114 @@ export class GlbValidationService {
     return issues;
   }
 
+  private validateTransformFinite(document: Document): QaIssue[] {
+    const issues: QaIssue[] = [];
+    const root = document.getRoot();
+
+    for (const node of root.listNodes()) {
+      const translation = node.getTranslation();
+      const rotation = node.getRotation();
+      const scale = node.getScale();
+
+      for (let i = 0; i < 3; i++) {
+        if (!Number.isFinite(translation[i])) {
+          issues.push(this.issue('DCC_GLB_INVALID_TRANSFORM', 'critical', 'fail_build', 'mesh', `Node "${node.getName()}" has non-finite translation[${i}]: ${translation[i]}.`));
+        }
+        if (!Number.isFinite(scale[i])) {
+          issues.push(this.issue('DCC_GLB_INVALID_TRANSFORM', 'critical', 'fail_build', 'mesh', `Node "${node.getName()}" has non-finite scale[${i}]: ${scale[i]}.`));
+        }
+      }
+
+      for (let i = 0; i < 4; i++) {
+        if (!Number.isFinite(rotation[i])) {
+          issues.push(this.issue('DCC_GLB_INVALID_TRANSFORM', 'critical', 'fail_build', 'mesh', `Node "${node.getName()}" has non-finite rotation[${i}]: ${rotation[i]}.`));
+        }
+      }
+    }
+
+    return issues;
+  }
+
+  private validateBoundsSanity(document: Document): QaIssue[] {
+    const issues: QaIssue[] = [];
+    const MAX_SCENE_EXTENT_METERS = 5000;
+    const root = document.getRoot();
+    const globalMin: number[] = [Infinity, Infinity, Infinity];
+    const globalMax: number[] = [-Infinity, -Infinity, -Infinity];
+
+    for (const mesh of root.listMeshes()) {
+      for (const primitive of mesh.listPrimitives()) {
+        const position = primitive.getAttribute('POSITION');
+        if (position === null) continue;
+
+        const min = position.getMin([]);
+        const max = position.getMax([]);
+        if (min === undefined || max === undefined) continue;
+
+        for (let i = 0; i < 3; i++) {
+          const minVal = min[i] ?? 0;
+          const maxVal = max[i] ?? 0;
+          if (minVal < globalMin[i]!) globalMin[i] = minVal;
+          if (maxVal > globalMax[i]!) globalMax[i] = maxVal;
+        }
+      }
+    }
+
+    for (let i = 0; i < 3; i++) {
+      if (!Number.isFinite(globalMin[i]) || !Number.isFinite(globalMax[i])) {
+        issues.push(this.issue('DCC_GLB_BOUNDS_INVALID', 'critical', 'fail_build', 'mesh', `Scene bounds contain non-finite values at axis ${i}: min=${globalMin[i]}, max=${globalMax[i]}.`));
+        return issues;
+      }
+    }
+
+    // Allow 0 extent on individual axes (flat mesh is valid).
+    // Only flag if ALL axes have 0 extent (degenerate point).
+    const minExtent = Math.min(...globalMin.map((_, i) => globalMax[i]! - globalMin[i]!));
+    const maxExtent = Math.max(...globalMax.map((_, i) => globalMax[i]! - globalMin[i]!));
+
+    if (maxExtent <= 0) {
+      issues.push(this.issue('DCC_GLB_BOUNDS_INVALID', 'critical', 'fail_build', 'mesh', `Scene bounding box is degenerate (all axes have zero extent).`));
+      return issues;
+    }
+
+    if (!Number.isFinite(minExtent) || !Number.isFinite(maxExtent)) {
+      issues.push(this.issue('DCC_GLB_BOUNDS_INVALID', 'critical', 'fail_build', 'mesh', `Scene bounding box has non-finite extent: min=${minExtent}, max=${maxExtent}.`));
+      return issues;
+    }
+
+    if (maxExtent >= MAX_SCENE_EXTENT_METERS) {
+      issues.push(this.issue('DCC_GLB_BOUNDS_INVALID', 'critical', 'fail_build', 'mesh', `Scene bounding box max extent ${maxExtent}m exceeds limit of ${MAX_SCENE_EXTENT_METERS}m.`));
+    }
+
+    return issues;
+  }
+
+  private validatePrimitivePolicy(document: Document): QaIssue[] {
+    const issues: QaIssue[] = [];
+    const root = document.getRoot();
+
+    for (const mesh of root.listMeshes()) {
+      for (const primitive of mesh.listPrimitives()) {
+        if (primitive.getMode() !== 4) {
+          issues.push(this.issue('DCC_GLB_PRIMITIVE_POLICY_VIOLATION', 'major', 'warn_only', 'mesh', `Primitive "${primitive.getName()}" uses mode ${primitive.getMode()}, expected TRIANGLES (4).`));
+        }
+
+        const position = primitive.getAttribute('POSITION');
+        if (position === null) {
+          issues.push(this.issue('DCC_GLB_PRIMITIVE_POLICY_VIOLATION', 'major', 'warn_only', 'mesh', `Primitive "${primitive.getName()}" has no POSITION accessor.`));
+        } else if (position.getCount() < 3) {
+          issues.push(this.issue('DCC_GLB_PRIMITIVE_POLICY_VIOLATION', 'major', 'warn_only', 'mesh', `Primitive "${primitive.getName()}" has only ${position.getCount()} vertices, minimum is 3.`));
+        }
+
+        if (primitive.getMaterial() === null) {
+          issues.push(this.issue('DCC_GLB_PRIMITIVE_POLICY_VIOLATION', 'major', 'warn_only', 'mesh', `Primitive "${primitive.getName()}" has no material.`));
+        }
+      }
+    }
+
+    return issues;
+  }
+
   private async validateArtifactBytes(artifact: GlbArtifact): Promise<QaIssue[]> {
     const issues: QaIssue[] = [];
 
@@ -352,6 +461,26 @@ export class GlbValidationService {
           'fail_build',
           'scene',
           `glTF validator rejected emitted GLB: ${this.describeError(error)}`,
+        ),
+      );
+    }
+
+    try {
+      const io = new NodeIO();
+      await io.init();
+      const document = await io.readBinary(artifact.bytes);
+
+      issues.push(...this.validateTransformFinite(document));
+      issues.push(...this.validateBoundsSanity(document));
+      issues.push(...this.validatePrimitivePolicy(document));
+    } catch (error) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_VALIDATOR_ERROR',
+          'critical',
+          'fail_build',
+          'scene',
+          `Failed to parse GLB document for DCC validation: ${this.describeError(error)}`,
         ),
       );
     }

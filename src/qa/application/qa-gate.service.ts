@@ -17,6 +17,8 @@ export type QaGateResult = {
   intentAdjusted: boolean;
   finalTier: RealityTier;
   finalTierReasonCodes: string[];
+  warnCount: number;
+  infoCount: number;
 };
 
 export class QaGateService {
@@ -43,6 +45,9 @@ export class QaGateService {
     const effectiveIntentSet = this.stripDetailIfNeeded(input.intentSet, issues);
     const finalTier = this.realityTierResolver.resolveFinal(effectiveIntentSet.tier.provisional, issues);
 
+    const warnCount = issues.filter((issue) => issue.severity === 'minor').length;
+    const infoCount = issues.filter((issue) => issue.severity === 'info').length;
+
     return {
       passed: issues.every((issue) => issue.severity !== 'critical'),
       issues,
@@ -50,6 +55,8 @@ export class QaGateService {
       intentAdjusted: effectiveIntentSet !== input.intentSet,
       finalTier: finalTier.tier,
       finalTierReasonCodes: finalTier.reasonCodes,
+      warnCount,
+      infoCount,
     };
   }
 
