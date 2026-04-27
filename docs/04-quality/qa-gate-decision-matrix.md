@@ -10,7 +10,7 @@
 | minor | warn_only | COMPLETED | 없음 | manifest에 warn_count 기록 |
 | info | record_only | COMPLETED | 없음 | manifest에 info_count 기록 |
 
-## 2. QA Issue Code 정책 (49개 등록)
+## 2. QA Issue Code 정책 (60개 등록)
 
 ### PROVIDER_* (5)
 | Code | Severity | Action |
@@ -21,11 +21,13 @@
 | PROVIDER_REPLAYABLE | minor | warn_only |
 | PROVIDER_RATE_LIMIT_CAPTURED | info | record_only |
 
-### COMPLIANCE_* (5)
+### COMPLIANCE_* (7)
 | Code | Severity | Action |
 |------|----------|--------|
 | COMPLIANCE_PROVIDER_POLICY_RISK | major | warn_only |
 | COMPLIANCE_ATTRIBUTION_MISSING | major | warn_only |
+| COMPLIANCE_GOOGLE_PLACES_RETENTION_RISK | major | warn_only |
+| COMPLIANCE_OSM_ATTRIBUTION_MISSING | major | warn_only |
 | COMPLIANCE_RETENTION_POLICY_RESPECTED | major | warn_only |
 | COMPLIANCE_CACHED_PAYLOAD_ALLOWED | major | warn_only |
 | COMPLIANCE_MANUAL_SOURCE_EXISTS | info | record_only |
@@ -69,7 +71,7 @@
 | REALITY_PLACEHOLDER_RATIO_HIGH | major | downgrade_tier |
 | REALITY_PROCEDURAL_DECORATION_HIGH | info | record_only |
 
-### DCC_GLB_* (13)
+### DCC_GLB_* (20)
 | Code | Severity | Action |
 |------|----------|--------|
 | DCC_MATERIAL_MISSING | critical | fail_build |
@@ -84,12 +86,21 @@
 | DCC_GLB_ACCESSOR_MINMAX_INVALID | critical | fail_build |
 | DCC_GLB_INVALID_TRANSFORM | critical | fail_build |
 | DCC_GLB_BOUNDS_INVALID | critical | fail_build |
+| DCC_GLB_BYTE_SIZE_EXCEEDED | critical | fail_build |
+| DCC_GLB_EXTRAS_VALIDATION_FAILED | critical | fail_build |
+| DCC_GLB_MATERIAL_COUNT_EXCEEDED | major | warn_only |
+| DCC_GLB_MESH_COUNT_EXCEEDED | major | warn_only |
+| DCC_GLB_NODE_COUNT_EXCEEDED | major | warn_only |
+| DCC_GLB_TRIANGLE_COUNT_EXCEEDED | major | warn_only |
 | DCC_GLB_PRIMITIVE_POLICY_VIOLATION | major | warn_only |
+| DCC_GLB_RELATIONSHIP_LINE_NOISE | minor | warn_only |
 
-### REPLAY_* (4)
+### REPLAY_* (6)
 | Code | Severity | Action |
 |------|----------|--------|
 | REPLAY_MANIFEST_ARTIFACT_MISMATCH | critical | fail_build |
+| REPLAY_MANIFEST_VERSIONS_INCOMPLETE | critical | fail_build |
+| REPLAY_STABLE_ID_NON_DETERMINISTIC | critical | fail_build |
 | REPLAY_INPUT_HASHES_COMPLETE | minor | warn_only |
 | REPLAY_SNAPSHOT_BUNDLE_ID_MISSING | critical | fail_build |
 | REPLAY_CORE_METRIC_DRIFT | major | warn_only |
