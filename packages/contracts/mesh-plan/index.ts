@@ -13,6 +13,8 @@ export type MeshPlanNode = {
   primitive: 'terrain' | 'road' | 'walkway' | 'building_massing' | 'poi_marker';
   pivot: { x: number; y: number; z: number };
   materialId: string;
+  /** Entity geometry for GLB mesh generation. Falls back to placeholder when undefined. */
+  geometry?: Record<string, unknown>;
 };
 
 export type MaterialPlan = {

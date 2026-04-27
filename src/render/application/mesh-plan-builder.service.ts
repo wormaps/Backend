@@ -28,6 +28,7 @@ export class MeshPlanBuilderService {
         primitive: nodeSpec.primitive,
         pivot: this.resolvePivot(entity),
         materialId: material.id,
+        geometry: (entity as { geometry: Record<string, unknown> }).geometry,
       });
     }
 

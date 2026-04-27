@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 
 import type { TypedArray } from '@gltf-transform/core';
-import { Buffer, Document, NodeIO } from '@gltf-transform/core';
+import { Buffer, Document, NodeIO, type Accessor } from '@gltf-transform/core';
+import earcut from 'earcut';
 
-import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
+import type { MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
 import type { QaSummary, WorMapGltfMetadataExport } from '../../../packages/contracts/manifest';
 import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
 import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
@@ -63,12 +64,8 @@ export class GlbCompilerService {
 
       const mesh = document.createMesh(meshNode.name);
       const primitive = document.createPrimitive();
-      const positionsArray = this.createPositions(meshNode.pivot, meshNode.primitive);
-      const positions = document.createAccessor('positions')
-        .setArray(positionsArray as TypedArray)
-        .setType('VEC3')
-        .setBuffer(buffer);
-      const indices = this.createIndices(document, buffer, positionsArray);
+      const positions = this.createPositions(document, buffer, meshNode);
+      const indices = this.createIndices(document, buffer, positions);
       primitive.setAttribute('POSITION', positions);
       primitive.setIndices(indices);
       primitive.setMode(4);
@@ -159,56 +156,168 @@ export class GlbCompilerService {
     };
   }
 
-  private createPositions(
-    pivot: { x: number; y: number; z: number },
+  private createPositions(document: Document, buffer: Buffer, node: MeshPlanNode): Accessor {
+    const geometry = node.geometry;
+    const type = node.primitive;
+    const { x, y, z } = node.pivot;
+
+    if (geometry !== undefined) {
+      return this.createPositionsFromGeometry(document, buffer, geometry, type, { x, y, z });
+    }
+
+    return this.createPlaceholderPositions(document, buffer, type, { x, y, z });
+  }
+
+  private createPlaceholderPositions(
+    document: Document,
+    buffer: Buffer,
     primitive: string,
-  ): Float32Array {
+    pivot: { x: number; y: number; z: number },
+  ): Accessor {
     const { x, y, z } = pivot;
+    let positions: Float32Array;
 
     switch (primitive) {
-      case 'building_massing': {
-        return new Float32Array([
-          x, y, z,
-          x + 1, y, z,
-          x + 1, y, z + 1,
-          x, y, z,
-          x + 1, y, z + 1,
-          x, y, z + 1,
+      case 'building_massing':
+        positions = new Float32Array([
+          x, y, z, x + 1, y, z, x + 1, y, z + 1,
+          x, y, z, x + 1, y, z + 1, x, y, z + 1,
         ]);
-      }
+        break;
       case 'road':
-      case 'walkway': {
-        return new Float32Array([
-          x - 0.5, y, z,
-          x + 0.5, y, z,
-          x + 0.5, y, z + 0.5,
-          x - 0.5, y, z,
-          x + 0.5, y, z + 0.5,
-          x - 0.5, y, z + 0.5,
+      case 'walkway':
+        positions = new Float32Array([
+          x - 0.5, y, z, x + 0.5, y, z, x + 0.5, y, z + 0.5,
+          x - 0.5, y, z, x + 0.5, y, z + 0.5, x - 0.5, y, z + 0.5,
         ]);
-      }
-      case 'terrain': {
-        return new Float32Array([
-          x - 1, y, z - 1,
-          x + 1, y, z - 1,
-          x + 1, y, z + 1,
-          x - 1, y, z - 1,
-          x + 1, y, z + 1,
-          x - 1, y, z + 1,
+        break;
+      case 'terrain':
+        positions = new Float32Array([
+          x - 1, y, z - 1, x + 1, y, z - 1, x + 1, y, z + 1,
+          x - 1, y, z - 1, x + 1, y, z + 1, x - 1, y, z + 1,
         ]);
-      }
-      default: {
-        return new Float32Array([
-          x, y + 0.5, z,
-          x + 0.3, y, z + 0.3,
-          x - 0.3, y, z - 0.3,
+        break;
+      default:
+        positions = new Float32Array([
+          x, y + 0.5, z, x + 0.3, y, z + 0.3, x - 0.3, y, z - 0.3,
         ]);
+        break;
+    }
+
+    return document.createAccessor('positions')
+      .setArray(positions as TypedArray)
+      .setType('VEC3')
+      .setBuffer(buffer);
+  }
+
+  private createBuildingPositions(
+    document: Document,
+    buffer: Buffer,
+    geometry: Record<string, unknown>,
+  ): Accessor {
+    const footprint = (geometry as { footprint: { outer: Array<{ x: number; y: number; z: number }> } }).footprint;
+    const baseY = (geometry as { baseY?: number }).baseY ?? 0;
+    const height = 3;
+
+    const outer = footprint.outer;
+    if (outer.length < 3) {
+      return this.createPlaceholderPositions(document, buffer, 'building_massing', { x: outer[0]?.x ?? 0, y: baseY, z: outer[0]?.z ?? 0 });
+    }
+
+    const flatVerts: number[] = [];
+    for (const p of outer) {
+      flatVerts.push(p.x, p.z);
+    }
+
+    const triangles = earcut(flatVerts);
+
+    const positions: number[] = [];
+    for (let i = 0; i < triangles.length; i++) {
+      const idx = triangles[i]!;
+      const p = outer[idx]!;
+      positions.push(p.x, baseY, p.z);
+      positions.push(p.x, baseY + height, p.z);
+    }
+
+    const positionsArray = new Float32Array(positions);
+    return document.createAccessor('positions')
+      .setArray(positionsArray as TypedArray)
+      .setType('VEC3')
+      .setBuffer(buffer);
+  }
+
+  private createRoadPositions(
+    document: Document,
+    buffer: Buffer,
+    geometry: Record<string, unknown>,
+  ): Accessor {
+    const centerline = (geometry as { centerline: Array<{ x: number; y: number; z: number }> }).centerline;
+    const width = 2;
+
+    if (centerline.length < 2) {
+      return this.createPlaceholderPositions(document, buffer, 'road', { x: centerline[0]?.x ?? 0, y: centerline[0]?.y ?? 0, z: centerline[0]?.z ?? 0 });
+    }
+
+    const halfWidth = width / 2;
+    const positions: number[] = [];
+
+    for (let i = 0; i < centerline.length; i++) {
+      const p = centerline[i]!;
+
+      let dx: number, dz: number;
+      if (i === 0) {
+        dx = centerline[1]!.x - p.x;
+        dz = centerline[1]!.z - p.z;
+      } else if (i === centerline.length - 1) {
+        dx = p.x - centerline[i - 1]!.x;
+        dz = p.z - centerline[i - 1]!.z;
+      } else {
+        dx = centerline[i + 1]!.x - centerline[i - 1]!.x;
+        dz = centerline[i + 1]!.z - centerline[i - 1]!.z;
       }
+
+      const len = Math.sqrt(dx * dx + dz * dz);
+      if (len < 0.001) {
+        positions.push(p.x - halfWidth, p.y, p.z, p.x + halfWidth, p.y, p.z);
+        continue;
+      }
+      const nx = dx / len;
+      const nz = dz / len;
+
+      const px = -nz * halfWidth;
+      const pz = nx * halfWidth;
+
+      positions.push(p.x - px, p.y, p.z - pz);
+      positions.push(p.x + px, p.y, p.z + pz);
+    }
+
+    const positionsArray = new Float32Array(positions);
+    return document.createAccessor('positions')
+      .setArray(positionsArray as TypedArray)
+      .setType('VEC3')
+      .setBuffer(buffer);
+  }
+
+  private createPositionsFromGeometry(
+    document: Document,
+    buffer: Buffer,
+    geometry: Record<string, unknown>,
+    type: string,
+    pivot: { x: number; y: number; z: number },
+  ): Accessor {
+    switch (type) {
+      case 'building_massing':
+        return this.createBuildingPositions(document, buffer, geometry);
+      case 'road':
+      case 'walkway':
+        return this.createRoadPositions(document, buffer, geometry);
+      default:
+        return this.createPlaceholderPositions(document, buffer, type, pivot);
     }
   }
 
-  private createIndices(document: Document, buffer: Buffer, positions: Float32Array) {
-    const count = positions.length / 3;
+  private createIndices(document: Document, buffer: Buffer, positions: Accessor) {
+    const count = positions.getCount();
     const indices = new Uint16Array(count);
     for (let i = 0; i < count; i++) {
       indices[i] = i;
