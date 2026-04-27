@@ -1,28 +1,31 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { CacheModule } from './cache/cache.module';
-import { HealthModule } from './health/health.module';
-import { GlobalApiKeyGuard } from './common/http/global-api-key.guard';
-import { HideInProductionGuard } from './common/http/hide-in-production.guard';
-import { LoggingModule } from './common/logging/logging.module';
-import { MetricsModule } from './common/metrics/metrics.module';
-import { PlacesModule } from './places/places.module';
-import { SceneModule } from './scene/scene.module';
-import { validateEnvironment } from './config/env.validation';
+import { createBuildModule } from './build/build.module';
+import { glbModule } from './glb/glb.module';
+import { normalizationModule } from './normalization/normalization.module';
+import { providersModule } from './providers/providers.module';
+import { qaModule } from './qa/qa.module';
+import { realityModule } from './reality/reality.module';
+import { renderModule } from './render/render.module';
+import { twinModule } from './twin/twin.module';
 
-@Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateEnvironment,
-    }),
-    LoggingModule,
-    MetricsModule,
-    CacheModule,
-    HealthModule,
-    PlacesModule,
-    SceneModule,
-  ],
-  providers: [GlobalApiKeyGuard, HideInProductionGuard],
-})
-export class AppModule {}
+const buildModule = createBuildModule({
+  snapshotCollector: providersModule.services.snapshotCollector,
+  normalizedEntityBuilder: normalizationModule.services.normalizedEntityBuilder,
+  evidenceGraphBuilder: twinModule.services.evidenceGraphBuilder,
+  twinGraphBuilder: twinModule.services.twinGraphBuilder,
+  renderIntentResolver: renderModule.services.renderIntentResolver,
+  meshPlanBuilder: renderModule.services.meshPlanBuilder,
+  qaGate: qaModule.services.qaGate,
+  glbCompiler: glbModule.services.glbCompiler,
+  glbValidation: glbModule.services.glbValidation,
+});
+
+providersModule.services.osmSceneBuild.setOrchestrator(buildModule.services.sceneBuildOrchestrator);
+
+export const appModule = {
+  name: 'wormap-v2',
+  modules: [providersModule, normalizationModule, realityModule, twinModule, renderModule, qaModule, glbModule, buildModule],
+  services: {
+    sceneBuildOrchestrator: buildModule.services.sceneBuildOrchestrator,
+    osmSceneBuild: providersModule.services.osmSceneBuild,
+  },
+} as const;
