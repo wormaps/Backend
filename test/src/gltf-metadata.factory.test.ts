@@ -19,6 +19,9 @@ describe('gltf metadata factory', () => {
         infoCount: 0,
         warnActionCount: 0,
         recordActionCount: 0,
+        failBuildCount: 0,
+        downgradeTierCount: 0,
+        stripDetailCount: 0,
         topCodes: [] as string[],
       },
       schemaVersions: {

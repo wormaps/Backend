@@ -401,6 +401,149 @@ export class GlbValidationService {
     return issues;
   }
 
+  private validateAccessorMinMax(document: Document): QaIssue[] {
+    const issues: QaIssue[] = [];
+    const root = document.getRoot();
+
+    for (const mesh of root.listMeshes()) {
+      for (const primitive of mesh.listPrimitives()) {
+        const position = primitive.getAttribute('POSITION');
+        if (position === null) continue;
+
+        const min = position.getMin([]);
+        const max = position.getMax([]);
+
+        if (min === undefined || max === undefined) {
+          issues.push(
+            this.issue(
+              'DCC_GLB_ACCESSOR_MINMAX_INVALID',
+              'critical',
+              'fail_build',
+              'mesh',
+              `POSITION accessor for primitive "${primitive.getName()}" is missing min/max bounds.`,
+            ),
+          );
+        } else {
+          for (let i = 0; i < 3; i++) {
+            const minVal = min[i];
+            const maxVal = max[i];
+            if (minVal !== undefined && maxVal !== undefined && minVal > maxVal) {
+              issues.push(
+                this.issue(
+                  'DCC_GLB_ACCESSOR_MINMAX_INVALID',
+                  'critical',
+                  'fail_build',
+                  'mesh',
+                  `POSITION accessor for primitive "${primitive.getName()}" has min[${i}] (${minVal}) > max[${i}] (${maxVal}).`,
+                ),
+              );
+            }
+          }
+
+          const count = position.getCount();
+          const sampleSize = Math.min(count, 100);
+          const step = Math.max(1, Math.floor(count / sampleSize));
+
+          for (let i = 0; i < count; i += step) {
+            const element = position.getElement(i, []);
+            for (let j = 0; j < 3; j++) {
+              const val = element[j];
+              if (val === undefined || !Number.isFinite(val)) continue;
+              const minVal = min[j];
+              const maxVal = max[j];
+              if (minVal !== undefined && val < minVal) {
+                issues.push(
+                  this.issue(
+                    'DCC_GLB_ACCESSOR_MINMAX_INVALID',
+                    'critical',
+                    'fail_build',
+                    'mesh',
+                    `POSITION vertex ${i} of primitive "${primitive.getName()}" has value ${val} below min[${j}] (${minVal}).`,
+                  ),
+                );
+                break;
+              }
+              if (maxVal !== undefined && val > maxVal) {
+                issues.push(
+                  this.issue(
+                    'DCC_GLB_ACCESSOR_MINMAX_INVALID',
+                    'critical',
+                    'fail_build',
+                    'mesh',
+                    `POSITION vertex ${i} of primitive "${primitive.getName()}" has value ${val} above max[${j}] (${maxVal}).`,
+                  ),
+                );
+                break;
+              }
+            }
+          }
+        }
+
+        const indices = primitive.getIndices();
+        if (indices !== null) {
+          const indexMin = indices.getMin([]);
+          if (indexMin === undefined) {
+            issues.push(
+              this.issue(
+                'DCC_GLB_ACCESSOR_MINMAX_INVALID',
+                'critical',
+                'fail_build',
+                'mesh',
+                `INDICES accessor for primitive "${primitive.getName()}" is missing min bounds.`,
+              ),
+            );
+          } else if (indexMin[0] !== undefined && indexMin[0] < 0) {
+            issues.push(
+              this.issue(
+                'DCC_GLB_ACCESSOR_MINMAX_INVALID',
+                'critical',
+                'fail_build',
+                'mesh',
+                `INDICES accessor for primitive "${primitive.getName()}" has negative min value (${indexMin[0]}).`,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    return issues;
+  }
+
+  private validateIndexBufferRanges(document: Document): QaIssue[] {
+    const issues: QaIssue[] = [];
+    const root = document.getRoot();
+
+    for (const mesh of root.listMeshes()) {
+      for (const primitive of mesh.listPrimitives()) {
+        const indices = primitive.getIndices();
+        const position = primitive.getAttribute('POSITION');
+
+        if (indices === null || position === null) continue;
+
+        const vertexCount = position.getCount();
+        const indexMax = indices.getMax([]);
+
+        if (indexMax === undefined) continue;
+
+        const maxIndex = indexMax[0];
+        if (maxIndex !== undefined && maxIndex >= vertexCount) {
+          issues.push(
+            this.issue(
+              'DCC_GLB_INDEX_OUT_OF_RANGE',
+              'critical',
+              'fail_build',
+              'mesh',
+              `Index buffer max value (${maxIndex}) exceeds vertex count (${vertexCount}) for primitive "${primitive.getName()}".`,
+            ),
+          );
+        }
+      }
+    }
+
+    return issues;
+  }
+
   private async validateArtifactBytes(artifact: GlbArtifact): Promise<QaIssue[]> {
     const issues: QaIssue[] = [];
 
@@ -473,6 +616,8 @@ export class GlbValidationService {
       issues.push(...this.validateTransformFinite(document));
       issues.push(...this.validateBoundsSanity(document));
       issues.push(...this.validatePrimitivePolicy(document));
+      issues.push(...this.validateAccessorMinMax(document));
+      issues.push(...this.validateIndexBufferRanges(document));
     } catch (error) {
       issues.push(
         this.issue(
@@ -495,6 +640,9 @@ export class GlbValidationService {
       left.majorCount === right.majorCount &&
       left.minorCount === right.minorCount &&
       left.infoCount === right.infoCount &&
+      left.failBuildCount === right.failBuildCount &&
+      left.downgradeTierCount === right.downgradeTierCount &&
+      left.stripDetailCount === right.stripDetailCount &&
       this.sameStringArray(left.topCodes, right.topCodes)
     );
   }

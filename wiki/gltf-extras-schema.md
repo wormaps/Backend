@@ -24,6 +24,9 @@ type WorMapGltfExtras = {
       infoCount: number;
       warnActionCount: number;
       recordActionCount: number;
+      failBuildCount: number;
+      downgradeTierCount: number;
+      stripDetailCount: number;
       topCodes: string[];
     };
     schemaVersions: Record<string, string>;
@@ -55,6 +58,9 @@ type WorMapGltfSidecar = {
       infoCount: number;
       warnActionCount: number;
       recordActionCount: number;
+      failBuildCount: number;
+      downgradeTierCount: number;
+      stripDetailCount: number;
       topCodes: string[];
     };
     schemaVersions: Record<string, string>;

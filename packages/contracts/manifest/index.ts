@@ -19,6 +19,9 @@ export type QaSummary = {
   infoCount: number;
   warnActionCount: number;
   recordActionCount: number;
+  failBuildCount: number;
+  downgradeTierCount: number;
+  stripDetailCount: number;
   topCodes: string[];
 };
 

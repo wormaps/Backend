@@ -58,6 +58,9 @@ export class SceneBuildOrchestratorService {
       infoCount: issues.filter((issue) => issue.severity === 'info').length,
       warnActionCount: issues.filter((issue) => issue.action === 'warn_only').length,
       recordActionCount: issues.filter((issue) => issue.action === 'record_only').length,
+      failBuildCount: issues.filter((issue) => issue.action === 'fail_build').length,
+      downgradeTierCount: issues.filter((issue) => issue.action === 'downgrade_tier').length,
+      stripDetailCount: issues.filter((issue) => issue.action === 'strip_detail').length,
       topCodes: Object.entries(codeCounts)
         .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
         .slice(0, 5)
