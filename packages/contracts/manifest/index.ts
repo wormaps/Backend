@@ -124,4 +124,11 @@ export type SceneBuildManifest = {
   qaSummary: QaSummary;
   attribution: AttributionSummary;
   complianceIssues: QaIssue[];
+  coordinateSystem?: {
+    source: 'WGS84';
+    localFrame: 'ENU';
+    origin: { lat: number; lng: number };
+    unit: 'meter';
+    axis: 'Y_UP' | 'Z_UP';
+  };
 };

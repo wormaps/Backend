@@ -21,6 +21,7 @@ export type BuildManifestInput = {
   finalTier: RealityTier;
   finalTierReasonCodes: string[];
   qaSummary: QaSummary;
+  coordinateSystem?: SceneBuildManifest['coordinateSystem'];
 };
 
 export class BuildManifestFactory {
@@ -63,6 +64,7 @@ export class BuildManifestFactory {
           })),
       },
       complianceIssues: input.complianceIssues ?? [],
+      coordinateSystem: input.coordinateSystem,
     };
   }
 }

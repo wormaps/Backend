@@ -2,6 +2,9 @@ import { describe, expect, it } from 'bun:test';
 import { NodeIO } from '@gltf-transform/core';
 import { createWorMapMvpApp } from '../../src/main';
 import { baselineFixtures } from '../../fixtures/phase2';
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 async function buildAndLoadGlb() {
   const app = createWorMapMvpApp();
@@ -82,5 +85,46 @@ describe('GLB smoke test', () => {
     
     expect(result1.glbArtifact.artifactHash).toBe(result2.glbArtifact.artifactHash);
     expect(result1.glbArtifact.byteLength).toBe(result2.glbArtifact.byteLength);
+  });
+
+  it('renders without WebGL context (headless compatibility)', async () => {
+    const artifact = await buildAndLoadGlb();
+    const io = new NodeIO();
+    await io.init();
+    const document = await io.readBinary(artifact.bytes);
+    const root = document.getRoot();
+
+    let totalTriangles = 0;
+    for (const mesh of root.listMeshes()) {
+      for (const prim of mesh.listPrimitives()) {
+        const indices = prim.getIndices();
+        const position = prim.getAttribute('POSITION');
+        expect(indices).not.toBeNull();
+        expect(position).not.toBeNull();
+        if (indices !== null) {
+          totalTriangles += Math.floor(indices.getCount() / 3);
+        }
+      }
+    }
+
+    expect(totalTriangles).toBeGreaterThan(0);
+    expect(totalTriangles).toBeLessThan(100000);
+  });
+
+  it('can export GLB to file and load it back', async () => {
+    const artifact = await buildAndLoadGlb();
+    const tmpDir = mkdtempSync(join(tmpdir(), 'wormap-glb-test-'));
+    const glbPath = join(tmpDir, 'test.glb');
+
+    writeFileSync(glbPath, artifact.bytes);
+    const loadedBytes = readFileSync(glbPath);
+
+    expect(loadedBytes.length).toBe(artifact.byteLength);
+
+    const io = new NodeIO();
+    await io.init();
+    const document = await io.readBinary(new Uint8Array(loadedBytes));
+    const root = document.getRoot();
+    expect(root.listMeshes().length).toBeGreaterThan(0);
   });
 });

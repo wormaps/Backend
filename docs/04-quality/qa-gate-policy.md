@@ -14,3 +14,7 @@ QA는 리포트가 아니라 build 제어 로직이다.
 
 - critical issue를 warn으로 낮추지 않는다.
 - QA 실패 GLB를 active artifact로 공개하지 않는다.
+
+## 관련 문서
+
+- [QA Gate Decision Matrix](./qa-gate-decision-matrix.md) — 49개 Issue Code의 Severity/Action 매핑 및 Tier Downgrade 규칙

@@ -79,6 +79,13 @@ export class SceneBuildOrchestratorService {
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
         qaSummary: this.summarizeQa(qaResult.issues),
+        coordinateSystem: {
+          source: 'WGS84',
+          localFrame: 'ENU',
+          origin: input.scope.center,
+          unit: 'meter',
+          axis: 'Y_UP',
+        },
       });
 
       return {
@@ -151,6 +158,13 @@ export class SceneBuildOrchestratorService {
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
         qaSummary: this.summarizeQa(qaResult.issues),
+        coordinateSystem: {
+          source: 'WGS84',
+          localFrame: 'ENU',
+          origin: input.scope.center,
+          unit: 'meter',
+          axis: 'Y_UP',
+        },
       });
 
       return {
@@ -195,6 +209,13 @@ export class SceneBuildOrchestratorService {
       finalTier: qaResult.finalTier,
       finalTierReasonCodes: qaResult.finalTierReasonCodes,
       qaSummary: this.summarizeQa(qaResult.issues),
+      coordinateSystem: {
+        source: 'WGS84',
+        localFrame: 'ENU',
+        origin: input.scope.center,
+        unit: 'meter',
+        axis: 'Y_UP',
+      },
     });
 
     const glbValidation = await this.glbValidation.validate({
@@ -219,6 +240,13 @@ export class SceneBuildOrchestratorService {
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
         qaSummary: this.summarizeQa(qaResult.issues),
+        coordinateSystem: {
+          source: 'WGS84',
+          localFrame: 'ENU',
+          origin: input.scope.center,
+          unit: 'meter',
+          axis: 'Y_UP',
+        },
       });
 
       return {
@@ -259,6 +287,13 @@ export class SceneBuildOrchestratorService {
       finalTier: qaResult.finalTier,
       finalTierReasonCodes: qaResult.finalTierReasonCodes,
       qaSummary: this.summarizeQa(qaResult.issues),
+      coordinateSystem: {
+        source: 'WGS84',
+        localFrame: 'ENU',
+        origin: input.scope.center,
+        unit: 'meter',
+        axis: 'Y_UP',
+      },
     });
 
     return {
