@@ -3,10 +3,15 @@ import { OsmSnapshotService } from './application/osm-snapshot.service';
 import { SnapshotCollectorService } from './application/snapshot-collector.service';
 import { WeatherSnapshotService } from './application/weather-snapshot.service';
 import { TrafficSnapshotService } from './application/traffic-snapshot.service';
+import { PlacesSnapshotService } from './application/places-snapshot.service';
 import { OpenMeteoAdapter } from './infrastructure/open-meteo.adapter';
 import { TomTomTrafficAdapter } from './infrastructure/tomtom-traffic.adapter';
+import { GooglePlacesAdapter } from './infrastructure/google-places.adapter';
 
 const tomtomApiKey = process.env.TOMTOM_API_KEY ?? '';
+const googleApiKey = process.env.GOOGLE_API_KEY ?? '';
+
+const googlePlaces = new GooglePlacesAdapter(googleApiKey);
 
 export const providersModule = {
   name: 'providers',
@@ -16,5 +21,7 @@ export const providersModule = {
     weatherSnapshot: new WeatherSnapshotService(),
     trafficSnapshot: new TrafficSnapshotService(new TomTomTrafficAdapter(tomtomApiKey)),
     osmSceneBuild: new OsmSceneBuildService(new OsmSnapshotService()),
+    googlePlaces,
+    placesSnapshot: new PlacesSnapshotService(googlePlaces),
   },
 } as const;

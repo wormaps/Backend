@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 
 import { NodeIO } from '@gltf-transform/core';
+import { EXTMeshoptCompression } from '@gltf-transform/extensions';
 
 export const GLB_HASH_PLACEHOLDER = `sha256:${'0'.repeat(64)}`;
 
 export async function computeCanonicalGlbArtifactHash(bytes: Uint8Array): Promise<string> {
   const io = new NodeIO();
+  io.registerExtensions([EXTMeshoptCompression]);
   await io.init();
 
   const document = await io.readBinary(bytes);

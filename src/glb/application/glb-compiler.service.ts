@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 
 import type { TypedArray } from '@gltf-transform/core';
 import { Buffer, Document, NodeIO, type Accessor } from '@gltf-transform/core';
+import { EXTMeshoptCompression } from '@gltf-transform/extensions';
+import { meshopt } from '@gltf-transform/functions';
+import { MeshoptEncoder } from 'meshoptimizer';
 import earcut from 'earcut';
 
 import type { MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
@@ -117,6 +120,7 @@ export class GlbCompilerService {
     root.setExtras({ worMap: placeholderMetadata.extras.value.worMap });
 
     const io = new NodeIO();
+    io.registerExtensions([EXTMeshoptCompression]);
     await io.init();
     const placeholderBytes = await io.writeBinary(document);
 
@@ -143,12 +147,24 @@ export class GlbCompilerService {
       );
     }
 
+    // Apply meshopt compression to reduce final GLB size.
+    // artifactHash stays geometry-deterministic (uncompressed baseline).
+    let finalBytes: Uint8Array;
+    try {
+      await MeshoptEncoder.ready;
+      await document.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+      finalBytes = await io.writeBinary(document);
+    } catch {
+      // Fallback: if compression fails (e.g. primitive too small), use uncompressed.
+      finalBytes = bytes;
+    }
+
     return {
       sceneId: input.meshPlan.sceneId,
       artifactRef: `memory://${input.meshPlan.sceneId}.glb`,
-      byteLength: bytes.byteLength,
+      byteLength: finalBytes.byteLength,
       artifactHash,
-      bytes,
+      bytes: finalBytes,
       finalTier: input.finalTier,
       qaSummary: input.qaSummary,
       meshSummary,
