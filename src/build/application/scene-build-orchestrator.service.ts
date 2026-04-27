@@ -13,6 +13,7 @@ import type { TwinGraphBuilderService } from '../../twin/application/twin-graph-
 import { BuildManifestFactory } from './build-manifest.factory';
 import type { SceneBuildRunResult } from './scene-build-run-result';
 import { SceneBuildAggregate } from '../domain/scene-build.aggregate';
+import { BunLogger } from '../../../packages/core/logger';
 
 const buildCoordinateSystem = (scope: SceneScope): SceneBuildManifest['coordinateSystem'] => ({
   source: 'WGS84' as const,
@@ -31,6 +32,8 @@ export type SceneBuildMvpInput = {
 };
 
 export class SceneBuildOrchestratorService {
+  private readonly logger = new BunLogger({ level: 'info', service: 'scene-build-orchestrator' });
+
   constructor(
     private readonly snapshotCollector: SnapshotCollectorService,
     private readonly normalizedEntityBuilder: NormalizedEntityBuilderService,
@@ -69,11 +72,22 @@ export class SceneBuildOrchestratorService {
   }
 
   async run(input: SceneBuildMvpInput): Promise<SceneBuildRunResult> {
+    const startedAt = Date.now();
+    this.logger.info('Build run started', {
+      sceneId: input.sceneId,
+      snapshotCount: input.snapshots.length,
+      radiusMeters: input.scope.radiusMeters,
+    });
+
     const build = SceneBuildAggregate.request(input.sceneId, input.buildId);
     build.transitionTo('SNAPSHOT_COLLECTING');
 
     const collected = this.snapshotCollector.collectFromSnapshots(input.snapshots);
     if (!collected.ok) {
+      this.logger.warn('Snapshot collection failed', {
+        sceneId: input.sceneId,
+        state: collected.error,
+      });
       const qaResult = {
         passed: false,
         issues: this.snapshotCollector.failedSnapshotIssues(input.snapshots),
@@ -107,6 +121,11 @@ export class SceneBuildOrchestratorService {
     }
 
     build.transitionTo('SNAPSHOT_COLLECTED');
+    this.logger.info('Snapshot collection completed', {
+      sceneId: input.sceneId,
+      snapshotCount: collected.value.snapshots.length,
+    });
+
     build.transitionTo('NORMALIZING');
     const normalizedEntityBundle = this.normalizedEntityBuilder.build(
       input.sceneId,
@@ -114,6 +133,11 @@ export class SceneBuildOrchestratorService {
       collected.value.snapshots,
     );
     build.transitionTo('NORMALIZED');
+    this.logger.info('Normalization completed', {
+      sceneId: input.sceneId,
+      normalizedEntityCount: normalizedEntityBundle.entities.length,
+      normalizationIssueCount: normalizedEntityBundle.issues.length,
+    });
 
     build.transitionTo('GRAPH_BUILDING');
     const evidenceGraph = this.evidenceGraphBuilder.build(normalizedEntityBundle);
@@ -124,15 +148,30 @@ export class SceneBuildOrchestratorService {
       normalizedEntityBundle,
     );
     build.transitionTo('GRAPH_BUILT');
+    this.logger.info('Twin graph built', {
+      sceneId: input.sceneId,
+      entityCount: twinSceneGraph.entities.length,
+      relationshipCount: twinSceneGraph.relationships.length,
+    });
 
     build.transitionTo('RENDER_INTENT_RESOLVING');
     const renderIntentSet = this.renderIntentResolver.resolve(twinSceneGraph);
     build.transitionTo('RENDER_INTENT_RESOLVED');
+    this.logger.info('Render intents resolved', {
+      sceneId: input.sceneId,
+      intentCount: renderIntentSet.intents.length,
+      provisionalTier: renderIntentSet.tier.provisional,
+    });
 
     build.transitionTo('MESH_PLANNING');
     let effectiveRenderIntentSet = renderIntentSet;
     let meshPlan = this.meshPlanBuilder.build(twinSceneGraph, effectiveRenderIntentSet);
     build.transitionTo('MESH_PLANNED');
+    this.logger.info('Mesh plan built', {
+      sceneId: input.sceneId,
+      nodeCount: meshPlan.nodes.length,
+      materialCount: meshPlan.materials.length,
+    });
 
     build.transitionTo('QA_RUNNING');
     let qaResult = this.qaGate.evaluate({
@@ -142,6 +181,10 @@ export class SceneBuildOrchestratorService {
     });
 
     if (qaResult.intentAdjusted) {
+      this.logger.warn('QA adjusted render intents, rebuilding mesh plan', {
+        sceneId: input.sceneId,
+        originalIntentCount: renderIntentSet.intents.length,
+      });
       effectiveRenderIntentSet = qaResult.effectiveIntentSet;
       meshPlan = this.meshPlanBuilder.build(twinSceneGraph, effectiveRenderIntentSet);
       qaResult = this.qaGate.evaluate({
@@ -152,6 +195,11 @@ export class SceneBuildOrchestratorService {
     }
 
     if (!qaResult.passed) {
+      this.logger.warn('QA gate failed build', {
+        sceneId: input.sceneId,
+        issueCount: qaResult.issues.length,
+        finalTier: qaResult.finalTier,
+      });
       build.transitionTo('QUARANTINED');
       const manifest = this.manifestFactory.create({
         sceneId: input.sceneId,
@@ -221,6 +269,10 @@ export class SceneBuildOrchestratorService {
     });
 
     if (!glbValidation.passed) {
+      this.logger.error('GLB validation failed', {
+        sceneId: input.sceneId,
+        validationIssueCount: glbValidation.issues.length,
+      });
       build.transitionTo('FAILED');
       const manifest = this.manifestFactory.create({
         sceneId: input.sceneId,
@@ -263,6 +315,13 @@ export class SceneBuildOrchestratorService {
 
     build.transitionTo('GLB_BUILT');
     build.transitionTo('COMPLETED');
+    this.logger.info('Build run completed', {
+      sceneId: input.sceneId,
+      elapsedMs: Date.now() - startedAt,
+      glbByteLength: glbArtifact.byteLength,
+      nodeCount: glbArtifact.meshSummary.nodeCount,
+      materialCount: glbArtifact.meshSummary.materialCount,
+    });
     const manifest = this.manifestFactory.create({
       sceneId: input.sceneId,
       buildId: input.buildId,

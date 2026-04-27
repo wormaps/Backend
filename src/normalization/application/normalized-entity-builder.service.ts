@@ -1,28 +1,18 @@
-import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
+import type { NormalizedEntity, NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
 import type { QaIssue } from '../../../packages/contracts/qa';
 import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
 import type { TwinEntityType } from '../../../packages/contracts/twin-scene-graph';
 
+type OSMFeaturePayload = {
+  id: string;
+  entityType: 'building' | 'road' | 'walkway' | 'terrain' | 'poi';
+  geometry?: Record<string, unknown>;
+  tags?: Record<string, string>;
+};
+
 export class NormalizedEntityBuilderService {
   build(sceneId: string, snapshotBundleId: string, snapshots: SourceSnapshot[]): NormalizedEntityBundle {
-    const entities = snapshots.map((snapshot) => {
-      const issues = this.deriveIssues(snapshot);
-
-      return {
-        id: `normalized:${snapshot.id}`,
-        stableId: `${snapshot.provider}:${snapshot.id}`,
-        type: this.deriveType(snapshot),
-        sourceEntityRefs: [
-          {
-            provider: snapshot.provider,
-            sourceId: snapshot.id,
-            sourceSnapshotId: snapshot.id,
-          },
-        ],
-        tags: [`provider:${snapshot.provider}`],
-        issues,
-      };
-    });
+    const entities: NormalizedEntity[] = snapshots.flatMap((snapshot) => this.normalizeSnapshot(snapshot));
 
     return {
       id: `normalized:${sceneId}:${snapshotBundleId}`,
@@ -35,8 +25,115 @@ export class NormalizedEntityBuilderService {
     };
   }
 
+  private normalizeSnapshot(snapshot: SourceSnapshot): NormalizedEntity[] {
+    if (snapshot.provider !== 'osm') {
+      const issues = this.deriveIssues(snapshot);
+      return [
+        {
+          id: `normalized:${snapshot.id}`,
+          stableId: `${snapshot.provider}:${snapshot.id}`,
+          type: this.deriveType(snapshot),
+          geometry: undefined,
+          sourceEntityRefs: [
+            {
+              provider: snapshot.provider,
+              sourceId: snapshot.id,
+              sourceSnapshotId: snapshot.id,
+            },
+          ],
+          tags: [`provider:${snapshot.provider}`],
+          issues,
+        },
+      ];
+    }
+
+    const parsed = this.parseOsmPayload(snapshot.payloadRef);
+    if (parsed.length === 0) {
+      const issues = this.deriveIssues(snapshot);
+      return [
+        {
+          id: `normalized:${snapshot.id}`,
+          stableId: `${snapshot.provider}:${snapshot.id}`,
+          type: this.deriveType(snapshot),
+          geometry: undefined,
+          sourceEntityRefs: [
+            {
+              provider: snapshot.provider,
+              sourceId: snapshot.id,
+              sourceSnapshotId: snapshot.id,
+            },
+          ],
+          tags: [`provider:${snapshot.provider}`],
+          issues,
+        },
+      ];
+    }
+
+    const snapshotIssues = this.deriveIssues(snapshot);
+    return parsed.map((feature) => ({
+      id: `normalized:${snapshot.id}:${feature.id}`,
+      stableId: `${snapshot.provider}:${feature.id}`,
+      type: this.deriveFeatureType(feature),
+      geometry: feature.geometry,
+      sourceEntityRefs: [
+        {
+          provider: snapshot.provider,
+          sourceId: feature.id,
+          sourceSnapshotId: snapshot.id,
+        },
+      ],
+      tags: this.deriveFeatureTags(snapshot.provider, feature),
+      issues: snapshotIssues,
+    }));
+  }
+
+  private parseOsmPayload(payloadRef?: string): OSMFeaturePayload[] {
+    if (!payloadRef || !payloadRef.startsWith('[')) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(payloadRef);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed.filter((value): value is OSMFeaturePayload => {
+        if (typeof value !== 'object' || value === null) {
+          return false;
+        }
+        const item = value as Record<string, unknown>;
+        return typeof item.id === 'string' && typeof item.entityType === 'string';
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  private deriveFeatureType(feature: OSMFeaturePayload): TwinEntityType {
+    switch (feature.entityType) {
+      case 'building':
+      case 'road':
+      case 'walkway':
+      case 'terrain':
+      case 'poi':
+        return feature.entityType;
+      default:
+        return 'poi';
+    }
+  }
+
+  private deriveFeatureTags(provider: SourceSnapshot['provider'], feature: OSMFeaturePayload): string[] {
+    const tags = [`provider:${provider}`, `entityType:${feature.entityType}`];
+    const osmTags = feature.tags ?? {};
+    for (const [key, value] of Object.entries(osmTags)) {
+      tags.push(`osm:${key}=${value}`);
+    }
+    return tags;
+  }
+
   private deriveType(snapshot: SourceSnapshot): TwinEntityType {
-    if (snapshot.provider === 'osm' && snapshot.payloadRef?.startsWith('{')) {
+    if (snapshot.provider === 'osm' && snapshot.payloadRef?.startsWith('[')) {
       try {
         const parsed = JSON.parse(snapshot.payloadRef);
         if (Array.isArray(parsed)) {
@@ -46,7 +143,7 @@ export class NormalizedEntityBuilderService {
           if (parsed[0]?.entityType === 'terrain') return 'terrain';
         }
       } catch {
-        // 파싱 실패 시 기존 로직 fallback
+        // JSON 파싱 실패 — fixture hint 기반 로직으로 fallback
       }
     }
 

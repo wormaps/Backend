@@ -27,6 +27,6 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["packages/**/*.ts", "test/**/*.ts", "src/**/*.ts", "src/**/*.d.ts"],
+  "include": ["packages/**/*.ts", "test/**/*.ts", "src/**/*.ts", "src/**/*.d.ts", "fixtures/**/*.ts"],
   "exclude": ["node_modules", "dist", "eslint.config.mjs"]
 }

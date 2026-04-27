@@ -6,6 +6,7 @@ export type NormalizedEntity = {
   id: string;
   stableId: string;
   type: TwinEntityType;
+  geometry?: Record<string, unknown>;
   sourceEntityRefs: SourceEntityRef[];
   tags: string[];
   issues: QaIssue[];

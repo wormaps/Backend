@@ -14,6 +14,7 @@ export type BuildingGeometry = {
   footprint: LocalPolygon;
   terrainSamples?: LocalPoint[];
   baseY?: number;
+  height?: number;
 };
 
 export type RoadGeometry = {

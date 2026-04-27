@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorMap v2 - GLB Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    p.subtitle { color: #666; margin-bottom: 24px; }
+    .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+    button { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; }
+    button:disabled { background: #93c5fd; cursor: not-allowed; }
+    button:hover:not(:disabled) { background: #1d4ed8; }
+    pre { background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin-top: 12px; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge.success { background: #dcfce7; color: #166534; }
+    .badge.fail { background: #fee2e2; color: #991b1b; }
+    .badge.pending { background: #fef9c3; color: #854d0e; }
+    .status-bar { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+    .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .examples button { width: auto; padding: 6px 16px; font-size: 13px; background: #f0f0f0; color: #333; border: 1px solid #ddd; }
+    .examples button:hover { background: #e0e0e0; }
+    .hidden { display: none; }
+    #downloadBtn { background: #059669; margin-top: 8px; }
+    #downloadBtn:hover { background: #047857; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WorMap v2 - GLB Test</h1>
+    <p class="subtitle">실제 OSM 데이터로 GLB를 생성합니다</p>
+
+    <div class="card">
+      <h3>위치 선택</h3>
+      <div class="examples">
+        <button onclick="setExample(37.4980, 127.0277, '강남역')">강남역</button>
+        <button onclick="setExample(37.5665, 126.9780, '시청')">서울시청</button>
+        <button onclick="setExample(37.5133, 127.1028, '잠실')">잠실</button>
+        <button onclick="setExample(37.5800, 127.0017, '광화문')">광화문</button>
+      </div>
+      <div class="row">
+        <div><label>위도 (lat)</label><input type="number" id="lat" value="37.4980" step="0.0001"></div>
+        <div><label>경도 (lng)</label><input type="number" id="lng" value="127.0277" step="0.0001"></div>
+      </div>
+      <div class="row">
+        <div><label>반경 (m)</label><input type="number" id="radius" value="150" min="50" max="1000"></div>
+        <div><label>Scene ID</label><input type="text" id="sceneId" value="gangnam-station"></div>
+      </div>
+      <button id="buildBtn" onclick="buildGlb()">GLB 생성</button>
+    </div>
+
+    <div id="resultCard" class="card hidden">
+      <h3>생성 결과</h3>
+      <div class="status-bar" id="statusBar">
+        <span class="badge pending" id="statusBadge">PENDING</span>
+        <span id="statusText">처리 중...</span>
+      </div>
+      <pre id="resultJson">{}</pre>
+      <button id="downloadBtn" class="hidden" onclick="downloadGlb()">GLB 다운로드</button>
+    </div>
+
+    <div class="card" style="font-size: 13px; color: #666;">
+      <strong>API</strong> - <code>POST /api/build</code> with JSON body <code>{ sceneId, lat, lng, radius }</code>
+      <br>OSM (Overpass API)에서 건물/도로/지형 데이터를 가져와 GLB로 변환합니다.
+    </div>
+  </div>
+
+  <script>
+    let lastResult = null;
+
+    function setExample(lat, lng, name) {
+      document.getElementById('lat').value = lat;
+      document.getElementById('lng').value = lng;
+      document.getElementById('sceneId').value = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    }
+
+    async function buildGlb() {
+      const btn = document.getElementById('buildBtn');
+      const resultCard = document.getElementById('resultCard');
+      const statusBadge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('statusText');
+      const resultJson = document.getElementById('resultJson');
+      const downloadBtn = document.getElementById('downloadBtn');
+
+      btn.disabled = true;
+      btn.textContent = '생성 중...';
+      resultCard.classList.remove('hidden');
+      downloadBtn.classList.add('hidden');
+      statusBadge.className = 'badge pending';
+      statusBadge.textContent = 'BUILDING';
+      statusText.textContent = 'Overpass API에서 OSM 데이터를 가져오는 중...';
+
+      const body = {
+        sceneId: document.getElementById('sceneId').value,
+        lat: parseFloat(document.getElementById('lat').value),
+        lng: parseFloat(document.getElementById('lng').value),
+        radius: parseInt(document.getElementById('radius').value),
+      };
+
+      try {
+        statusText.textContent = 'GLB 빌드 파이프라인 실행 중...';
+        const response = await fetch('/api/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+        resultJson.textContent = JSON.stringify(data, null, 2);
+
+        if (data.status === 'completed') {
+          statusBadge.className = 'badge success';
+          statusBadge.textContent = 'COMPLETED';
+          statusText.textContent = 'GLB 생성 완료! (' + (data.byteLength / 1024).toFixed(1) + ' KB, hash: ' + data.artifactHash.slice(0, 16) + '...)';
+          lastResult = data;
+          downloadBtn.classList.remove('hidden');
+        } else {
+          statusBadge.className = 'badge fail';
+          statusBadge.textContent = data.status.toUpperCase();
+          statusText.textContent = 'GLB 생성 실패';
+        }
+      } catch (err) {
+        resultJson.textContent = JSON.stringify({ error: err.message }, null, 2);
+        statusBadge.className = 'badge fail';
+        statusBadge.textContent = 'ERROR';
+        statusText.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'GLB 생성';
+      }
+    }
+
+    async function downloadGlb() {
+      if (!lastResult) return;
+      const response = await fetch('/api/build/download');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (lastResult.sceneId || 'scene') + '.glb';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

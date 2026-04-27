@@ -13,6 +13,7 @@ import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
 import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
 import { GltfMetadataFactory } from './gltf-metadata.factory';
 import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from './glb-artifact-hash';
+import { BunLogger } from '../../../packages/core/logger';
 
 export type GlbArtifact = {
   sceneId: string;
@@ -39,9 +40,17 @@ export type CompileGlbInput = {
 };
 
 export class GlbCompilerService {
+  private readonly logger = new BunLogger({ level: 'info', service: 'glb-compiler' });
+
   constructor(private readonly metadataFactory = new GltfMetadataFactory()) {}
 
   async compile(input: CompileGlbInput): Promise<GlbArtifact> {
+    this.logger.info('GLB compile started', {
+      sceneId: input.meshPlan.sceneId,
+      nodeCount: input.meshPlan.nodes.length,
+      materialCount: input.meshPlan.materials.length,
+    });
+
     const document = new Document();
     const root = document.getRoot();
     root.getAsset().version = '2.0';
@@ -68,7 +77,7 @@ export class GlbCompilerService {
       const mesh = document.createMesh(meshNode.name);
       const primitive = document.createPrimitive();
       const positions = this.createPositions(document, buffer, meshNode);
-      const indices = this.createIndices(document, buffer, positions);
+      const indices = this.createIndices(document, buffer, positions, meshNode.primitive);
       primitive.setAttribute('POSITION', positions);
       primitive.setIndices(indices);
       primitive.setMode(4);
@@ -154,10 +163,23 @@ export class GlbCompilerService {
       await MeshoptEncoder.ready;
       await document.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
       finalBytes = await io.writeBinary(document);
-    } catch {
-      // Fallback: if compression fails (e.g. primitive too small), use uncompressed.
+      this.logger.info('Meshopt compression applied', {
+        sceneId: input.meshPlan.sceneId,
+        compressedBytes: finalBytes.byteLength,
+      });
+    } catch (error) {
+      this.logger.warn('Meshopt compression failed; using uncompressed artifact', {
+        sceneId: input.meshPlan.sceneId,
+        error: String(error),
+      });
       finalBytes = bytes;
     }
+
+    this.logger.info('GLB compile completed', {
+      sceneId: input.meshPlan.sceneId,
+      byteLength: finalBytes.byteLength,
+      artifactHash,
+    });
 
     return {
       sceneId: input.meshPlan.sceneId,
@@ -233,7 +255,7 @@ export class GlbCompilerService {
   ): Accessor {
     const footprint = (geometry as { footprint: { outer: Array<{ x: number; y: number; z: number }> } }).footprint;
     const baseY = (geometry as { baseY?: number }).baseY ?? 0;
-    const height = 3;
+    const height = (geometry as { height?: number }).height ?? 3;
 
     const outer = footprint.outer;
     if (outer.length < 3) {
@@ -281,16 +303,12 @@ export class GlbCompilerService {
       const p = centerline[i]!;
 
       let dx: number, dz: number;
-      if (i === 0) {
-        dx = centerline[1]!.x - p.x;
-        dz = centerline[1]!.z - p.z;
-      } else if (i === centerline.length - 1) {
-        dx = p.x - centerline[i - 1]!.x;
-        dz = p.z - centerline[i - 1]!.z;
-      } else {
-        dx = centerline[i + 1]!.x - centerline[i - 1]!.x;
-        dz = centerline[i + 1]!.z - centerline[i - 1]!.z;
-      }
+      const prev = i > 0 ? centerline[i - 1] : centerline[i];
+      const next = i < centerline.length - 1 ? centerline[i + 1] : centerline[i];
+      if (prev === undefined) continue;
+      if (next === undefined) continue;
+      dx = next.x - prev.x;
+      dz = next.z - prev.z;
 
       const len = Math.sqrt(dx * dx + dz * dz);
       if (len < 0.001) {
@@ -332,8 +350,38 @@ export class GlbCompilerService {
     }
   }
 
-  private createIndices(document: Document, buffer: Buffer, positions: Accessor) {
+  private createIndices(document: Document, buffer: Buffer, positions: Accessor, type: string) {
     const count = positions.getCount();
+
+    if (type === 'road' || type === 'walkway') {
+      const pairCount = Math.floor(count / 2);
+      if (pairCount < 2) {
+        return document.createAccessor('indices')
+          .setArray(new Uint16Array(0))
+          .setType('SCALAR')
+          .setBuffer(buffer);
+      }
+      const triCount = (pairCount - 1) * 2;
+      const indices = new Uint16Array(triCount * 3);
+      let idx = 0;
+      for (let i = 0; i < pairCount - 1; i++) {
+        const a = 2 * i;
+        const b = 2 * i + 1;
+        const c = 2 * i + 2;
+        const d = 2 * i + 3;
+        indices[idx++] = a;
+        indices[idx++] = b;
+        indices[idx++] = d;
+        indices[idx++] = a;
+        indices[idx++] = d;
+        indices[idx++] = c;
+      }
+      return document.createAccessor('indices')
+        .setArray(indices)
+        .setType('SCALAR')
+        .setBuffer(buffer);
+    }
+
     const indices = new Uint16Array(count);
     for (let i = 0; i < count; i++) {
       indices[i] = i;
