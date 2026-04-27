@@ -22,6 +22,8 @@ type WorMapGltfExtras = {
       majorCount: number;
       minorCount: number;
       infoCount: number;
+      warnActionCount: number;
+      recordActionCount: number;
       topCodes: string[];
     };
     schemaVersions: Record<string, string>;
@@ -51,6 +53,8 @@ type WorMapGltfSidecar = {
       majorCount: number;
       minorCount: number;
       infoCount: number;
+      warnActionCount: number;
+      recordActionCount: number;
       topCodes: string[];
     };
     schemaVersions: Record<string, string>;

@@ -99,6 +99,8 @@ describe('public contract shapes', () => {
         majorCount: 0,
         minorCount: 0,
         infoCount: 0,
+        warnActionCount: 0,
+        recordActionCount: 0,
         topCodes: [],
       },
       attribution: { required: false, entries: [] },

@@ -17,6 +17,8 @@ export type QaSummary = {
   majorCount: number;
   minorCount: number;
   infoCount: number;
+  warnActionCount: number;
+  recordActionCount: number;
   topCodes: string[];
 };
 

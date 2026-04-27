@@ -47,6 +47,8 @@ describe('glb compiler metadata', () => {
         majorCount: 1,
         minorCount: 0,
         infoCount: 0,
+        warnActionCount: 0,
+        recordActionCount: 0,
         topCodes: ['COMPLIANCE_PROVIDER_POLICY_RISK'],
       },
     });

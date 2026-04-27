@@ -1,3 +1,4 @@
+import type { SceneBuildManifest } from '../../../packages/contracts/manifest';
 import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
 import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
 import type { GlbCompilerService } from '../../glb/application/glb-compiler.service';
@@ -12,6 +13,14 @@ import type { TwinGraphBuilderService } from '../../twin/application/twin-graph-
 import { BuildManifestFactory } from './build-manifest.factory';
 import type { SceneBuildRunResult } from './scene-build-run-result';
 import { SceneBuildAggregate } from '../domain/scene-build.aggregate';
+
+const buildCoordinateSystem = (scope: SceneScope): SceneBuildManifest['coordinateSystem'] => ({
+  source: 'WGS84' as const,
+  localFrame: 'ENU' as const,
+  origin: scope.center,
+  unit: 'meter' as const,
+  axis: 'Y_UP' as const,
+});
 
 export type SceneBuildMvpInput = {
   sceneId: string;
@@ -35,7 +44,7 @@ export class SceneBuildOrchestratorService {
     private readonly manifestFactory: BuildManifestFactory,
   ) {}
 
-  private summarizeQa(issues: { severity: 'critical' | 'major' | 'minor' | 'info'; code: string }[]) {
+  private summarizeQa(issues: { severity: 'critical' | 'major' | 'minor' | 'info'; code: string; action: string }[]) {
     const codeCounts = issues.reduce<Record<string, number>>((distribution, issue) => {
       distribution[issue.code] = (distribution[issue.code] ?? 0) + 1;
       return distribution;
@@ -47,6 +56,8 @@ export class SceneBuildOrchestratorService {
       majorCount: issues.filter((issue) => issue.severity === 'major').length,
       minorCount: issues.filter((issue) => issue.severity === 'minor').length,
       infoCount: issues.filter((issue) => issue.severity === 'info').length,
+      warnActionCount: issues.filter((issue) => issue.action === 'warn_only').length,
+      recordActionCount: issues.filter((issue) => issue.action === 'record_only').length,
       topCodes: Object.entries(codeCounts)
         .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
         .slice(0, 5)
@@ -79,13 +90,7 @@ export class SceneBuildOrchestratorService {
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
         qaSummary: this.summarizeQa(qaResult.issues),
-        coordinateSystem: {
-          source: 'WGS84',
-          localFrame: 'ENU',
-          origin: input.scope.center,
-          unit: 'meter',
-          axis: 'Y_UP',
-        },
+        coordinateSystem: buildCoordinateSystem(input.scope),
       });
 
       return {
@@ -158,13 +163,7 @@ export class SceneBuildOrchestratorService {
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
         qaSummary: this.summarizeQa(qaResult.issues),
-        coordinateSystem: {
-          source: 'WGS84',
-          localFrame: 'ENU',
-          origin: input.scope.center,
-          unit: 'meter',
-          axis: 'Y_UP',
-        },
+        coordinateSystem: buildCoordinateSystem(input.scope),
       });
 
       return {
@@ -209,13 +208,7 @@ export class SceneBuildOrchestratorService {
       finalTier: qaResult.finalTier,
       finalTierReasonCodes: qaResult.finalTierReasonCodes,
       qaSummary: this.summarizeQa(qaResult.issues),
-      coordinateSystem: {
-        source: 'WGS84',
-        localFrame: 'ENU',
-        origin: input.scope.center,
-        unit: 'meter',
-        axis: 'Y_UP',
-      },
+      coordinateSystem: buildCoordinateSystem(input.scope),
     });
 
     const glbValidation = await this.glbValidation.validate({
@@ -240,13 +233,7 @@ export class SceneBuildOrchestratorService {
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
         qaSummary: this.summarizeQa(qaResult.issues),
-        coordinateSystem: {
-          source: 'WGS84',
-          localFrame: 'ENU',
-          origin: input.scope.center,
-          unit: 'meter',
-          axis: 'Y_UP',
-        },
+        coordinateSystem: buildCoordinateSystem(input.scope),
       });
 
       return {
@@ -287,13 +274,7 @@ export class SceneBuildOrchestratorService {
       finalTier: qaResult.finalTier,
       finalTierReasonCodes: qaResult.finalTierReasonCodes,
       qaSummary: this.summarizeQa(qaResult.issues),
-      coordinateSystem: {
-        source: 'WGS84',
-        localFrame: 'ENU',
-        origin: input.scope.center,
-        unit: 'meter',
-        axis: 'Y_UP',
-      },
+      coordinateSystem: buildCoordinateSystem(input.scope),
     });
 
     return {

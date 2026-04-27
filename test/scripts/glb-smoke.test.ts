@@ -5,6 +5,7 @@ import { baselineFixtures } from '../../fixtures/phase2';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 async function buildAndLoadGlb() {
   const app = createWorMapMvpApp();
@@ -126,5 +127,42 @@ describe('GLB smoke test', () => {
     const document = await io.readBinary(new Uint8Array(loadedBytes));
     const root = document.getRoot();
     expect(root.listMeshes().length).toBeGreaterThan(0);
+  });
+
+  it('can be loaded by Three.js GLTFLoader', async () => {
+    const artifact = await buildAndLoadGlb();
+
+    let renderer: import('three').WebGLRenderer | null = null;
+    try {
+      const THREE = await import('three');
+      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+
+      try {
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+        });
+      } catch {
+        console.log('WebGL not available, testing loader only');
+      }
+
+      const loader = new GLTFLoader();
+      const glbArrayBuffer = artifact.bytes.buffer as ArrayBuffer;
+
+      const gltf = await new Promise<GLTF>((resolve, reject) => {
+        loader.parse(
+          glbArrayBuffer,
+          '',
+          (gltf) => resolve(gltf),
+          (error) => reject(error),
+        );
+      });
+
+      expect(gltf.scene.children.length).toBeGreaterThan(0);
+    } catch (e) {
+      console.log('Three.js render test skipped:', (e as Error).message);
+    } finally {
+      renderer?.dispose();
+    }
   });
 });

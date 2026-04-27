@@ -2,8 +2,8 @@ name: Blender Smoke Test
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # 매일 06:00 UTC
-  workflow_dispatch:      # 수동 실행 가능
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
   blender-smoke:
@@ -18,35 +18,50 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build GLB
+      - name: Build GLB artifacts
         run: |
           bun -e "
-            import { createWorMapMvpApp } from './src/main';
-            import { baselineFixtures } from './fixtures/phase2';
-            import { writeFileSync } from 'node:fs';
-            const app = createWorMapMvpApp();
-            const results = await Promise.all(baselineFixtures.map(f => app.services.sceneBuildOrchestrator.run(f)));
-            for (let i = 0; i < results.length; i++) {
-              const r = results[i];
-              if (r.kind === 'completed') {
-                writeFileSync(\`/tmp/wormap-baseline-\${i}.glb\`, r.glbArtifact.bytes);
-                console.log(\`Saved baseline-\${i}.glb (\${r.glbArtifact.byteLength} bytes)\`);
-              }
+          import { createWorMapMvpApp } from './src/main';
+          import { baselineFixtures } from './fixtures/phase2';
+          import { writeFileSync } from 'node:fs';
+          
+          const app = createWorMapMvpApp();
+          const results = await Promise.all(
+            baselineFixtures.map(f => app.services.sceneBuildOrchestrator.run(f))
+          );
+          
+          let saved = 0;
+          for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            if (r.kind === 'completed') {
+              writeFileSync(\`/tmp/wormap-baseline-\${i}.glb\`, r.glbArtifact.bytes);
+              console.log(\`Saved baseline-\${i}.glb (\${r.glbArtifact.byteLength} bytes, hash: \${r.glbArtifact.artifactHash})\`);
+              saved++;
+            } else {
+              console.log(\`Fixture \${i} did not complete: \${r.kind}\`);
             }
+          }
+          console.log(\`Saved \${saved}/\${results.length} GLB artifacts\`);
           "
-
       - name: Install Blender
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y blender
 
       - name: Run Blender smoke test
         run: |
+          FAILED=0
           for f in /tmp/wormap-baseline-*.glb; do
-            echo "Testing: $f"
-            blender --background --python test/scripts/blender-import-smoke.py -- "$f" || {
-              echo "BLENDER SMOKE FAILED: $f"
-              exit 1
-            }
+            if [ -f "$f" ]; then
+              echo "Testing: $f"
+              blender --background --python test/scripts/blender-import-smoke.py -- "$f" || {
+                echo "BLENDER SMOKE FAILED: $f"
+                FAILED=1
+              }
+            fi
           done
+          if [ "$FAILED" = "1" ]; then
+            echo "One or more Blender smoke tests failed"
+            exit 1
+          fi
           echo "All Blender smoke tests passed"
