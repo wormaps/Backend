@@ -19,10 +19,13 @@ const buildModule = createBuildModule({
   glbValidation: glbModule.services.glbValidation,
 });
 
+providersModule.services.osmSceneBuild.setOrchestrator(buildModule.services.sceneBuildOrchestrator);
+
 export const appModule = {
   name: 'wormap-v2',
   modules: [providersModule, normalizationModule, realityModule, twinModule, renderModule, qaModule, glbModule, buildModule],
   services: {
     sceneBuildOrchestrator: buildModule.services.sceneBuildOrchestrator,
+    osmSceneBuild: providersModule.services.osmSceneBuild,
   },
 } as const;

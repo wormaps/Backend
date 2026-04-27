@@ -36,6 +36,20 @@ export class NormalizedEntityBuilderService {
   }
 
   private deriveType(snapshot: SourceSnapshot): TwinEntityType {
+    if (snapshot.provider === 'osm' && snapshot.payloadRef?.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(snapshot.payloadRef);
+        if (Array.isArray(parsed)) {
+          if (parsed[0]?.entityType === 'building') return 'building';
+          if (parsed[0]?.entityType === 'road') return 'road';
+          if (parsed[0]?.entityType === 'walkway') return 'walkway';
+          if (parsed[0]?.entityType === 'terrain') return 'terrain';
+        }
+      } catch {
+        // 파싱 실패 시 기존 로직 fallback
+      }
+    }
+
     switch (snapshot.provider) {
       case 'tomtom':
         return 'traffic_flow';
