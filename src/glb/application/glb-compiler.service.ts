@@ -10,6 +10,12 @@ import earcut from 'earcut';
 import type { MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
 import type { QaSummary, WorMapGltfMetadataExport } from '../../../packages/contracts/manifest';
 import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
+import type {
+  BuildingMeshGeometry,
+  MeshGeometry,
+  RoadMeshGeometry,
+  WalkwayMeshGeometry,
+} from '../../../packages/core/geometry';
 import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
 import { GltfMetadataFactory } from './gltf-metadata.factory';
 import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from './glb-artifact-hash';
@@ -251,11 +257,11 @@ export class GlbCompilerService {
   private createBuildingPositions(
     document: Document,
     buffer: Buffer,
-    geometry: Record<string, unknown>,
+    geometry: BuildingMeshGeometry,
   ): Accessor {
-    const footprint = (geometry as { footprint: { outer: Array<{ x: number; y: number; z: number }> } }).footprint;
-    const baseY = (geometry as { baseY?: number }).baseY ?? 0;
-    const height = (geometry as { height?: number }).height ?? 3;
+    const footprint = geometry.footprint;
+    const baseY = geometry.baseY ?? 0;
+    const height = geometry.height ?? 3;
 
     const outer = footprint.outer;
     if (outer.length < 3) {
@@ -287,9 +293,9 @@ export class GlbCompilerService {
   private createRoadPositions(
     document: Document,
     buffer: Buffer,
-    geometry: Record<string, unknown>,
+    geometry: RoadMeshGeometry | WalkwayMeshGeometry,
   ): Accessor {
-    const centerline = (geometry as { centerline: Array<{ x: number; y: number; z: number }> }).centerline;
+    const centerline = geometry.centerline;
     const width = 2;
 
     if (centerline.length < 2) {
@@ -335,12 +341,12 @@ export class GlbCompilerService {
   private createPositionsFromGeometry(
     document: Document,
     buffer: Buffer,
-    geometry: Record<string, unknown>,
+    geometry: MeshGeometry,
     type: string,
     pivot: { x: number; y: number; z: number },
   ): Accessor {
-    switch (type) {
-      case 'building_massing':
+    switch (geometry.kind) {
+      case 'building':
         return this.createBuildingPositions(document, buffer, geometry);
       case 'road':
       case 'walkway':

@@ -90,6 +90,7 @@ describe('glb compiler metadata', () => {
             pivot: { x: 0, y: 0, z: 0 },
             materialId: 'material:road',
             geometry: {
+              kind: 'road',
               centerline: [
                 { x: 0, y: 0, z: 0 },
                 { x: 10, y: 0, z: 0 },
@@ -105,6 +106,7 @@ describe('glb compiler metadata', () => {
             pivot: { x: 0, y: 0, z: 0 },
             materialId: 'material:road',
             geometry: {
+              kind: 'walkway',
               centerline: [
                 { x: 0, y: 0, z: 0 },
                 { x: 5, y: 0, z: 5 },
@@ -183,6 +185,7 @@ describe('glb compiler metadata', () => {
             pivot: { x: 0, y: 0, z: 0 },
             materialId: 'material:building',
             geometry: {
+              kind: 'building',
               footprint: {
                 outer: [
                   { x: 0, y: 0, z: 0 },

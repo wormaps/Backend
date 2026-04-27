@@ -6,33 +6,6 @@ export class TwinEntityProjectionService {
     return bundle.entities.map((entity) => this.projectEntity(entity));
   }
 
-  private resolvePoint(value: unknown): { x: number; y: number; z: number } | null {
-    if (typeof value !== 'object' || value === null) {
-      return null;
-    }
-
-    const candidate = value as Record<string, unknown>;
-    const x = candidate.x;
-    const y = candidate.y;
-    const z = candidate.z;
-
-    if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') {
-      return null;
-    }
-
-    return { x, y, z };
-  }
-
-  private resolveLine(value: unknown): Array<{ x: number; y: number; z: number }> {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    return value
-      .map((point) => this.resolvePoint(point))
-      .filter((point): point is { x: number; y: number; z: number } => point !== null);
-  }
-
   private projectEntity(entity: NormalizedEntityBundle['entities'][number]): TwinEntity {
     const base = {
       id: entity.id,
@@ -56,8 +29,7 @@ export class TwinEntityProjectionService {
     switch (entity.type) {
       case 'traffic_flow':
         {
-          const geometry = (entity.geometry ?? {}) as Record<string, unknown>;
-          const centerline = this.resolveLine(geometry.centerline);
+          const centerline = entity.geometry?.kind === 'road' ? entity.geometry.centerline : [];
           const resolvedCenterline = centerline.length >= 2
             ? centerline
             : [
@@ -88,8 +60,7 @@ export class TwinEntityProjectionService {
       }
       case 'terrain':
         {
-          const geometry = (entity.geometry ?? {}) as Record<string, unknown>;
-          const samples = this.resolveLine(geometry.samples);
+          const samples = entity.geometry?.kind === 'terrain' ? entity.geometry.samples : [];
           const resolvedSamples = samples.length > 0 ? samples : [{ x: 0, y: 0, z: 0 }];
         return {
           ...base,
@@ -102,8 +73,7 @@ export class TwinEntityProjectionService {
       }
       case 'road':
         {
-          const geometry = (entity.geometry ?? {}) as Record<string, unknown>;
-          const centerline = this.resolveLine(geometry.centerline);
+          const centerline = entity.geometry?.kind === 'road' ? entity.geometry.centerline : [];
           const resolvedCenterline = centerline.length >= 2
             ? centerline
             : [
@@ -121,8 +91,7 @@ export class TwinEntityProjectionService {
       }
       case 'walkway':
         {
-          const geometry = (entity.geometry ?? {}) as Record<string, unknown>;
-          const centerline = this.resolveLine(geometry.centerline);
+          const centerline = entity.geometry?.kind === 'walkway' ? entity.geometry.centerline : [];
           const resolvedCenterline = centerline.length >= 2
             ? centerline
             : [
@@ -140,9 +109,7 @@ export class TwinEntityProjectionService {
       }
       case 'building':
         {
-          const geometry = (entity.geometry ?? {}) as Record<string, unknown>;
-          const footprintValue = (geometry.footprint as Record<string, unknown> | undefined)?.outer;
-          const outer = this.resolveLine(footprintValue);
+          const outer = entity.geometry?.kind === 'building' ? entity.geometry.footprint.outer : [];
           const resolvedOuter = outer.length >= 3
             ? outer
             : [
@@ -151,13 +118,12 @@ export class TwinEntityProjectionService {
                 { x: 1, y: 0, z: 1 },
                 { x: 0, y: 0, z: 1 },
               ];
-          const baseYValue = geometry.baseY;
-          const resolvedBaseY = typeof baseYValue === 'number' ? baseYValue : 0;
+          const resolvedBaseY = entity.geometry?.kind === 'building' && typeof entity.geometry.baseY === 'number'
+            ? entity.geometry.baseY
+            : 0;
 
-          const rawHeight = geometry.height;
-          const rawLevels = geometry.levels;
+          const rawHeight = entity.geometry?.kind === 'building' ? entity.geometry.height : undefined;
           const parsedHeight = typeof rawHeight === 'number' && rawHeight > 0 ? rawHeight : undefined;
-          const parsedLevels = typeof rawLevels === 'number' && rawLevels > 0 ? rawLevels : undefined;
 
           let resolvedHeight: number;
           let heightProvenance: 'observed' | 'inferred' | 'defaulted';
@@ -167,10 +133,6 @@ export class TwinEntityProjectionService {
             resolvedHeight = parsedHeight;
             heightProvenance = 'observed';
             heightReasonCodes = ['BUILDING_HEIGHT_FROM_OSM'];
-          } else if (parsedLevels !== undefined) {
-            resolvedHeight = parsedLevels * 3.0;
-            heightProvenance = 'inferred';
-            heightReasonCodes = ['BUILDING_HEIGHT_FROM_LEVELS'];
           } else {
             resolvedHeight = 3.0;
             heightProvenance = 'defaulted';
@@ -195,21 +157,14 @@ export class TwinEntityProjectionService {
               source: entity.sourceEntityRefs[0]?.sourceId ?? entity.id,
               reasonCodes: heightReasonCodes,
             },
-            levels: parsedLevels !== undefined ? {
-              value: parsedLevels,
-              provenance: 'observed',
-              confidence: base.confidence,
-              source: entity.sourceEntityRefs[0]?.sourceId ?? entity.id,
-              reasonCodes: ['BUILDING_LEVELS_FROM_OSM'],
-            } : undefined,
+            levels: undefined,
           },
         };
       }
       case 'poi':
       default:
         {
-          const geometry = (entity.geometry ?? {}) as Record<string, unknown>;
-          const point = this.resolvePoint(geometry.point) ?? { x: 0, y: 0, z: 0 };
+          const point = entity.geometry?.kind === 'poi' ? entity.geometry.point : { x: 0, y: 0, z: 0 };
         return {
           ...base,
           type: this.asPoi(entity.type),

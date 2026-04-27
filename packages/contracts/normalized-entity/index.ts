@@ -1,3 +1,4 @@
+import type { MeshGeometry } from '../../core/geometry';
 import type { QaIssue } from '../qa';
 import type { SourceEntityRef } from '../source-snapshot';
 import type { TwinEntityType } from '../twin-scene-graph';
@@ -6,7 +7,7 @@ export type NormalizedEntity = {
   id: string;
   stableId: string;
   type: TwinEntityType;
-  geometry?: Record<string, unknown>;
+  geometry?: MeshGeometry;
   sourceEntityRefs: SourceEntityRef[];
   tags: string[];
   issues: QaIssue[];

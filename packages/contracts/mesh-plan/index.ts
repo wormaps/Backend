@@ -1,3 +1,5 @@
+import type { MeshGeometry } from '../../core/geometry';
+
 export type MeshBudget = {
   maxGlbBytes: number;
   maxTriangleCount: number;
@@ -14,7 +16,7 @@ export type MeshPlanNode = {
   pivot: { x: number; y: number; z: number };
   materialId: string;
   /** Entity geometry for GLB mesh generation. Falls back to placeholder when undefined. */
-  geometry?: Record<string, unknown>;
+  geometry?: MeshGeometry;
 };
 
 export type MaterialPlan = {

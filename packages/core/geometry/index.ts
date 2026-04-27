@@ -43,3 +43,5 @@ export type FacadeMaterial =
   | 'tile'
   | 'unknown';
 
+export * from './geometry.schema';
+export * from './mesh-geometry';

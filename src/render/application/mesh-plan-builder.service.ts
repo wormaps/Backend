@@ -2,6 +2,7 @@ import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
 import type { MaterialPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
 import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
 import type { TwinEntity, TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
+import type { MeshGeometry } from '../../../packages/core/geometry';
 
 export class MeshPlanBuilderService {
   build(graph: TwinSceneGraph, intentSet: RenderIntentSet): MeshPlan {
@@ -28,7 +29,7 @@ export class MeshPlanBuilderService {
         primitive: nodeSpec.primitive,
         pivot: this.resolvePivot(entity),
         materialId: material.id,
-        geometry: (entity as { geometry: Record<string, unknown> }).geometry,
+        geometry: this.resolveGeometry(entity),
       });
     }
 
@@ -138,6 +139,23 @@ export class MeshPlanBuilderService {
       case 'poi':
       default:
         return entity.geometry.point;
+    }
+  }
+
+  private resolveGeometry(entity: TwinEntity): MeshGeometry | undefined {
+    switch (entity.type) {
+      case 'building':
+        return { kind: 'building', ...entity.geometry };
+      case 'road':
+      case 'traffic_flow':
+        return { kind: 'road', ...entity.geometry };
+      case 'walkway':
+        return { kind: 'walkway', ...entity.geometry };
+      case 'terrain':
+        return { kind: 'terrain', ...entity.geometry };
+      case 'poi':
+      default:
+        return { kind: 'poi', ...entity.geometry };
     }
   }
 }

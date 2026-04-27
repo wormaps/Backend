@@ -2,11 +2,12 @@ import type { NormalizedEntity, NormalizedEntityBundle } from '../../../packages
 import type { QaIssue } from '../../../packages/contracts/qa';
 import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
 import type { TwinEntityType } from '../../../packages/contracts/twin-scene-graph';
+import type { MeshGeometry } from '../../../packages/core/geometry';
 
 type OSMFeaturePayload = {
   id: string;
   entityType: 'building' | 'road' | 'walkway' | 'terrain' | 'poi';
-  geometry?: Record<string, unknown>;
+  geometry?: MeshGeometry;
   tags?: Record<string, string>;
 };
 
@@ -104,9 +105,72 @@ export class NormalizedEntityBuilderService {
         }
         const item = value as Record<string, unknown>;
         return typeof item.id === 'string' && typeof item.entityType === 'string';
-      });
+      }).map((feature) => ({
+        ...feature,
+        geometry: this.toMeshGeometry(feature),
+      }));
     } catch {
       return [];
+    }
+  }
+
+  private toMeshGeometry(feature: {
+    id: string;
+    entityType: 'building' | 'road' | 'walkway' | 'terrain' | 'poi';
+    geometry?: Record<string, unknown>;
+    tags?: Record<string, string>;
+  }): MeshGeometry | undefined {
+    const raw = feature.geometry;
+    if (raw === undefined || raw === null) {
+      return undefined;
+    }
+
+    switch (feature.entityType) {
+      case 'building': {
+        const footprint = raw.footprint as { outer: Array<{ x: number; y: number; z: number }>; holes?: Array<Array<{ x: number; y: number; z: number }>> } | undefined;
+        if (footprint === undefined) return undefined;
+        return {
+          kind: 'building',
+          footprint,
+          baseY: typeof raw.baseY === 'number' ? raw.baseY : undefined,
+          height: typeof raw.height === 'number' ? raw.height : undefined,
+        };
+      }
+      case 'road': {
+        const centerline = raw.centerline as Array<{ x: number; y: number; z: number }> | undefined;
+        if (centerline === undefined) return undefined;
+        return {
+          kind: 'road',
+          centerline,
+          bufferPolygon: raw.bufferPolygon as { outer: Array<{ x: number; y: number; z: number }>; holes?: Array<Array<{ x: number; y: number; z: number }>> } | undefined,
+        };
+      }
+      case 'walkway': {
+        const centerline = raw.centerline as Array<{ x: number; y: number; z: number }> | undefined;
+        if (centerline === undefined) return undefined;
+        return {
+          kind: 'walkway',
+          centerline,
+        };
+      }
+      case 'terrain': {
+        const samples = raw.samples as Array<{ x: number; y: number; z: number }> | undefined;
+        if (samples === undefined) return undefined;
+        return {
+          kind: 'terrain',
+          samples,
+        };
+      }
+      case 'poi': {
+        const point = raw.point as { x: number; y: number; z: number } | undefined;
+        if (point === undefined) return undefined;
+        return {
+          kind: 'poi',
+          point,
+        };
+      }
+      default:
+        return undefined;
     }
   }
 

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type SchemaVersionSet = {
   sourceSnapshotSchema: string;
   normalizedEntitySchema: string;
@@ -8,6 +10,18 @@ export type SchemaVersionSet = {
   qaSchema: string;
   manifestSchema: string;
 };
+
+export const SchemaVersionSetSchema = z.object({
+  sourceSnapshotSchema: z.string(),
+  normalizedEntitySchema: z.string(),
+  evidenceGraphSchema: z.string(),
+  twinSceneGraphSchema: z.string(),
+  renderIntentSchema: z.string(),
+  meshPlanSchema: z.string(),
+  qaSchema: z.string(),
+  manifestSchema: z.string(),
+});
+export type SchemaVersionSetInferred = z.infer<typeof SchemaVersionSetSchema>;
 
 export const SCHEMA_VERSION_SET_V1: SchemaVersionSet = {
   sourceSnapshotSchema: 'source-snapshot.v1',
