@@ -61,7 +61,7 @@ export class MeshPlanBuilderService {
         parentId: bodyId,
         name: `building:windows:${entity.id.slice(-6)}`,
         primitive: 'building_windows',
-        pivot: this.resolvePivot(entity),
+        pivot: { x: 0, y: 0, z: 0 }, // child node — vertices in world ENU coords, no additional translation
         materialId: windowMaterial.id,
         geometry: this.resolveGeometry(entity),
       });
