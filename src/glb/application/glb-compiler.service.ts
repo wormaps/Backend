@@ -351,6 +351,16 @@ export class GlbCompilerService {
     const positions: number[] = [];
     const n = outer.length;
 
+    // Determine polygon winding via signed area (Shoelace formula in XZ plane).
+    // Positive = CCW, negative = CW. Inward normal sign depends on winding.
+    let signedArea = 0;
+    for (let i = 0; i < n; i++) {
+      const a = outer[i]!;
+      const b = outer[(i + 1) % n]!;
+      signedArea += a.x * b.z - b.x * a.z;
+    }
+    const windingSign = signedArea > 0 ? 1 : -1; // CCW → +1, CW → -1
+
     for (let j = 0; j < n; j++) {
       const p0 = outer[j]!;
       const p1 = outer[(j + 1) % n]!;
@@ -360,9 +370,10 @@ export class GlbCompilerService {
 
       if (L < MIN_WALL_LEN) continue;
 
-      // Inward normal for CCW polygon: outward = (dz/L, 0, -dx/L), inward flips sign
-      const inX = (-dz / L) * INSET;
-      const inZ = (dx / L) * INSET;
+      // Inward normal depends on winding: CCW outward = (dz/L, -dx/L), inward flips.
+      // windingSign flips the direction for CW polygons automatically.
+      const inX = (-dz / L) * INSET * windingSign;
+      const inZ = (dx / L) * INSET * windingSign;
 
       const usableLen = L - 2 * SIDE_MARGIN;
       if (usableLen < WIN_WIDTH) continue;

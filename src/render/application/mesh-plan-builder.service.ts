@@ -53,7 +53,10 @@ export class MeshPlanBuilderService {
     const result: MeshPlanNode[] = [bodyNode];
 
     // Add glass window node as child of building body node.
-    if (entity.type === 'building' && nodeSpec.primitive === 'building_massing') {
+    // Minimum height: BOTTOM_MARGIN(0.8) + WIN_HEIGHT(1.4) + roof_clearance(0.3) = 2.5 m.
+    // Skip window node for very short buildings — avoids placeholder glass artifact.
+    const buildingHeight = entity.type === 'building' ? (entity.geometry.height ?? 5) : 0;
+    if (entity.type === 'building' && nodeSpec.primitive === 'building_massing' && buildingHeight >= 2.5) {
       const windowMaterial = this.ensureMaterial(materials, 'window', entity);
       result.push({
         id: `window:${entity.id}`,
