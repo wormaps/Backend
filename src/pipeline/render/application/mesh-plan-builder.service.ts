@@ -132,7 +132,7 @@ export class MeshPlanBuilderService {
 
     const baseColor =
       role === 'building'
-        ? this.deriveBuildingColor(entity.id, this.extractBuildingTag(entity.tags))
+        ? this.deriveBuildingColor(entity.id, entity.tags)
         : undefined;
 
     const created: MaterialPlan = {
@@ -143,12 +143,6 @@ export class MeshPlanBuilderService {
     };
     materials.set(key, created);
     return created;
-  }
-
-  private extractBuildingTag(tags: string[]): string {
-    const prefix = 'osm:building=';
-    const tag = tags.find((t) => t.startsWith(prefix));
-    return tag ? tag.slice(prefix.length) : 'yes';
   }
 
   private extractHighwayType(tags: string[]): string {
@@ -167,25 +161,11 @@ export class MeshPlanBuilderService {
     return 'residential';
   }
 
-  /** HSL hue per building type, seeded variation per entity. Linear sRGB output. */
-  private deriveBuildingColor(entityId: string, buildingTag: string): [number, number, number] {
-    // Realistic material-based hues — muted tones matching typical facade materials.
-    const baseHues: Record<string, number> = {
-      residential: 0.07,   // warm brick/terracotta
-      house: 0.07,
-      detached: 0.07,
-      apartments: 0.09,    // concrete with warm cast
-      commercial: 0.58,    // glass curtain wall (cool blue-gray)
-      office: 0.60,        // glass/steel (blue-gray)
-      retail: 0.05,        // brick red
-      industrial: 0.13,    // weathered steel/concrete
-      warehouse: 0.12,     // concrete
-      school: 0.30,        // pale green plaster
-      church: 0.08,        // stone (warm gray)
-      hotel: 0.58,         // glass curtain wall
-      yes: 0.08,           // default: stone/concrete
-    };
-    const baseHue = baseHues[buildingTag] ?? 0.08;
+  /** Floor-tier + entity-ID seeded color. Linear sRGB output. */
+  private deriveBuildingColor(entityId: string, tags: string[]): [number, number, number] {
+    // Extract floor count from V-World/OSM tags for tier classification.
+    const levelsTag = tags.find((t) => t.startsWith('osm:building:levels='));
+    const floors = levelsTag ? parseInt(levelsTag.slice('osm:building:levels='.length), 10) : 0;
 
     let hash = 0;
     for (let i = 0; i < entityId.length; i++) {
@@ -193,17 +173,34 @@ export class MeshPlanBuilderService {
     }
     const norm = (Math.abs(hash) % 1000) / 1000;
 
-    // Per-entity hue variation ±0.05 — subtle variation, keeps realistic muted tones.
-    const hue = ((baseHue + (norm - 0.5) * 0.10) % 1 + 1) % 1;
-    const saturation = 0.18 + norm * 0.12; // low saturation → concrete/brick/plaster
-    const lightness = 0.40 + norm * 0.18;  // mid-range lightness
+    let baseHue: number;
+    let baseSat: number;
+    let baseLight: number;
 
-    return this.hslToLinearRgb(hue, saturation, lightness);
+    if (floors >= 20) {
+      // High-rise tower: blue-gray glass curtain wall
+      baseHue = 0.58; baseSat = 0.14; baseLight = 0.50 + norm * 0.12;
+    } else if (floors >= 10) {
+      // Mid-high-rise: concrete + glass mix (cool gray)
+      baseHue = 0.56 + norm * 0.08; baseSat = 0.10; baseLight = 0.46 + norm * 0.14;
+    } else if (floors >= 5) {
+      // Mid-rise: concrete / render plaster (warm neutral)
+      baseHue = 0.08 + (norm - 0.5) * 0.12; baseSat = 0.14; baseLight = 0.44 + norm * 0.16;
+    } else if (floors >= 2) {
+      // Low-rise: brick / terracotta
+      baseHue = 0.05 + (norm - 0.5) * 0.10; baseSat = 0.28 + norm * 0.12; baseLight = 0.40 + norm * 0.14;
+    } else {
+      // Unknown / 1F: vary widely (mix of uses)
+      baseHue = (norm * 0.30 + 0.04) % 1; baseSat = 0.20 + norm * 0.14; baseLight = 0.40 + norm * 0.18;
+    }
+
+    const hue = ((baseHue) % 1 + 1) % 1;
+    return this.hslToLinearRgb(hue, baseSat, baseLight);
   }
 
   private hslToLinearRgb(h: number, s: number, l: number): [number, number, number] {
     const c = (1 - Math.abs(2 * l - 1)) * s;
-    const hp = ((h % 1) + 1) * 6;
+    const hp = ((h % 1 + 1) % 1) * 6;
     const x = c * (1 - Math.abs((hp % 2) - 1));
     let r = 0;
     let g = 0;

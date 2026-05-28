@@ -7,10 +7,10 @@ import type {
   WorMapGltfExtras,
   WorMapGltfMetadataExport,
   WorMapGltfSidecar,
-} from '../../../shared/contracts';
-import type { GlbMeshSummary } from '../../../shared/contracts';
-import type { RealityTier } from '../../../shared/contracts';
-import type { SchemaVersionSet } from '../../../shared/core';
+} from '../../../../shared/contracts';
+import type { GlbMeshSummary } from '../../../../shared/contracts';
+import type { RealityTier } from '../../../../shared/contracts';
+import type { SchemaVersionSet } from '../../../../shared/core';
 
 export type GltfMetadataInput = {
   sceneId: string;

@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { SceneBuildManifest } from '../../shared/contracts';
 import type { SourceSnapshot } from '../../shared/contracts';
 import type { SceneScope } from '../../shared/contracts';
 import { GlbCompilerService } from '../../pipeline/glb/application';
@@ -14,14 +13,14 @@ import { TwinGraphBuilderService } from '../../pipeline/twin/application';
 import { BuildManifestFactory } from './build-manifest.factory';
 import type { SceneBuildRunResult } from './scene-build-run-result';
 import { SceneBuildAggregate } from '../domain';
-
-const buildCoordinateSystem = (scope: SceneScope): SceneBuildManifest['coordinateSystem'] => ({
-  source: 'WGS84' as const,
-  localFrame: 'ENU' as const,
-  origin: scope.center,
-  unit: 'meter' as const,
-  axis: 'Y_UP' as const,
-});
+import { buildCoordinateSystem, extractComplianceIssues, summarizeQa } from './orchestrator/scene-build-orchestrator.policy';
+import {
+  createCompletedResult,
+  createGlbValidationFailureResult,
+  createQuarantinedResult,
+  createSnapshotFailureResult,
+  toSceneBuildQaResult,
+} from './orchestrator/scene-build-result.factory';
 
 export type SceneBuildMvpInput = {
   sceneId: string;
@@ -47,30 +46,7 @@ export class SceneBuildOrchestratorService {
     private readonly manifestFactory: BuildManifestFactory,
   ) {}
 
-  private summarizeQa(issues: { severity: 'critical' | 'major' | 'minor' | 'info'; code: string; action: string }[]) {
-    const codeCounts = issues.reduce<Record<string, number>>((distribution, issue) => {
-      distribution[issue.code] = (distribution[issue.code] ?? 0) + 1;
-      return distribution;
-    }, {});
-
-    return {
-      issueCount: issues.length,
-      criticalCount: issues.filter((issue) => issue.severity === 'critical').length,
-      majorCount: issues.filter((issue) => issue.severity === 'major').length,
-      minorCount: issues.filter((issue) => issue.severity === 'minor').length,
-      infoCount: issues.filter((issue) => issue.severity === 'info').length,
-      warnActionCount: issues.filter((issue) => issue.action === 'warn_only').length,
-      recordActionCount: issues.filter((issue) => issue.action === 'record_only').length,
-      failBuildCount: issues.filter((issue) => issue.action === 'fail_build').length,
-      downgradeTierCount: issues.filter((issue) => issue.action === 'downgrade_tier').length,
-      stripDetailCount: issues.filter((issue) => issue.action === 'strip_detail').length,
-      topCodes: Object.entries(codeCounts)
-        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
-        .slice(0, 5)
-        .map(([code]) => code),
-    };
-  }
-
+  
   async run(input: SceneBuildMvpInput): Promise<SceneBuildRunResult> {
     const startedAt = Date.now();
     this.logger.log('Build run started', {
@@ -103,21 +79,20 @@ export class SceneBuildOrchestratorService {
         scopeId: input.scope.focusPlaceId ?? input.sceneId,
         snapshotBundleId: input.snapshotBundleId,
         snapshots: input.snapshots,
-        complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
+        complianceIssues: extractComplianceIssues(qaResult.issues),
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
-        qaSummary: this.summarizeQa(qaResult.issues),
+        qaSummary: summarizeQa(qaResult.issues),
         coordinateSystem: buildCoordinateSystem(input.scope),
       });
 
-      return {
-        kind: 'snapshot_failure',
+      return createSnapshotFailureResult({
         build,
         state: collected.error,
         collected,
         qaResult,
         manifest,
-      };
+      });
     }
 
     build.transitionTo('SNAPSHOT_COLLECTED');
@@ -210,31 +185,23 @@ export class SceneBuildOrchestratorService {
         snapshots: collected.value.snapshots,
         renderIntentSet: effectiveRenderIntentSet,
         meshPlan,
-        complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
+        complianceIssues: extractComplianceIssues(qaResult.issues),
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
-        qaSummary: this.summarizeQa(qaResult.issues),
+        qaSummary: summarizeQa(qaResult.issues),
         coordinateSystem: buildCoordinateSystem(input.scope),
       });
 
-      return {
-        kind: 'quarantined',
+      return createQuarantinedResult({
         build,
-        state: 'QUARANTINED',
         normalizedEntityBundle,
         evidenceGraph,
         twinSceneGraph,
         renderIntentSet: effectiveRenderIntentSet,
         meshPlan,
-        qaResult: {
-          passed: qaResult.passed,
-          issues: qaResult.issues,
-          finalTier: qaResult.finalTier,
-          finalTierReasonCodes: qaResult.finalTierReasonCodes,
-          intentAdjusted: qaResult.intentAdjusted,
-        },
+        qaResult: toSceneBuildQaResult(qaResult),
         manifest,
-      };
+      });
     }
 
     build.transitionTo('GLB_BUILDING');
@@ -243,7 +210,7 @@ export class SceneBuildOrchestratorService {
       buildId: input.buildId,
       snapshotBundleId: input.snapshotBundleId,
       finalTier: qaResult.finalTier,
-      qaSummary: this.summarizeQa(qaResult.issues),
+      qaSummary: summarizeQa(qaResult.issues),
       groundRadius: (input.scope.radiusMeters ?? 150) * 2.5,
     });
     const manifestCandidate = this.manifestFactory.create({
@@ -256,10 +223,10 @@ export class SceneBuildOrchestratorService {
       renderIntentSet: effectiveRenderIntentSet,
       meshPlan,
       glbArtifact,
-      complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
+      complianceIssues: extractComplianceIssues(qaResult.issues),
       finalTier: qaResult.finalTier,
       finalTierReasonCodes: qaResult.finalTierReasonCodes,
-      qaSummary: this.summarizeQa(qaResult.issues),
+      qaSummary: summarizeQa(qaResult.issues),
       coordinateSystem: buildCoordinateSystem(input.scope),
     });
 
@@ -285,33 +252,25 @@ export class SceneBuildOrchestratorService {
         renderIntentSet: effectiveRenderIntentSet,
         meshPlan,
         glbArtifact,
-        complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
+        complianceIssues: extractComplianceIssues(qaResult.issues),
         finalTier: qaResult.finalTier,
         finalTierReasonCodes: qaResult.finalTierReasonCodes,
-        qaSummary: this.summarizeQa(qaResult.issues),
+        qaSummary: summarizeQa(qaResult.issues),
         coordinateSystem: buildCoordinateSystem(input.scope),
       });
 
-      return {
-        kind: 'glb_validation_failure',
+      return createGlbValidationFailureResult({
         build,
-        state: 'FAILED',
         normalizedEntityBundle,
         evidenceGraph,
         twinSceneGraph,
         renderIntentSet: effectiveRenderIntentSet,
         meshPlan,
-        qaResult: {
-          passed: qaResult.passed,
-          issues: qaResult.issues,
-          finalTier: qaResult.finalTier,
-          finalTierReasonCodes: qaResult.finalTierReasonCodes,
-          intentAdjusted: qaResult.intentAdjusted,
-        },
+        qaResult: toSceneBuildQaResult(qaResult),
         glbArtifact,
         glbValidation,
         manifest,
-      };
+      });
     }
 
     build.transitionTo('GLB_BUILT');
@@ -333,31 +292,23 @@ export class SceneBuildOrchestratorService {
       renderIntentSet: effectiveRenderIntentSet,
       meshPlan,
       glbArtifact,
-      complianceIssues: qaResult.issues.filter((issue) => issue.code.startsWith('COMPLIANCE_')),
+      complianceIssues: extractComplianceIssues(qaResult.issues),
       finalTier: qaResult.finalTier,
       finalTierReasonCodes: qaResult.finalTierReasonCodes,
-      qaSummary: this.summarizeQa(qaResult.issues),
+      qaSummary: summarizeQa(qaResult.issues),
       coordinateSystem: buildCoordinateSystem(input.scope),
     });
 
-    return {
-      kind: 'completed',
+    return createCompletedResult({
       build,
-      state: 'COMPLETED',
       normalizedEntityBundle,
       evidenceGraph,
       twinSceneGraph,
       renderIntentSet: effectiveRenderIntentSet,
       meshPlan,
-      qaResult: {
-        passed: qaResult.passed,
-        issues: qaResult.issues,
-        finalTier: qaResult.finalTier,
-        finalTierReasonCodes: qaResult.finalTierReasonCodes,
-        intentAdjusted: qaResult.intentAdjusted,
-      },
+      qaResult: toSceneBuildQaResult(qaResult),
       glbArtifact,
       manifest,
-    };
+    });
   }
 }
