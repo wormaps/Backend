@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type { QaSummary, SceneBuildManifest, SceneBuildState } from '../../shared/contracts/manifest';
 import type { MeshPlan } from '../../shared/contracts/mesh-plan';
 import type { QaIssue } from '../../shared/contracts/qa';
@@ -24,6 +25,7 @@ export type BuildManifestInput = {
   coordinateSystem?: SceneBuildManifest['coordinateSystem'];
 };
 
+@Injectable()
 export class BuildManifestFactory {
   create(input: BuildManifestInput): SceneBuildManifest {
     return {

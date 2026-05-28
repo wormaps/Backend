@@ -1,3 +1,4 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
 import { wgs84ToEnu, type LatLng } from '../../shared/core/coordinates';
 
@@ -24,7 +25,10 @@ export type OSMEntityData = {
   id: string;
 };
 
+@Injectable()
 export class OverpassAdapter {
+  private readonly logger = new Logger(OverpassAdapter.name);
+
   constructor(private readonly apiUrl: string = 'https://overpass-api.de/api/interpreter') {}
 
   async queryBuildings(scope: SceneScope): Promise<OSMEntityData[]> {
@@ -111,6 +115,7 @@ export class OverpassAdapter {
         }
 
         const data = (await response.json()) as OverpassResponse;
+        this.logger.debug(`Overpass query success elements=${data.elements.length}`);
         return data.elements;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));

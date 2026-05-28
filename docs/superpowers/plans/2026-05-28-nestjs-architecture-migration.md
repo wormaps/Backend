@@ -647,7 +647,7 @@ git commit -m "refactor: convert RenderModule to NestJS @Module, inject RealityT
 - Modify: `src/providers/infrastructure/overpass.adapter.ts`
 - Modify: `src/providers/infrastructure/mapbox-dem.adapter.ts`
 
-- [ ] **Step 1: 4개 서비스/어댑터 @Injectable 추가**
+- [X] **Step 1: 4개 서비스/어댑터 @Injectable 추가**
 
 각 파일:
 ```typescript
@@ -665,7 +665,7 @@ export class <ServiceOrAdapterClass> {
 - `mapbox-dem.adapter.ts` — MapboxDemAdapter
 - `snapshot-collector.service.ts` — SnapshotCollectorService
 
-- [ ] **Step 2: snapshot-collector.service.ts — 어댑터 생성자 주입**
+- [X] **Step 2: snapshot-collector.service.ts — 어댑터 생성자 주입**
 
 현재 SnapshotCollectorService가 내부적으로 어댑터를 `new`로 생성하고 있으면, 생성자 주입으로 변경:
 
@@ -686,7 +686,7 @@ export class SnapshotCollectorService {
 }
 ```
 
-- [ ] **Step 3: osm-scene-build.service.ts — @Injectable**
+- [X] **Step 3: osm-scene-build.service.ts — @Injectable**
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
@@ -699,7 +699,7 @@ export class OsmSceneBuildService {
 }
 ```
 
-- [ ] **Step 4: providers.module.ts — @Module() 재작성**
+- [X] **Step 4: providers.module.ts — @Module() 재작성**
 
 `validateProviderApiKeys`는 plain function으로 유지 (main.ts에서 호출):
 
@@ -724,7 +724,7 @@ export function validateProviderApiKeys(options: { strict: boolean }): void {
 }
 ```
 
-- [ ] **Step 5: type-check**
+- [X] **Step 5: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "provider" | head -20
@@ -758,7 +758,7 @@ constructor(
 ```
 모두 NestJS가 자동 주입 — 기존 수동 파라미터 제거, `import type` → `import`.
 
-- [ ] **Step 1: qa-gate.service.ts 이동 + @Injectable**
+- [X] **Step 1: qa-gate.service.ts 이동 + @Injectable**
 
 ```bash
 cp /Users/user/wormapb/src/qa/application/qa-gate.service.ts \
@@ -781,7 +781,7 @@ export class QaGateService {
 }
 ```
 
-- [ ] **Step 2: build-manifest.factory.ts — @Injectable**
+- [X] **Step 2: build-manifest.factory.ts — @Injectable**
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -792,12 +792,12 @@ export class BuildManifestFactory {
 }
 ```
 
-- [ ] **Step 3: scene-build.aggregate.ts 확인**
+- [X] **Step 3: scene-build.aggregate.ts 확인**
 
 도메인 aggregate는 `@Injectable()` 불필요 (NestJS DI 대상 아님 — 순수 도메인 로직).
 파일 내용 확인 후 변경 불필요하면 그대로 유지.
 
-- [ ] **Step 4: scene-build-orchestrator.service.ts — @Injectable + import type 제거**
+- [X] **Step 4: scene-build-orchestrator.service.ts — @Injectable + import type 제거**
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
@@ -834,7 +834,7 @@ export class SceneBuildOrchestratorService {
 }
 ```
 
-- [ ] **Step 5: build.module.ts — @Module() 재작성**
+- [X] **Step 5: build.module.ts — @Module() 재작성**
 
 ```typescript
 // src/build/build.module.ts
@@ -857,7 +857,7 @@ import { QaGateService } from './application/qa-gate.service';
 export class BuildModule {}
 ```
 
-- [ ] **Step 6: type-check**
+- [X] **Step 6: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "build\|qa" | head -30

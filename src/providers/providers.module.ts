@@ -1,6 +1,15 @@
+import { Module } from '@nestjs/common';
+
+import { SnapshotCollectorService } from './application/snapshot-collector.service';
 import { OsmSceneBuildService } from './application/osm-scene-build.service';
 import { OverpassAdapter } from './infrastructure/overpass.adapter';
-import { SnapshotCollectorService } from './application/snapshot-collector.service';
+import { MapboxDemAdapter } from './infrastructure/mapbox-dem.adapter';
+
+@Module({
+  providers: [SnapshotCollectorService, OsmSceneBuildService, OverpassAdapter, MapboxDemAdapter],
+  exports: [SnapshotCollectorService, OsmSceneBuildService],
+})
+export class ProvidersModule {}
 
 const mapboxToken = process.env.MAPBOX_TOKEN;
 

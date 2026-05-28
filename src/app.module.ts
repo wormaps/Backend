@@ -1,9 +1,8 @@
 import { createBuildModule } from './build/build.module';
+import { QaGateService } from './build/application/qa-gate.service';
 import { glbModule } from './glb/glb.module';
 import { normalizationModule } from './normalization/normalization.module';
 import { providersModule } from './providers/providers.module';
-import { qaModule } from './qa/qa.module';
-import { realityModule } from './reality/reality.module';
 import { renderModule } from './render/render.module';
 import { twinModule } from './twin/twin.module';
 
@@ -14,7 +13,7 @@ const buildModule = createBuildModule({
   twinGraphBuilder: twinModule.services.twinGraphBuilder,
   renderIntentResolver: renderModule.services.renderIntentResolver,
   meshPlanBuilder: renderModule.services.meshPlanBuilder,
-  qaGate: qaModule.services.qaGate,
+  qaGate: new QaGateService(twinModule.services.realityTierResolver),
   glbCompiler: glbModule.services.glbCompiler,
   glbValidation: glbModule.services.glbValidation,
 });
@@ -23,7 +22,7 @@ providersModule.services.osmSceneBuild.setOrchestrator(buildModule.services.scen
 
 export const appModule = {
   name: 'wormap-v2',
-  modules: [providersModule, normalizationModule, realityModule, twinModule, renderModule, qaModule, glbModule, buildModule],
+  modules: [providersModule, normalizationModule, twinModule, renderModule, glbModule, buildModule],
   services: {
     sceneBuildOrchestrator: buildModule.services.sceneBuildOrchestrator,
     osmSceneBuild: providersModule.services.osmSceneBuild,

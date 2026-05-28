@@ -1,3 +1,4 @@
+import { Injectable, Logger } from '@nestjs/common';
 import { OverpassAdapter, type OSMEntityData } from '../infrastructure/overpass.adapter';
 import { MapboxDemAdapter } from '../infrastructure/mapbox-dem.adapter';
 import type { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
@@ -13,10 +14,11 @@ export type OsmSceneBuildInput = {
   scope: SceneScope;
 };
 
+@Injectable()
 export class OsmSceneBuildService {
-  private readonly logger = console;
+  private readonly logger = new Logger(OsmSceneBuildService.name);
   constructor(
-    private readonly overpass: OverpassAdapter,
+    private readonly overpass: OverpassAdapter = new OverpassAdapter(),
     private orchestrator?: SceneBuildOrchestratorService,
     private readonly dem?: MapboxDemAdapter,
   ) {}
@@ -59,7 +61,7 @@ export class OsmSceneBuildService {
       snapshots.push(this.makeSnapshot(input, 'terrain', terrain));
     }
 
-    this.logger.info(`OSM Build: ${allCount} entities across ${snapshots.length} snapshot(s)`);
+    this.logger.log(`OSM Build: ${allCount} entities across ${snapshots.length} snapshot(s)`);
 
     const buildInput = {
       sceneId: input.sceneId,
@@ -119,7 +121,7 @@ export class OsmSceneBuildService {
         (building.geometry as { baseY?: number }).baseY = elevation;
       }
 
-      this.logger.info('Per-building elevation applied', { buildingCount: buildings.length });
+      this.logger.log('Per-building elevation applied', { buildingCount: buildings.length });
     } catch (err) {
       this.logger.warn('Elevation enrichment failed; using baseY=0', { error: String(err) });
     }

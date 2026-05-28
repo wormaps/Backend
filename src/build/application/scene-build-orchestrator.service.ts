@@ -1,15 +1,16 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { SceneBuildManifest } from '../../shared/contracts/manifest';
 import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
 import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
-import type { GlbCompilerService } from '../../glb/application/glb-compiler.service';
-import type { GlbValidationService } from '../../glb/application/glb-validation.service';
-import type { NormalizedEntityBuilderService } from '../../normalization/application/normalized-entity-builder.service';
-import type { SnapshotCollectorService } from '../../providers/application/snapshot-collector.service';
-import type { QaGateService } from '../../qa/application/qa-gate.service';
-import type { MeshPlanBuilderService } from '../../render/application/mesh-plan-builder.service';
-import type { RenderIntentResolverService } from '../../render/application/render-intent-resolver.service';
-import type { EvidenceGraphBuilderService } from '../../twin/application/evidence-graph-builder.service';
-import type { TwinGraphBuilderService } from '../../twin/application/twin-graph-builder.service';
+import { GlbCompilerService } from '../../glb/application/glb-compiler.service';
+import { GlbValidationService } from '../../glb/application/glb-validation.service';
+import { NormalizedEntityBuilderService } from '../../normalization/application/normalized-entity-builder.service';
+import { SnapshotCollectorService } from '../../providers/application/snapshot-collector.service';
+import { QaGateService } from './qa-gate.service';
+import { MeshPlanBuilderService } from '../../render/application/mesh-plan-builder.service';
+import { RenderIntentResolverService } from '../../render/application/render-intent-resolver.service';
+import { EvidenceGraphBuilderService } from '../../twin/application/evidence-graph-builder.service';
+import { TwinGraphBuilderService } from '../../twin/application/twin-graph-builder.service';
 import { BuildManifestFactory } from './build-manifest.factory';
 import type { SceneBuildRunResult } from './scene-build-run-result';
 import { SceneBuildAggregate } from '../domain/scene-build.aggregate';
@@ -30,8 +31,9 @@ export type SceneBuildMvpInput = {
   snapshots: SourceSnapshot[];
 };
 
+@Injectable()
 export class SceneBuildOrchestratorService {
-  private readonly logger = console;
+  private readonly logger = new Logger(SceneBuildOrchestratorService.name);
   constructor(
     private readonly snapshotCollector: SnapshotCollectorService,
     private readonly normalizedEntityBuilder: NormalizedEntityBuilderService,
@@ -71,7 +73,7 @@ export class SceneBuildOrchestratorService {
 
   async run(input: SceneBuildMvpInput): Promise<SceneBuildRunResult> {
     const startedAt = Date.now();
-    this.logger.info('Build run started', {
+    this.logger.log('Build run started', {
       sceneId: input.sceneId,
       snapshotCount: input.snapshots.length,
       radiusMeters: input.scope.radiusMeters,
@@ -119,7 +121,7 @@ export class SceneBuildOrchestratorService {
     }
 
     build.transitionTo('SNAPSHOT_COLLECTED');
-    this.logger.info('Snapshot collection completed', {
+    this.logger.log('Snapshot collection completed', {
       sceneId: input.sceneId,
       snapshotCount: collected.value.snapshots.length,
     });
@@ -131,7 +133,7 @@ export class SceneBuildOrchestratorService {
       collected.value.snapshots,
     );
     build.transitionTo('NORMALIZED');
-    this.logger.info('Normalization completed', {
+    this.logger.log('Normalization completed', {
       sceneId: input.sceneId,
       normalizedEntityCount: normalizedEntityBundle.entities.length,
       normalizationIssueCount: normalizedEntityBundle.issues.length,
@@ -146,7 +148,7 @@ export class SceneBuildOrchestratorService {
       normalizedEntityBundle,
     );
     build.transitionTo('GRAPH_BUILT');
-    this.logger.info('Twin graph built', {
+    this.logger.log('Twin graph built', {
       sceneId: input.sceneId,
       entityCount: twinSceneGraph.entities.length,
       relationshipCount: twinSceneGraph.relationships.length,
@@ -155,7 +157,7 @@ export class SceneBuildOrchestratorService {
     build.transitionTo('RENDER_INTENT_RESOLVING');
     const renderIntentSet = this.renderIntentResolver.resolve(twinSceneGraph);
     build.transitionTo('RENDER_INTENT_RESOLVED');
-    this.logger.info('Render intents resolved', {
+    this.logger.log('Render intents resolved', {
       sceneId: input.sceneId,
       intentCount: renderIntentSet.intents.length,
       provisionalTier: renderIntentSet.tier.provisional,
@@ -165,7 +167,7 @@ export class SceneBuildOrchestratorService {
     let effectiveRenderIntentSet = renderIntentSet;
     let meshPlan = this.meshPlanBuilder.build(twinSceneGraph, effectiveRenderIntentSet);
     build.transitionTo('MESH_PLANNED');
-    this.logger.info('Mesh plan built', {
+    this.logger.log('Mesh plan built', {
       sceneId: input.sceneId,
       nodeCount: meshPlan.nodes.length,
       materialCount: meshPlan.materials.length,
@@ -313,7 +315,7 @@ export class SceneBuildOrchestratorService {
 
     build.transitionTo('GLB_BUILT');
     build.transitionTo('COMPLETED');
-    this.logger.info('Build run completed', {
+    this.logger.log('Build run completed', {
       sceneId: input.sceneId,
       elapsedMs: Date.now() - startedAt,
       glbByteLength: glbArtifact.byteLength,

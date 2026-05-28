@@ -1,3 +1,4 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
 import type { QaIssue } from '../../shared/contracts/qa';
 import { err, ok, type Result } from '../../shared';
@@ -7,10 +8,14 @@ export type SnapshotCollection = {
   issues: QaIssue[];
 };
 
+@Injectable()
 export class SnapshotCollectorService {
+  private readonly logger = new Logger(SnapshotCollectorService.name);
+
   collectFromSnapshots(
     snapshots: SourceSnapshot[],
   ): Result<SnapshotCollection, 'SNAPSHOT_PARTIAL' | 'FAILED'> {
+    this.logger.debug(`Collecting snapshots count=${snapshots.length}`);
     if (snapshots.length === 0) {
       return err('FAILED', 'At least one SourceSnapshot is required.');
     }

@@ -1,14 +1,28 @@
+import { Module } from '@nestjs/common';
+
 import { SceneBuildOrchestratorService } from './application/scene-build-orchestrator.service';
 import type { GlbCompilerService } from '../glb/application/glb-compiler.service';
 import type { GlbValidationService } from '../glb/application/glb-validation.service';
 import type { NormalizedEntityBuilderService } from '../normalization/application/normalized-entity-builder.service';
 import type { SnapshotCollectorService } from '../providers/application/snapshot-collector.service';
-import type { QaGateService } from '../qa/application/qa-gate.service';
 import type { MeshPlanBuilderService } from '../render/application/mesh-plan-builder.service';
 import type { RenderIntentResolverService } from '../render/application/render-intent-resolver.service';
 import type { EvidenceGraphBuilderService } from '../twin/application/evidence-graph-builder.service';
 import type { TwinGraphBuilderService } from '../twin/application/twin-graph-builder.service';
+import { QaGateService } from './application/qa-gate.service';
 import { BuildManifestFactory } from './application/build-manifest.factory';
+import { GlbModule } from '../glb/glb.module';
+import { TwinModule } from '../twin/twin.module';
+import { NormalizationModule } from '../normalization/normalization.module';
+import { ProvidersModule } from '../providers/providers.module';
+import { RenderModule } from '../render/render.module';
+
+@Module({
+  imports: [GlbModule, TwinModule, NormalizationModule, ProvidersModule, RenderModule],
+  providers: [SceneBuildOrchestratorService, BuildManifestFactory, QaGateService],
+  exports: [SceneBuildOrchestratorService],
+})
+export class BuildModule {}
 
 export type BuildModuleDependencies = {
   snapshotCollector: SnapshotCollectorService;

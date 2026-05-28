@@ -1,5 +1,10 @@
+import { Injectable, Logger } from '@nestjs/common';
+
+@Injectable()
 export class MapboxDemAdapter {
-  constructor(private readonly token: string) {}
+  private readonly logger = new Logger(MapboxDemAdapter.name);
+
+  constructor(private readonly token: string = process.env.MAPBOX_TOKEN ?? '') {}
 
   /** Convenience wrapper — single point. */
   async getElevation(lat: number, lng: number): Promise<number> {
@@ -32,12 +37,17 @@ export class MapboxDemAdapter {
   }
 
   private async fetchTile(zoom: number, tileX: number, tileY: number): Promise<Uint8Array> {
+    if (!this.token) {
+      throw new Error('MAPBOX_TOKEN is not configured');
+    }
     const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${tileX}/${tileY}.pngraw?access_token=${this.token}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Mapbox DEM fetch failed: ${response.status} ${response.statusText}`);
     }
-    return this.decodePng(new Uint8Array(await response.arrayBuffer()));
+    const bytes = await this.decodePng(new Uint8Array(await response.arrayBuffer()));
+    this.logger.debug(`DEM tile decoded z=${zoom} x=${tileX} y=${tileY}`);
+    return bytes;
   }
 
   private async decodePng(bytes: Uint8Array): Promise<Uint8Array> {
