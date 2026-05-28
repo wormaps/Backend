@@ -109,16 +109,46 @@ export class OsmSceneBuildService {
   ): Promise<void> {
     if (!this.dem) return;
     try {
-      const baseElevation = await this.dem.getElevation(origin.lat, origin.lng);
-      for (const entity of entities) {
-        if (entity.entityType === 'building') {
-          (entity.geometry as { baseY?: number }).baseY = baseElevation;
-        }
+      const buildings = entities.filter((e) => e.entityType === 'building');
+      if (buildings.length === 0) return;
+
+      const centroids = buildings.map((b) => this.buildingCentroid(b, origin));
+      const elevations = await this.dem.getElevationsForPoints(origin, centroids);
+
+      for (let i = 0; i < buildings.length; i++) {
+        const building = buildings[i]!;
+        const elevation = elevations[i] ?? 0;
+        (building.geometry as { baseY?: number }).baseY = elevation;
       }
-      this.logger.info('Elevation enrichment applied', { baseElevation });
+
+      this.logger.info('Per-building elevation applied', { buildingCount: buildings.length });
     } catch (err) {
       this.logger.warn('Elevation enrichment failed; using baseY=0', { error: String(err) });
     }
+  }
+
+  /**
+   * Compute approximate lat/lng for a building footprint centroid.
+   * Local coords: x = East metres, z = North metres (from wgs84ToEnu mapping).
+   */
+  private buildingCentroid(
+    entity: OSMEntityData,
+    origin: { lat: number; lng: number },
+  ): { lat: number; lng: number } {
+    const outer =
+      (entity.geometry as { footprint?: { outer: Array<{ x: number; z: number }> } }).footprint
+        ?.outer ?? [];
+    if (outer.length === 0) return origin;
+
+    const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
+    const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
+
+    const EARTH_RADIUS = 6_371_000;
+    const latRad = (origin.lat * Math.PI) / 180;
+    const deltaLat = (cz / EARTH_RADIUS) * (180 / Math.PI);
+    const deltaLng = (cx / (EARTH_RADIUS * Math.cos(latRad))) * (180 / Math.PI);
+
+    return { lat: origin.lat + deltaLat, lng: origin.lng + deltaLng };
   }
 
   private delay(ms: number): Promise<void> {
