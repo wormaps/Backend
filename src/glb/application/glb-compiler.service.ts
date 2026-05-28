@@ -2,6 +2,7 @@ import type { TypedArray } from '@gltf-transform/core';
 import { Buffer, Document, NodeIO, type Accessor } from '@gltf-transform/core';
 import { EXTMeshoptCompression } from '@gltf-transform/extensions';
 import earcut from 'earcut';
+import { Injectable, Logger } from '@nestjs/common';
 
 import type { MeshPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
 import type { QaSummary, WorMapGltfMetadataExport } from '../../shared/contracts/manifest';
@@ -40,16 +41,14 @@ export type CompileGlbInput = {
   qaSummary: QaSummary;
 };
 
+@Injectable()
 export class GlbCompilerService {
-  private readonly logger = console;
-  constructor(private readonly metadataFactory = new GltfMetadataFactory()) {}
+  private readonly logger = new Logger(GlbCompilerService.name);
+
+  constructor(private readonly metadataFactory: GltfMetadataFactory = new GltfMetadataFactory()) {}
 
   async compile(input: CompileGlbInput): Promise<GlbArtifact> {
-    this.logger.info('GLB compile started', {
-      sceneId: input.meshPlan.sceneId,
-      nodeCount: input.meshPlan.nodes.length,
-      materialCount: input.meshPlan.materials.length,
-    });
+    this.logger.log(`GLB compile started sceneId=${input.meshPlan.sceneId} nodes=${input.meshPlan.nodes.length} materials=${input.meshPlan.materials.length}`);
 
     const document = new Document();
     const root = document.getRoot();
@@ -163,11 +162,7 @@ export class GlbCompilerService {
       );
     }
 
-    this.logger.info('GLB compile completed', {
-      sceneId: input.meshPlan.sceneId,
-      byteLength: bytes.byteLength,
-      artifactHash,
-    });
+    this.logger.log(`GLB compile completed sceneId=${input.meshPlan.sceneId} bytes=${bytes.byteLength} hash=${artifactHash}`);
 
     return {
       sceneId: input.meshPlan.sceneId,

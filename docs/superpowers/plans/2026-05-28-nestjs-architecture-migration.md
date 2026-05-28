@@ -280,7 +280,7 @@ git commit -m "refactor: update all import paths from packages/ to src/shared/"
 - Modify: `src/glb/application/glb-validation.service.ts`
 - Modify: `src/glb/application/gltf-metadata.factory.ts`
 
-- [ ] **Step 1: glb-compiler.service.ts — @Injectable + NestJS Logger**
+- [X] **Step 1: glb-compiler.service.ts — @Injectable + NestJS Logger**
 
 ```typescript
 // src/glb/application/glb-compiler.service.ts (상단 변경 부분)
@@ -306,7 +306,7 @@ export class GlbCompilerService {
 - `this.logger.error(msg)` → `this.logger.error(msg)` (그대로)
 - `this.logger.debug(msg)` → `this.logger.debug(msg)` (그대로)
 
-- [ ] **Step 2: glb-validation.service.ts — @Injectable + NestJS Logger**
+- [X] **Step 2: glb-validation.service.ts — @Injectable + NestJS Logger**
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
@@ -318,7 +318,7 @@ export class GlbValidationService {
 }
 ```
 
-- [ ] **Step 3: gltf-metadata.factory.ts — @Injectable**
+- [X] **Step 3: gltf-metadata.factory.ts — @Injectable**
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -329,7 +329,7 @@ export class GltfMetadataFactory {
 }
 ```
 
-- [ ] **Step 4: glb.module.ts — @Module()으로 완전 재작성**
+- [X] **Step 4: glb.module.ts — @Module()으로 완전 재작성**
 
 ```typescript
 // src/glb/glb.module.ts
@@ -346,7 +346,7 @@ import { GltfMetadataFactory } from './application/gltf-metadata.factory';
 export class GlbModule {}
 ```
 
-- [ ] **Step 5: type-check**
+- [X] **Step 5: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "glb" | head -20

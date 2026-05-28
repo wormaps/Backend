@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { Injectable } from '@nestjs/common';
 
 import type {
   AttributionSummary,
@@ -25,6 +26,7 @@ export type GltfMetadataInput = {
   attribution?: AttributionSummary;
 };
 
+@Injectable()
 export class GltfMetadataFactory {
   create(input: GltfMetadataInput): WorMapGltfMetadataExport {
     const extrasCore = {

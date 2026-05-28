@@ -2,6 +2,7 @@ import type { SceneBuildManifest, QaSummary } from '../../shared/contracts/manif
 import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
 import type { QaIssue } from '../../shared/contracts/qa';
 import type { GlbArtifact } from './glb-compiler.service';
+import { Injectable, Logger } from '@nestjs/common';
 import { Document, NodeIO } from '@gltf-transform/core';
 import { createHash } from 'node:crypto';
 import { validateBytes } from 'gltf-validator';
@@ -19,8 +20,12 @@ export type GlbValidationResult = {
   issues: QaIssue[];
 };
 
+@Injectable()
 export class GlbValidationService {
+  private readonly logger = new Logger(GlbValidationService.name);
+
   async validate(input: GlbValidationInput): Promise<GlbValidationResult> {
+    this.logger.debug(`Validating GLB artifact for scene ${input.manifest.sceneId}`);
     const issues = [
       ...this.validateConsistency(input.manifest, input.artifact, input.meshPlan),
       ...this.validateMeshPlan(input.meshPlan),
