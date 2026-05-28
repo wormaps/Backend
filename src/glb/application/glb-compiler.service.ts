@@ -329,6 +329,14 @@ export class GlbCompilerService {
     const outer = geometry.footprint.outer;
     const baseY = geometry.baseY ?? 0;
     const height = geometry.height ?? 5;
+
+    if (outer.length < 3) {
+      return this.createPlaceholderPositions(document, buffer, 'building_windows', {
+        x: outer[0]?.x ?? 0,
+        y: baseY,
+        z: outer[0]?.z ?? 0,
+      });
+    }
     const floors = Math.max(1, Math.floor(height / 3.0));
     const floorH = height / floors;
 
