@@ -22,19 +22,17 @@ export class MapboxDemAdapter {
   }
 
   private async decodePng(bytes: Uint8Array): Promise<Uint8Array> {
-    try {
-      // pngjs is an optional peer dependency — dynamic import so missing module doesn't break the build.
-      // @ts-expect-error pngjs types may not be installed
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { PNG } = await import('pngjs');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const png = PNG.sync.read(Buffer.from(bytes));
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      return new Uint8Array((png.data as Buffer).buffer);
-    } catch {
-      // pngjs not installed or decode failed — return zeros (elevation ~0m above sea level).
-      return new Uint8Array(256 * 256 * 4);
-    }
+    // pngjs is an optional peer dependency — dynamic import so missing module doesn't break build.
+    // Throws on failure so callers (enrichElevation) fall back to baseY=0 rather than -10000.
+    // @ts-expect-error pngjs types may not be installed
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { PNG } = await import('pngjs');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const png = PNG.sync.read(Buffer.from(bytes));
+    // Use byteOffset + byteLength to handle Buffer pool slices correctly.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const buf = png.data as Buffer;
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
 
   private latLngToTilePixel(
