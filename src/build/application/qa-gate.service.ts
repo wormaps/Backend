@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { MeshPlan } from '../../shared/contracts/mesh-plan';
-import type { QaIssue } from '../../shared/contracts/qa';
-import type { RenderIntent, RenderIntentSet } from '../../shared/contracts/render-intent';
-import type { RealityTier, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
+import type { MeshPlan } from '../../shared/contracts';
+import type { QaIssue } from '../../shared/contracts';
+import type { RenderIntent, RenderIntentSet } from '../../shared/contracts';
+import type { RealityTier, TwinSceneGraph } from '../../shared/contracts';
 import { RealityTierResolverService } from '../../pipeline/twin/application/reality-tier-resolver.service';
 
 export type QaGateInput = {
@@ -26,9 +26,7 @@ export type QaGateResult = {
 export class QaGateService {
   private readonly logger = new Logger(QaGateService.name);
 
-  constructor(
-    private readonly realityTierResolver: RealityTierResolverService = new RealityTierResolverService(),
-  ) {}
+  constructor(private readonly realityTierResolver: RealityTierResolverService) {}
 
   evaluate(input: QaGateInput): QaGateResult {
     this.logger.debug(`Evaluating QA gate scene=${input.intentSet.sceneId}`);

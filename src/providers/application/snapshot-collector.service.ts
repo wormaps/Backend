@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
-import type { QaIssue } from '../../shared/contracts/qa';
+import type { SourceSnapshot } from '../../shared/contracts';
+import type { QaIssue } from '../../shared/contracts';
 import { err, ok, type Result } from '../../shared';
 
 export type SnapshotCollection = {

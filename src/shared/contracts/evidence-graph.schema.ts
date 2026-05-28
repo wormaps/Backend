@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { SourceEntityRef } from '../source-snapshot';
+import type { SourceEntityRef } from './source-snapshot';
 
 // ---------------------------------------------------------------------------
 // Provenance

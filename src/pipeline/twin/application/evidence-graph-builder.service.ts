@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { EvidenceGraph } from '../../../shared/contracts/evidence-graph';
-import type { NormalizedEntityBundle } from '../../../shared/contracts/normalized-entity';
+import type { EvidenceGraph } from '../../../shared/contracts';
+import type { NormalizedEntityBundle } from '../../../shared/contracts';
 
 @Injectable()
 export class EvidenceGraphBuilderService {

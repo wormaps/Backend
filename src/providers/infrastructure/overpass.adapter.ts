@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
-import { wgs84ToEnu, type LatLng } from '../../shared/core/coordinates';
+import type { SceneScope } from '../../shared/contracts';
+import { wgs84ToEnu, type LatLng } from '../../shared/core';
 
 export type OverpassElement = {
   type: 'node' | 'way' | 'relation';

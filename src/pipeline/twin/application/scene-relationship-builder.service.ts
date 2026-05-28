@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { SceneRelationship, TwinEntity } from '../../../shared/contracts/twin-scene-graph';
+import type { SceneRelationship, TwinEntity } from '../../../shared/contracts';
 
 @Injectable()
 export class SceneRelationshipBuilderService {

@@ -4,16 +4,16 @@ import { EXTMeshoptCompression } from '@gltf-transform/extensions';
 import earcut from 'earcut';
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { MeshPlan, MeshPlanNode } from '../../../shared/contracts/mesh-plan';
-import type { QaSummary, WorMapGltfMetadataExport } from '../../../shared/contracts/manifest';
-import type { RealityTier } from '../../../shared/contracts/twin-scene-graph';
+import type { MeshPlan, MeshPlanNode } from '../../../shared/contracts';
+import type { QaSummary, WorMapGltfMetadataExport } from '../../../shared/contracts';
+import type { RealityTier } from '../../../shared/contracts';
 import type {
   BuildingMeshGeometry,
   MeshGeometry,
   RoadMeshGeometry,
   WalkwayMeshGeometry,
-} from '../../../shared/core/geometry';
-import { SCHEMA_VERSION_SET_V1 } from '../../../shared/core/schemas';
+} from '../../../shared/core';
+import { SCHEMA_VERSION_SET_V1 } from '../../../shared/core';
 import { GltfMetadataFactory } from './gltf-metadata.factory';
 import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from './glb-artifact-hash';
 
@@ -45,7 +45,7 @@ export type CompileGlbInput = {
 export class GlbCompilerService {
   private readonly logger = new Logger(GlbCompilerService.name);
 
-  constructor(private readonly metadataFactory: GltfMetadataFactory = new GltfMetadataFactory()) {}
+  constructor(private readonly metadataFactory: GltfMetadataFactory) {}
 
   async compile(input: CompileGlbInput): Promise<GlbArtifact> {
     this.logger.log(`GLB compile started sceneId=${input.meshPlan.sceneId} nodes=${input.meshPlan.nodes.length} materials=${input.meshPlan.materials.length}`);

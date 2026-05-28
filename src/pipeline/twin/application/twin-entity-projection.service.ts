@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { NormalizedEntityBundle } from '../../../shared/contracts/normalized-entity';
-import type { TwinEntity, TwinEntityType } from '../../../shared/contracts/twin-scene-graph';
+import type { NormalizedEntityBundle } from '../../../shared/contracts';
+import type { TwinEntity, TwinEntityType } from '../../../shared/contracts';
 
 @Injectable()
 export class TwinEntityProjectionService {

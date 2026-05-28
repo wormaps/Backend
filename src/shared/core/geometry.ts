@@ -1,4 +1,4 @@
-import type { GeoCoordinate, LocalPoint } from '../coordinates';
+import type { GeoCoordinate, LocalPoint } from './coordinates';
 
 export type GeoPolygon = {
   outer: GeoCoordinate[];

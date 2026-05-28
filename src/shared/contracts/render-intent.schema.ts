@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import type { RealityTier } from '../twin-scene-graph';
+import type { RealityTier } from './twin-scene-graph';
 
-import { RealityTierSchema } from '../twin-scene-graph/twin-scene-graph.schema';
+import { RealityTierSchema } from './twin-scene-graph.schema';
 
 // ---------------------------------------------------------------------------
 // RenderIntent

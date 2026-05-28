@@ -18,26 +18,26 @@ export {
   EvidenceNodeSchema,
   EvidenceValueSchema,
   ProvenanceSchema,
-} from './evidence-graph/evidence-graph.schema';
+} from './evidence-graph.schema';
 
 export {
   AttributionSummarySchema,
   QaSummarySchema,
   SceneBuildManifestSchema,
   SceneBuildStateSchema,
-} from './manifest/manifest.schema';
+} from './manifest.schema';
 
 export {
   MaterialPlanSchema,
   MeshBudgetSchema,
   MeshPlanNodeSchema,
   MeshPlanSchema,
-} from './mesh-plan/mesh-plan.schema';
+} from './mesh-plan.schema';
 
 export {
   NormalizedEntityBundleSchema,
   NormalizedEntitySchema,
-} from './normalized-entity/normalized-entity.schema';
+} from './normalized-entity.schema';
 
 export {
   QaIssueActionSchema,
@@ -45,12 +45,12 @@ export {
   QaIssueSchema,
   QaIssueScopeSchema,
   QaIssueSeveritySchema,
-} from './qa/qa.schema';
+} from './qa.schema';
 
 export {
   RenderIntentSchema,
   RenderIntentSetSchema,
-} from './render-intent/render-intent.schema';
+} from './render-intent.schema';
 
 export {
   ProviderBudgetPolicySchema,
@@ -60,7 +60,7 @@ export {
   SourceSnapshotSchema,
   SourceSnapshotStatusSchema,
   SourceSnapshotStorageModeSchema,
-} from './source-snapshot/source-snapshot.schema';
+} from './source-snapshot.schema';
 
 export {
   BuildingPropertiesSchema,
@@ -82,4 +82,4 @@ export {
   TwinTerrainEntitySchema,
   TwinTrafficFlowEntitySchema,
   TwinWalkwayEntitySchema,
-} from './twin-scene-graph/twin-scene-graph.schema';
+} from './twin-scene-graph.schema';

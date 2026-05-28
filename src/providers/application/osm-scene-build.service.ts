@@ -3,8 +3,8 @@ import { OverpassAdapter, type OSMEntityData } from '../infrastructure/overpass.
 import { MapboxDemAdapter } from '../infrastructure/mapbox-dem.adapter';
 import type { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
 import type { SceneBuildRunResult } from '../../build/application/scene-build-run-result';
-import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
-import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
+import type { SceneScope } from '../../shared/contracts';
+import type { SourceSnapshot } from '../../shared/contracts';
 import { createHash } from 'node:crypto';
 
 export type OsmSceneBuildInput = {
@@ -20,14 +20,9 @@ export class OsmSceneBuildService {
   private orchestrator?: SceneBuildOrchestratorService;
 
   constructor(
-    private readonly overpass: OverpassAdapter = new OverpassAdapter(),
+    private readonly overpass: OverpassAdapter,
     private readonly dem?: MapboxDemAdapter,
   ) {}
-
-  static create(overpass: OverpassAdapter, mapboxToken?: string): OsmSceneBuildService {
-    const dem = mapboxToken ? new MapboxDemAdapter().withToken(mapboxToken) : undefined;
-    return new OsmSceneBuildService(overpass, dem);
-  }
 
   setOrchestrator(orchestrator: SceneBuildOrchestratorService): void {
     this.orchestrator = orchestrator;

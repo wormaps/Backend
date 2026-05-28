@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { RenderIntentSet } from '../../../shared/contracts/render-intent';
-import type { TwinSceneGraph } from '../../../shared/contracts/twin-scene-graph';
+import type { RenderIntentSet } from '../../../shared/contracts';
+import type { TwinSceneGraph } from '../../../shared/contracts';
 import { RealityTierResolverService } from '../../twin/application/reality-tier-resolver.service';
 import { RenderIntentPolicyService } from './render-intent-policy.service';
 
@@ -9,8 +9,8 @@ export class RenderIntentResolverService {
   private readonly logger = new Logger(RenderIntentResolverService.name);
 
   constructor(
-    private readonly renderIntentPolicy: RenderIntentPolicyService = new RenderIntentPolicyService(),
-    private readonly realityTierResolver: RealityTierResolverService = new RealityTierResolverService(),
+    private readonly renderIntentPolicy: RenderIntentPolicyService,
+    private readonly realityTierResolver: RealityTierResolverService,
   ) {}
 
   resolve(graph: TwinSceneGraph): RenderIntentSet {

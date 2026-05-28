@@ -1,6 +1,6 @@
-import type { SchemaVersionSet } from '../../core/schemas';
-import type { QaIssue } from '../qa';
-import type { RealityTier } from '../twin-scene-graph';
+import type { SchemaVersionSet } from '../core/schemas';
+import type { QaIssue } from './qa';
+import type { RealityTier } from './twin-scene-graph';
 
 export type AttributionSummary = {
   required: boolean;

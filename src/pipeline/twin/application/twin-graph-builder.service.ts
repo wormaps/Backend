@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { EvidenceGraph } from '../../../shared/contracts/evidence-graph';
-import type { NormalizedEntityBundle } from '../../../shared/contracts/normalized-entity';
-import type { TwinSceneGraph } from '../../../shared/contracts/twin-scene-graph';
-import type { SceneScope } from '../../../shared/contracts/twin-scene-graph';
-import { validateTwinSceneGraph } from '../../../shared/contracts/validate';
+import type { EvidenceGraph } from '../../../shared/contracts';
+import type { NormalizedEntityBundle } from '../../../shared/contracts';
+import type { TwinSceneGraph } from '../../../shared/contracts';
+import type { SceneScope } from '../../../shared/contracts';
+import { validateTwinSceneGraph } from '../../../shared/contracts';
 import { SceneRelationshipBuilderService } from './scene-relationship-builder.service';
 import { TwinEntityProjectionService } from './twin-entity-projection.service';
 import { TwinGraphValidationService } from './twin-graph-validation.service';
@@ -14,10 +14,10 @@ export class TwinGraphBuilderService {
   private readonly logger = new Logger(TwinGraphBuilderService.name);
 
   constructor(
-    private readonly entityProjection: TwinEntityProjectionService = new TwinEntityProjectionService(),
-    private readonly relationshipBuilder: SceneRelationshipBuilderService = new SceneRelationshipBuilderService(),
-    private readonly graphValidation: TwinGraphValidationService = new TwinGraphValidationService(),
-    private readonly metadataFactory: TwinSceneGraphMetadataFactory = new TwinSceneGraphMetadataFactory(),
+    private readonly entityProjection: TwinEntityProjectionService,
+    private readonly relationshipBuilder: SceneRelationshipBuilderService,
+    private readonly graphValidation: TwinGraphValidationService,
+    private readonly metadataFactory: TwinSceneGraphMetadataFactory,
   ) {}
 
   build(

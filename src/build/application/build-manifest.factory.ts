@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { QaSummary, SceneBuildManifest, SceneBuildState } from '../../shared/contracts/manifest';
-import type { MeshPlan } from '../../shared/contracts/mesh-plan';
-import type { QaIssue } from '../../shared/contracts/qa';
-import type { RenderIntentSet } from '../../shared/contracts/render-intent';
-import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
-import type { RealityTier } from '../../shared/contracts/twin-scene-graph';
-import { SCHEMA_VERSION_SET_V1 } from '../../shared/core/schemas';
+import type { QaSummary, SceneBuildManifest, SceneBuildState } from '../../shared/contracts';
+import type { MeshPlan } from '../../shared/contracts';
+import type { QaIssue } from '../../shared/contracts';
+import type { RenderIntentSet } from '../../shared/contracts';
+import type { SourceSnapshot } from '../../shared/contracts';
+import type { RealityTier } from '../../shared/contracts';
+import { SCHEMA_VERSION_SET_V1 } from '../../shared/core';
 import type { GlbArtifact } from '../../pipeline/glb/application/glb-compiler.service';
 
 export type BuildManifestInput = {

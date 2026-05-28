@@ -1,4 +1,4 @@
-import type { QaIssue } from '../qa';
+import type { QaIssue } from './qa';
 
 export type SourceProvider =
   | 'google_places'

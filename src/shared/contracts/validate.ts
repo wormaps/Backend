@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
-import { EvidenceGraphSchema } from './evidence-graph/evidence-graph.schema';
-import { MeshPlanSchema } from './mesh-plan/mesh-plan.schema';
-import { NormalizedEntityBundleSchema } from './normalized-entity/normalized-entity.schema';
-import { QaIssueSchema } from './qa/qa.schema';
-import { RenderIntentSetSchema } from './render-intent/render-intent.schema';
-import { SchemaVersionSetSchema } from '../core/schemas/index';
-import { ProviderBudgetPolicySchema, SourceSnapshotSchema } from './source-snapshot/source-snapshot.schema';
-import { SceneBuildManifestSchema } from './manifest/manifest.schema';
-import { TwinSceneGraphSchema } from './twin-scene-graph/twin-scene-graph.schema';
+import { EvidenceGraphSchema } from './evidence-graph.schema';
+import { MeshPlanSchema } from './mesh-plan.schema';
+import { NormalizedEntityBundleSchema } from './normalized-entity.schema';
+import { QaIssueSchema } from './qa.schema';
+import { RenderIntentSetSchema } from './render-intent.schema';
+import { SchemaVersionSetSchema } from '../core/schemas';
+import { ProviderBudgetPolicySchema, SourceSnapshotSchema } from './source-snapshot.schema';
+import { SceneBuildManifestSchema } from './manifest.schema';
+import { TwinSceneGraphSchema } from './twin-scene-graph.schema';
 
 export type ValidationResult<T> =
   | { success: true; data: T }

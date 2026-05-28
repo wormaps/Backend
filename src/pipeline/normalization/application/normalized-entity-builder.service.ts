@@ -1,8 +1,8 @@
-import type { NormalizedEntity, NormalizedEntityBundle } from '../../../shared/contracts/normalized-entity';
-import type { QaIssue } from '../../../shared/contracts/qa';
-import type { SourceSnapshot } from '../../../shared/contracts/source-snapshot';
-import type { TwinEntityType } from '../../../shared/contracts/twin-scene-graph';
-import type { MeshGeometry } from '../../../shared/core/geometry';
+import type { NormalizedEntity, NormalizedEntityBundle } from '../../../shared/contracts';
+import type { QaIssue } from '../../../shared/contracts';
+import type { SourceSnapshot } from '../../../shared/contracts';
+import type { TwinEntityType } from '../../../shared/contracts';
+import type { MeshGeometry } from '../../../shared/core';
 import { Injectable, Logger } from '@nestjs/common';
 
 type OSMFeaturePayload = {

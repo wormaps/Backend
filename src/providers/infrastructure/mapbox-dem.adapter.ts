@@ -3,14 +3,9 @@ import { Injectable, Logger } from '@nestjs/common';
 @Injectable()
 export class MapboxDemAdapter {
   private readonly logger = new Logger(MapboxDemAdapter.name);
-  private token = process.env.MAPBOX_TOKEN ?? '';
+  private readonly token = process.env.MAPBOX_TOKEN ?? '';
 
   constructor() {}
-
-  withToken(token: string): MapboxDemAdapter {
-    this.token = token;
-    return this;
-  }
 
   /** Convenience wrapper — single point. */
   async getElevation(lat: number, lng: number): Promise<number> {

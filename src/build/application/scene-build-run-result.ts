@@ -1,10 +1,10 @@
-import type { EvidenceGraph } from '../../shared/contracts/evidence-graph';
-import type { SceneBuildManifest, SceneBuildState } from '../../shared/contracts/manifest';
-import type { MeshPlan } from '../../shared/contracts/mesh-plan';
-import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
-import type { QaIssue } from '../../shared/contracts/qa';
-import type { RenderIntentSet } from '../../shared/contracts/render-intent';
-import type { RealityTier, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
+import type { EvidenceGraph } from '../../shared/contracts';
+import type { SceneBuildManifest, SceneBuildState } from '../../shared/contracts';
+import type { MeshPlan } from '../../shared/contracts';
+import type { NormalizedEntityBundle } from '../../shared/contracts';
+import type { QaIssue } from '../../shared/contracts';
+import type { RenderIntentSet } from '../../shared/contracts';
+import type { RealityTier, TwinSceneGraph } from '../../shared/contracts';
 import type { GlbArtifact } from '../../pipeline/glb/application/glb-compiler.service';
 import type { GlbValidationResult } from '../../pipeline/glb/application/glb-validation.service';
 import type { Result } from '../../shared';

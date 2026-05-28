@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { SceneBuildManifest } from '../../shared/contracts/manifest';
-import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
-import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
+import type { SceneBuildManifest } from '../../shared/contracts';
+import type { SourceSnapshot } from '../../shared/contracts';
+import type { SceneScope } from '../../shared/contracts';
 import { GlbCompilerService } from '../../pipeline/glb/application/glb-compiler.service';
 import { GlbValidationService } from '../../pipeline/glb/application/glb-validation.service';
 import { NormalizedEntityBuilderService } from '../../pipeline/normalization/application/normalized-entity-builder.service';

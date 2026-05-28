@@ -1,8 +1,8 @@
-import type { QaIssueCode } from '../../src/shared/contracts/qa';
-import type { RenderIntent } from '../../src/shared/contracts/render-intent';
-import type { SourceSnapshot } from '../../src/shared/contracts/source-snapshot';
-import type { MaterialPlan, MeshPlanNode } from '../../src/shared/contracts/mesh-plan';
-import type { RealityTier, SceneRelationship, SceneScope } from '../../src/shared/contracts/twin-scene-graph';
+import type { QaIssueCode } from '../../src/shared/contracts';
+import type { RenderIntent } from '../../src/shared/contracts';
+import type { SourceSnapshot } from '../../src/shared/contracts';
+import type { MaterialPlan, MeshPlanNode } from '../../src/shared/contracts';
+import type { RealityTier, SceneRelationship, SceneScope } from '../../src/shared/contracts';
 
 export type Phase2FixtureKind = 'baseline' | 'adversarial';
 

@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { MeshPlan } from '../../../shared/contracts/mesh-plan';
-import type { MaterialPlan, MeshPlanNode } from '../../../shared/contracts/mesh-plan';
-import type { RenderIntentSet } from '../../../shared/contracts/render-intent';
-import type { TwinEntity, TwinSceneGraph } from '../../../shared/contracts/twin-scene-graph';
-import type { MeshGeometry } from '../../../shared/core/geometry';
+import type { MeshPlan } from '../../../shared/contracts';
+import type { MaterialPlan, MeshPlanNode } from '../../../shared/contracts';
+import type { RenderIntentSet } from '../../../shared/contracts';
+import type { TwinEntity, TwinSceneGraph } from '../../../shared/contracts';
+import type { MeshGeometry } from '../../../shared/core';
 
 @Injectable()
 export class MeshPlanBuilderService {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { MeshGeometrySchema } from '../../core/geometry/mesh-geometry';
+import { MeshGeometrySchema } from '../core/mesh-geometry';
 
 // ---------------------------------------------------------------------------
 // MeshBudget

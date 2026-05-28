@@ -1,6 +1,6 @@
-import type { SceneBuildManifest, QaSummary } from '../../../shared/contracts/manifest';
-import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../../shared/contracts/mesh-plan';
-import type { QaIssue } from '../../../shared/contracts/qa';
+import type { SceneBuildManifest, QaSummary } from '../../../shared/contracts';
+import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../../shared/contracts';
+import type { QaIssue } from '../../../shared/contracts';
 import type { GlbArtifact } from './glb-compiler.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Document, NodeIO } from '@gltf-transform/core';
