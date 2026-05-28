@@ -1,11 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OverpassAdapter, type OSMEntityData } from '../infrastructure/overpass.adapter';
-import { MapboxDemAdapter } from '../infrastructure/mapbox-dem.adapter';
-import type { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
-import type { SceneBuildRunResult } from '../../build/application/scene-build-run-result';
+import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { OverpassAdapter, type OSMEntityData } from '../infrastructure';
+import { MapboxDemAdapter } from '../infrastructure';
+import { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
+import type { SceneBuildRunResult } from '../../build/application';
 import type { SceneScope } from '../../shared/contracts';
 import type { SourceSnapshot } from '../../shared/contracts';
 import { createHash } from 'node:crypto';
+type SceneBuildOrchestrator = Pick<SceneBuildOrchestratorService, 'run'>;
 
 export type OsmSceneBuildInput = {
   sceneId: string;
@@ -17,20 +18,15 @@ export type OsmSceneBuildInput = {
 @Injectable()
 export class OsmSceneBuildService {
   private readonly logger = new Logger(OsmSceneBuildService.name);
-  private orchestrator?: SceneBuildOrchestratorService;
 
   constructor(
     private readonly overpass: OverpassAdapter,
-    private readonly dem?: MapboxDemAdapter,
+    @Optional() private readonly dem: MapboxDemAdapter | undefined,
+    @Inject(forwardRef(() => SceneBuildOrchestratorService))
+    private readonly orchestrator: SceneBuildOrchestrator,
   ) {}
 
-  setOrchestrator(orchestrator: SceneBuildOrchestratorService): void {
-    this.orchestrator = orchestrator;
-  }
-
   async run(input: OsmSceneBuildInput): Promise<SceneBuildRunResult> {
-    if (!this.orchestrator) throw new Error('Orchestrator not set');
-
     // Fetch each entity type separately and create per-type snapshots
     const buildings = await this.overpass.queryBuildings(input.scope);
     await this.enrichElevation(buildings, input.scope.center);

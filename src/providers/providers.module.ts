@@ -1,11 +1,13 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
-import { SnapshotCollectorService } from './application/snapshot-collector.service';
-import { OsmSceneBuildService } from './application/osm-scene-build.service';
-import { OverpassAdapter } from './infrastructure/overpass.adapter';
-import { MapboxDemAdapter } from './infrastructure/mapbox-dem.adapter';
+import { BuildModule } from '../build';
+import { SnapshotCollectorService } from './application';
+import { OsmSceneBuildService } from './application';
+import { OverpassAdapter } from './infrastructure';
+import { MapboxDemAdapter } from './infrastructure';
 
 @Module({
+  imports: [forwardRef(() => BuildModule)],
   providers: [SnapshotCollectorService, OsmSceneBuildService, OverpassAdapter, MapboxDemAdapter],
   exports: [SnapshotCollectorService, OsmSceneBuildService],
 })

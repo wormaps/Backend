@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { QaIssue } from './qa';
+import type { QaIssue } from '../quality/qa';
 
 // ---------------------------------------------------------------------------
 // Enums

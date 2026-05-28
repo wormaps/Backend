@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 
-import { MeshPlanBuilderService } from './application/mesh-plan-builder.service';
-import { RenderIntentPolicyService } from './application/render-intent-policy.service';
-import { RenderIntentResolverService } from './application/render-intent-resolver.service';
-import { TwinModule } from '../twin/twin.module';
+import { MeshPlanBuilderService } from './application';
+import { RenderIntentPolicyService } from './application';
+import { RenderIntentResolverService } from './application';
+import { TwinModule } from '../twin';
 
 @Module({
   imports: [TwinModule],

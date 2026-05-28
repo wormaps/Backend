@@ -1,4 +1,4 @@
-import type { SourceEntityRef } from './source-snapshot';
+import type { SourceEntityRef } from '../scene/source-snapshot';
 
 export type Provenance = 'observed' | 'inferred' | 'defaulted';
 

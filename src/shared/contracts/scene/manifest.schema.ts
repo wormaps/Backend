@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
-import type { QaIssue } from './qa';
-import type { RealityTier } from './twin-scene-graph';
-import type { SchemaVersionSet } from '../core/schemas';
+import type { QaIssue } from '../quality/qa';
+import type { RealityTier } from '../graph/twin-scene-graph';
+import type { SchemaVersionSet } from '../../core/schemas';
 
-import { QaIssueSchema } from './qa.schema';
-import { RealityTierSchema } from './twin-scene-graph.schema';
-import { SchemaVersionSetSchema } from '../core/schemas';
+import { QaIssueSchema } from '../quality/qa.schema';
+import { RealityTierSchema } from '../graph/twin-scene-graph.schema';
+import { SchemaVersionSetSchema } from '../../core/schemas';
 
 // ---------------------------------------------------------------------------
 // AttributionSummary

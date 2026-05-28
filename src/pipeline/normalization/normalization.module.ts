@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { NormalizedEntityBuilderService } from './application/normalized-entity-builder.service';
+import { NormalizedEntityBuilderService } from './application';
 
 @Module({
   providers: [NormalizedEntityBuilderService],

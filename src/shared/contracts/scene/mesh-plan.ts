@@ -1,4 +1,4 @@
-import type { MeshGeometry } from '../core/geometry';
+import type { MeshGeometry } from '../../core/geometry';
 
 export type MeshBudget = {
   maxGlbBytes: number;
@@ -33,4 +33,3 @@ export type MeshPlan = {
   materials: MaterialPlan[];
   budgets: MeshBudget;
 };
-

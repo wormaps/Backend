@@ -1,4 +1,4 @@
-import type { QaIssue } from './qa';
+import type { QaIssue } from '../quality/qa';
 
 export type SourceProvider =
   | 'google_places'
@@ -63,4 +63,3 @@ export type ProviderBudgetPolicy = {
   cacheReuseWindowSec?: number;
   fallbackAllowed: boolean;
 };
-

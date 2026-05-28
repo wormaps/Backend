@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
-import { validateProviderApiKeys } from './providers/providers.module';
+import { validateProviderApiKeys } from './providers';
 
 const logger = new Logger('bootstrap');
 

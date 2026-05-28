@@ -1,4 +1,4 @@
-import type { RealityTier } from './twin-scene-graph';
+import type { RealityTier } from '../graph/twin-scene-graph';
 
 export type RenderIntent = {
   entityId: string;
@@ -33,4 +33,3 @@ export type RenderIntentSet = {
     reasonCodes: string[];
   };
 };
-

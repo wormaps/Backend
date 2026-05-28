@@ -3,7 +3,7 @@ import type { MeshPlan } from '../../shared/contracts';
 import type { QaIssue } from '../../shared/contracts';
 import type { RenderIntent, RenderIntentSet } from '../../shared/contracts';
 import type { RealityTier, TwinSceneGraph } from '../../shared/contracts';
-import { RealityTierResolverService } from '../../pipeline/twin/application/reality-tier-resolver.service';
+import { RealityTierResolverService } from '../../pipeline/twin/application';
 
 export type QaGateInput = {
   graph: TwinSceneGraph;

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { RenderIntentSet } from '../../../shared/contracts';
 import type { TwinSceneGraph } from '../../../shared/contracts';
-import { RealityTierResolverService } from '../../twin/application/reality-tier-resolver.service';
+import { RealityTierResolverService } from '../../twin/application';
 import { RenderIntentPolicyService } from './render-intent-policy.service';
 
 @Injectable()

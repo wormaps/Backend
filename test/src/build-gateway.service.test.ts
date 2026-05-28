@@ -4,7 +4,6 @@ import { BuildGatewayService } from '../../src/api/build.gateway.service';
 import type { SceneBuildRunResult } from '../../src/build/application/scene-build-run-result';
 
 class MockOsmSceneBuildService {
-  orchestrator: unknown;
   async run(): Promise<SceneBuildRunResult> {
     return {
       kind: 'completed',
@@ -49,18 +48,12 @@ class MockOsmSceneBuildService {
     };
   }
 
-  setOrchestrator(orchestrator: unknown): void {
-    this.orchestrator = orchestrator;
-  }
 }
 
 describe('BuildGatewayService', () => {
-  it('wires orchestrator into osm service and stores latest completed glb', async () => {
+  it('stores latest completed glb', async () => {
     const osm = new MockOsmSceneBuildService();
-    const orchestrator = { run: async () => ({}) };
-    const gateway = new BuildGatewayService(osm as never, orchestrator as never);
-
-    expect(osm.orchestrator).toBe(orchestrator);
+    const gateway = new BuildGatewayService(osm as never);
 
     const result = await gateway.build({
       sceneId: 'scene-1',

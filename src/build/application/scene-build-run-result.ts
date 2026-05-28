@@ -5,10 +5,10 @@ import type { NormalizedEntityBundle } from '../../shared/contracts';
 import type { QaIssue } from '../../shared/contracts';
 import type { RenderIntentSet } from '../../shared/contracts';
 import type { RealityTier, TwinSceneGraph } from '../../shared/contracts';
-import type { GlbArtifact } from '../../pipeline/glb/application/glb-compiler.service';
-import type { GlbValidationResult } from '../../pipeline/glb/application/glb-validation.service';
+import type { GlbArtifact } from '../../pipeline/glb/application';
+import type { GlbValidationResult } from '../../pipeline/glb/application';
 import type { Result } from '../../shared';
-import type { SceneBuildAggregate } from '../domain/scene-build.aggregate';
+import type { SceneBuildAggregate } from '../domain';
 
 export type SceneBuildQaResult = {
   passed: boolean;

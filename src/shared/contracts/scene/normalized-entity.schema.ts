@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-import type { QaIssue } from './qa';
+import type { QaIssue } from '../quality/qa';
 import type { SourceEntityRef } from './source-snapshot';
-import type { TwinEntityType } from './twin-scene-graph';
+import type { TwinEntityType } from '../graph/twin-scene-graph';
 
-import { MeshGeometrySchema } from '../core/mesh-geometry';
-import { QaIssueSchema } from './qa.schema';
+import { MeshGeometrySchema } from '../../core/mesh-geometry';
+import { QaIssueSchema } from '../quality/qa.schema';
 import { SourceEntityRefSchema } from './source-snapshot.schema';
-import { TwinEntityTypeSchema } from './twin-scene-graph.schema';
+import { TwinEntityTypeSchema } from '../graph/twin-scene-graph.schema';
 
 // ---------------------------------------------------------------------------
 // NormalizedEntity

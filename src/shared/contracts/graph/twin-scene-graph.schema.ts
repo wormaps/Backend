@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { CoordinateFrame, GeoCoordinate, LocalPoint } from '../core/coordinates';
+import type { CoordinateFrame, GeoCoordinate, LocalPoint } from '../../core/coordinates';
 import type {
   BuildingGeometry,
   FacadeMaterial,
@@ -8,17 +8,17 @@ import type {
   PointGeometry,
   RoadGeometry,
   RoofShape,
-} from '../core/geometry';
+} from '../../core/geometry';
 import type { DerivationRecord, EvidenceValue } from './evidence-graph';
-import type { QaIssue } from './qa';
-import type { SourceEntityRef } from './source-snapshot';
+import type { QaIssue } from '../quality/qa';
+import type { SourceEntityRef } from '../scene/source-snapshot';
 
 // ---------------------------------------------------------------------------
 // Re-import schemas from sibling contracts
 // ---------------------------------------------------------------------------
 
 import { EvidenceValueSchema } from './evidence-graph.schema';
-import { SourceEntityRefSchema } from './source-snapshot.schema';
+import { SourceEntityRefSchema } from '../scene/source-snapshot.schema';
 
 // ---------------------------------------------------------------------------
 // Enums

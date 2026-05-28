@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { QaIssueCode } from './index';
+import type { QaIssueCode } from './qa';
 
 // ---------------------------------------------------------------------------
 // QaIssueCode (template literal pattern)

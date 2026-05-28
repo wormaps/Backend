@@ -2,18 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { SceneBuildManifest } from '../../shared/contracts';
 import type { SourceSnapshot } from '../../shared/contracts';
 import type { SceneScope } from '../../shared/contracts';
-import { GlbCompilerService } from '../../pipeline/glb/application/glb-compiler.service';
-import { GlbValidationService } from '../../pipeline/glb/application/glb-validation.service';
-import { NormalizedEntityBuilderService } from '../../pipeline/normalization/application/normalized-entity-builder.service';
-import { SnapshotCollectorService } from '../../providers/application/snapshot-collector.service';
+import { GlbCompilerService } from '../../pipeline/glb/application';
+import { GlbValidationService } from '../../pipeline/glb/application';
+import { NormalizedEntityBuilderService } from '../../pipeline/normalization/application';
+import { SnapshotCollectorService } from '../../providers/application';
 import { QaGateService } from './qa-gate.service';
-import { MeshPlanBuilderService } from '../../pipeline/render/application/mesh-plan-builder.service';
-import { RenderIntentResolverService } from '../../pipeline/render/application/render-intent-resolver.service';
-import { EvidenceGraphBuilderService } from '../../pipeline/twin/application/evidence-graph-builder.service';
-import { TwinGraphBuilderService } from '../../pipeline/twin/application/twin-graph-builder.service';
+import { MeshPlanBuilderService } from '../../pipeline/render/application';
+import { RenderIntentResolverService } from '../../pipeline/render/application';
+import { EvidenceGraphBuilderService } from '../../pipeline/twin/application';
+import { TwinGraphBuilderService } from '../../pipeline/twin/application';
 import { BuildManifestFactory } from './build-manifest.factory';
 import type { SceneBuildRunResult } from './scene-build-run-result';
-import { SceneBuildAggregate } from '../domain/scene-build.aggregate';
+import { SceneBuildAggregate } from '../domain';
 
 const buildCoordinateSystem = (scope: SceneScope): SceneBuildManifest['coordinateSystem'] => ({
   source: 'WGS84' as const,
