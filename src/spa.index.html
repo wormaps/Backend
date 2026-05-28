@@ -5,25 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WorMap GLB Builder</title>
     <style>
-      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
-      .row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
-      label { min-width: 90px; }
-      input { padding: 8px; width: 240px; }
-      button { padding: 10px 14px; cursor: pointer; }
-      pre { background: #111; color: #eee; padding: 12px; overflow: auto; max-height: 420px; }
+      * { box-sizing: border-box; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0f0f13; color: #e2e8f0; }
+      .sidebar { width: 320px; padding: 20px; background: #1a1a24; height: 100vh; overflow-y: auto; position: fixed; left: 0; top: 0; }
+      .main { margin-left: 320px; height: 100vh; display: flex; flex-direction: column; }
+      h1 { font-size: 1.1rem; margin: 0 0 20px; color: #a78bfa; letter-spacing: 0.05em; text-transform: uppercase; }
+      .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+      label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+      input { padding: 8px 10px; background: #0f0f18; border: 1px solid #2d2d3d; border-radius: 6px; color: #e2e8f0; font-size: 0.9rem; width: 100%; }
+      input:focus { outline: none; border-color: #7c3aed; }
+      .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+      button { padding: 9px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+      #buildBtn { background: #7c3aed; color: #fff; flex: 1; }
+      #buildBtn:hover { background: #6d28d9; }
+      #buildBtn:disabled { background: #4c1d95; opacity: 0.6; cursor: not-allowed; }
+      #downloadBtn { background: #1e3a5f; color: #93c5fd; }
+      #downloadBtn:hover { background: #1e40af; color: #fff; }
+
+      /* Progress */
+      .progress-wrap { margin-top: 20px; }
+      .progress-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 6px; display: flex; justify-content: space-between; }
+      .progress-bar-bg { background: #1e1e2e; border-radius: 4px; height: 6px; overflow: hidden; }
+      .progress-bar { height: 6px; border-radius: 4px; background: linear-gradient(90deg, #7c3aed, #a78bfa); transition: width 0.4s ease; width: 0%; }
+      .stages { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+      .stage { font-size: 0.75rem; display: flex; align-items: center; gap: 6px; color: #475569; }
+      .stage.active { color: #a78bfa; }
+      .stage.done { color: #34d399; }
+      .stage-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+      /* Log */
+      pre { background: #0a0a10; color: #64748b; padding: 12px; font-size: 0.72rem; line-height: 1.5; overflow: auto; margin-top: 16px; border-radius: 6px; max-height: 200px; border: 1px solid #1e1e2e; }
+
+      /* Viewer */
+      #viewer { flex: 1; background: #0a0a10; position: relative; }
+      canvas { display: block; width: 100% !important; height: 100% !important; }
+      #viewer-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #334155; font-size: 0.9rem; pointer-events: none; }
     </style>
   </head>
   <body>
-    <h1>WorMap GLB Builder</h1>
-    <div class="row"><label>sceneId</label><input id="sceneId" value="demo-seoul" /></div>
-    <div class="row"><label>lat</label><input id="lat" value="37.5665" /></div>
-    <div class="row"><label>lng</label><input id="lng" value="126.9780" /></div>
-    <div class="row"><label>radius</label><input id="radius" value="150" /></div>
-    <div class="row">
-      <button id="buildBtn">Build</button>
-      <button id="downloadBtn">Download GLB</button>
+    <div class="sidebar">
+      <h1>WorMap Builder</h1>
+      <div class="row"><label>Scene ID</label><input id="sceneId" value="demo-seoul" /></div>
+      <div class="row"><label>Lat</label><input id="lat" value="37.5665" /></div>
+      <div class="row"><label>Lng</label><input id="lng" value="126.9780" /></div>
+      <div class="row"><label>Radius (m)</label><input id="radius" value="150" /></div>
+      <div class="btn-row">
+        <button id="buildBtn">▶ Build</button>
+        <button id="downloadBtn">↓ GLB</button>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span id="progressText">idle</span>
+          <span id="progressPct"></span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="stages" id="stages">
+          <div class="stage" data-stage="queued"><span class="stage-dot"></span>Queued</div>
+          <div class="stage" data-stage="fetching"><span class="stage-dot"></span>Fetching OSM / V-World</div>
+          <div class="stage" data-stage="building"><span class="stage-dot"></span>Building mesh</div>
+          <div class="stage" data-stage="compiling"><span class="stage-dot"></span>Compiling GLB</div>
+          <div class="stage" data-stage="completed"><span class="stage-dot"></span>Done</div>
+        </div>
+      </div>
+
+      <pre id="out">ready</pre>
     </div>
-    <pre id="out">ready</pre>
+
+    <div class="main">
+      <div id="viewer">
+        <div id="viewer-overlay">Build a scene to preview it here</div>
+      </div>
+    </div>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.184.0",
+        "three/addons/": "https://esm.sh/three@0.184.0/examples/jsm/"
+      }
+    }
+    </script>
     <script type="module" src="/spa.js"></script>
   </body>
-  </html>
+</html>

@@ -47,9 +47,15 @@ type SceneBuildOrchestrator = {
   }): Promise<SceneBuildRunResult>;
 };
 
+const KOREA_BOUNDS = { minLat: 33.0, maxLat: 38.9, minLng: 124.0, maxLng: 132.0 };
+const OVERPASS_RATE_LIMIT_MS = 200;
+
 /** Approximate bounding box for South Korea. */
 function isKorea(lat: number, lng: number): boolean {
-  return lat >= 33.0 && lat <= 38.9 && lng >= 124.0 && lng <= 132.0;
+  return (
+    lat >= KOREA_BOUNDS.minLat && lat <= KOREA_BOUNDS.maxLat &&
+    lng >= KOREA_BOUNDS.minLng && lng <= KOREA_BOUNDS.maxLng
+  );
 }
 
 export type OsmSceneBuildInput = {
@@ -76,11 +82,11 @@ export class OsmSceneBuildService {
     // Select building provider based on region.
     const { lat, lng } = input.scope.center;
     const buildings = await this.queryBuildings(input.scope, lat, lng);
-    await this.delay(200);
+    await this.delay(OVERPASS_RATE_LIMIT_MS);
     const roads = await this.overpass.queryRoads(input.scope);
-    await this.delay(200);
+    await this.delay(OVERPASS_RATE_LIMIT_MS);
     const walkways = await this.overpass.queryWalkways(input.scope);
-    await this.delay(200);
+    await this.delay(OVERPASS_RATE_LIMIT_MS);
     const terrain = await this.overpass.queryTerrain(input.scope);
 
     // Enrich all geometry with DEM elevation in one batch (single tile fetch).
@@ -172,9 +178,9 @@ export class OsmSceneBuildService {
       provider,
       sceneId: input.sceneId,
       requestedAt: new Date().toISOString(),
-      queryHash: `sha256:${createHash('sha256').update(`${provider}:${entityType}`).digest('hex')}`,
+      queryHash: `sha256:${createHash('sha256').update(`${provider}:${entityType}:${input.scope.center.lat}:${input.scope.center.lng}:${input.scope.radiusMeters ?? 150}`).digest('hex')}`,
       responseHash,
-      storageMode: 'metadata_only',
+      storageMode: 'ephemeral_payload',
       payloadRef: rawJson,
       payloadSchemaVersion: 'osm-entity.v1',
       status: 'success',

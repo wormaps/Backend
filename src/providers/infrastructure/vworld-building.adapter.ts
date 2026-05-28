@@ -25,6 +25,7 @@ type VWorldFeature = {
 type VWorldResponse = {
   response?: {
     status?: string;
+    page?: { total: number; current: number; size: number };
     result?: {
       featureCollection?: {
         type: string;
@@ -39,21 +40,30 @@ type VWorldResponse = {
 };
 
 
+const VWORLD_BASE_URL = process.env.V_WORLD_BASE_URL ?? 'https://api.vworld.kr/req/data';
+const VWORLD_USER_AGENT = 'wormapb/1.0 (3D city pipeline)';
+const VWORLD_PAGE_SIZE = 1000;
+const FLOOR_HEIGHT_M = 3.5;
+const DEFAULT_BUILDING_HEIGHT_M = 8;
+
 @Injectable()
 export class VWorldBuildingAdapter {
   private readonly logger = new Logger(VWorldBuildingAdapter.name);
   private readonly apiKey = process.env.V_WORLD_API_KEY ?? '';
-  private readonly domain = process.env.V_WORLD_DOMAIN ?? 'http://localhost:8080';
-  private readonly baseUrl = 'https://api.vworld.kr/req/data';
+  private readonly domain = process.env.V_WORLD_DOMAIN ?? '';
+  private readonly baseUrl = VWORLD_BASE_URL;
 
   async queryBuildings(scope: SceneScope): Promise<OSMEntityData[]> {
     if (!this.apiKey) {
       this.logger.warn('V_WORLD_API_KEY not set — skipping V World buildings');
       return [];
     }
+    if (!this.domain) {
+      this.logger.warn('V_WORLD_DOMAIN not set — API auth may fail');
+    }
 
     const bbox = this.scopeToBbox(scope);
-    const params = new URLSearchParams({
+    const baseParams = {
       service: 'data',
       version: '2.0',
       request: 'GetFeature',
@@ -65,29 +75,39 @@ export class VWorldBuildingAdapter {
       crs: 'epsg:4326',
       geomFilter: `BOX(${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat})`,
       data: 'LT_C_SPBD',
-      size: '1000',
-      page: '1',
-    });
+      size: String(VWORLD_PAGE_SIZE),
+    };
 
-    const response = await fetch(`${this.baseUrl}?${params}`, {
-      headers: { 'User-Agent': 'wormapb/1.0 (3D city pipeline)' },
-    });
+    const allFeatures: VWorldFeature[] = [];
+    let page = 1;
+    let totalPages = 1;
 
-    if (!response.ok) {
-      throw new Error(`V World API error: ${response.status} ${response.statusText}`);
-    }
+    do {
+      const params = new URLSearchParams({ ...baseParams, page: String(page) });
+      const response = await fetch(`${this.baseUrl}?${params}`, {
+        headers: { 'User-Agent': VWORLD_USER_AGENT },
+      });
 
-    const data = (await response.json()) as VWorldResponse;
+      if (!response.ok) {
+        throw new Error(`V World API error: ${response.status} ${response.statusText}`);
+      }
 
-    if (data.response?.status !== 'OK') {
-      const err = data.response?.error;
-      throw new Error(`V World API error: ${err?.code} — ${err?.text}`);
-    }
+      const data = (await response.json()) as VWorldResponse;
 
-    const features = data.response?.result?.featureCollection?.features ?? [];
-    this.logger.debug(`V World buildings fetched count=${features.length}`);
+      if (data.response?.status !== 'OK') {
+        const err = data.response?.error;
+        throw new Error(`V World API error: ${err?.code} — ${err?.text}`);
+      }
 
-    return features
+      const features = data.response?.result?.featureCollection?.features ?? [];
+      allFeatures.push(...features);
+      totalPages = data.response?.page?.total ?? 1;
+      page++;
+    } while (page <= totalPages);
+
+    this.logger.debug(`V World buildings fetched count=${allFeatures.length}`);
+
+    return allFeatures
       .filter((f) => f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon')
       .flatMap((f) => this.featureToEntities(f, scope.center));
   }
@@ -131,8 +151,8 @@ export class VWorldBuildingAdapter {
 
   private resolveHeight(floorsStr?: string): number {
     const floors = parseInt(floorsStr ?? '', 10);
-    if (Number.isFinite(floors) && floors > 0) return floors * 3.5;
-    return 8;
+    if (Number.isFinite(floors) && floors > 0) return floors * FLOOR_HEIGHT_M;
+    return DEFAULT_BUILDING_HEIGHT_M;
   }
 
   private scopeToBbox(scope: SceneScope) {

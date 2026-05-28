@@ -27,7 +27,7 @@ export class NormalizedEntityBuilderService {
       snapshotBundleId,
       entities,
       issues: entities.flatMap((entity) => entity.issues),
-      generatedAt: new Date(0).toISOString(),
+      generatedAt: new Date().toISOString(),
       normalizationVersion: 'normalization.v1',
     };
   }
