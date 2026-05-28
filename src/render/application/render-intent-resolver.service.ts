@@ -1,15 +1,20 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { RenderIntentSet } from '../../shared/contracts/render-intent';
 import type { TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
-import type { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
-import type { RenderIntentPolicyService } from './render-intent-policy.service';
+import { RealityTierResolverService } from '../../twin/application/reality-tier-resolver.service';
+import { RenderIntentPolicyService } from './render-intent-policy.service';
 
+@Injectable()
 export class RenderIntentResolverService {
+  private readonly logger = new Logger(RenderIntentResolverService.name);
+
   constructor(
-    private readonly renderIntentPolicy: RenderIntentPolicyService,
-    private readonly realityTierResolver: RealityTierResolverService,
+    private readonly renderIntentPolicy: RenderIntentPolicyService = new RenderIntentPolicyService(),
+    private readonly realityTierResolver: RealityTierResolverService = new RealityTierResolverService(),
   ) {}
 
   resolve(graph: TwinSceneGraph): RenderIntentSet {
+    this.logger.debug(`Resolving render intents for scene ${graph.sceneId}`);
     const intents = this.renderIntentPolicy.resolve(graph);
     const provisional = this.realityTierResolver.resolveProvisional(
       graph.metadata.initialRealityTierCandidate,

@@ -1,8 +1,13 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
 import type { TwinEntity, TwinEntityType } from '../../shared/contracts/twin-scene-graph';
 
+@Injectable()
 export class TwinEntityProjectionService {
+  private readonly logger = new Logger(TwinEntityProjectionService.name);
+
   project(bundle: NormalizedEntityBundle): TwinEntity[] {
+    this.logger.debug(`Projecting ${bundle.entities.length} entities to twin graph`);
     return bundle.entities.map((entity) => this.projectEntity(entity));
   }
 

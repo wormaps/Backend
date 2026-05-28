@@ -1,7 +1,12 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { SceneRelationship, TwinEntity } from '../../shared/contracts/twin-scene-graph';
 
+@Injectable()
 export class SceneRelationshipBuilderService {
+  private readonly logger = new Logger(SceneRelationshipBuilderService.name);
+
   build(entities: TwinEntity[]): SceneRelationship[] {
+    this.logger.debug(`Building relationships for ${entities.length} entities`);
     const relationships: SceneRelationship[] = [];
     const traffic = entities.find((entity) => entity.type === 'traffic_flow');
     const road = entities.find((entity) => entity.type === 'road');

@@ -1,11 +1,18 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { QaIssue } from '../../shared/contracts/qa';
 import type { TwinEntity, TwinSceneGraphMetadata } from '../../shared/contracts/twin-scene-graph';
-import type { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
+import { RealityTierResolverService } from './reality-tier-resolver.service';
 
+@Injectable()
 export class TwinSceneGraphMetadataFactory {
-  constructor(private readonly realityTierResolver: RealityTierResolverService) {}
+  private readonly logger = new Logger(TwinSceneGraphMetadataFactory.name);
+
+  constructor(
+    private readonly realityTierResolver: RealityTierResolverService = new RealityTierResolverService(),
+  ) {}
 
   create(entities: TwinEntity[], qualityIssues: QaIssue[]): TwinSceneGraphMetadata {
+    this.logger.debug(`Creating twin metadata entities=${entities.length} issues=${qualityIssues.length}`);
     const observedEntityCount = entities.filter((entity) => entity.qualityIssues.length === 0).length;
     const defaultedEntityCount = entities.filter((entity) => entity.qualityIssues.length > 0).length;
     const totalEntityCount = entities.length;

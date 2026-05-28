@@ -1,3 +1,4 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { EvidenceGraph } from '../../shared/contracts/evidence-graph';
 import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
 import type { TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
@@ -7,14 +8,16 @@ import { SceneRelationshipBuilderService } from './scene-relationship-builder.se
 import { TwinEntityProjectionService } from './twin-entity-projection.service';
 import { TwinGraphValidationService } from './twin-graph-validation.service';
 import { TwinSceneGraphMetadataFactory } from './twin-scene-graph-metadata.factory';
-import { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
 
+@Injectable()
 export class TwinGraphBuilderService {
+  private readonly logger = new Logger(TwinGraphBuilderService.name);
+
   constructor(
-    private readonly entityProjection = new TwinEntityProjectionService(),
-    private readonly relationshipBuilder = new SceneRelationshipBuilderService(),
-    private readonly graphValidation = new TwinGraphValidationService(),
-    private readonly metadataFactory = new TwinSceneGraphMetadataFactory(new RealityTierResolverService()),
+    private readonly entityProjection: TwinEntityProjectionService = new TwinEntityProjectionService(),
+    private readonly relationshipBuilder: SceneRelationshipBuilderService = new SceneRelationshipBuilderService(),
+    private readonly graphValidation: TwinGraphValidationService = new TwinGraphValidationService(),
+    private readonly metadataFactory: TwinSceneGraphMetadataFactory = new TwinSceneGraphMetadataFactory(),
   ) {}
 
   build(
@@ -54,7 +57,7 @@ export class TwinGraphBuilderService {
     // PoC validation at pipeline boundary — warns but doesn't break existing flow
     const validation = validateTwinSceneGraph(twinSceneGraph);
     if (!validation.success) {
-      console.warn('TwinSceneGraph validation failed:', validation.error.format());
+      this.logger.warn(`TwinSceneGraph validation failed: ${JSON.stringify(validation.error.format())}`);
     }
 
     return twinSceneGraph;

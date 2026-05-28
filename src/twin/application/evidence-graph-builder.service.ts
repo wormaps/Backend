@@ -1,8 +1,13 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { EvidenceGraph } from '../../shared/contracts/evidence-graph';
 import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
 
+@Injectable()
 export class EvidenceGraphBuilderService {
+  private readonly logger = new Logger(EvidenceGraphBuilderService.name);
+
   build(normalizedBundle: NormalizedEntityBundle): EvidenceGraph {
+    this.logger.debug(`Building evidence graph for scene ${normalizedBundle.sceneId}`);
     return {
       id: `evidence:${normalizedBundle.sceneId}:${normalizedBundle.snapshotBundleId}`,
       sceneId: normalizedBundle.sceneId,

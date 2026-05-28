@@ -13,25 +13,25 @@
 To install dependencies:
 
 ```bash
-bun install
+pnpm install
 ```
 
 To run:
 
 ```bash
-bun run 
+pnpm run 
 ```
 
-This project was created using `bun init` in bun v1.3.13. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+This project was created using `pnpm init` in pnpm v1.3.13. [pnpm](https://pnpm.com) is a fast all-in-one JavaScript runtime.
 
 ## Run
 
 ```bash
 # Development (hot reload)
-bun run dev
+pnpm run dev
 
 # Production
-bun run start
+pnpm run start
 ```
 
 ## API

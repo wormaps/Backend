@@ -1,11 +1,16 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { MeshPlan } from '../../shared/contracts/mesh-plan';
 import type { MaterialPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
 import type { RenderIntentSet } from '../../shared/contracts/render-intent';
 import type { TwinEntity, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
 import type { MeshGeometry } from '../../shared/core/geometry';
 
+@Injectable()
 export class MeshPlanBuilderService {
+  private readonly logger = new Logger(MeshPlanBuilderService.name);
+
   build(graph: TwinSceneGraph, intentSet: RenderIntentSet): MeshPlan {
+    this.logger.debug(`Building mesh plan intents=${intentSet.intents.length}`);
     const entityById = new Map(graph.entities.map((entity) => [entity.id, entity]));
     const materials = new Map<string, MaterialPlan>();
     const nodes: MeshPlanNode[] = [];

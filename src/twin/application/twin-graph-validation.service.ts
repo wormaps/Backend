@@ -1,9 +1,14 @@
+import { Injectable, Logger } from '@nestjs/common';
 import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
 import type { QaIssue } from '../../shared/contracts/qa';
 import type { SceneRelationship } from '../../shared/contracts/twin-scene-graph';
 
+@Injectable()
 export class TwinGraphValidationService {
+  private readonly logger = new Logger(TwinGraphValidationService.name);
+
   validate(normalizedBundle: NormalizedEntityBundle, relationships: SceneRelationship[]): QaIssue[] {
+    this.logger.debug(`Validating twin graph quality: entities=${normalizedBundle.entities.length} rels=${relationships.length}`);
     const issues = [...normalizedBundle.issues];
 
     if (

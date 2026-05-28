@@ -367,7 +367,7 @@ git commit -m "refactor: convert GlbModule to NestJS @Module with DI"
 - Modify: `src/normalization/normalization.module.ts`
 - Modify: `src/normalization/application/normalized-entity-builder.service.ts`
 
-- [ ] **Step 1: normalized-entity-builder.service.ts — @Injectable + NestJS Logger**
+- [X] **Step 1: normalized-entity-builder.service.ts — @Injectable + NestJS Logger**
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
@@ -382,7 +382,7 @@ export class NormalizedEntityBuilderService {
 
 BunLogger 없으면 Logger 추가만.
 
-- [ ] **Step 2: normalization.module.ts — @Module() 재작성**
+- [X] **Step 2: normalization.module.ts — @Module() 재작성**
 
 ```typescript
 // src/normalization/normalization.module.ts
@@ -397,7 +397,7 @@ import { NormalizedEntityBuilderService } from './application/normalized-entity-
 export class NormalizationModule {}
 ```
 
-- [ ] **Step 3: type-check**
+- [X] **Step 3: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "normalization" | head -10
@@ -423,7 +423,7 @@ git commit -m "refactor: convert NormalizationModule to NestJS @Module with DI"
 - `TwinGraphBuilderService` ← TwinEntityProjectionService, SceneRelationshipBuilderService, TwinGraphValidationService, TwinSceneGraphMetadataFactory
 - `TwinSceneGraphMetadataFactory` ← RealityTierResolverService (reality에서 이동)
 
-- [ ] **Step 1: reality-tier-resolver.service.ts 이동**
+- [X] **Step 1: reality-tier-resolver.service.ts 이동**
 
 ```bash
 cp /Users/user/wormapb/src/reality/application/reality-tier-resolver.service.ts \
@@ -440,7 +440,7 @@ export class RealityTierResolverService {
 }
 ```
 
-- [ ] **Step 2: twin 하위 서비스 5개 @Injectable 추가**
+- [X] **Step 2: twin 하위 서비스 5개 @Injectable 추가**
 
 아래 5개 파일 각각에 `@Injectable()` 데코레이터 추가, NestJS Logger 추가:
 - `src/twin/application/evidence-graph-builder.service.ts`
@@ -460,7 +460,7 @@ export class <ServiceClass> {
 }
 ```
 
-- [ ] **Step 3: twin-graph-builder.service.ts — @Injectable + 생성자 주입 타입 변경**
+- [X] **Step 3: twin-graph-builder.service.ts — @Injectable + 생성자 주입 타입 변경**
 
 현재 `new TwinGraphBuilderService(projection, relationship, validation, factory)` 형태.
 NestJS DI에서는 constructor 타입으로 자동 주입 — `import type` → `import`로 변경:
@@ -487,7 +487,7 @@ export class TwinGraphBuilderService {
 }
 ```
 
-- [ ] **Step 4: twin-scene-graph-metadata.factory.ts — RealityTierResolver 주입**
+- [X] **Step 4: twin-scene-graph-metadata.factory.ts — RealityTierResolver 주입**
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -502,7 +502,7 @@ export class TwinSceneGraphMetadataFactory {
 }
 ```
 
-- [ ] **Step 5: twin.module.ts — @Module() 재작성**
+- [X] **Step 5: twin.module.ts — @Module() 재작성**
 
 ```typescript
 // src/twin/twin.module.ts
@@ -535,7 +535,7 @@ import { RealityTierResolverService } from './application/reality-tier-resolver.
 export class TwinModule {}
 ```
 
-- [ ] **Step 6: type-check**
+- [X] **Step 6: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "twin\|reality" | head -20
@@ -561,7 +561,7 @@ git commit -m "refactor: convert TwinModule to NestJS @Module, absorb RealityTie
 현재 `renderModule`은 `realityModule.services.realityTierResolver`를 직접 사용.
 새 구조: `TwinModule` import → NestJS가 `RealityTierResolverService` 주입.
 
-- [ ] **Step 1: mesh-plan-builder.service.ts — @Injectable**
+- [X] **Step 1: mesh-plan-builder.service.ts — @Injectable**
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
@@ -573,7 +573,7 @@ export class MeshPlanBuilderService {
 }
 ```
 
-- [ ] **Step 2: render-intent-policy.service.ts — @Injectable**
+- [X] **Step 2: render-intent-policy.service.ts — @Injectable**
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -584,7 +584,7 @@ export class RenderIntentPolicyService {
 }
 ```
 
-- [ ] **Step 3: render-intent-resolver.service.ts — @Injectable + 주입 타입 변경**
+- [X] **Step 3: render-intent-resolver.service.ts — @Injectable + 주입 타입 변경**
 
 현재: `new RenderIntentResolverService(renderIntentPolicy, realityTierResolver)`.
 ```typescript
@@ -604,7 +604,7 @@ export class RenderIntentResolverService {
 }
 ```
 
-- [ ] **Step 4: render.module.ts — @Module() 재작성 (TwinModule import)**
+- [X] **Step 4: render.module.ts — @Module() 재작성 (TwinModule import)**
 
 ```typescript
 // src/render/render.module.ts
@@ -623,7 +623,7 @@ import { RenderIntentResolverService } from './application/render-intent-resolve
 export class RenderModule {}
 ```
 
-- [ ] **Step 5: type-check**
+- [X] **Step 5: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "render" | head -20

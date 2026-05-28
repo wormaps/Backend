@@ -3,6 +3,7 @@ import type { QaIssue } from '../../shared/contracts/qa';
 import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
 import type { TwinEntityType } from '../../shared/contracts/twin-scene-graph';
 import type { MeshGeometry } from '../../shared/core/geometry';
+import { Injectable, Logger } from '@nestjs/common';
 
 type OSMFeaturePayload = {
   id: string;
@@ -11,8 +12,12 @@ type OSMFeaturePayload = {
   tags?: Record<string, string>;
 };
 
+@Injectable()
 export class NormalizedEntityBuilderService {
+  private readonly logger = new Logger(NormalizedEntityBuilderService.name);
+
   build(sceneId: string, snapshotBundleId: string, snapshots: SourceSnapshot[]): NormalizedEntityBundle {
+    this.logger.debug(`Normalizing snapshots sceneId=${sceneId} count=${snapshots.length}`);
     const raw: NormalizedEntity[] = snapshots.flatMap((snapshot) => this.normalizeSnapshot(snapshot));
     const entities = this.deduplicateBuildings(raw);
 

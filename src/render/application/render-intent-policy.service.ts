@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type { RenderIntent } from '../../shared/contracts/render-intent';
 import type { QaIssue } from '../../shared/contracts/qa';
 import type {
@@ -6,6 +7,7 @@ import type {
   TwinSceneGraph,
 } from '../../shared/contracts/twin-scene-graph';
 
+@Injectable()
 export class RenderIntentPolicyService {
   resolve(graph: TwinSceneGraph): RenderIntent[] {
     return graph.entities.map((entity) => this.resolveEntityIntent(entity, graph.relationships));
