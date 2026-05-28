@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type { TypedArray } from '@gltf-transform/core';
 import { Buffer, Document, NodeIO, type Accessor } from '@gltf-transform/core';
 import { EXTMeshoptCompression } from '@gltf-transform/extensions';
@@ -63,9 +61,6 @@ export class GlbCompilerService {
     root.getAsset().generator = 'wormap-v2';
 
     const buffer = document.createBuffer('buffer0');
-    const materialByRole = new Map(
-      input.meshPlan.materials.map((material) => [material.role, material]),
-    );
 
     const nodeById = new Map<string, ReturnType<Document['createNode']>>();
     const materialNodeMap = new Map<string, ReturnType<Document['createMaterial']>>();
@@ -516,10 +511,6 @@ export class GlbCompilerService {
       .setArray(indices)
       .setType('SCALAR')
       .setBuffer(buffer);
-  }
-
-  private computeArtifactHash(bytes: Uint8Array): string {
-    return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
   }
 
   private summarizeMeshSummary(meshPlan: MeshPlan) {
