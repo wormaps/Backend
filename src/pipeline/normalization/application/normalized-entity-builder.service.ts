@@ -54,7 +54,12 @@ export class NormalizedEntityBuilderService {
   }
 
   private normalizeSnapshot(snapshot: SourceSnapshot): NormalizedEntity[] {
-    if (snapshot.provider !== 'osm') {
+    const supportsEntityPayload =
+      snapshot.provider === 'osm' ||
+      snapshot.provider === 'vworld' ||
+      snapshot.provider === 'mapbox';
+
+    if (!supportsEntityPayload) {
       const issues = this.deriveIssues(snapshot);
       return [
         {

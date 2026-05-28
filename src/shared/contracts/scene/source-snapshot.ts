@@ -6,7 +6,9 @@ export type SourceProvider =
   | 'open_meteo'
   | 'tomtom'
   | 'manual'
-  | 'curated';
+  | 'curated'
+  | 'vworld'
+  | 'mapbox';
 
 export type SourceSnapshotStorageMode =
   | 'none'

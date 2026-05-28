@@ -13,6 +13,8 @@ export const SourceProviderSchema = z.enum([
   'tomtom',
   'manual',
   'curated',
+  'vworld',
+  'mapbox',
 ]);
 export type SourceProvider = z.infer<typeof SourceProviderSchema>;
 

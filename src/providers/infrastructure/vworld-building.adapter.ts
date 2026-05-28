@@ -15,13 +15,9 @@ type VWorldFeature = {
     coordinates: number[][][];
   };
   properties: {
-    gid?: string;
-    buld_nm?: string;      // building name
-    buld_ht?: string;      // height (metres, may be null/"")
-    grnd_flr_co?: string;  // above-ground floor count
-    undr_flr_co?: string;  // below-ground floor count
-    buld_se_cd?: string;   // use-class code
-    buld_se_nm?: string;   // use-class name (Korean)
+    bd_mgt_sn?: string;  // building management number (unique ID)
+    buld_nm?: string;    // building name
+    gro_flo_co?: string; // above-ground floor count
     [key: string]: unknown;
   };
 };
@@ -42,31 +38,12 @@ type VWorldResponse = {
   };
 };
 
-// ---------------------------------------------------------------------------
-// Korean building use class → OSM building tag mapping
-// ---------------------------------------------------------------------------
-const USE_CLASS_MAP: Record<string, string> = {
-  업무시설: 'office',
-  공동주택: 'apartments',
-  단독주택: 'house',
-  판매시설: 'retail',
-  숙박시설: 'hotel',
-  교육연구시설: 'school',
-  종교시설: 'church',
-  공장: 'industrial',
-  창고시설: 'warehouse',
-  의료시설: 'hospital',
-  운수시설: 'transportation',
-  문화집회시설: 'civic',
-  운동시설: 'sports_hall',
-  관광휴게시설: 'commercial',
-  근린생활시설: 'retail',
-};
 
 @Injectable()
 export class VWorldBuildingAdapter {
   private readonly logger = new Logger(VWorldBuildingAdapter.name);
   private readonly apiKey = process.env.V_WORLD_API_KEY ?? '';
+  private readonly domain = process.env.V_WORLD_DOMAIN ?? 'http://localhost:8080';
   private readonly baseUrl = 'https://api.vworld.kr/req/data';
 
   async queryBuildings(scope: SceneScope): Promise<OSMEntityData[]> {
@@ -81,12 +58,13 @@ export class VWorldBuildingAdapter {
       version: '2.0',
       request: 'GetFeature',
       key: this.apiKey,
+      domain: this.domain,
       format: 'json',
       geometry: 'true',
       attribute: 'true',
       crs: 'epsg:4326',
       geomFilter: `BOX(${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat})`,
-      typename: 'lt_c_ubuilding',
+      data: 'LT_C_SPBD',
       size: '1000',
       page: '1',
     });
@@ -119,8 +97,7 @@ export class VWorldBuildingAdapter {
     origin: { lat: number; lng: number },
   ): OSMEntityData[] {
     const props = feature.properties;
-    const height = this.resolveHeight(props.buld_ht, props.grnd_flr_co);
-    const buildingTag = USE_CLASS_MAP[props.buld_se_nm ?? ''] ?? 'yes';
+    const height = this.resolveHeight(props.gro_flo_co as string | undefined);
 
     const rings: number[][][] =
       feature.geometry.type === 'MultiPolygon'
@@ -141,25 +118,21 @@ export class VWorldBuildingAdapter {
           entityType: 'building' as const,
           geometry: { footprint: { outer }, baseY: 0, height },
           tags: {
-            building: buildingTag,
-            'building:levels': props.grnd_flr_co ?? '',
+            building: 'yes',
+            'building:levels': String(props.gro_flo_co ?? ''),
             height: String(height),
-            name: props.buld_nm ?? '',
+            name: String(props.buld_nm ?? ''),
           },
-          id: `vworld:building:${props.gid ?? feature.id}`,
+          id: `vworld:building:${props.bd_mgt_sn ?? feature.id}`,
         };
       })
       .filter((e) => e !== null) as OSMEntityData[];
   }
 
-  private resolveHeight(heightStr?: string, floorsStr?: string): number {
-    const h = parseFloat(heightStr ?? '');
-    if (Number.isFinite(h) && h > 0) return h;
-
+  private resolveHeight(floorsStr?: string): number {
     const floors = parseInt(floorsStr ?? '', 10);
     if (Number.isFinite(floors) && floors > 0) return floors * 3.5;
-
-    return 8; // default
+    return 8;
   }
 
   private scopeToBbox(scope: SceneScope) {

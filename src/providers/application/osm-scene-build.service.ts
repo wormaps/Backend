@@ -3,8 +3,37 @@ import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, type OS
 import { MapboxDemAdapter } from '../infrastructure';
 import type { SceneBuildRunResult } from '../../build/application';
 import type { SceneScope } from '../../shared/contracts';
-import type { SourceSnapshot } from '../../shared/contracts';
+import type { SourceSnapshot, SourceProvider } from '../../shared/contracts';
 import { createHash } from 'node:crypto';
+
+// ---------------------------------------------------------------------------
+// Attribution metadata per provider
+// ---------------------------------------------------------------------------
+
+type ComplianceInfo = SourceSnapshot['compliance'];
+const PROVIDER_COMPLIANCE = {
+  osm: {
+    provider: 'osm',
+    attributionRequired: true,
+    attributionText: 'OpenStreetMap contributors',
+    retentionPolicy: 'cache_allowed',
+    policyVersion: '1.0.0',
+  },
+  vworld: {
+    provider: 'vworld',
+    attributionRequired: true,
+    attributionText: '국토교통부 V-World (공간정보 오픈플랫폼)',
+    retentionPolicy: 'cache_allowed',
+    policyVersion: '1.0.0',
+  },
+  mapbox: {
+    provider: 'mapbox',
+    attributionRequired: true,
+    attributionText: '© Mapbox',
+    retentionPolicy: 'ephemeral',
+    policyVersion: '1.0.0',
+  },
+} satisfies Record<'osm' | 'vworld' | 'mapbox', ComplianceInfo>;
 
 // Injection token — avoids circular import with build/application.
 export const SCENE_BUILD_ORCHESTRATOR = Symbol('SCENE_BUILD_ORCHESTRATOR');
@@ -126,26 +155,30 @@ export class OsmSceneBuildService {
     entityType: string,
     entities: OSMEntityData[],
   ): SourceSnapshot {
+    // Detect actual provider from entities (V World / Mapbox / OSM).
+    const uniqueProviders = new Set(entities.map((e) => e.provider));
+    if (uniqueProviders.size > 1) {
+      this.logger.warn(`Mixed providers in ${entityType} snapshot: ${[...uniqueProviders].join(', ')}`);
+    }
+    const rawProvider = entities[0]?.provider;
+    const provider: SourceProvider =
+      rawProvider === 'osm' || rawProvider === 'vworld' || rawProvider === 'mapbox'
+        ? rawProvider
+        : 'osm';
     const rawJson = JSON.stringify(entities);
     const responseHash = `sha256:${createHash('sha256').update(rawJson).digest('hex')}`;
     return {
-      id: `snapshot:osm:${entityType}:${input.snapshotBundleId}`,
-      provider: 'osm',
+      id: `snapshot:${provider}:${entityType}:${input.snapshotBundleId}`,
+      provider,
       sceneId: input.sceneId,
       requestedAt: new Date().toISOString(),
-      queryHash: `sha256:${createHash('sha256').update(entityType).digest('hex')}`,
+      queryHash: `sha256:${createHash('sha256').update(`${provider}:${entityType}`).digest('hex')}`,
       responseHash,
       storageMode: 'metadata_only',
       payloadRef: rawJson,
       payloadSchemaVersion: 'osm-entity.v1',
       status: 'success',
-      compliance: {
-        provider: 'osm',
-        attributionRequired: true,
-        attributionText: 'OpenStreetMap contributors',
-        retentionPolicy: 'cache_allowed',
-        policyVersion: '1.0.0',
-      },
+      compliance: PROVIDER_COMPLIANCE[provider] ?? PROVIDER_COMPLIANCE['osm']!,
     };
   }
 
