@@ -1,6 +1,9 @@
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { getSceneDataDir } from '../src/scene/storage/scene-storage.utils';
+
+function getSceneDataDir(): string {
+  return process.env.SCENE_DATA_DIR ?? join(process.cwd(), 'data', 'scene');
+}
 
 type SceneStatus = 'READY' | 'PENDING' | 'FAILED';
 type Confidence = 'high' | 'medium' | 'low' | 'very_low';

@@ -20,11 +20,21 @@ export type OpenMeteoResponse = {
 export type WeatherData = {
   provider: 'open_meteo';
   sceneId: string;
-  temperature: { min: number; max: number; avg: number };
-  precipitation: number;
-  visibility: number;
-  cloudCover: number;
+  temperature: { min: number | undefined; max: number | undefined; avg: number | undefined };
+  precipitation: number | undefined;
+  visibility: number | undefined;
+  cloudCover: number | undefined;
 };
+
+const safeAvg = (values: number[]): number | undefined =>
+  values.length > 0 ? values.reduce((total, value) => total + value, 0) / values.length : undefined;
+
+const safeMin = (values: number[]): number | undefined => (values.length > 0 ? Math.min(...values) : undefined);
+
+const safeMax = (values: number[]): number | undefined => (values.length > 0 ? Math.max(...values) : undefined);
+
+const sumOrUndefined = (values: number[]): number | undefined =>
+  values.length === 0 ? undefined : values.reduce((total, value) => total + value, 0);
 
 export class OpenMeteoAdapter {
   constructor(private readonly baseUrl: string = 'https://archive-api.open-meteo.com/v1') {}
@@ -56,13 +66,13 @@ export class OpenMeteoAdapter {
       provider: 'open_meteo',
       sceneId: `${lat},${lng}`,
       temperature: {
-        min: Math.min(...temps.filter((t) => t !== undefined)),
-        max: Math.max(...temps.filter((t) => t !== undefined)),
-        avg: temps.reduce((a, b) => a + b, 0) / (temps.length || 1),
+        min: safeMin(temps),
+        max: safeMax(temps),
+        avg: safeAvg(temps),
       },
-      precipitation: precip.reduce((a, b) => a + b, 0),
-      visibility: vis.reduce((a, b) => a + b, 0) / (vis.length || 1),
-      cloudCover: cloud.reduce((a, b) => a + b, 0) / (cloud.length || 1),
+      precipitation: sumOrUndefined(precip),
+      visibility: safeAvg(vis),
+      cloudCover: safeAvg(cloud),
     };
   }
 }

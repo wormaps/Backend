@@ -29,6 +29,12 @@ function toDegrees(rad: number): number {
   return (rad * 180) / Math.PI;
 }
 
+function validateWgs84Coordinates(point: LatLng): void {
+  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+    throw new Error('Invalid WGS84 coordinates: NaN or Infinity');
+  }
+}
+
 function wgs84ToEcef(lat: number, lng: number): { x: number; y: number; z: number } {
   const φ = toRadians(lat);
   const λ = toRadians(lng);
@@ -43,6 +49,9 @@ function wgs84ToEcef(lat: number, lng: number): { x: number; y: number; z: numbe
 function ecefToWgs84(ecef: { x: number; y: number; z: number }): LatLng {
   const { x, y, z } = ecef;
   const r = Math.sqrt(x * x + y * y + z * z);
+  if (r === 0) {
+    throw new Error('Invalid ECEF coordinates: zero vector');
+  }
   return {
     lat: toDegrees(Math.asin(z / r)),
     lng: toDegrees(Math.atan2(y, x)),
@@ -54,6 +63,9 @@ export function wgs84ToEnu(
   origin: LatLng,
   alt: number = 0,
 ): ENUVector {
+  validateWgs84Coordinates(point);
+  validateWgs84Coordinates(origin);
+
   const φ0 = toRadians(origin.lat);
   const λ0 = toRadians(origin.lng);
 
@@ -80,6 +92,8 @@ export function enuToWgs84(
   enu: ENUVector,
   origin: LatLng,
 ): LatLng {
+  validateWgs84Coordinates(origin);
+
   const φ0 = toRadians(origin.lat);
   const λ0 = toRadians(origin.lng);
 

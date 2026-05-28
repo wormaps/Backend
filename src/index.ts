@@ -2,6 +2,9 @@ import { appModule } from './app.module';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BunLogger } from '../packages/core/logger';
+import { validateProviderApiKeys } from './providers/providers.module';
+
+validateProviderApiKeys();
 
 const logger = new BunLogger({ level: 'info', service: 'http' });
 

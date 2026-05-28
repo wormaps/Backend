@@ -15,7 +15,7 @@ export type TrafficFlowData = {
   currentSpeedKph: number;
   freeFlowSpeedKph: number;
   confidence: number;
-  travelTimeRatio: number;
+  travelTimeRatio: number | undefined;
 };
 
 export class TomTomTrafficAdapter {
@@ -29,7 +29,7 @@ export class TomTomTrafficAdapter {
     params.set('trafficModelID', '2');
 
     const response = await fetch(
-      `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/89/json?${params}`,
+      `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?${params}`,
     );
 
     if (!response.ok) {
@@ -44,7 +44,8 @@ export class TomTomTrafficAdapter {
       currentSpeedKph: flow.currentSpeed,
       freeFlowSpeedKph: flow.freeFlowSpeed,
       confidence: flow.confidence,
-      travelTimeRatio: flow.currentTravelTime / flow.freeFlowTravelTime,
+      travelTimeRatio:
+        flow.freeFlowTravelTime === 0 ? undefined : flow.currentTravelTime / flow.freeFlowTravelTime,
     };
   }
 }

@@ -76,7 +76,7 @@ export class GooglePlacesAdapter {
       sceneId: `${lat},${lng}`,
       places: (data.places ?? []).map((p) => ({
         placeId: p.id,
-        name: p.displayName.text,
+        name: p.displayName?.text ?? '',
         types: p.types,
         location: {
           lat: p.location?.latitude ?? lat,

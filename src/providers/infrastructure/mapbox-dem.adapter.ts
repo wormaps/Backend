@@ -1,24 +1,43 @@
 export class MapboxDemAdapter {
   constructor(private readonly token: string) {}
 
+  /** Convenience wrapper — single point. */
   async getElevation(lat: number, lng: number): Promise<number> {
-    const zoom = 12;
-    const { tileX, tileY, pixelX, pixelY } = this.latLngToTilePixel(lat, lng, zoom);
-    const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${tileX}/${tileY}.pngraw?access_token=${this.token}`;
+    const [elev] = await this.getElevationsForPoints({ lat, lng }, [{ lat, lng }]);
+    return elev ?? 0;
+  }
 
+  /**
+   * Fetch ONE tile (zoom 12) and sample elevation for every point.
+   * All points are expected to fall within the same tile as `origin`.
+   * One HTTP call regardless of point count.
+   */
+  async getElevationsForPoints(
+    origin: { lat: number; lng: number },
+    points: Array<{ lat: number; lng: number }>,
+  ): Promise<number[]> {
+    if (points.length === 0) return [];
+    const zoom = 12;
+    const { tileX, tileY } = this.latLngToTilePixel(origin.lat, origin.lng, zoom);
+    const rgba = await this.fetchTile(zoom, tileX, tileY);
+
+    return points.map(({ lat, lng }) => {
+      const { pixelX, pixelY } = this.latLngToTilePixel(lat, lng, zoom);
+      const offset = (pixelY * 256 + pixelX) * 4;
+      const r = rgba[offset] ?? 0;
+      const g = rgba[offset + 1] ?? 0;
+      const b = rgba[offset + 2] ?? 0;
+      return -10000 + (r * 65536 + g * 256 + b) * 0.1;
+    });
+  }
+
+  private async fetchTile(zoom: number, tileX: number, tileY: number): Promise<Uint8Array> {
+    const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${tileX}/${tileY}.pngraw?access_token=${this.token}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Mapbox DEM fetch failed: ${response.status} ${response.statusText}`);
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const rgba = await this.decodePng(new Uint8Array(arrayBuffer));
-    const offset = (pixelY * 256 + pixelX) * 4;
-    const r = rgba[offset] ?? 0;
-    const g = rgba[offset + 1] ?? 0;
-    const b = rgba[offset + 2] ?? 0;
-
-    return -10000 + (r * 65536 + g * 256 + b) * 0.1;
+    return this.decodePng(new Uint8Array(await response.arrayBuffer()));
   }
 
   private async decodePng(bytes: Uint8Array): Promise<Uint8Array> {
@@ -37,7 +56,8 @@ export class MapboxDemAdapter {
     const n = Math.pow(2, zoom);
     const tileXFrac = ((lng + 180) / 360) * n;
     const latRad = (lat * Math.PI) / 180;
-    const tileYFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+    const tileYFrac =
+      ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
     const tileX = Math.floor(tileXFrac);
     const tileY = Math.floor(tileYFrac);
     const pixelX = Math.min(255, Math.max(0, Math.floor((tileXFrac - tileX) * 256)));
