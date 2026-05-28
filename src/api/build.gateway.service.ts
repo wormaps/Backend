@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { SceneBuildOrchestratorService } from '../build/application/scene-build-orchestrator.service';
 import { OsmSceneBuildService } from '../providers/application/osm-scene-build.service';
 import type { GlbArtifact } from '../pipeline/glb/application/glb-compiler.service';
 import type { SceneBuildRunResult } from '../build/application/scene-build-run-result';
@@ -15,7 +16,12 @@ type BuildRequest = {
 export class BuildGatewayService {
   private latestGlb: GlbArtifact | null = null;
 
-  constructor(private readonly osmSceneBuild: OsmSceneBuildService) {}
+  constructor(
+    private readonly osmSceneBuild: OsmSceneBuildService,
+    private readonly orchestrator: SceneBuildOrchestratorService,
+  ) {
+    this.osmSceneBuild.setOrchestrator(this.orchestrator);
+  }
 
   async build(request: BuildRequest): Promise<SceneBuildRunResult> {
     const result = await this.osmSceneBuild.run({

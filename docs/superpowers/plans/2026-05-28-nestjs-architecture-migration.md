@@ -1090,7 +1090,7 @@ git commit -m "refactor: wire AppModule as NestJS root, remove Bun factory app w
 
 **Files:**
 - Modify: `test/contracts/schema-validation.test.ts`
-- Modify: `te../src/shared/src/shared/fixtures/phase2-fixtures.test.ts`
+- Modify: `test/fixtures/phase2-fixtures.test.ts`
 - Modify: `test/scripts/glb-smoke.test.ts`
 - Modify: `test/src/glb-validation.service.test.ts`
 - Modify: `test/src/scene-build-validation-failure.test.ts`
@@ -1128,14 +1128,14 @@ import { ... } from '../../packages/contracts/manifest';
 import { ... } from '../../src/shared/contracts/manifest';
 ```
 
-- [X] **Step 2: te../src/shared/src/shared/fixtures/phase2-fixtures.test.ts 업데이트**
+- [X] **Step 2: test/fixtures/phase2-fixtures.test.ts 업데이트**
 
 fixtures 경로 변경:
 ```typescript
 // 기존
-import { ... } from '../../src/shared/src/shared/fixtures/phase2';
+import { ... } from '../../fixtures';
 // 변경
-import { ... } from '../../src/shared/fixtures';
+import { ... } from '../../fixtures';
 ```
 
 - [ ] **Step 3: test/scripts/glb-smoke.test.ts — NestJS 앱으로 재작성**
@@ -1148,7 +1148,7 @@ import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../src/app.module';
 import { SceneBuildOrchestratorService } from '../../src/build/application/scene-build-orchestrator.service';
-import { baselineFixtures } from '../../src/shared/fixtures';
+import { baselineFixtures } from '../../fixtures';
 
 let app: INestApplication;
 let orchestrator: SceneBuildOrchestratorService;
@@ -1190,7 +1190,7 @@ import { Test } from '@nestjs/testing';
 import { GlbModule } from '../../src/pipeline/glb/glb.module';
 import { GlbCompilerService } from '../../src/pipeline/glb/application/glb-compiler.service';
 import { GlbValidationService } from '../../src/pipeline/glb/application/glb-validation.service';
-import { baselineFixtures } from '../../src/shared/fixtures';
+import { baselineFixtures } from '../../fixtures';
 // 기존 테스트 내용에 맞게 추가 import
 
 let glbCompiler: GlbCompilerService;
@@ -1218,7 +1218,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { SceneBuildOrchestratorService } from '../../src/build/application/scene-build-orchestrator.service';
 import { GlbValidationService, type GlbValidationResult } from '../../src/pipeline/glb/application/glb-validation.service';
-import { baselineFixtures } from '../../src/shared/fixtures';
+import { baselineFixtures } from '../../fixtures';
 
 class RejectingGlbValidationService extends GlbValidationService {
   override async validate(): Promise<GlbValidationResult> {
