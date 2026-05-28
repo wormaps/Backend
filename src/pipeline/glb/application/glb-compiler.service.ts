@@ -71,9 +71,26 @@ export class GlbCompilerService {
       }
       if (materialPlan.role === 'window') {
         material.setDoubleSided(true);
-        material.setBaseColorFactor([0.06, 0.09, 0.14, 1.0]); // dark steel blue, linear sRGB
+        material.setBaseColorFactor([0.06, 0.09, 0.14, 1.0]);
         material.setMetallicFactor(0.85);
         material.setRoughnessFactor(0.08);
+      }
+      // Road type colours — realistic asphalt/concrete tones, linear sRGB.
+      // Motorway/primary slightly lighter (concrete/worn asphalt), residential darker (fresh asphalt).
+      const roadColors: Record<string, [number, number, number, number]> = {
+        road_motorway:    [0.110, 0.110, 0.115, 1.0], // pale concrete
+        road_primary:     [0.095, 0.095, 0.100, 1.0], // worn asphalt
+        road_secondary:   [0.082, 0.082, 0.086, 1.0],
+        road_tertiary:    [0.072, 0.072, 0.075, 1.0],
+        road_residential: [0.062, 0.062, 0.065, 1.0], // dark asphalt
+        road_service:     [0.052, 0.052, 0.055, 1.0],
+        road_footway:     [0.155, 0.148, 0.138, 1.0], // light stone/pavement
+      };
+      const rc = roadColors[materialPlan.role];
+      if (rc !== undefined) {
+        material.setBaseColorFactor(rc);
+        material.setMetallicFactor(0.0);
+        material.setRoughnessFactor(0.90);
       }
       materialNodeMap.set(materialPlan.id, material);
     }
@@ -124,8 +141,9 @@ export class GlbCompilerService {
       }
     }
 
-    // Ground plane — flat quad covering scene area at y = -0.05 (slightly below roads/buildings).
-    const groundNode = this.addGroundPlane(document, buffer, input.groundRadius ?? 300);
+    // Ground plane — flat quad slightly below lowest geometry in the scene.
+    const sceneBaseY = this.estimateSceneBaseY(input.meshPlan);
+    const groundNode = this.addGroundPlane(document, buffer, input.groundRadius ?? 300, sceneBaseY - 0.02);
     scene.addChild(groundNode);
 
     root.setDefaultScene(scene);
@@ -316,13 +334,28 @@ export class GlbCompilerService {
       const p0 = outer[j]!;
       const p1 = outer[(j + 1) % n]!;
       if (ccw) {
-        // CCW polygon: BL TR BR, BL TL TR → outward normals = (dz, 0, -dx)/L
         positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p1.x, baseY, p1.z);
         positions.push(p0.x, baseY, p0.z, p0.x, topY, p0.z, p1.x, topY, p1.z);
       } else {
-        // CW polygon: BL BR TR, BL TR TL → outward normals = (-dz, 0, dx)/L
         positions.push(p0.x, baseY, p0.z, p1.x, baseY, p1.z, p1.x, topY, p1.z);
         positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p0.x, topY, p0.z);
+      }
+    }
+
+    // Hip/pyramid roof — only when roofRise > 0.
+    const roofRise = geometry.roofRise ?? 0;
+    if (roofRise > 0.1 && outer.length >= 3) {
+      const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
+      const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
+      const apexY = topY + roofRise;
+      for (let j = 0; j < n; j++) {
+        const p0 = outer[j]!;
+        const p1 = outer[(j + 1) % n]!;
+        if (ccw) {
+          positions.push(p0.x, topY, p0.z, p1.x, topY, p1.z, cx, apexY, cz);
+        } else {
+          positions.push(p0.x, topY, p0.z, cx, apexY, cz, p1.x, topY, p1.z);
+        }
       }
     }
 
@@ -445,13 +478,11 @@ export class GlbCompilerService {
     geometry: RoadMeshGeometry | WalkwayMeshGeometry,
   ): Accessor {
     const centerline = geometry.centerline;
-    const width = 2;
+    const halfWidth = (geometry as { width?: number }).width ?? 2.5;
 
     if (centerline.length < 2) {
       return this.createPlaceholderPositions(document, buffer, 'road', { x: centerline[0]?.x ?? 0, y: centerline[0]?.y ?? 0, z: centerline[0]?.z ?? 0 });
     }
-
-    const halfWidth = width / 2;
     const positions: number[] = [];
 
     for (let i = 0; i < centerline.length; i++) {
@@ -525,16 +556,17 @@ export class GlbCompilerService {
       const indices = indexCount > 65535 ? new Uint32Array(indexCount) : new Uint16Array(indexCount);
       let idx = 0;
       for (let i = 0; i < pairCount - 1; i++) {
-        const a = 2 * i;
-        const b = 2 * i + 1;
-        const c = 2 * i + 2;
-        const d = 2 * i + 3;
+        const a = 2 * i;       // left  current
+        const b = 2 * i + 1;   // right current
+        const c = 2 * i + 2;   // left  next
+        const d = 2 * i + 3;   // right next
+        // CCW winding viewed from +Y → +Y normals (no backface culling artifacts).
         indices[idx++] = a;
-        indices[idx++] = b;
-        indices[idx++] = d;
-        indices[idx++] = a;
-        indices[idx++] = d;
         indices[idx++] = c;
+        indices[idx++] = d;
+        indices[idx++] = a;
+        indices[idx++] = d;
+        indices[idx++] = b;
       }
       return document.createAccessor('indices')
         .setArray(indices)
@@ -708,13 +740,30 @@ export class GlbCompilerService {
       .setBuffer(buffer);
   }
 
-  /** Flat quad ground plane at y = -0.05, covering ±r metres from origin. */
+  /** Compute lowest Y value across all geometry in the plan, for ground plane anchoring. */
+  private estimateSceneBaseY(meshPlan: MeshPlan): number {
+    let minY = 0;
+    for (const n of meshPlan.nodes) {
+      const g = n.geometry;
+      if (!g) continue;
+      if (g.kind === 'building') {
+        minY = Math.min(minY, g.baseY ?? 0);
+      } else if (g.kind === 'road' || g.kind === 'walkway') {
+        for (const p of g.centerline) minY = Math.min(minY, p.y);
+      } else if (g.kind === 'terrain') {
+        for (const p of g.samples) minY = Math.min(minY, p.y);
+      }
+    }
+    return minY;
+  }
+
+  /** Flat quad ground plane at the given y, covering ±r metres from origin. */
   private addGroundPlane(
     document: Document,
     buffer: Buffer,
     r: number,
+    y = -0.05,
   ): ReturnType<Document['createNode']> {
-    const y = -0.05;
     // Two triangles: CCW winding, +Y normal.
     const positions = new Float32Array([
       -r, y, -r,

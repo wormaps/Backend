@@ -7,6 +7,8 @@ export const BuildingMeshGeometrySchema = z.object({
   footprint: LocalPolygonSchema,
   baseY: z.number().optional(),
   height: z.number().optional(),
+  /** Hip/pyramid roof height above topY. 0 = flat. */
+  roofRise: z.number().optional(),
 });
 
 export type BuildingMeshGeometry = z.infer<typeof BuildingMeshGeometrySchema>;
@@ -15,6 +17,10 @@ export const RoadMeshGeometrySchema = z.object({
   kind: z.literal('road'),
   centerline: z.array(LocalPointSchema),
   bufferPolygon: LocalPolygonSchema.optional(),
+  /** Road half-width in metres (full width = width * 2). */
+  width: z.number().optional(),
+  /** OSM highway classification for material selection. */
+  highwayType: z.string().optional(),
 });
 
 export type RoadMeshGeometry = z.infer<typeof RoadMeshGeometrySchema>;
@@ -22,6 +28,7 @@ export type RoadMeshGeometry = z.infer<typeof RoadMeshGeometrySchema>;
 export const WalkwayMeshGeometrySchema = z.object({
   kind: z.literal('walkway'),
   centerline: z.array(LocalPointSchema),
+  width: z.number().optional(),
 });
 
 export type WalkwayMeshGeometry = z.infer<typeof WalkwayMeshGeometrySchema>;

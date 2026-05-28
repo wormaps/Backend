@@ -19,10 +19,19 @@ export type MeshPlanNode = {
   geometry?: MeshGeometry;
 };
 
+export type RoadMaterialRole =
+  | 'road_motorway'
+  | 'road_primary'
+  | 'road_secondary'
+  | 'road_tertiary'
+  | 'road_residential'
+  | 'road_service'
+  | 'road_footway';
+
 export type MaterialPlan = {
   id: string;
   name: string;
-  role: 'terrain' | 'road' | 'building' | 'window' | 'poi' | 'debug';
+  role: 'terrain' | 'road' | 'building' | 'window' | 'poi' | 'debug' | RoadMaterialRole;
   baseColor?: [number, number, number]; // linear RGB 0–1
 };
 

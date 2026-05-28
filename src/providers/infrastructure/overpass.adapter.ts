@@ -66,7 +66,8 @@ export class OverpassAdapter {
 
   async queryRoads(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);
-    const query = `[out:json][timeout:25];(way["highway"](${bbox}););out geom;`;
+    // Exclude pedestrian-only ways — they are collected separately by queryWalkways.
+    const query = `[out:json][timeout:25];(way["highway"]["highway"!~"^(footway|path|cycleway|pedestrian|steps|bridleway)$"](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements
       .filter((el) => el.type === 'way' && el.geometry && el.geometry.length >= 2)
@@ -179,12 +180,17 @@ export class OverpassAdapter {
           element.tags?.['building:levels'],
           buildingTag,
         );
-        geometry = { footprint: { outer: coords }, baseY: 0, height };
+        const roofRise = this.inferRoofRise(buildingTag, height, coords);
+        geometry = { footprint: { outer: coords }, baseY: 0, height, roofRise };
         break;
       }
-      case 'road':
+      case 'road': {
+        const highway = element.tags?.['highway'] ?? 'unclassified';
+        geometry = { centerline: coords, width: this.roadHalfWidth(highway), highwayType: highway };
+        break;
+      }
       case 'walkway':
-        geometry = { centerline: coords };
+        geometry = { centerline: coords, width: 0.75, highwayType: 'footway' };
         break;
       case 'terrain':
         geometry = { samples: coords };
@@ -279,5 +285,57 @@ export class OverpassAdapter {
       yes: 8,
     };
     return typeDefaults[buildingTag ?? 'yes'] ?? 8;
+  }
+
+  /** Half-width in metres per OSM highway classification. */
+  private roadHalfWidth(highway: string): number {
+    const widths: Record<string, number> = {
+      motorway: 7,
+      motorway_link: 4,
+      trunk: 6,
+      trunk_link: 3.5,
+      primary: 5,
+      primary_link: 3,
+      secondary: 4,
+      secondary_link: 2.5,
+      tertiary: 3,
+      tertiary_link: 2,
+      residential: 2.5,
+      living_street: 2,
+      service: 1.5,
+      unclassified: 2.5,
+    };
+    return widths[highway] ?? 2.5;
+  }
+
+  /**
+   * Estimate hip/pyramid roof rise based on building type and footprint size.
+   * Returns 0 for building types that typically have flat roofs.
+   */
+  private inferRoofRise(
+    buildingTag: string | undefined,
+    height: number,
+    coords: Array<{ x: number; z: number }>,
+  ): number {
+    const flatRoofTypes = new Set([
+      'commercial', 'office', 'retail', 'industrial', 'warehouse',
+      'apartments', 'hotel', 'hospital', 'university', 'school',
+      'transportation', 'stadium', 'sports_hall',
+    ]);
+    if (flatRoofTypes.has(buildingTag ?? '')) return 0;
+
+    // Compute approximate minimum dimension of the footprint bounding box.
+    if (coords.length < 3) return 0;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of coords) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.z < minZ) minZ = p.z;
+      if (p.z > maxZ) maxZ = p.z;
+    }
+    const minDim = Math.min(maxX - minX, maxZ - minZ);
+
+    // Roof rise ≈ 30% of narrowest dimension, capped at 25% of wall height.
+    return Math.min(minDim * 0.30, height * 0.25);
   }
 }

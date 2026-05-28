@@ -49,7 +49,11 @@ export type MeshPlanNode = z.infer<typeof MeshPlanNodeSchema>;
 export const MaterialPlanSchema = z.object({
   id: z.string(),
   name: z.string(),
-  role: z.enum(['terrain', 'road', 'building', 'window', 'poi', 'debug']),
+  role: z.enum([
+    'terrain', 'road', 'building', 'window', 'poi', 'debug',
+    'road_motorway', 'road_primary', 'road_secondary',
+    'road_tertiary', 'road_residential', 'road_service', 'road_footway',
+  ]),
   baseColor: z.tuple([z.number(), z.number(), z.number()]).optional(),
 });
 export type MaterialPlan = z.infer<typeof MaterialPlanSchema>;

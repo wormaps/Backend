@@ -90,20 +90,20 @@ export class MeshPlanBuilderService {
           primitive: 'terrain',
           materialRole: visualMode === 'placeholder' ? 'debug' : 'terrain',
         };
-      case 'road':
-        return {
-          primitive: 'road',
-          materialRole: visualMode === 'placeholder' ? 'debug' : 'road',
-        };
+      case 'road': {
+        if (visualMode === 'placeholder') return { primitive: 'road', materialRole: 'debug' };
+        const hwType = this.extractHighwayType(entity.tags);
+        return { primitive: 'road', materialRole: `road_${hwType}` as MaterialPlan['role'] };
+      }
       case 'traffic_flow':
         return {
           primitive: 'road',
-          materialRole: visualMode === 'traffic_overlay' ? 'debug' : 'road',
+          materialRole: visualMode === 'traffic_overlay' ? 'debug' : 'road_residential',
         };
       case 'walkway':
         return {
           primitive: 'walkway',
-          materialRole: visualMode === 'placeholder' ? 'debug' : 'road',
+          materialRole: visualMode === 'placeholder' ? 'debug' : 'road_footway',
         };
       case 'building':
         return {
@@ -151,22 +151,39 @@ export class MeshPlanBuilderService {
     return tag ? tag.slice(prefix.length) : 'yes';
   }
 
+  private extractHighwayType(tags: string[]): string {
+    const prefix = 'osm:highway=';
+    const tag = tags.find((t) => t.startsWith(prefix));
+    if (!tag) return 'residential';
+    const type = tag.slice(prefix.length);
+    // Collapse link variants and minor roads into groups.
+    if (type === 'motorway' || type === 'motorway_link') return 'motorway';
+    if (type === 'trunk' || type === 'trunk_link') return 'primary';
+    if (type === 'primary' || type === 'primary_link') return 'primary';
+    if (type === 'secondary' || type === 'secondary_link') return 'secondary';
+    if (type === 'tertiary' || type === 'tertiary_link') return 'tertiary';
+    if (type === 'footway' || type === 'path' || type === 'cycleway' || type === 'pedestrian') return 'footway';
+    if (type === 'service') return 'service';
+    return 'residential';
+  }
+
   /** HSL hue per building type, seeded variation per entity. Linear sRGB output. */
   private deriveBuildingColor(entityId: string, buildingTag: string): [number, number, number] {
-    // Distinct hues per category — spread across colour wheel for visual clarity.
+    // Realistic material-based hues — muted tones matching typical facade materials.
     const baseHues: Record<string, number> = {
-      residential: 0.08,   // warm orange
-      house: 0.08,
-      apartments: 0.10,    // amber
-      commercial: 0.55,    // teal-blue
-      office: 0.60,        // medium blue
-      retail: 0.03,        // red-orange
-      industrial: 0.15,    // yellow-green
-      warehouse: 0.18,     // yellow
-      school: 0.35,        // green
-      church: 0.72,        // purple
-      hotel: 0.65,         // blue-purple
-      yes: 0.08,           // default warm orange
+      residential: 0.07,   // warm brick/terracotta
+      house: 0.07,
+      detached: 0.07,
+      apartments: 0.09,    // concrete with warm cast
+      commercial: 0.58,    // glass curtain wall (cool blue-gray)
+      office: 0.60,        // glass/steel (blue-gray)
+      retail: 0.05,        // brick red
+      industrial: 0.13,    // weathered steel/concrete
+      warehouse: 0.12,     // concrete
+      school: 0.30,        // pale green plaster
+      church: 0.08,        // stone (warm gray)
+      hotel: 0.58,         // glass curtain wall
+      yes: 0.08,           // default: stone/concrete
     };
     const baseHue = baseHues[buildingTag] ?? 0.08;
 
@@ -176,10 +193,10 @@ export class MeshPlanBuilderService {
     }
     const norm = (Math.abs(hash) % 1000) / 1000;
 
-    // Per-entity hue variation ±0.12 — wide enough to visually distinguish same-type buildings.
-    const hue = ((baseHue + (norm - 0.5) * 0.24) % 1 + 1) % 1;
-    const saturation = 0.45 + norm * 0.20;
-    const lightness = 0.42 + norm * 0.14;
+    // Per-entity hue variation ±0.05 — subtle variation, keeps realistic muted tones.
+    const hue = ((baseHue + (norm - 0.5) * 0.10) % 1 + 1) % 1;
+    const saturation = 0.18 + norm * 0.12; // low saturation → concrete/brick/plaster
+    const lightness = 0.40 + norm * 0.18;  // mid-range lightness
 
     return this.hslToLinearRgb(hue, saturation, lightness);
   }

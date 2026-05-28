@@ -161,6 +161,7 @@ export class NormalizedEntityBuilderService {
           footprint,
           baseY: typeof raw.baseY === 'number' ? raw.baseY : undefined,
           height: typeof raw.height === 'number' ? raw.height : undefined,
+          roofRise: typeof raw.roofRise === 'number' ? raw.roofRise : undefined,
         };
       }
       case 'road': {
@@ -170,6 +171,8 @@ export class NormalizedEntityBuilderService {
           kind: 'road',
           centerline,
           bufferPolygon: raw.bufferPolygon as { outer: Array<{ x: number; y: number; z: number }>; holes?: Array<Array<{ x: number; y: number; z: number }>> } | undefined,
+          width: typeof raw.width === 'number' ? raw.width : undefined,
+          highwayType: typeof raw.highwayType === 'string' ? raw.highwayType : undefined,
         };
       }
       case 'walkway': {
@@ -178,6 +181,7 @@ export class NormalizedEntityBuilderService {
         return {
           kind: 'walkway',
           centerline,
+          width: typeof raw.width === 'number' ? raw.width : undefined,
         };
       }
       case 'terrain': {
