@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { RenderIntent } from '../../shared/contracts/render-intent';
-import type { QaIssue } from '../../shared/contracts/qa';
+import type { RenderIntent } from '../../../shared/contracts/render-intent';
+import type { QaIssue } from '../../../shared/contracts/qa';
 import type {
   SceneRelationship,
   TwinEntity,
   TwinSceneGraph,
-} from '../../shared/contracts/twin-scene-graph';
+} from '../../../shared/contracts/twin-scene-graph';
 
 @Injectable()
 export class RenderIntentPolicyService {

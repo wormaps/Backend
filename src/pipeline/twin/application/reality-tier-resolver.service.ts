@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
-import type { RenderIntent } from '../../shared/contracts/render-intent';
-import type { QaIssue } from '../../shared/contracts/qa';
-import type { RealityTier, TwinSceneGraphMetadata } from '../../shared/contracts/twin-scene-graph';
+import type { RenderIntent } from '../../../shared/contracts/render-intent';
+import type { QaIssue } from '../../../shared/contracts/qa';
+import type { RealityTier, TwinSceneGraphMetadata } from '../../../shared/contracts/twin-scene-graph';
 
 @Injectable()
 export class RealityTierResolverService {

@@ -22,7 +22,7 @@
 - `src/api/api.module.ts` — HTTP 레이어 @Module (http/ 대체)
 - `src/api/build.controller.ts` — src/http/build.controller.ts 이동
 - `src/api/build.gateway.service.ts` — src/http/build.gateway.service.ts 이동
-- `src/twin/application/reality-tier-resolver.service.ts` — src/reality/application/ 이동
+- `src/pipeline/twin/application/reality-tier-resolver.service.ts` — src/reality/application/ 이동
 - `src/build/application/qa-gate.service.ts` — src/qa/application/ 이동
 
 ### 수정
@@ -30,10 +30,10 @@
 - `tsconfig.json` — emitDecoratorMetadata, experimentalDecorators 확인
 - `src/main.ts` — AppModule 기반으로 재작성
 - `src/app.module.ts` — 진짜 NestJS @Module로 재작성
-- `src/glb/glb.module.ts` + 3개 서비스 — @Module/@Injectable 변환
-- `src/normalization/normalization.module.ts` + 1개 서비스
-- `src/twin/twin.module.ts` + 7개 서비스 (reality 포함)
-- `src/render/render.module.ts` + 3개 서비스
+- `src/pipeline/glb/glb.module.ts` + 3개 서비스 — @Module/@Injectable 변환
+- `src/pipeline/normalization/normalization.module.ts` + 1개 서비스
+- `src/pipeline/twin/twin.module.ts` + 7개 서비스 (reality 포함)
+- `src/pipeline/render/render.module.ts` + 3개 서비스
 - `src/providers/providers.module.ts` + 4개 서비스/어댑터
 - `src/build/build.module.ts` + 3개 서비스 (qa 포함)
 - `src/api/build.controller.ts` — SPA 라우트 제거
@@ -217,9 +217,9 @@ grep -r "from '.*packages/" /Users/user/wormapb/test --include="*.ts" -l
 
 | 파일 위치 | 기존 | 변환 후 |
 |---|---|---|
-| `src/glb/application/*.ts` | `../../../packages/contracts/manifest` | `../../shared/contracts/manifest` |
+| `src/pipeline/glb/application/*.ts` | `../../../packages/contracts/manifest` | `../../shared/contracts/manifest` |
 | `src/build/application/*.ts` | `../../../packages/contracts/manifest` | `../../shared/contracts/manifest` |
-| `src/twin/application/*.ts` | `../../../packages/contracts/twin-scene-graph` | `../../shared/contracts/twin-scene-graph` |
+| `src/pipeline/twin/application/*.ts` | `../../../packages/contracts/twin-scene-graph` | `../../shared/contracts/twin-scene-graph` |
 
 패턴: `src/<domain>/application/` 에서 `shared/`까지는 항상 `../../shared/`.
 
@@ -227,8 +227,8 @@ grep -r "from '.*packages/" /Users/user/wormapb/test --include="*.ts" -l
 
 | 파일 위치 | 기존 | 변환 후 |
 |---|---|---|
-| `src/glb/application/*.ts` | `../../../packages/core/geometry` | `../../shared/core/geometry` |
-| `src/render/application/*.ts` | `../../../packages/core/geometry` | `../../shared/core/geometry` |
+| `src/pipeline/glb/application/*.ts` | `../../../packages/core/geometry` | `../../shared/core/geometry` |
+| `src/pipeline/render/application/*.ts` | `../../../packages/core/geometry` | `../../shared/core/geometry` |
 
 - [X] **Step 4: BunLogger import 제거 (교체 없이 제거만)**
 
@@ -275,15 +275,15 @@ git commit -m "refactor: update all import paths from packages/ to src/shared/"
 ## Task 4: GlbModule → NestJS @Module()
 
 **Files:**
-- Modify: `src/glb/glb.module.ts`
-- Modify: `src/glb/application/glb-compiler.service.ts`
-- Modify: `src/glb/application/glb-validation.service.ts`
-- Modify: `src/glb/application/gltf-metadata.factory.ts`
+- Modify: `src/pipeline/glb/glb.module.ts`
+- Modify: `src/pipeline/glb/application/glb-compiler.service.ts`
+- Modify: `src/pipeline/glb/application/glb-validation.service.ts`
+- Modify: `src/pipeline/glb/application/gltf-metadata.factory.ts`
 
 - [X] **Step 1: glb-compiler.service.ts — @Injectable + NestJS Logger**
 
 ```typescript
-// src/glb/application/glb-compiler.service.ts (상단 변경 부분)
+// src/pipeline/glb/application/glb-compiler.service.ts (상단 변경 부분)
 import { Injectable, Logger } from '@nestjs/common';
 // ... 기존 gltf-transform, earcut, shared/contracts import 유지 ...
 
@@ -332,7 +332,7 @@ export class GltfMetadataFactory {
 - [X] **Step 4: glb.module.ts — @Module()으로 완전 재작성**
 
 ```typescript
-// src/glb/glb.module.ts
+// src/pipeline/glb/glb.module.ts
 import { Module } from '@nestjs/common';
 
 import { GlbCompilerService } from './application/glb-compiler.service';
@@ -355,7 +355,7 @@ pnpm run type-check 2>&1 | grep "glb" | head -20
 - [ ] **Step 6: 커밋**
 
 ```bash
-git add src/glb/
+git add src/pipeline/glb/
 git commit -m "refactor: convert GlbModule to NestJS @Module with DI"
 ```
 
@@ -364,8 +364,8 @@ git commit -m "refactor: convert GlbModule to NestJS @Module with DI"
 ## Task 5: NormalizationModule → NestJS @Module()
 
 **Files:**
-- Modify: `src/normalization/normalization.module.ts`
-- Modify: `src/normalization/application/normalized-entity-builder.service.ts`
+- Modify: `src/pipeline/normalization/normalization.module.ts`
+- Modify: `src/pipeline/normalization/application/normalized-entity-builder.service.ts`
 
 - [X] **Step 1: normalized-entity-builder.service.ts — @Injectable + NestJS Logger**
 
@@ -385,7 +385,7 @@ BunLogger 없으면 Logger 추가만.
 - [X] **Step 2: normalization.module.ts — @Module() 재작성**
 
 ```typescript
-// src/normalization/normalization.module.ts
+// src/pipeline/normalization/normalization.module.ts
 import { Module } from '@nestjs/common';
 
 import { NormalizedEntityBuilderService } from './application/normalized-entity-builder.service';
@@ -406,7 +406,7 @@ pnpm run type-check 2>&1 | grep "normalization" | head -10
 - [ ] **Step 4: 커밋**
 
 ```bash
-git add src/normalization/
+git add src/pipeline/normalization/
 git commit -m "refactor: convert NormalizationModule to NestJS @Module with DI"
 ```
 
@@ -415,9 +415,9 @@ git commit -m "refactor: convert NormalizationModule to NestJS @Module with DI"
 ## Task 6: TwinModule → NestJS @Module() + reality/ 흡수
 
 **Files:**
-- Create: `src/twin/application/reality-tier-resolver.service.ts` (reality/에서 이동)
-- Modify: `src/twin/twin.module.ts`
-- Modify: `src/twin/application/` 하위 6개 서비스
+- Create: `src/pipeline/twin/application/reality-tier-resolver.service.ts` (reality/에서 이동)
+- Modify: `src/pipeline/twin/twin.module.ts`
+- Modify: `src/pipeline/twin/application/` 하위 6개 서비스
 
 현재 `twin.module.ts`에서 확인된 내부 의존성:
 - `TwinGraphBuilderService` ← TwinEntityProjectionService, SceneRelationshipBuilderService, TwinGraphValidationService, TwinSceneGraphMetadataFactory
@@ -427,7 +427,7 @@ git commit -m "refactor: convert NormalizationModule to NestJS @Module with DI"
 
 ```bash
 cp /Users/user/wormapb/src/reality/application/reality-tier-resolver.service.ts \
-   /Users/user/wormapb/src/twin/application/reality-tier-resolver.service.ts
+   /Users/user/wormapb/src/pipeline/twin/application/reality-tier-resolver.service.ts
 ```
 
 파일 열어서 `@Injectable()` 추가:
@@ -443,11 +443,11 @@ export class RealityTierResolverService {
 - [X] **Step 2: twin 하위 서비스 5개 @Injectable 추가**
 
 아래 5개 파일 각각에 `@Injectable()` 데코레이터 추가, NestJS Logger 추가:
-- `src/twin/application/evidence-graph-builder.service.ts`
-- `src/twin/application/scene-relationship-builder.service.ts`
-- `src/twin/application/twin-entity-projection.service.ts`
-- `src/twin/application/twin-graph-validation.service.ts`
-- `src/twin/application/twin-scene-graph-metadata.factory.ts`
+- `src/pipeline/twin/application/evidence-graph-builder.service.ts`
+- `src/pipeline/twin/application/scene-relationship-builder.service.ts`
+- `src/pipeline/twin/application/twin-entity-projection.service.ts`
+- `src/pipeline/twin/application/twin-graph-validation.service.ts`
+- `src/pipeline/twin/application/twin-scene-graph-metadata.factory.ts`
 
 패턴 (각 파일):
 ```typescript
@@ -505,7 +505,7 @@ export class TwinSceneGraphMetadataFactory {
 - [X] **Step 5: twin.module.ts — @Module() 재작성**
 
 ```typescript
-// src/twin/twin.module.ts
+// src/pipeline/twin/twin.module.ts
 import { Module } from '@nestjs/common';
 
 import { EvidenceGraphBuilderService } from './application/evidence-graph-builder.service';
@@ -544,7 +544,7 @@ pnpm run type-check 2>&1 | grep "twin\|reality" | head -20
 - [ ] **Step 7: 커밋**
 
 ```bash
-git add src/twin/
+git add src/pipeline/twin/
 git commit -m "refactor: convert TwinModule to NestJS @Module, absorb RealityTierResolver"
 ```
 
@@ -553,10 +553,10 @@ git commit -m "refactor: convert TwinModule to NestJS @Module, absorb RealityTie
 ## Task 7: RenderModule → NestJS @Module()
 
 **Files:**
-- Modify: `src/render/render.module.ts`
-- Modify: `src/render/application/mesh-plan-builder.service.ts`
-- Modify: `src/render/application/render-intent-policy.service.ts`
-- Modify: `src/render/application/render-intent-resolver.service.ts`
+- Modify: `src/pipeline/render/render.module.ts`
+- Modify: `src/pipeline/render/application/mesh-plan-builder.service.ts`
+- Modify: `src/pipeline/render/application/render-intent-policy.service.ts`
+- Modify: `src/pipeline/render/application/render-intent-resolver.service.ts`
 
 현재 `renderModule`은 `realityModule.services.realityTierResolver`를 직접 사용.
 새 구조: `TwinModule` import → NestJS가 `RealityTierResolverService` 주입.
@@ -607,7 +607,7 @@ export class RenderIntentResolverService {
 - [X] **Step 4: render.module.ts — @Module() 재작성 (TwinModule import)**
 
 ```typescript
-// src/render/render.module.ts
+// src/pipeline/render/render.module.ts
 import { Module } from '@nestjs/common';
 
 import { TwinModule } from '../twin/twin.module';
@@ -632,7 +632,7 @@ pnpm run type-check 2>&1 | grep "render" | head -20
 - [ ] **Step 6: 커밋**
 
 ```bash
-git add src/render/
+git add src/pipeline/render/
 git commit -m "refactor: convert RenderModule to NestJS @Module, inject RealityTierResolver from TwinModule"
 ```
 
@@ -1090,7 +1090,7 @@ git commit -m "refactor: wire AppModule as NestJS root, remove Bun factory app w
 
 **Files:**
 - Modify: `test/contracts/schema-validation.test.ts`
-- Modify: `test/fixtures/phase2-fixtures.test.ts`
+- Modify: `te../src/shared/src/shared/fixtures/phase2-fixtures.test.ts`
 - Modify: `test/scripts/glb-smoke.test.ts`
 - Modify: `test/src/glb-validation.service.test.ts`
 - Modify: `test/src/scene-build-validation-failure.test.ts`
@@ -1099,15 +1099,15 @@ git commit -m "refactor: wire AppModule as NestJS root, remove Bun factory app w
 
 기존 패턴:
 ```typescript
-import { glbModule } from '../../src/glb/glb.module';
+import { glbModule } from '../../src/pipeline/glb/glb.module';
 const glbCompiler = glbModule.services.glbCompiler;
 ```
 
 새 패턴:
 ```typescript
 import { Test } from '@nestjs/testing';
-import { GlbModule } from '../../src/glb/glb.module';
-import { GlbCompilerService } from '../../src/glb/application/glb-compiler.service';
+import { GlbModule } from '../../src/pipeline/glb/glb.module';
+import { GlbCompilerService } from '../../src/pipeline/glb/application/glb-compiler.service';
 
 let glbCompiler: GlbCompilerService;
 beforeAll(async () => {
@@ -1128,14 +1128,14 @@ import { ... } from '../../packages/contracts/manifest';
 import { ... } from '../../src/shared/contracts/manifest';
 ```
 
-- [X] **Step 2: test/fixtures/phase2-fixtures.test.ts 업데이트**
+- [X] **Step 2: te../src/shared/src/shared/fixtures/phase2-fixtures.test.ts 업데이트**
 
 fixtures 경로 변경:
 ```typescript
 // 기존
-import { ... } from '../../fixtures/phase2';
+import { ... } from '../../src/shared/src/shared/fixtures/phase2';
 // 변경
-import { ... } from '../../fixtures';
+import { ... } from '../../src/shared/fixtures';
 ```
 
 - [ ] **Step 3: test/scripts/glb-smoke.test.ts — NestJS 앱으로 재작성**
@@ -1148,7 +1148,7 @@ import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../src/app.module';
 import { SceneBuildOrchestratorService } from '../../src/build/application/scene-build-orchestrator.service';
-import { baselineFixtures } from '../../fixtures';
+import { baselineFixtures } from '../../src/shared/fixtures';
 
 let app: INestApplication;
 let orchestrator: SceneBuildOrchestratorService;
@@ -1187,10 +1187,10 @@ describe('GLB smoke test', () => {
 // test/src/glb-validation.service.test.ts
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { Test } from '@nestjs/testing';
-import { GlbModule } from '../../src/glb/glb.module';
-import { GlbCompilerService } from '../../src/glb/application/glb-compiler.service';
-import { GlbValidationService } from '../../src/glb/application/glb-validation.service';
-import { baselineFixtures } from '../../fixtures';
+import { GlbModule } from '../../src/pipeline/glb/glb.module';
+import { GlbCompilerService } from '../../src/pipeline/glb/application/glb-compiler.service';
+import { GlbValidationService } from '../../src/pipeline/glb/application/glb-validation.service';
+import { baselineFixtures } from '../../src/shared/fixtures';
 // 기존 테스트 내용에 맞게 추가 import
 
 let glbCompiler: GlbCompilerService;
@@ -1217,8 +1217,8 @@ import { describe, it, expect, beforeAll } from 'bun:test';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { SceneBuildOrchestratorService } from '../../src/build/application/scene-build-orchestrator.service';
-import { GlbValidationService, type GlbValidationResult } from '../../src/glb/application/glb-validation.service';
-import { baselineFixtures } from '../../fixtures';
+import { GlbValidationService, type GlbValidationResult } from '../../src/pipeline/glb/application/glb-validation.service';
+import { baselineFixtures } from '../../src/shared/fixtures';
 
 class RejectingGlbValidationService extends GlbValidationService {
   override async validate(): Promise<GlbValidationResult> {

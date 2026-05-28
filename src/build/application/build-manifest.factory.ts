@@ -6,7 +6,7 @@ import type { RenderIntentSet } from '../../shared/contracts/render-intent';
 import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
 import type { RealityTier } from '../../shared/contracts/twin-scene-graph';
 import { SCHEMA_VERSION_SET_V1 } from '../../shared/core/schemas';
-import type { GlbArtifact } from '../../glb/application/glb-compiler.service';
+import type { GlbArtifact } from '../../pipeline/glb/application/glb-compiler.service';
 
 export type BuildManifestInput = {
   sceneId: string;

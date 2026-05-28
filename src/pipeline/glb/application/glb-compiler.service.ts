@@ -4,16 +4,16 @@ import { EXTMeshoptCompression } from '@gltf-transform/extensions';
 import earcut from 'earcut';
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { MeshPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
-import type { QaSummary, WorMapGltfMetadataExport } from '../../shared/contracts/manifest';
-import type { RealityTier } from '../../shared/contracts/twin-scene-graph';
+import type { MeshPlan, MeshPlanNode } from '../../../shared/contracts/mesh-plan';
+import type { QaSummary, WorMapGltfMetadataExport } from '../../../shared/contracts/manifest';
+import type { RealityTier } from '../../../shared/contracts/twin-scene-graph';
 import type {
   BuildingMeshGeometry,
   MeshGeometry,
   RoadMeshGeometry,
   WalkwayMeshGeometry,
-} from '../../shared/core/geometry';
-import { SCHEMA_VERSION_SET_V1 } from '../../shared/core/schemas';
+} from '../../../shared/core/geometry';
+import { SCHEMA_VERSION_SET_V1 } from '../../../shared/core/schemas';
 import { GltfMetadataFactory } from './gltf-metadata.factory';
 import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from './glb-artifact-hash';
 

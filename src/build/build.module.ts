@@ -1,21 +1,13 @@
 import { Module } from '@nestjs/common';
 
 import { SceneBuildOrchestratorService } from './application/scene-build-orchestrator.service';
-import type { GlbCompilerService } from '../glb/application/glb-compiler.service';
-import type { GlbValidationService } from '../glb/application/glb-validation.service';
-import type { NormalizedEntityBuilderService } from '../normalization/application/normalized-entity-builder.service';
-import type { SnapshotCollectorService } from '../providers/application/snapshot-collector.service';
-import type { MeshPlanBuilderService } from '../render/application/mesh-plan-builder.service';
-import type { RenderIntentResolverService } from '../render/application/render-intent-resolver.service';
-import type { EvidenceGraphBuilderService } from '../twin/application/evidence-graph-builder.service';
-import type { TwinGraphBuilderService } from '../twin/application/twin-graph-builder.service';
 import { QaGateService } from './application/qa-gate.service';
 import { BuildManifestFactory } from './application/build-manifest.factory';
-import { GlbModule } from '../glb/glb.module';
-import { TwinModule } from '../twin/twin.module';
-import { NormalizationModule } from '../normalization/normalization.module';
+import { GlbModule } from '../pipeline/glb/glb.module';
+import { TwinModule } from '../pipeline/twin/twin.module';
+import { NormalizationModule } from '../pipeline/normalization/normalization.module';
 import { ProvidersModule } from '../providers/providers.module';
-import { RenderModule } from '../render/render.module';
+import { RenderModule } from '../pipeline/render/render.module';
 
 @Module({
   imports: [GlbModule, TwinModule, NormalizationModule, ProvidersModule, RenderModule],
@@ -23,35 +15,3 @@ import { RenderModule } from '../render/render.module';
   exports: [SceneBuildOrchestratorService],
 })
 export class BuildModule {}
-
-export type BuildModuleDependencies = {
-  snapshotCollector: SnapshotCollectorService;
-  normalizedEntityBuilder: NormalizedEntityBuilderService;
-  evidenceGraphBuilder: EvidenceGraphBuilderService;
-  twinGraphBuilder: TwinGraphBuilderService;
-  renderIntentResolver: RenderIntentResolverService;
-  meshPlanBuilder: MeshPlanBuilderService;
-  qaGate: QaGateService;
-  glbCompiler: GlbCompilerService;
-  glbValidation: GlbValidationService;
-};
-
-export function createBuildModule(dependencies: BuildModuleDependencies) {
-  return {
-    name: 'build',
-    services: {
-      sceneBuildOrchestrator: new SceneBuildOrchestratorService(
-        dependencies.snapshotCollector,
-        dependencies.normalizedEntityBuilder,
-        dependencies.evidenceGraphBuilder,
-        dependencies.twinGraphBuilder,
-        dependencies.renderIntentResolver,
-        dependencies.meshPlanBuilder,
-        dependencies.qaGate,
-        dependencies.glbCompiler,
-        dependencies.glbValidation,
-        new BuildManifestFactory(),
-      ),
-    },
-  } as const;
-}

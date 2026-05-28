@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { QaIssue } from '../../shared/contracts/qa';
-import type { TwinEntity, TwinSceneGraphMetadata } from '../../shared/contracts/twin-scene-graph';
+import type { QaIssue } from '../../../shared/contracts/qa';
+import type { TwinEntity, TwinSceneGraphMetadata } from '../../../shared/contracts/twin-scene-graph';
 import { RealityTierResolverService } from './reality-tier-resolver.service';
 
 @Injectable()

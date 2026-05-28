@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { OsmSceneBuildService } from '../providers/application/osm-scene-build.service';
-import type { GlbArtifact } from '../glb/application/glb-compiler.service';
+import type { GlbArtifact } from '../pipeline/glb/application/glb-compiler.service';
 import type { SceneBuildRunResult } from '../build/application/scene-build-run-result';
 
 type BuildRequest = {

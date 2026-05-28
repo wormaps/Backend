@@ -20,28 +20,3 @@ import { TwinGraphValidationService } from './application/twin-graph-validation.
   exports: [EvidenceGraphBuilderService, TwinGraphBuilderService, RealityTierResolverService],
 })
 export class TwinModule {}
-
-const twinEntityProjection = new TwinEntityProjectionService();
-const sceneRelationshipBuilder = new SceneRelationshipBuilderService();
-const twinGraphValidation = new TwinGraphValidationService();
-const realityTierResolver = new RealityTierResolverService();
-const twinSceneGraphMetadataFactory = new TwinSceneGraphMetadataFactory(realityTierResolver);
-
-// Legacy export kept temporarily until AppModule fully migrates to Nest DI.
-export const twinModule = {
-  name: 'twin',
-  services: {
-    evidenceGraphBuilder: new EvidenceGraphBuilderService(),
-    realityTierResolver,
-    twinEntityProjection,
-    sceneRelationshipBuilder,
-    twinGraphValidation,
-    twinSceneGraphMetadataFactory,
-    twinGraphBuilder: new TwinGraphBuilderService(
-      twinEntityProjection,
-      sceneRelationshipBuilder,
-      twinGraphValidation,
-      twinSceneGraphMetadataFactory,
-    ),
-  },
-} as const;

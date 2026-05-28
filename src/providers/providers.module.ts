@@ -11,16 +11,6 @@ import { MapboxDemAdapter } from './infrastructure/mapbox-dem.adapter';
 })
 export class ProvidersModule {}
 
-const mapboxToken = process.env.MAPBOX_TOKEN;
-
-export const providersModule = {
-  name: 'providers',
-  services: {
-    snapshotCollector: new SnapshotCollectorService(),
-    osmSceneBuild: OsmSceneBuildService.create(new OverpassAdapter(), mapboxToken),
-  },
-} as const;
-
 export function validateProviderApiKeys(options?: { strict?: boolean }): void {
   // Phase 1 API path currently depends only on OSM(+optional Mapbox DEM),
   // so no required provider keys are enforced here.

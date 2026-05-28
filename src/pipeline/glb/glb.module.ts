@@ -9,13 +9,3 @@ import { GltfMetadataFactory } from './application/gltf-metadata.factory';
   exports: [GlbCompilerService, GlbValidationService],
 })
 export class GlbModule {}
-
-// Legacy export kept temporarily until AppModule fully migrates to Nest DI.
-const legacyMetadataFactory = new GltfMetadataFactory();
-export const glbModule = {
-  name: 'glb',
-  services: {
-    glbCompiler: new GlbCompilerService(legacyMetadataFactory),
-    glbValidation: new GlbValidationService(),
-  },
-} as const;

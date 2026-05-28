@@ -5,8 +5,8 @@ import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-e
 import type { QaIssue } from '../../shared/contracts/qa';
 import type { RenderIntentSet } from '../../shared/contracts/render-intent';
 import type { RealityTier, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
-import type { GlbArtifact } from '../../glb/application/glb-compiler.service';
-import type { GlbValidationResult } from '../../glb/application/glb-validation.service';
+import type { GlbArtifact } from '../../pipeline/glb/application/glb-compiler.service';
+import type { GlbValidationResult } from '../../pipeline/glb/application/glb-validation.service';
 import type { Result } from '../../shared';
 import type { SceneBuildAggregate } from '../domain/scene-build.aggregate';
 
