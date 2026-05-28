@@ -1,12 +1,22 @@
-import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, type OSMEntityData } from '../infrastructure';
 import { MapboxDemAdapter } from '../infrastructure';
-import { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
 import type { SceneBuildRunResult } from '../../build/application';
 import type { SceneScope } from '../../shared/contracts';
 import type { SourceSnapshot } from '../../shared/contracts';
 import { createHash } from 'node:crypto';
-type SceneBuildOrchestrator = Pick<SceneBuildOrchestratorService, 'run'>;
+
+// Injection token — avoids circular import with build/application.
+export const SCENE_BUILD_ORCHESTRATOR = Symbol('SCENE_BUILD_ORCHESTRATOR');
+type SceneBuildOrchestrator = {
+  run(input: {
+    sceneId: string;
+    buildId: string;
+    snapshotBundleId: string;
+    scope: SceneScope;
+    snapshots: SourceSnapshot[];
+  }): Promise<SceneBuildRunResult>;
+};
 
 /** Approximate bounding box for South Korea. */
 function isKorea(lat: number, lng: number): boolean {
@@ -29,7 +39,7 @@ export class OsmSceneBuildService {
     @Optional() private readonly dem: MapboxDemAdapter | undefined,
     @Optional() private readonly vworld: VWorldBuildingAdapter | undefined,
     @Optional() private readonly mapboxBuildings: MapboxBuildingsAdapter | undefined,
-    @Inject(forwardRef(() => SceneBuildOrchestratorService))
+    @Inject(SCENE_BUILD_ORCHESTRATOR)
     private readonly orchestrator: SceneBuildOrchestrator,
   ) {}
 

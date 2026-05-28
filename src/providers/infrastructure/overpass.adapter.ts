@@ -76,7 +76,8 @@ export class OverpassAdapter {
 
   async queryWalkways(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);
-    const query = `[out:json][timeout:25];(way["footway"](${bbox});way["path"](${bbox}););out geom;`;
+    // Use highway= tag (standard OSM) — matches the same set excluded from queryRoads.
+    const query = `[out:json][timeout:25];(way["highway"~"^(footway|path|cycleway|pedestrian|steps|bridleway)$"](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements
       .filter((el) => el.type === 'way' && el.geometry && el.geometry.length >= 2)
