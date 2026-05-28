@@ -1,8 +1,6 @@
 import type { TypedArray } from '@gltf-transform/core';
 import { Buffer, Document, NodeIO, type Accessor } from '@gltf-transform/core';
 import { EXTMeshoptCompression } from '@gltf-transform/extensions';
-import { meshopt } from '@gltf-transform/functions';
-import { MeshoptEncoder } from 'meshoptimizer';
 import earcut from 'earcut';
 
 import type { MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
@@ -167,37 +165,18 @@ export class GlbCompilerService {
       );
     }
 
-    // Apply meshopt compression to reduce final GLB size.
-    // artifactHash stays geometry-deterministic (uncompressed baseline).
-    let finalBytes: Uint8Array;
-    try {
-      await MeshoptEncoder.ready;
-      await document.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
-      finalBytes = await io.writeBinary(document);
-      this.logger.info('Meshopt compression applied', {
-        sceneId: input.meshPlan.sceneId,
-        compressedBytes: finalBytes.byteLength,
-      });
-    } catch (error) {
-      this.logger.warn('Meshopt compression failed; using uncompressed artifact', {
-        sceneId: input.meshPlan.sceneId,
-        error: String(error),
-      });
-      finalBytes = bytes;
-    }
-
     this.logger.info('GLB compile completed', {
       sceneId: input.meshPlan.sceneId,
-      byteLength: finalBytes.byteLength,
+      byteLength: bytes.byteLength,
       artifactHash,
     });
 
     return {
       sceneId: input.meshPlan.sceneId,
       artifactRef: `memory://${input.meshPlan.sceneId}.glb`,
-      byteLength: finalBytes.byteLength,
+      byteLength: bytes.byteLength,
       artifactHash,
-      bytes: finalBytes,
+      bytes,
       finalTier: input.finalTier,
       qaSummary: input.qaSummary,
       meshSummary,
@@ -221,36 +200,32 @@ export class GlbCompilerService {
     document: Document,
     buffer: Buffer,
     primitive: string,
-    pivot: { x: number; y: number; z: number },
+    _pivot: { x: number; y: number; z: number },
   ): Accessor {
-    const { x, y, z } = pivot;
+    // All positions are relative to the node's world translation (pivot).
+    // Do NOT embed the pivot offset here — node.setTranslation already places it.
     let positions: Float32Array;
 
     switch (primitive) {
       case 'building_massing':
       case 'building_windows':
-        positions = new Float32Array([
-          x, y, z, x + 1, y, z, x + 1, y, z + 1,
-          x, y, z, x + 1, y, z + 1, x, y, z + 1,
-        ]);
+        positions = new Float32Array([0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1]);
         break;
       case 'road':
       case 'walkway':
         positions = new Float32Array([
-          x - 0.5, y, z, x + 0.5, y, z, x + 0.5, y, z + 0.5,
-          x - 0.5, y, z, x + 0.5, y, z + 0.5, x - 0.5, y, z + 0.5,
+          -0.5, 0, 0, 0.5, 0, 0, 0.5, 0, 0.5,
+          -0.5, 0, 0, 0.5, 0, 0.5, -0.5, 0, 0.5,
         ]);
         break;
       case 'terrain':
         positions = new Float32Array([
-          x - 1, y, z - 1, x + 1, y, z - 1, x + 1, y, z + 1,
-          x - 1, y, z - 1, x + 1, y, z + 1, x - 1, y, z + 1,
+          -1, 0, -1, 1, 0, -1, 1, 0, 1,
+          -1, 0, -1, 1, 0, 1, -1, 0, 1,
         ]);
         break;
       default:
-        positions = new Float32Array([
-          x, y + 0.5, z, x + 0.3, y, z + 0.3, x - 0.3, y, z - 0.3,
-        ]);
+        positions = new Float32Array([0, 0.5, 0, 0.3, 0, 0.3, -0.3, 0, -0.3]);
         break;
     }
 
@@ -278,28 +253,57 @@ export class GlbCompilerService {
       });
     }
 
-    const flatXZ: number[] = [];
-    for (const p of outer) {
-      flatXZ.push(p.x, p.z);
+    const holes = geometry.footprint.holes;
+    const allVerts = holes && holes.length > 0 ? [...outer, ...holes.flat()] : outer;
+    const flatXZ: number[] = allVerts.flatMap(({ x, z }) => [x, z]);
+    let holeIndices: number[] | undefined;
+    if (holes && holes.length > 0) {
+      holeIndices = [];
+      let offset = outer.length;
+      for (const hole of holes) {
+        holeIndices.push(offset);
+        offset += hole.length;
+      }
     }
-    const floorTris = earcut(flatXZ);
+    const floorTris = earcut(flatXZ, holeIndices);
+
+    // Determine polygon winding via signed area (Shoelace in XZ).
+    // signedArea > 0 → CCW in earcut's [x,z] convention:
+    //   earcut output triangles have -Y normal (outward for floor), so floor uses a,b,c order.
+    //   Roof reverses to +Y (outward). Walls need BL,TR,BR order.
+    // signedArea < 0 → CW: cap and wall orders flip.
+    let signedArea = 0;
+    for (let i = 0; i < outer.length; i++) {
+      const a = outer[i]!;
+      const b = outer[(i + 1) % outer.length]!;
+      signedArea += a.x * b.z - b.x * a.z;
+    }
+    const ccw = signedArea > 0;
 
     const positions: number[] = [];
 
-    // Floor cap
+    // Floor cap: outward normal = -Y (visible from below)
     for (let i = 0; i < floorTris.length; i += 3) {
-      const a = outer[floorTris[i]!]!;
-      const b = outer[floorTris[i + 1]!]!;
-      const c = outer[floorTris[i + 2]!]!;
-      positions.push(a.x, baseY, a.z, b.x, baseY, b.z, c.x, baseY, c.z);
+      const a = allVerts[floorTris[i]!]!;
+      const b = allVerts[floorTris[i + 1]!]!;
+      const c = allVerts[floorTris[i + 2]!]!;
+      if (ccw) {
+        positions.push(a.x, baseY, a.z, b.x, baseY, b.z, c.x, baseY, c.z);
+      } else {
+        positions.push(a.x, baseY, a.z, c.x, baseY, c.z, b.x, baseY, b.z);
+      }
     }
 
-    // Roof cap (reversed winding for outward normal)
+    // Roof cap: outward normal = +Y (visible from above)
     for (let i = 0; i < floorTris.length; i += 3) {
-      const a = outer[floorTris[i]!]!;
-      const b = outer[floorTris[i + 1]!]!;
-      const c = outer[floorTris[i + 2]!]!;
-      positions.push(a.x, topY, a.z, c.x, topY, c.z, b.x, topY, b.z);
+      const a = allVerts[floorTris[i]!]!;
+      const b = allVerts[floorTris[i + 1]!]!;
+      const c = allVerts[floorTris[i + 2]!]!;
+      if (ccw) {
+        positions.push(a.x, topY, a.z, c.x, topY, c.z, b.x, topY, b.z);
+      } else {
+        positions.push(a.x, topY, a.z, b.x, topY, b.z, c.x, topY, c.z);
+      }
     }
 
     // Wall quads (two triangles per footprint edge)
@@ -307,10 +311,15 @@ export class GlbCompilerService {
     for (let j = 0; j < n; j++) {
       const p0 = outer[j]!;
       const p1 = outer[(j + 1) % n]!;
-      // Triangle 1: BL BR TR
-      positions.push(p0.x, baseY, p0.z, p1.x, baseY, p1.z, p1.x, topY, p1.z);
-      // Triangle 2: BL TR TL
-      positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p0.x, topY, p0.z);
+      if (ccw) {
+        // CCW polygon: BL TR BR, BL TL TR → outward normals = (dz, 0, -dx)/L
+        positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p1.x, baseY, p1.z);
+        positions.push(p0.x, baseY, p0.z, p0.x, topY, p0.z, p1.x, topY, p1.z);
+      } else {
+        // CW polygon: BL BR TR, BL TR TL → outward normals = (-dz, 0, dx)/L
+        positions.push(p0.x, baseY, p0.z, p1.x, baseY, p1.z, p1.x, topY, p1.z);
+        positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p0.x, topY, p0.z);
+      }
     }
 
     const positionsArray = new Float32Array(positions);
@@ -502,7 +511,8 @@ export class GlbCompilerService {
           .setBuffer(buffer);
       }
       const triCount = (pairCount - 1) * 2;
-      const indices = new Uint16Array(triCount * 3);
+      const indexCount = triCount * 3;
+      const indices = indexCount > 65535 ? new Uint32Array(indexCount) : new Uint16Array(indexCount);
       let idx = 0;
       for (let i = 0; i < pairCount - 1; i++) {
         const a = 2 * i;
@@ -522,7 +532,7 @@ export class GlbCompilerService {
         .setBuffer(buffer);
     }
 
-    const indices = new Uint16Array(count);
+    const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
     for (let i = 0; i < count; i++) {
       indices[i] = i;
     }

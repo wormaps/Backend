@@ -35,22 +35,26 @@ export class SceneRelationshipBuilderService {
       });
     }
 
-    const overlapRoad = entities.find(
+    const overlapRoads = entities.filter(
       (entity) =>
         entity.type === 'road' &&
         entity.qualityIssues.some((issue) => issue.code === 'SCENE_ROAD_BUILDING_OVERLAP'),
     );
-    const overlapBuilding = entities.find((entity) => entity.type === 'building');
+    const buildings = entities.filter((entity) => entity.type === 'building');
 
-    if (overlapRoad !== undefined && overlapBuilding !== undefined) {
-      relationships.push({
-        id: `rel:${overlapRoad.id}:${overlapBuilding.id}:conflicts`,
-        fromEntityId: overlapRoad.id,
-        toEntityId: overlapBuilding.id,
-        relation: 'conflicts',
-        confidence: 0.9,
-        reasonCodes: ['SCENE_ROAD_BUILDING_OVERLAP'],
-      });
+    // No per-entity overlap data yet — conservatively conflict each overlapping road
+    // against all buildings so no actually-overlapping building escapes placeholder mode.
+    for (const overlapRoad of overlapRoads) {
+      for (const building of buildings) {
+        relationships.push({
+          id: `rel:${overlapRoad.id}:${building.id}:conflicts`,
+          fromEntityId: overlapRoad.id,
+          toEntityId: building.id,
+          relation: 'conflicts',
+          confidence: 0.9,
+          reasonCodes: ['SCENE_ROAD_BUILDING_OVERLAP'],
+        });
+      }
     }
 
     return relationships;

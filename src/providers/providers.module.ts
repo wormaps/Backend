@@ -6,14 +6,11 @@ import { WeatherSnapshotService } from './application/weather-snapshot.service';
 import { TrafficSnapshotService } from './application/traffic-snapshot.service';
 import { GooglePlacesAdapter } from './infrastructure/google-places.adapter';
 import { PlacesSnapshotService } from './application/places-snapshot.service';
-import { OpenMeteoAdapter } from './infrastructure/open-meteo.adapter';
 import { TomTomTrafficAdapter } from './infrastructure/tomtom-traffic.adapter';
 
 const tomtomApiKey = process.env.TOMTOM_API_KEY ?? '';
 const googleApiKey = process.env.GOOGLE_API_KEY ?? '';
 const mapboxToken = process.env.MAPBOX_TOKEN;
-
-void OpenMeteoAdapter;
 
 export const providersModule = {
   name: 'providers',

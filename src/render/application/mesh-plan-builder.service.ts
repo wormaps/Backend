@@ -204,16 +204,12 @@ export class MeshPlanBuilderService {
 
   private resolvePivot(entity: TwinEntity): MeshPlanNode['pivot'] {
     switch (entity.type) {
-      case 'building': {
-        const vertex = entity.geometry.footprint.outer[0];
-        return { x: vertex?.x ?? 0, y: entity.geometry.baseY ?? 0, z: vertex?.z ?? 0 };
-      }
+      case 'building':
       case 'road':
       case 'walkway':
-      case 'traffic_flow': {
-        const point = entity.geometry.centerline[0];
-        return { x: point?.x ?? 0, y: point?.y ?? 0, z: point?.z ?? 0 };
-      }
+      case 'traffic_flow':
+        // Real geometry uses absolute ENU coords — node stays at world origin.
+        return { x: 0, y: 0, z: 0 };
       case 'terrain': {
         const sample = entity.geometry.samples[0];
         return { x: sample?.x ?? 0, y: sample?.y ?? 0, z: sample?.z ?? 0 };

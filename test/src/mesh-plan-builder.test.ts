@@ -196,10 +196,10 @@ describe('mesh plan builder', () => {
     expect(meshPlan.nodes.map((node) => node.entityId)).toEqual(['building-1', 'building-1', 'road-1', 'poi-1']);
     expect(meshPlan.nodes.map((node) => node.primitive)).toEqual(['building_massing', 'building_windows', 'road', 'poi_marker']);
     expect(meshPlan.nodes.map((node) => node.pivot)).toEqual([
-      { x: 1, y: 0, z: 2 },
-      { x: 0, y: 0, z: 0 }, // window child node — zero pivot, vertices in world ENU coords
-      { x: 5, y: 0, z: 6 },
-      { x: 9, y: 0, z: 10 },
+      { x: 0, y: 0, z: 0 }, // building_massing — zero pivot, geometry in world ENU
+      { x: 0, y: 0, z: 0 }, // building_windows — zero pivot, geometry in world ENU
+      { x: 0, y: 0, z: 0 }, // road — zero pivot, geometry in world ENU
+      { x: 9, y: 0, z: 10 }, // poi_marker — pivot = point, placeholder is relative to it
     ]);
     expect(meshPlan.materials.map((material) => material.role)).toEqual(['building', 'window', 'road', 'debug']);
   });

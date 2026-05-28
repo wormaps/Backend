@@ -185,8 +185,21 @@ export class OverpassAdapter {
 
   private parseHeight(value: string | undefined): number | undefined {
     if (value === undefined) return undefined;
-    const match = value.trim().match(/^([0-9]+\.?[0-9]*)/);
-    if (!match || match[1] === undefined) return undefined;
+    const trimmed = value.trim();
+
+    // Feet notation: "15'", "15' 6\"", "15ft", "50 ft", "50 feet"
+    const feetMatch = trimmed.match(/^([0-9]+\.?[0-9]*)\s*(?:'|ft\b|feet\b)/i);
+    if (feetMatch !== null && feetMatch[1] !== undefined) {
+      const feet = parseFloat(feetMatch[1]);
+      const inchesMatch = trimmed.match(/'\s*([0-9]+\.?[0-9]*)\s*"/);
+      const inches = inchesMatch !== null && inchesMatch[1] !== undefined ? parseFloat(inchesMatch[1]) : 0;
+      const meters = (feet + inches / 12) * 0.3048;
+      return Number.isFinite(meters) && meters > 0 ? meters : undefined;
+    }
+
+    // Metric (default): "15", "15m", "15 m"
+    const match = trimmed.match(/^([0-9]+\.?[0-9]*)/);
+    if (match === null || match[1] === undefined) return undefined;
     const num = parseFloat(match[1]);
     return Number.isFinite(num) && num > 0 ? num : undefined;
   }
