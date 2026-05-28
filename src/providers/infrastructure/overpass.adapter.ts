@@ -17,8 +17,10 @@ export type OverpassResponse = {
   elements: OverpassElement[];
 };
 
+export type GeoEntityProvider = 'osm' | 'vworld' | 'mapbox';
+
 export type OSMEntityData = {
-  provider: 'osm';
+  provider: GeoEntityProvider;
   entityType: 'building' | 'road' | 'walkway' | 'terrain' | 'poi';
   geometry: Record<string, unknown>;
   tags: Record<string, string>;
@@ -28,13 +30,34 @@ export type OSMEntityData = {
 @Injectable()
 export class OverpassAdapter {
   private readonly logger = new Logger(OverpassAdapter.name);
-  private readonly apiUrl = 'https://overpass-api.de/api/interpreter';
+  private readonly apiUrls: string[];
 
-  constructor() {}
+  constructor() {
+    const envUrls = process.env.OVERPASS_API_URLS ?? '';
+    const parsed = envUrls
+      .split(',')
+      .map((u) => u.trim())
+      .filter(Boolean);
+    this.apiUrls =
+      parsed.length > 0
+        ? parsed
+        : [
+            'https://overpass-api.de/api/interpreter',
+            'https://overpass.kumi.systems/api/interpreter',
+            'https://overpass.private.coffee/api/interpreter',
+          ];
+  }
 
   async queryBuildings(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);
-    const query = `[out:json];(way["building"](${bbox}););out geom;`;
+    // Exclude non-structural tags (entrance, shed, garage, roof, etc.) and building:part relations.
+    const structuralValues =
+      'yes|residential|apartments|commercial|office|retail|industrial|hotel|school|' +
+      'church|warehouse|house|detached|terrace|dormitory|civic|government|hospital|' +
+      'university|public|transportation|train_station|cathedral|temple|mosque';
+    const query =
+      `[out:json][timeout:25];` +
+      `(way["building"~"^(${structuralValues})$"]["building:part"!~"."](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements
       .filter((el) => el.type === 'way' && el.geometry && el.geometry.length >= 3)
@@ -43,7 +66,7 @@ export class OverpassAdapter {
 
   async queryRoads(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);
-    const query = `[out:json];(way["highway"](${bbox}););out geom;`;
+    const query = `[out:json][timeout:25];(way["highway"](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements
       .filter((el) => el.type === 'way' && el.geometry && el.geometry.length >= 2)
@@ -52,7 +75,7 @@ export class OverpassAdapter {
 
   async queryWalkways(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);
-    const query = `[out:json];(way["footway"](${bbox});way["path"](${bbox}););out geom;`;
+    const query = `[out:json][timeout:25];(way["footway"](${bbox});way["path"](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements
       .filter((el) => el.type === 'way' && el.geometry && el.geometry.length >= 2)
@@ -61,7 +84,7 @@ export class OverpassAdapter {
 
   async queryTerrain(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);
-    const query = `[out:json];(node["natural"](${bbox});node["landuse"](${bbox});way["natural"](${bbox});way["landuse"](${bbox}););out geom;`;
+    const query = `[out:json][timeout:25];(node["natural"](${bbox});node["landuse"](${bbox});way["natural"](${bbox});way["landuse"](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements.map((el) => this.toEntityData(el, 'terrain', scope.center));
   }
@@ -95,19 +118,31 @@ export class OverpassAdapter {
     return `${south},${west},${north},${east}`;
   }
 
+  protected retryDelay(attempt: number): number {
+    return 1000 * (attempt + 1);
+  }
+
   protected async executeQuery(query: string, retries = 3): Promise<OverpassElement[]> {
     let lastError: Error | undefined;
-    for (let attempt = 0; attempt < retries; attempt++) {
+    const urls = this.apiUrls;
+
+    const maxAttempts = Math.max(retries, urls.length);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const url = urls[attempt % urls.length]!;
       try {
-        const response = await fetch(this.apiUrl, {
+        const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'wormapb/1.0 (3D city pipeline; https://github.com/wormapb)',
+          },
           body: `data=${encodeURIComponent(query)}`,
         });
 
-        if (response.status === 429) {
-          const delay = 1000 * (attempt + 1);
-          await new Promise((r) => setTimeout(r, delay));
+        if (response.status === 429 || response.status === 406) {
+          const body = await response.text().catch(() => '');
+          this.logger.warn(`Overpass ${response.status} from ${url}, attempt ${attempt + 1}/${maxAttempts} — ${body.slice(0, 200)}`);
+          await new Promise((r) => setTimeout(r, this.retryDelay(attempt)));
           continue;
         }
 
@@ -116,13 +151,12 @@ export class OverpassAdapter {
         }
 
         const data = (await response.json()) as OverpassResponse;
-        this.logger.debug(`Overpass query success elements=${data.elements.length}`);
+        this.logger.debug(`Overpass query success elements=${data.elements.length} url=${url}`);
         return data.elements;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
         if (attempt < retries - 1) {
-          const delay = 500 * (attempt + 1);
-          await new Promise((r) => setTimeout(r, delay));
+          await new Promise((r) => setTimeout(r, this.retryDelay(attempt) / 2));
         }
       }
     }

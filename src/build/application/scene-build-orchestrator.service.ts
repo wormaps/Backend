@@ -244,6 +244,7 @@ export class SceneBuildOrchestratorService {
       snapshotBundleId: input.snapshotBundleId,
       finalTier: qaResult.finalTier,
       qaSummary: this.summarizeQa(qaResult.issues),
+      groundRadius: (input.scope.radiusMeters ?? 150) * 2.5,
     });
     const manifestCandidate = this.manifestFactory.create({
       sceneId: input.sceneId,

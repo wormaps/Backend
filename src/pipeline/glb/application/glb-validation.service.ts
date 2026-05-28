@@ -29,7 +29,7 @@ export class GlbValidationService {
     const issues = [
       ...this.validateConsistency(input.manifest, input.artifact, input.meshPlan),
       ...this.validateMeshPlan(input.meshPlan),
-      ...(await this.validateArtifactBytes(input.artifact)),
+      ...(await this.validateArtifactBytes(input.artifact, input.meshPlan)),
     ];
 
     return {
@@ -102,6 +102,20 @@ export class GlbValidationService {
           'fail_build',
           'scene',
           'Render policy version differs between manifest and mesh plan.',
+        ),
+      );
+    }
+
+    if (artifact.byteLength > meshPlan.budgets.maxGlbBytes) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_BYTE_SIZE_EXCEEDED',
+          'critical',
+          'fail_build',
+          'mesh',
+          `GLB byte size ${artifact.byteLength} exceeds budget ${meshPlan.budgets.maxGlbBytes}.`,
+          artifact.byteLength,
+          meshPlan.budgets.maxGlbBytes,
         ),
       );
     }
@@ -242,6 +256,34 @@ export class GlbValidationService {
           ),
         );
       }
+    }
+
+    if (meshPlan.nodes.length > meshPlan.budgets.maxNodeCount) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_NODE_COUNT_EXCEEDED',
+          'critical',
+          'fail_build',
+          'mesh',
+          `MeshPlan node count ${meshPlan.nodes.length} exceeds budget ${meshPlan.budgets.maxNodeCount}.`,
+          meshPlan.nodes.length,
+          meshPlan.budgets.maxNodeCount,
+        ),
+      );
+    }
+
+    if (meshPlan.materials.length > meshPlan.budgets.maxMaterialCount) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_MATERIAL_COUNT_EXCEEDED',
+          'critical',
+          'fail_build',
+          'material',
+          `MeshPlan material count ${meshPlan.materials.length} exceeds budget ${meshPlan.budgets.maxMaterialCount}.`,
+          meshPlan.materials.length,
+          meshPlan.budgets.maxMaterialCount,
+        ),
+      );
     }
 
     for (const node of meshPlan.nodes) {
@@ -549,7 +591,7 @@ export class GlbValidationService {
     return issues;
   }
 
-  private async validateArtifactBytes(artifact: GlbArtifact): Promise<QaIssue[]> {
+  private async validateArtifactBytes(artifact: GlbArtifact, meshPlan: MeshPlan): Promise<QaIssue[]> {
     const issues: QaIssue[] = [];
 
     try {
@@ -623,6 +665,7 @@ export class GlbValidationService {
       issues.push(...this.validatePrimitivePolicy(document));
       issues.push(...this.validateAccessorMinMax(document));
       issues.push(...this.validateIndexBufferRanges(document));
+      issues.push(...this.validateTriangleBudget(document, meshPlan));
     } catch (error) {
       issues.push(
         this.issue(
@@ -699,5 +742,40 @@ export class GlbValidationService {
       ...(metric !== undefined ? { metric } : {}),
       ...(threshold !== undefined ? { threshold } : {}),
     };
+  }
+
+  private validateTriangleBudget(document: Document, meshPlan: MeshPlan): QaIssue[] {
+    const issues: QaIssue[] = [];
+    let triangleCount = 0;
+
+    for (const mesh of document.getRoot().listMeshes()) {
+      for (const primitive of mesh.listPrimitives()) {
+        const indices = primitive.getIndices();
+        if (indices !== null) {
+          triangleCount += Math.floor(indices.getCount() / 3);
+          continue;
+        }
+        const position = primitive.getAttribute('POSITION');
+        if (position !== null) {
+          triangleCount += Math.floor(position.getCount() / 3);
+        }
+      }
+    }
+
+    if (triangleCount > meshPlan.budgets.maxTriangleCount) {
+      issues.push(
+        this.issue(
+          'DCC_GLB_TRIANGLE_COUNT_EXCEEDED',
+          'critical',
+          'fail_build',
+          'mesh',
+          `GLB triangle count ${triangleCount} exceeds budget ${meshPlan.budgets.maxTriangleCount}.`,
+          triangleCount,
+          meshPlan.budgets.maxTriangleCount,
+        ),
+      );
+    }
+
+    return issues;
   }
 }

@@ -39,6 +39,8 @@ export type CompileGlbInput = {
   snapshotBundleId: string;
   finalTier: RealityTier;
   qaSummary: QaSummary;
+  /** Half-size of ground plane quad in metres. Defaults to 300. */
+  groundRadius?: number;
 };
 
 @Injectable()
@@ -86,6 +88,10 @@ export class GlbCompilerService {
       const indices = this.createIndices(document, buffer, positions, meshNode.primitive);
       primitive.setAttribute('POSITION', positions);
       primitive.setIndices(indices);
+      const normals = this.createNormals(document, buffer, positions, indices);
+      primitive.setAttribute('NORMAL', normals);
+      const texcoords = this.createTexcoords(document, buffer, positions, meshNode.primitive);
+      primitive.setAttribute('TEXCOORD_0', texcoords);
       primitive.setMode(4);
 
       const material = materialNodeMap.get(meshNode.materialId);
@@ -117,6 +123,11 @@ export class GlbCompilerService {
         scene.addChild(node);
       }
     }
+
+    // Ground plane — flat quad covering scene area at y = -0.05 (slightly below roads/buildings).
+    const groundNode = this.addGroundPlane(document, buffer, input.groundRadius ?? 300);
+    scene.addChild(groundNode);
+
     root.setDefaultScene(scene);
 
     const meshSummary = this.summarizeMeshSummary(input.meshPlan);
@@ -349,9 +360,11 @@ export class GlbCompilerService {
     const WIN_HEIGHT = 1.4;
     const BOTTOM_MARGIN = 0.8;
     const MIN_WALL_LEN = 2.5;
+    const MAX_WINDOW_QUADS = 1200;
 
     const positions: number[] = [];
     const n = outer.length;
+    let windowQuadCount = 0;
 
     // Determine polygon winding via signed area (Shoelace formula in XZ plane).
     // Positive = CCW, negative = CW. Inward normal sign depends on winding.
@@ -372,10 +385,11 @@ export class GlbCompilerService {
 
       if (L < MIN_WALL_LEN) continue;
 
-      // Inward normal depends on winding: CCW outward = (dz/L, -dx/L), inward flips.
-      // windingSign flips the direction for CW polygons automatically.
-      const inX = (-dz / L) * INSET * windingSign;
-      const inZ = (dx / L) * INSET * windingSign;
+      // Windows are placed OUTWARD from the wall face (INSET metres in front of wall surface).
+      // Outward normal for CCW polygon: (dz/L, 0, -dx/L) in XZ.
+      // windingSign flips automatically for CW polygons.
+      const inX = (dz / L) * INSET * windingSign;
+      const inZ = (-dx / L) * INSET * windingSign;
 
       const usableLen = L - 2 * SIDE_MARGIN;
       if (usableLen < WIN_WIDTH) continue;
@@ -390,6 +404,7 @@ export class GlbCompilerService {
         if (winTopY > baseY + height - 0.3) continue;
 
         for (let w = 0; w < winsPerFloor; w++) {
+          if (windowQuadCount >= MAX_WINDOW_QUADS) break;
           const tCenter = (SIDE_MARGIN + actualSpacing * (w + 0.5)) / L;
           const t0 = tCenter - halfW / L;
           const t1 = tCenter + halfW / L;
@@ -403,6 +418,7 @@ export class GlbCompilerService {
           positions.push(x0, winBottomY, z0, x1, winBottomY, z1, x1, winTopY, z1);
           // Triangle 2: BL TR TL
           positions.push(x0, winBottomY, z0, x1, winTopY, z1, x0, winTopY, z0);
+          windowQuadCount += 1;
         }
       }
     }
@@ -460,8 +476,9 @@ export class GlbCompilerService {
       const px = -nz * halfWidth;
       const pz = nx * halfWidth;
 
-      positions.push(p.x - px, p.y, p.z - pz);
-      positions.push(p.x + px, p.y, p.z + pz);
+      // Raise roads 0.08 m above ground plane (y=-0.05) to avoid z-fighting.
+      positions.push(p.x - px, p.y + 0.08, p.z - pz);
+      positions.push(p.x + px, p.y + 0.08, p.z + pz);
     }
 
     const positionsArray = new Float32Array(positions);
@@ -533,6 +550,214 @@ export class GlbCompilerService {
       .setArray(indices)
       .setType('SCALAR')
       .setBuffer(buffer);
+  }
+
+  private createNormals(
+    document: Document,
+    buffer: Buffer,
+    positionsAccessor: Accessor,
+    indicesAccessor: Accessor,
+  ): Accessor {
+    const positionsArray = positionsAccessor.getArray();
+    const indicesArray = indicesAccessor.getArray();
+
+    if (positionsArray === null || indicesArray === null) {
+      return document
+        .createAccessor('normals')
+        .setArray(new Float32Array(0) as TypedArray)
+        .setType('VEC3')
+        .setBuffer(buffer);
+    }
+
+    const vertexCount = positionsAccessor.getCount();
+    const normals = new Float32Array(vertexCount * 3);
+
+    for (let i = 0; i + 2 < indicesArray.length; i += 3) {
+      const ia = Number(indicesArray[i]) * 3;
+      const ib = Number(indicesArray[i + 1]) * 3;
+      const ic = Number(indicesArray[i + 2]) * 3;
+
+      const ax = Number(positionsArray[ia]);
+      const ay = Number(positionsArray[ia + 1]);
+      const az = Number(positionsArray[ia + 2]);
+      const bx = Number(positionsArray[ib]);
+      const by = Number(positionsArray[ib + 1]);
+      const bz = Number(positionsArray[ib + 2]);
+      const cx = Number(positionsArray[ic]);
+      const cy = Number(positionsArray[ic + 1]);
+      const cz = Number(positionsArray[ic + 2]);
+
+      const ux = bx - ax;
+      const uy = by - ay;
+      const uz = bz - az;
+      const vx = cx - ax;
+      const vy = cy - ay;
+      const vz = cz - az;
+
+      const nx = uy * vz - uz * vy;
+      const ny = uz * vx - ux * vz;
+      const nz = ux * vy - uy * vx;
+
+      normals[ia] = (normals[ia] ?? 0) + nx;
+      normals[ia + 1] = (normals[ia + 1] ?? 0) + ny;
+      normals[ia + 2] = (normals[ia + 2] ?? 0) + nz;
+      normals[ib] = (normals[ib] ?? 0) + nx;
+      normals[ib + 1] = (normals[ib + 1] ?? 0) + ny;
+      normals[ib + 2] = (normals[ib + 2] ?? 0) + nz;
+      normals[ic] = (normals[ic] ?? 0) + nx;
+      normals[ic + 1] = (normals[ic + 1] ?? 0) + ny;
+      normals[ic + 2] = (normals[ic + 2] ?? 0) + nz;
+    }
+
+    for (let i = 0; i < vertexCount; i++) {
+      const o = i * 3;
+      const nx = normals[o] ?? 0;
+      const ny = normals[o + 1] ?? 0;
+      const nz = normals[o + 2] ?? 0;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (len > 1e-9) {
+        normals[o] = nx / len;
+        normals[o + 1] = ny / len;
+        normals[o + 2] = nz / len;
+      } else {
+        normals[o] = 0;
+        normals[o + 1] = 1;
+        normals[o + 2] = 0;
+      }
+    }
+
+    return document
+      .createAccessor('normals')
+      .setArray(normals as TypedArray)
+      .setType('VEC3')
+      .setBuffer(buffer);
+  }
+
+  private createTexcoords(
+    document: Document,
+    buffer: Buffer,
+    positionsAccessor: Accessor,
+    primitive: MeshPlanNode['primitive'],
+  ): Accessor {
+    const positionsArray = positionsAccessor.getArray();
+    const vertexCount = positionsAccessor.getCount();
+
+    if (positionsArray === null || vertexCount === 0) {
+      return document
+        .createAccessor('texcoords')
+        .setArray(new Float32Array(0) as TypedArray)
+        .setType('VEC2')
+        .setBuffer(buffer);
+    }
+
+    const texcoords = new Float32Array(vertexCount * 2);
+
+    if (primitive === 'road' || primitive === 'walkway') {
+      const pairCount = Math.floor(vertexCount / 2);
+      let cumulative = 0;
+      const repeatPerMeter = 0.25;
+
+      for (let i = 0; i < pairCount; i++) {
+        if (i > 0) {
+          const prev = i - 1;
+          const prevCx = (Number(positionsArray[prev * 6]) + Number(positionsArray[prev * 6 + 3])) * 0.5;
+          const prevCy = (Number(positionsArray[prev * 6 + 1]) + Number(positionsArray[prev * 6 + 4])) * 0.5;
+          const prevCz = (Number(positionsArray[prev * 6 + 2]) + Number(positionsArray[prev * 6 + 5])) * 0.5;
+          const cx = (Number(positionsArray[i * 6]) + Number(positionsArray[i * 6 + 3])) * 0.5;
+          const cy = (Number(positionsArray[i * 6 + 1]) + Number(positionsArray[i * 6 + 4])) * 0.5;
+          const cz = (Number(positionsArray[i * 6 + 2]) + Number(positionsArray[i * 6 + 5])) * 0.5;
+          const dx = cx - prevCx;
+          const dy = cy - prevCy;
+          const dz = cz - prevCz;
+          cumulative += Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        const v = cumulative * repeatPerMeter;
+        texcoords[i * 4] = 0;
+        texcoords[i * 4 + 1] = v;
+        texcoords[i * 4 + 2] = 1;
+        texcoords[i * 4 + 3] = v;
+      }
+    } else {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      for (let i = 0; i < vertexCount; i++) {
+        const x = Number(positionsArray[i * 3]);
+        const z = Number(positionsArray[i * 3 + 2]);
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
+      const spanX = Math.max(1e-6, maxX - minX);
+      const spanZ = Math.max(1e-6, maxZ - minZ);
+      for (let i = 0; i < vertexCount; i++) {
+        const x = Number(positionsArray[i * 3]);
+        const z = Number(positionsArray[i * 3 + 2]);
+        texcoords[i * 2] = (x - minX) / spanX;
+        texcoords[i * 2 + 1] = (z - minZ) / spanZ;
+      }
+    }
+
+    return document
+      .createAccessor('texcoords')
+      .setArray(texcoords as TypedArray)
+      .setType('VEC2')
+      .setBuffer(buffer);
+  }
+
+  /** Flat quad ground plane at y = -0.05, covering ±r metres from origin. */
+  private addGroundPlane(
+    document: Document,
+    buffer: Buffer,
+    r: number,
+  ): ReturnType<Document['createNode']> {
+    const y = -0.05;
+    // Two triangles: CCW winding, +Y normal.
+    const positions = new Float32Array([
+      -r, y, -r,
+       r, y, -r,
+       r, y,  r,
+      -r, y, -r,
+       r, y,  r,
+      -r, y,  r,
+    ]);
+    const normals = new Float32Array([
+      0, 1, 0,  0, 1, 0,  0, 1, 0,
+      0, 1, 0,  0, 1, 0,  0, 1, 0,
+    ]);
+    const indices = new Uint16Array([0, 1, 2, 3, 4, 5]);
+    const texcoords = new Float32Array([
+      0, 0,  1, 0,  1, 1,
+      0, 0,  1, 1,  0, 1,
+    ]);
+
+    const posAcc = document.createAccessor('ground-pos').setArray(positions as TypedArray).setType('VEC3').setBuffer(buffer);
+    const normAcc = document.createAccessor('ground-norm').setArray(normals as TypedArray).setType('VEC3').setBuffer(buffer);
+    const idxAcc = document.createAccessor('ground-idx').setArray(indices).setType('SCALAR').setBuffer(buffer);
+    const uvAcc = document.createAccessor('ground-uv').setArray(texcoords as TypedArray).setType('VEC2').setBuffer(buffer);
+
+    const mat = document.createMaterial('ground');
+    mat.setBaseColorFactor([0.08, 0.08, 0.09, 1.0]); // dark asphalt, linear sRGB
+    mat.setMetallicFactor(0.0);
+    mat.setRoughnessFactor(0.95);
+
+    const prim = document.createPrimitive();
+    prim.setAttribute('POSITION', posAcc);
+    prim.setAttribute('NORMAL', normAcc);
+    prim.setIndices(idxAcc);
+    prim.setAttribute('TEXCOORD_0', uvAcc);
+    prim.setMaterial(mat);
+    prim.setMode(4);
+
+    const mesh = document.createMesh('ground-plane');
+    mesh.addPrimitive(prim);
+
+    const node = document.createNode('ground-plane');
+    node.setMesh(mesh);
+    return node;
   }
 
   private summarizeMeshSummary(meshPlan: MeshPlan) {

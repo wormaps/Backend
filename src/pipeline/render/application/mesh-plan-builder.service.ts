@@ -153,21 +153,22 @@ export class MeshPlanBuilderService {
 
   /** HSL hue per building type, seeded variation per entity. Linear sRGB output. */
   private deriveBuildingColor(entityId: string, buildingTag: string): [number, number, number] {
+    // Distinct hues per category — spread across colour wheel for visual clarity.
     const baseHues: Record<string, number> = {
-      residential: 0.06,
-      house: 0.06,
-      apartments: 0.07,
-      commercial: 0.55,
-      office: 0.58,
-      retail: 0.04,
-      industrial: 0.08,
-      warehouse: 0.09,
-      school: 0.13,
-      church: 0.10,
-      hotel: 0.60,
-      yes: 0.07,
+      residential: 0.08,   // warm orange
+      house: 0.08,
+      apartments: 0.10,    // amber
+      commercial: 0.55,    // teal-blue
+      office: 0.60,        // medium blue
+      retail: 0.03,        // red-orange
+      industrial: 0.15,    // yellow-green
+      warehouse: 0.18,     // yellow
+      school: 0.35,        // green
+      church: 0.72,        // purple
+      hotel: 0.65,         // blue-purple
+      yes: 0.08,           // default warm orange
     };
-    const baseHue = baseHues[buildingTag] ?? 0.07;
+    const baseHue = baseHues[buildingTag] ?? 0.08;
 
     let hash = 0;
     for (let i = 0; i < entityId.length; i++) {
@@ -175,9 +176,10 @@ export class MeshPlanBuilderService {
     }
     const norm = (Math.abs(hash) % 1000) / 1000;
 
-    const hue = baseHue + (norm - 0.5) * 0.05;
-    const saturation = 0.20 + norm * 0.25;
-    const lightness = 0.50 + norm * 0.20;
+    // Per-entity hue variation ±0.12 — wide enough to visually distinguish same-type buildings.
+    const hue = ((baseHue + (norm - 0.5) * 0.24) % 1 + 1) % 1;
+    const saturation = 0.45 + norm * 0.20;
+    const lightness = 0.42 + norm * 0.14;
 
     return this.hslToLinearRgb(hue, saturation, lightness);
   }

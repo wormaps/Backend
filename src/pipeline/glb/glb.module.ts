@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { GlbCompilerService } from './application';
-import { GlbValidationService } from './application';
-import { GltfMetadataFactory } from './application/gltf-metadata.factory';
+import { GlbCompilerService, GlbValidationService, GltfMetadataFactory } from './application';
 
 @Module({
   providers: [GlbCompilerService, GlbValidationService, GltfMetadataFactory],

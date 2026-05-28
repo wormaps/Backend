@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WorMap GLB Builder</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+      .row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+      label { min-width: 90px; }
+      input { padding: 8px; width: 240px; }
+      button { padding: 10px 14px; cursor: pointer; }
+      pre { background: #111; color: #eee; padding: 12px; overflow: auto; max-height: 420px; }
+    </style>
+  </head>
+  <body>
+    <h1>WorMap GLB Builder</h1>
+    <div class="row"><label>sceneId</label><input id="sceneId" value="demo-seoul" /></div>
+    <div class="row"><label>lat</label><input id="lat" value="37.5665" /></div>
+    <div class="row"><label>lng</label><input id="lng" value="126.9780" /></div>
+    <div class="row"><label>radius</label><input id="radius" value="150" /></div>
+    <div class="row">
+      <button id="buildBtn">Build</button>
+      <button id="downloadBtn">Download GLB</button>
+    </div>
+    <pre id="out">ready</pre>
+    <script type="module" src="/spa.js"></script>
+  </body>
+  </html>

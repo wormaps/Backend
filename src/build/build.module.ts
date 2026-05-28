@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 
+import { BUILD_JOB_STORE, InMemoryBuildJobStoreService } from './application';
 import { SceneBuildOrchestratorService } from './application';
 import { QaGateService } from './application';
 import { BuildManifestFactory } from './application';
@@ -11,7 +12,16 @@ import { RenderModule } from '../pipeline/render';
 
 @Module({
   imports: [GlbModule, TwinModule, NormalizationModule, forwardRef(() => ProvidersModule), RenderModule],
-  providers: [SceneBuildOrchestratorService, BuildManifestFactory, QaGateService],
-  exports: [SceneBuildOrchestratorService],
+  providers: [
+    SceneBuildOrchestratorService,
+    BuildManifestFactory,
+    QaGateService,
+    InMemoryBuildJobStoreService,
+    {
+      provide: BUILD_JOB_STORE,
+      useExisting: InMemoryBuildJobStoreService,
+    },
+  ],
+  exports: [SceneBuildOrchestratorService, BUILD_JOB_STORE, InMemoryBuildJobStoreService],
 })
 export class BuildModule {}

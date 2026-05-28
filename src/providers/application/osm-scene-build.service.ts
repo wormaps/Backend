@@ -1,5 +1,5 @@
 import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { OverpassAdapter, type OSMEntityData } from '../infrastructure';
+import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, type OSMEntityData } from '../infrastructure';
 import { MapboxDemAdapter } from '../infrastructure';
 import { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
 import type { SceneBuildRunResult } from '../../build/application';
@@ -7,6 +7,11 @@ import type { SceneScope } from '../../shared/contracts';
 import type { SourceSnapshot } from '../../shared/contracts';
 import { createHash } from 'node:crypto';
 type SceneBuildOrchestrator = Pick<SceneBuildOrchestratorService, 'run'>;
+
+/** Approximate bounding box for South Korea. */
+function isKorea(lat: number, lng: number): boolean {
+  return lat >= 33.0 && lat <= 38.9 && lng >= 124.0 && lng <= 132.0;
+}
 
 export type OsmSceneBuildInput = {
   sceneId: string;
@@ -22,13 +27,16 @@ export class OsmSceneBuildService {
   constructor(
     private readonly overpass: OverpassAdapter,
     @Optional() private readonly dem: MapboxDemAdapter | undefined,
+    @Optional() private readonly vworld: VWorldBuildingAdapter | undefined,
+    @Optional() private readonly mapboxBuildings: MapboxBuildingsAdapter | undefined,
     @Inject(forwardRef(() => SceneBuildOrchestratorService))
     private readonly orchestrator: SceneBuildOrchestrator,
   ) {}
 
   async run(input: OsmSceneBuildInput): Promise<SceneBuildRunResult> {
-    // Fetch each entity type separately and create per-type snapshots
-    const buildings = await this.overpass.queryBuildings(input.scope);
+    // Select building provider based on region.
+    const { lat, lng } = input.scope.center;
+    const buildings = await this.queryBuildings(input.scope, lat, lng);
     await this.enrichElevation(buildings, input.scope.center);
     await this.delay(200);
     const roads = await this.overpass.queryRoads(input.scope);
@@ -65,6 +73,40 @@ export class OsmSceneBuildService {
 
     const result = await this.orchestrator.run(buildInput);
     return result;
+  }
+
+  private async queryBuildings(
+    scope: SceneScope,
+    lat: number,
+    lng: number,
+  ): Promise<OSMEntityData[]> {
+    if (isKorea(lat, lng) && this.vworld) {
+      try {
+        const buildings = await this.vworld.queryBuildings(scope);
+        if (buildings.length > 0) {
+          this.logger.log(`V World buildings loaded count=${buildings.length}`);
+          return buildings;
+        }
+        this.logger.warn('V World returned 0 buildings — falling back to OSM');
+      } catch (err) {
+        this.logger.warn(`V World failed, falling back to OSM: ${String(err)}`);
+      }
+    }
+
+    if (!isKorea(lat, lng) && this.mapboxBuildings) {
+      try {
+        const buildings = await this.mapboxBuildings.queryBuildings(scope);
+        if (buildings.length > 0) {
+          this.logger.log(`Mapbox buildings loaded count=${buildings.length}`);
+          return buildings;
+        }
+        this.logger.warn('Mapbox returned 0 buildings — falling back to OSM');
+      } catch (err) {
+        this.logger.warn(`Mapbox buildings failed, falling back to OSM: ${String(err)}`);
+      }
+    }
+
+    return this.overpass.queryBuildings(scope);
   }
 
   private makeSnapshot(
@@ -105,15 +147,19 @@ export class OsmSceneBuildService {
       if (buildings.length === 0) return;
 
       const centroids = buildings.map((b) => this.buildingCentroid(b, origin));
-      const elevations = await this.dem.getElevationsForPoints(origin, centroids);
+      // Include origin as first point so we can compute relative elevation in one tile fetch.
+      const allPoints = [origin, ...centroids];
+      const allElevations = await this.dem.getElevationsForPoints(origin, allPoints);
+      const centerElevation = allElevations[0] ?? 0;
 
       for (let i = 0; i < buildings.length; i++) {
         const building = buildings[i]!;
-        const elevation = elevations[i] ?? 0;
-        (building.geometry as { baseY?: number }).baseY = elevation;
+        const elevation = allElevations[i + 1] ?? 0;
+        // Store relative elevation (metres above/below scene centre).
+        (building.geometry as { baseY?: number }).baseY = elevation - centerElevation;
       }
 
-      this.logger.log('Per-building elevation applied', { buildingCount: buildings.length });
+      this.logger.log('Per-building elevation applied', { buildingCount: buildings.length, centerElevation });
     } catch (err) {
       this.logger.warn('Elevation enrichment failed; using baseY=0', { error: String(err) });
     }
