@@ -193,13 +193,14 @@ describe('mesh plan builder', () => {
     const builder = new MeshPlanBuilderService();
     const meshPlan = builder.build(makeGraph(), makeIntentSet());
 
-    expect(meshPlan.nodes.map((node) => node.entityId)).toEqual(['building-1', 'road-1', 'poi-1']);
-    expect(meshPlan.nodes.map((node) => node.primitive)).toEqual(['building_massing', 'road', 'poi_marker']);
+    expect(meshPlan.nodes.map((node) => node.entityId)).toEqual(['building-1', 'building-1', 'road-1', 'poi-1']);
+    expect(meshPlan.nodes.map((node) => node.primitive)).toEqual(['building_massing', 'building_windows', 'road', 'poi_marker']);
     expect(meshPlan.nodes.map((node) => node.pivot)).toEqual([
+      { x: 1, y: 0, z: 2 },
       { x: 1, y: 0, z: 2 },
       { x: 5, y: 0, z: 6 },
       { x: 9, y: 0, z: 10 },
     ]);
-    expect(meshPlan.materials.map((material) => material.role)).toEqual(['building', 'road', 'debug']);
+    expect(meshPlan.materials.map((material) => material.role)).toEqual(['building', 'window', 'road', 'debug']);
   });
 });

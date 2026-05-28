@@ -13,20 +13,7 @@ export class MeshPlanBuilderService {
     for (const intent of intentSet.intents) {
       const entity = entityById.get(intent.entityId);
       if (entity === undefined) continue;
-
-      const nodeSpec = this.resolveNodeSpec(entity, intent.visualMode);
-      if (nodeSpec === null) continue;
-
-      const material = this.ensureMaterial(materials, nodeSpec.materialRole, entity);
-      nodes.push({
-        id: `node:${entity.id}`,
-        entityId: entity.id,
-        name: `${entity.type}:${intent.visualMode}`,
-        primitive: nodeSpec.primitive,
-        pivot: this.resolvePivot(entity),
-        materialId: material.id,
-        geometry: this.resolveGeometry(entity),
-      });
+      nodes.push(...this.resolveNodes(entity, intent, materials));
     }
 
     return {
@@ -41,6 +28,46 @@ export class MeshPlanBuilderService {
         maxMaterialCount: 64,
       },
     };
+  }
+
+  private resolveNodes(
+    entity: TwinEntity,
+    intent: RenderIntentSet['intents'][number],
+    materials: Map<string, MaterialPlan>,
+  ): MeshPlanNode[] {
+    const nodeSpec = this.resolveNodeSpec(entity, intent.visualMode);
+    if (nodeSpec === null) return [];
+
+    const material = this.ensureMaterial(materials, nodeSpec.materialRole, entity);
+    const bodyId = `node:${entity.id}`;
+    const bodyNode: MeshPlanNode = {
+      id: bodyId,
+      entityId: entity.id,
+      name: `${entity.type}:${intent.visualMode}`,
+      primitive: nodeSpec.primitive,
+      pivot: this.resolvePivot(entity),
+      materialId: material.id,
+      geometry: this.resolveGeometry(entity),
+    };
+
+    const result: MeshPlanNode[] = [bodyNode];
+
+    // Add glass window node as child of building body node.
+    if (entity.type === 'building' && nodeSpec.primitive === 'building_massing') {
+      const windowMaterial = this.ensureMaterial(materials, 'window', entity);
+      result.push({
+        id: `window:${entity.id}`,
+        entityId: entity.id,
+        parentId: bodyId,
+        name: `building:windows:${entity.id.slice(-6)}`,
+        primitive: 'building_windows',
+        pivot: this.resolvePivot(entity),
+        materialId: windowMaterial.id,
+        geometry: this.resolveGeometry(entity),
+      });
+    }
+
+    return result;
   }
 
   private resolveNodeSpec(

@@ -12,7 +12,7 @@ export type MeshPlanNode = {
   entityId: string;
   parentId?: string;
   name: string;
-  primitive: 'terrain' | 'road' | 'walkway' | 'building_massing' | 'poi_marker';
+  primitive: 'terrain' | 'road' | 'walkway' | 'building_massing' | 'building_windows' | 'poi_marker';
   pivot: { x: number; y: number; z: number };
   materialId: string;
   /** Entity geometry for GLB mesh generation. Falls back to placeholder when undefined. */
@@ -22,7 +22,7 @@ export type MeshPlanNode = {
 export type MaterialPlan = {
   id: string;
   name: string;
-  role: 'terrain' | 'road' | 'building' | 'poi' | 'debug';
+  role: 'terrain' | 'road' | 'building' | 'window' | 'poi' | 'debug';
   baseColor?: [number, number, number]; // linear RGB 0–1
 };
 

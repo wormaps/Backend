@@ -73,10 +73,12 @@ export const adversarialFixtures: Phase2Fixture[] = [
       },
       meshPrimitiveDistribution: {
         building_massing: 2,
+        building_windows: 2,
       },
       materialRoleDistribution: {
         debug: 1,
         building: 1,
+        window: 1,
       },
       initialRealityTier: 'PROCEDURAL_MODEL',
       provisionalRealityTier: 'PROCEDURAL_MODEL',
@@ -168,9 +170,11 @@ export const adversarialFixtures: Phase2Fixture[] = [
       meshPrimitiveDistribution: {
         road: 1,
         building_massing: 1,
+        building_windows: 1,
       },
       materialRoleDistribution: {
         debug: 1,
+        window: 1,
       },
       initialRealityTier: 'PLACEHOLDER_SCENE',
       provisionalRealityTier: 'PLACEHOLDER_SCENE',

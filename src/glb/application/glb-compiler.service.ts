@@ -77,6 +77,12 @@ export class GlbCompilerService {
         const [r, g, b] = materialPlan.baseColor;
         material.setBaseColorFactor([r, g, b, 1.0]);
       }
+      if (materialPlan.role === 'window') {
+        material.setDoubleSided(true);
+        material.setBaseColorFactor([0.06, 0.09, 0.14, 1.0]); // dark steel blue, linear sRGB
+        material.setMetallicFactor(0.85);
+        material.setRoughnessFactor(0.08);
+      }
       materialNodeMap.set(materialPlan.id, material);
     }
 
@@ -227,6 +233,7 @@ export class GlbCompilerService {
 
     switch (primitive) {
       case 'building_massing':
+      case 'building_windows':
         positions = new Float32Array([
           x, y, z, x + 1, y, z, x + 1, y, z + 1,
           x, y, z, x + 1, y, z + 1, x, y, z + 1,
@@ -319,6 +326,87 @@ export class GlbCompilerService {
       .setBuffer(buffer);
   }
 
+  private createWindowPositions(
+    document: Document,
+    buffer: Buffer,
+    geometry: BuildingMeshGeometry,
+  ): Accessor {
+    const outer = geometry.footprint.outer;
+    const baseY = geometry.baseY ?? 0;
+    const height = geometry.height ?? 5;
+    const floors = Math.max(1, Math.floor(height / 3.0));
+    const floorH = height / floors;
+
+    const INSET = 0.08;
+    const SIDE_MARGIN = 0.6;
+    const WIN_SPACING = 2.5;
+    const WIN_WIDTH = 1.2;
+    const WIN_HEIGHT = 1.4;
+    const BOTTOM_MARGIN = 0.8;
+    const MIN_WALL_LEN = 2.5;
+
+    const positions: number[] = [];
+    const n = outer.length;
+
+    for (let j = 0; j < n; j++) {
+      const p0 = outer[j]!;
+      const p1 = outer[(j + 1) % n]!;
+      const dx = p1.x - p0.x;
+      const dz = p1.z - p0.z;
+      const L = Math.sqrt(dx * dx + dz * dz);
+
+      if (L < MIN_WALL_LEN) continue;
+
+      // Inward normal for CCW polygon: outward = (dz/L, 0, -dx/L), inward flips sign
+      const inX = (-dz / L) * INSET;
+      const inZ = (dx / L) * INSET;
+
+      const usableLen = L - 2 * SIDE_MARGIN;
+      if (usableLen < WIN_WIDTH) continue;
+
+      const winsPerFloor = Math.max(1, Math.floor(usableLen / WIN_SPACING));
+      const actualSpacing = usableLen / winsPerFloor;
+      const halfW = Math.min(WIN_WIDTH / 2, actualSpacing * 0.4);
+
+      for (let floor = 0; floor < floors; floor++) {
+        const winBottomY = baseY + floor * floorH + BOTTOM_MARGIN;
+        const winTopY = winBottomY + WIN_HEIGHT;
+        if (winTopY > baseY + height - 0.3) continue;
+
+        for (let w = 0; w < winsPerFloor; w++) {
+          const tCenter = (SIDE_MARGIN + actualSpacing * (w + 0.5)) / L;
+          const t0 = tCenter - halfW / L;
+          const t1 = tCenter + halfW / L;
+
+          const x0 = p0.x + t0 * dx + inX;
+          const z0 = p0.z + t0 * dz + inZ;
+          const x1 = p0.x + t1 * dx + inX;
+          const z1 = p0.z + t1 * dz + inZ;
+
+          // Triangle 1: BL BR TR
+          positions.push(x0, winBottomY, z0, x1, winBottomY, z1, x1, winTopY, z1);
+          // Triangle 2: BL TR TL
+          positions.push(x0, winBottomY, z0, x1, winTopY, z1, x0, winTopY, z0);
+        }
+      }
+    }
+
+    if (positions.length === 0) {
+      // No valid windows — return placeholder (avoids empty accessor)
+      return this.createPlaceholderPositions(document, buffer, 'building_windows', {
+        x: outer[0]?.x ?? 0,
+        y: baseY,
+        z: outer[0]?.z ?? 0,
+      });
+    }
+
+    return document
+      .createAccessor('window-positions')
+      .setArray(new Float32Array(positions) as TypedArray)
+      .setType('VEC3')
+      .setBuffer(buffer);
+  }
+
   private createRoadPositions(
     document: Document,
     buffer: Buffer,
@@ -376,6 +464,9 @@ export class GlbCompilerService {
   ): Accessor {
     switch (geometry.kind) {
       case 'building':
+        if (type === 'building_windows') {
+          return this.createWindowPositions(document, buffer, geometry);
+        }
         return this.createBuildingPositions(document, buffer, geometry);
       case 'road':
       case 'walkway':

@@ -28,6 +28,7 @@ export const MeshPlanNodeSchema = z.object({
     'road',
     'walkway',
     'building_massing',
+    'building_windows',
     'poi_marker',
   ]),
   pivot: z.object({
@@ -48,7 +49,7 @@ export type MeshPlanNode = z.infer<typeof MeshPlanNodeSchema>;
 export const MaterialPlanSchema = z.object({
   id: z.string(),
   name: z.string(),
-  role: z.enum(['terrain', 'road', 'building', 'poi', 'debug']),
+  role: z.enum(['terrain', 'road', 'building', 'window', 'poi', 'debug']),
   baseColor: z.tuple([z.number(), z.number(), z.number()]).optional(),
 });
 export type MaterialPlan = z.infer<typeof MaterialPlanSchema>;
