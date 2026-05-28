@@ -47,13 +47,15 @@ export class OsmSceneBuildService {
     // Select building provider based on region.
     const { lat, lng } = input.scope.center;
     const buildings = await this.queryBuildings(input.scope, lat, lng);
-    await this.enrichElevation(buildings, input.scope.center);
     await this.delay(200);
     const roads = await this.overpass.queryRoads(input.scope);
     await this.delay(200);
     const walkways = await this.overpass.queryWalkways(input.scope);
     await this.delay(200);
     const terrain = await this.overpass.queryTerrain(input.scope);
+
+    // Enrich all geometry with DEM elevation in one batch (single tile fetch).
+    await this.enrichElevation(buildings, roads, walkways, input.scope.center);
 
     const snapshots: SourceSnapshot[] = [];
     const allCount = buildings.length + roads.length + walkways.length + terrain.length;
@@ -147,55 +149,111 @@ export class OsmSceneBuildService {
     };
   }
 
+  /**
+   * Apply DEM elevation to all entities in one batched fetch (multi-tile aware).
+   * - Buildings: centroid elevation → baseY (relative to scene centre).
+   *   Buildings with empty footprints are skipped (baseY stays undefined → y=0 fallback).
+   * - Roads / walkways: every centerline vertex.y → relative elevation.
+   *
+   * Uses index-based mapping (no per-point closures) to reduce GC pressure.
+   * The DEM adapter handles tile boundaries automatically.
+   */
   private async enrichElevation(
-    entities: OSMEntityData[],
+    buildings: OSMEntityData[],
+    roads: OSMEntityData[],
+    walkways: OSMEntityData[],
     origin: { lat: number; lng: number },
   ): Promise<void> {
     if (!this.dem) return;
     try {
-      const buildings = entities.filter((e) => e.entityType === 'building');
-      if (buildings.length === 0) return;
+      // -----------------------------------------------------------------------
+      // Phase 1: collect all query points as flat lat/lng array.
+      // Track how to map result indices back to entities via offset table.
+      // -----------------------------------------------------------------------
 
-      const centroids = buildings.map((b) => this.buildingCentroid(b, origin));
-      // Include origin as first point so we can compute relative elevation in one tile fetch.
-      const allPoints = [origin, ...centroids];
-      const allElevations = await this.dem.getElevationsForPoints(origin, allPoints);
-      const centerElevation = allElevations[0] ?? 0;
+      // Index 0 = scene centre (used to compute centerElevation).
+      const latLngs: Array<{ lat: number; lng: number }> = [origin];
 
-      for (let i = 0; i < buildings.length; i++) {
-        const building = buildings[i]!;
-        const elevation = allElevations[i + 1] ?? 0;
-        // Store relative elevation (metres above/below scene centre).
-        (building.geometry as { baseY?: number }).baseY = elevation - centerElevation;
+      // buildingOffsets[i] = index in latLngs for buildings[i] centroid, or -1 to skip.
+      const buildingOffsets: number[] = [];
+      for (const b of buildings) {
+        const outer =
+          (b.geometry as { footprint?: { outer: Array<{ x: number; z: number }> } })
+            .footprint?.outer ?? [];
+        if (outer.length === 0) {
+          buildingOffsets.push(-1); // skip — no footprint, keep baseY undefined
+          continue;
+        }
+        buildingOffsets.push(latLngs.length);
+        const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
+        const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
+        latLngs.push(this.enuToLatLng(cx, cz, origin));
       }
 
-      this.logger.log('Per-building elevation applied', { buildingCount: buildings.length, centerElevation });
+      // roadVertexOffsets[r][v] = index in latLngs for roads[r].centerline[v].
+      const roadVertexOffsets: number[][] = [];
+      for (const entity of [...roads, ...walkways]) {
+        const centerline =
+          (entity.geometry as { centerline?: Array<{ x: number; y: number; z: number }> })
+            .centerline ?? [];
+        const vOffsets: number[] = [];
+        for (const vertex of centerline) {
+          vOffsets.push(latLngs.length);
+          latLngs.push(this.enuToLatLng(vertex.x, vertex.z, origin));
+        }
+        roadVertexOffsets.push(vOffsets);
+      }
+
+      if (latLngs.length === 1) return; // only origin — no entities to enrich
+
+      // -----------------------------------------------------------------------
+      // Phase 2: single DEM batch query (multi-tile aware).
+      // -----------------------------------------------------------------------
+      const allElevations = await this.dem.getElevationsForPoints(origin, latLngs);
+      const centerElevation = allElevations[0] ?? 0;
+
+      // -----------------------------------------------------------------------
+      // Phase 3: apply results back.
+      // -----------------------------------------------------------------------
+      for (let i = 0; i < buildings.length; i++) {
+        const offset = buildingOffsets[i];
+        if (offset === undefined || offset === -1) continue;
+        const absElev = allElevations[offset] ?? 0;
+        (buildings[i]!.geometry as { baseY?: number }).baseY = absElev - centerElevation;
+      }
+
+      const roadAndWalkways = [...roads, ...walkways];
+      for (let r = 0; r < roadAndWalkways.length; r++) {
+        const vOffsets = roadVertexOffsets[r] ?? [];
+        const centerline =
+          (roadAndWalkways[r]!.geometry as { centerline?: Array<{ x: number; y: number; z: number }> })
+            .centerline ?? [];
+        for (let v = 0; v < centerline.length; v++) {
+          const offset = vOffsets[v];
+          if (offset === undefined) continue;
+          const absElev = allElevations[offset] ?? 0;
+          centerline[v]!.y = absElev - centerElevation;
+        }
+      }
+
+      this.logger.log(
+        `Elevation enriched: buildings=${buildings.length} roads=${roads.length} walkways=${walkways.length} points=${latLngs.length} centerElev=${centerElevation.toFixed(1)}m`,
+      );
     } catch (err) {
-      this.logger.warn('Elevation enrichment failed; using baseY=0', { error: String(err) });
+      this.logger.warn(`Elevation enrichment failed; using y=0: ${String(err)}`);
     }
   }
 
-  /**
-   * Compute approximate lat/lng for a building footprint centroid.
-   * Local coords: x = East metres, z = North metres (from wgs84ToEnu mapping).
-   */
-  private buildingCentroid(
-    entity: OSMEntityData,
+  /** ENU (x=East, z=North) → approximate lat/lng given scene origin. */
+  private enuToLatLng(
+    x: number,
+    z: number,
     origin: { lat: number; lng: number },
   ): { lat: number; lng: number } {
-    const outer =
-      (entity.geometry as { footprint?: { outer: Array<{ x: number; z: number }> } }).footprint
-        ?.outer ?? [];
-    if (outer.length === 0) return origin;
-
-    const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
-    const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
-
     const EARTH_RADIUS = 6_371_000;
     const latRad = (origin.lat * Math.PI) / 180;
-    const deltaLat = (cz / EARTH_RADIUS) * (180 / Math.PI);
-    const deltaLng = (cx / (EARTH_RADIUS * Math.cos(latRad))) * (180 / Math.PI);
-
+    const deltaLat = (z / EARTH_RADIUS) * (180 / Math.PI);
+    const deltaLng = (x / (EARTH_RADIUS * Math.cos(latRad))) * (180 / Math.PI);
     return { lat: origin.lat + deltaLat, lng: origin.lng + deltaLng };
   }
 
