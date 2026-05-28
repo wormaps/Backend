@@ -11,6 +11,9 @@ import { TomTomTrafficAdapter } from './infrastructure/tomtom-traffic.adapter';
 
 const tomtomApiKey = process.env.TOMTOM_API_KEY ?? '';
 const googleApiKey = process.env.GOOGLE_API_KEY ?? '';
+const mapboxToken = process.env.MAPBOX_TOKEN;
+
+void OpenMeteoAdapter;
 
 export const providersModule = {
   name: 'providers',
@@ -21,6 +24,16 @@ export const providersModule = {
     trafficSnapshot: new TrafficSnapshotService(new TomTomTrafficAdapter(tomtomApiKey)),
     googlePlaces: new GooglePlacesAdapter(googleApiKey),
     placesSnapshot: new PlacesSnapshotService(new GooglePlacesAdapter(googleApiKey)),
-    osmSceneBuild: new OsmSceneBuildService(new OverpassAdapter()),
+    osmSceneBuild: OsmSceneBuildService.create(new OverpassAdapter(), mapboxToken),
   },
 } as const;
+
+export function validateProviderApiKeys(): void {
+  const missing: string[] = [];
+  if (!googleApiKey) missing.push('GOOGLE_API_KEY');
+  if (!tomtomApiKey) missing.push('TOMTOM_API_KEY');
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variable(s): ${missing.join(', ')}`);
+  }
+}

@@ -49,6 +49,7 @@ export const MaterialPlanSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: z.enum(['terrain', 'road', 'building', 'poi', 'debug']),
+  baseColor: z.tuple([z.number(), z.number(), z.number()]).optional(),
 });
 export type MaterialPlan = z.infer<typeof MaterialPlanSchema>;
 

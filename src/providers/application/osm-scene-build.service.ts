@@ -1,10 +1,9 @@
-import { OsmSnapshotService } from './osm-snapshot.service';
 import { OverpassAdapter, type OSMEntityData } from '../infrastructure/overpass.adapter';
+import { MapboxDemAdapter } from '../infrastructure/mapbox-dem.adapter';
 import type { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
 import type { SceneBuildRunResult } from '../../build/application/scene-build-run-result';
 import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
 import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
-import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
 import { createHash } from 'node:crypto';
 import { BunLogger } from '../../../packages/core/logger';
 
@@ -21,7 +20,13 @@ export class OsmSceneBuildService {
   constructor(
     private readonly overpass: OverpassAdapter,
     private orchestrator?: SceneBuildOrchestratorService,
+    private readonly dem?: MapboxDemAdapter,
   ) {}
+
+  static create(overpass: OverpassAdapter, mapboxToken?: string): OsmSceneBuildService {
+    const dem = mapboxToken ? new MapboxDemAdapter(mapboxToken) : undefined;
+    return new OsmSceneBuildService(overpass, undefined, dem);
+  }
 
   setOrchestrator(orchestrator: SceneBuildOrchestratorService): void {
     this.orchestrator = orchestrator;
@@ -31,12 +36,14 @@ export class OsmSceneBuildService {
     if (!this.orchestrator) throw new Error('Orchestrator not set');
 
     // Fetch each entity type separately and create per-type snapshots
-    const [buildings, roads, walkways, terrain] = await Promise.all([
-      this.overpass.queryBuildings(input.scope),
-      this.overpass.queryRoads(input.scope),
-      this.overpass.queryWalkways(input.scope),
-      this.overpass.queryTerrain(input.scope),
-    ]);
+    const buildings = await this.overpass.queryBuildings(input.scope);
+    await this.enrichElevation(buildings, input.scope.center);
+    await this.delay(200);
+    const roads = await this.overpass.queryRoads(input.scope);
+    await this.delay(200);
+    const walkways = await this.overpass.queryWalkways(input.scope);
+    await this.delay(200);
+    const terrain = await this.overpass.queryTerrain(input.scope);
 
     const snapshots: SourceSnapshot[] = [];
     const allCount = buildings.length + roads.length + walkways.length + terrain.length;
@@ -94,5 +101,27 @@ export class OsmSceneBuildService {
         policyVersion: '1.0.0',
       },
     };
+  }
+
+  private async enrichElevation(
+    entities: OSMEntityData[],
+    origin: { lat: number; lng: number },
+  ): Promise<void> {
+    if (!this.dem) return;
+    try {
+      const baseElevation = await this.dem.getElevation(origin.lat, origin.lng);
+      for (const entity of entities) {
+        if (entity.entityType === 'building') {
+          (entity.geometry as { baseY?: number }).baseY = baseElevation;
+        }
+      }
+      this.logger.info('Elevation enrichment applied', { baseElevation });
+    } catch (err) {
+      this.logger.warn('Elevation enrichment failed; using baseY=0', { error: String(err) });
+    }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

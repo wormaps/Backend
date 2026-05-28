@@ -133,9 +133,13 @@ export class OverpassAdapter {
     let geometry: Record<string, unknown>;
     switch (entityType) {
       case 'building': {
-        const height = this.parseHeight(element.tags?.height);
-        const levels = this.parseLevels(element.tags?.['building:levels']);
-        geometry = { footprint: { outer: coords }, baseY: 0, height, levels };
+        const buildingTag = element.tags?.['building'];
+        const height = this.inferHeight(
+          element.tags?.['height'],
+          element.tags?.['building:levels'],
+          buildingTag,
+        );
+        geometry = { footprint: { outer: coords }, baseY: 0, height };
         break;
       }
       case 'road':
@@ -191,5 +195,36 @@ export class OverpassAdapter {
     if (value === undefined) return undefined;
     const num = parseInt(value.trim(), 10);
     return Number.isFinite(num) && num > 0 ? num : undefined;
+  }
+
+  private inferHeight(
+    heightStr: string | undefined,
+    levelsStr: string | undefined,
+    buildingTag: string | undefined,
+  ): number {
+    const explicit = this.parseHeight(heightStr);
+    if (explicit !== undefined) return explicit;
+
+    const levels = this.parseLevels(levelsStr);
+    if (levels !== undefined) return levels * 3.5;
+
+    const typeDefaults: Record<string, number> = {
+      skyscraper: 80,
+      tower: 40,
+      office: 20,
+      commercial: 8,
+      retail: 5,
+      industrial: 7,
+      warehouse: 6,
+      residential: 9,
+      apartments: 12,
+      house: 6,
+      detached: 6,
+      church: 14,
+      school: 8,
+      hotel: 18,
+      yes: 8,
+    };
+    return typeDefaults[buildingTag ?? 'yes'] ?? 8;
   }
 }

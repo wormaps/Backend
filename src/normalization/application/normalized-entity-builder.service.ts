@@ -13,7 +13,8 @@ type OSMFeaturePayload = {
 
 export class NormalizedEntityBuilderService {
   build(sceneId: string, snapshotBundleId: string, snapshots: SourceSnapshot[]): NormalizedEntityBundle {
-    const entities: NormalizedEntity[] = snapshots.flatMap((snapshot) => this.normalizeSnapshot(snapshot));
+    const raw: NormalizedEntity[] = snapshots.flatMap((snapshot) => this.normalizeSnapshot(snapshot));
+    const entities = this.deduplicateBuildings(raw);
 
     return {
       id: `normalized:${sceneId}:${snapshotBundleId}`,
@@ -24,6 +25,27 @@ export class NormalizedEntityBuilderService {
       generatedAt: new Date(0).toISOString(),
       normalizationVersion: 'normalization.v1',
     };
+  }
+
+  private deduplicateBuildings(entities: NormalizedEntity[]): NormalizedEntity[] {
+    const seen: Array<{ x: number; z: number }> = [];
+    const threshold = 2.0; // metres
+    return entities.filter((entity) => {
+      if (entity.type !== 'building') return true;
+      if (entity.geometry?.kind !== 'building') return true;
+      const outer = entity.geometry.footprint.outer;
+      if (outer.length === 0) return true;
+      const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
+      const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
+      const duplicate = seen.some((s) => {
+        const dx = s.x - cx;
+        const dz = s.z - cz;
+        return dx * dx + dz * dz < threshold * threshold;
+      });
+      if (duplicate) return false;
+      seen.push({ x: cx, z: cz });
+      return true;
+    });
   }
 
   private normalizeSnapshot(snapshot: SourceSnapshot): NormalizedEntity[] {

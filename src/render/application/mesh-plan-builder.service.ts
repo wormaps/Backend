@@ -7,21 +7,17 @@ import type { MeshGeometry } from '../../../packages/core/geometry';
 export class MeshPlanBuilderService {
   build(graph: TwinSceneGraph, intentSet: RenderIntentSet): MeshPlan {
     const entityById = new Map(graph.entities.map((entity) => [entity.id, entity]));
-    const materials = new Map<MaterialPlan['role'], MaterialPlan>();
+    const materials = new Map<string, MaterialPlan>();
     const nodes: MeshPlanNode[] = [];
 
     for (const intent of intentSet.intents) {
       const entity = entityById.get(intent.entityId);
-      if (entity === undefined) {
-        continue;
-      }
+      if (entity === undefined) continue;
 
       const nodeSpec = this.resolveNodeSpec(entity, intent.visualMode);
-      if (nodeSpec === null) {
-        continue;
-      }
+      if (nodeSpec === null) continue;
 
-      const material = this.ensureMaterial(materials, nodeSpec.materialRole);
+      const material = this.ensureMaterial(materials, nodeSpec.materialRole, entity);
       nodes.push({
         id: `node:${entity.id}`,
         entityId: entity.id,
@@ -42,7 +38,7 @@ export class MeshPlanBuilderService {
         maxGlbBytes: 30_000_000,
         maxTriangleCount: 250_000,
         maxNodeCount: 1_500,
-        maxMaterialCount: 32,
+        maxMaterialCount: 64,
       },
     };
   }
@@ -51,9 +47,7 @@ export class MeshPlanBuilderService {
     entity: TwinEntity,
     visualMode: RenderIntentSet['intents'][number]['visualMode'],
   ): { primitive: MeshPlanNode['primitive']; materialRole: MaterialPlan['role'] } | null {
-    if (visualMode === 'excluded') {
-      return null;
-    }
+    if (visualMode === 'excluded') return null;
 
     switch (entity.type) {
       case 'terrain':
@@ -91,50 +85,108 @@ export class MeshPlanBuilderService {
   }
 
   private ensureMaterial(
-    materials: Map<MaterialPlan['role'], MaterialPlan>,
+    materials: Map<string, MaterialPlan>,
     role: MaterialPlan['role'],
+    entity: TwinEntity,
   ): MaterialPlan {
-    const existing = materials.get(role);
-    if (existing !== undefined) {
-      return existing;
-    }
+    // Buildings get per-entity color from entity ID + OSM building type.
+    // All other roles share a single material per role.
+    const key = role === 'building' ? `building:${entity.id}` : `role:${role}`;
+    const existing = materials.get(key);
+    if (existing !== undefined) return existing;
 
-    const created = {
-      id: `material:${role}`,
-      name: role,
+    const baseColor =
+      role === 'building'
+        ? this.deriveBuildingColor(entity.id, this.extractBuildingTag(entity.tags))
+        : undefined;
+
+    const created: MaterialPlan = {
+      id: `material:${key}`,
+      name: role === 'building' ? `building:${entity.id.slice(-6)}` : role,
       role,
-    } satisfies MaterialPlan;
-    materials.set(role, created);
+      baseColor,
+    };
+    materials.set(key, created);
     return created;
+  }
+
+  private extractBuildingTag(tags: string[]): string {
+    const prefix = 'osm:building=';
+    const tag = tags.find((t) => t.startsWith(prefix));
+    return tag ? tag.slice(prefix.length) : 'yes';
+  }
+
+  /** HSL hue per building type, seeded variation per entity. Linear sRGB output. */
+  private deriveBuildingColor(entityId: string, buildingTag: string): [number, number, number] {
+    const baseHues: Record<string, number> = {
+      residential: 0.06,
+      house: 0.06,
+      apartments: 0.07,
+      commercial: 0.55,
+      office: 0.58,
+      retail: 0.04,
+      industrial: 0.08,
+      warehouse: 0.09,
+      school: 0.13,
+      church: 0.10,
+      hotel: 0.60,
+      yes: 0.07,
+    };
+    const baseHue = baseHues[buildingTag] ?? 0.07;
+
+    let hash = 0;
+    for (let i = 0; i < entityId.length; i++) {
+      hash = Math.imul(31, hash) + entityId.charCodeAt(i);
+    }
+    const norm = (Math.abs(hash) % 1000) / 1000;
+
+    const hue = baseHue + (norm - 0.5) * 0.05;
+    const saturation = 0.20 + norm * 0.25;
+    const lightness = 0.50 + norm * 0.20;
+
+    return this.hslToLinearRgb(hue, saturation, lightness);
+  }
+
+  private hslToLinearRgb(h: number, s: number, l: number): [number, number, number] {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = ((h % 1) + 1) * 6;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hp < 1) { r = c; g = x; }
+    else if (hp < 2) { r = x; g = c; }
+    else if (hp < 3) { g = c; b = x; }
+    else if (hp < 4) { g = x; b = c; }
+    else if (hp < 5) { r = x; b = c; }
+    else { r = c; b = x; }
+    const m = l - c / 2;
+    return [
+      this.srgbToLinear(r + m),
+      this.srgbToLinear(g + m),
+      this.srgbToLinear(b + m),
+    ];
+  }
+
+  private srgbToLinear(v: number): number {
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   }
 
   private resolvePivot(entity: TwinEntity): MeshPlanNode['pivot'] {
     switch (entity.type) {
       case 'building': {
         const vertex = entity.geometry.footprint.outer[0];
-        return {
-          x: vertex?.x ?? 0,
-          y: entity.geometry.baseY ?? 0,
-          z: vertex?.z ?? 0,
-        };
+        return { x: vertex?.x ?? 0, y: entity.geometry.baseY ?? 0, z: vertex?.z ?? 0 };
       }
       case 'road':
       case 'walkway':
       case 'traffic_flow': {
         const point = entity.geometry.centerline[0];
-        return {
-          x: point?.x ?? 0,
-          y: point?.y ?? 0,
-          z: point?.z ?? 0,
-        };
+        return { x: point?.x ?? 0, y: point?.y ?? 0, z: point?.z ?? 0 };
       }
       case 'terrain': {
         const sample = entity.geometry.samples[0];
-        return {
-          x: sample?.x ?? 0,
-          y: sample?.y ?? 0,
-          z: sample?.z ?? 0,
-        };
+        return { x: sample?.x ?? 0, y: sample?.y ?? 0, z: sample?.z ?? 0 };
       }
       case 'poi':
       default:

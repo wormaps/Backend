@@ -108,7 +108,7 @@ describe('overpass adapter building height parsing', () => {
     expect((buildings[0]?.geometry as { levels?: number }).levels).toBeUndefined();
   });
 
-  it('parses building:levels tag into geometry.levels', async () => {
+  it('infers height from building:levels tag (levels * 3.5)', async () => {
     const adapter = new TestOverpassAdapter([
       {
         type: 'way',
@@ -124,11 +124,10 @@ describe('overpass adapter building height parsing', () => {
 
     const buildings = await adapter.queryBuildings(scope);
     expect(buildings.length).toBe(1);
-    expect((buildings[0]?.geometry as { levels?: number }).levels).toBe(5);
-    expect((buildings[0]?.geometry as { height?: number }).height).toBeUndefined();
+    expect((buildings[0]?.geometry as { height?: number }).height).toBe(17.5); // 5 * 3.5
   });
 
-  it('ignores invalid height and levels values', async () => {
+  it('uses type-based default height when height and levels are invalid', async () => {
     const adapter = new TestOverpassAdapter([
       {
         type: 'way',
@@ -144,7 +143,6 @@ describe('overpass adapter building height parsing', () => {
 
     const buildings = await adapter.queryBuildings(scope);
     expect(buildings.length).toBe(1);
-    expect((buildings[0]?.geometry as { height?: number }).height).toBeUndefined();
-    expect((buildings[0]?.geometry as { levels?: number }).levels).toBeUndefined();
+    expect((buildings[0]?.geometry as { height?: number }).height).toBe(8); // default for 'yes'
   });
 });

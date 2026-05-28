@@ -23,6 +23,7 @@ export type MaterialPlan = {
   id: string;
   name: string;
   role: 'terrain' | 'road' | 'building' | 'poi' | 'debug';
+  baseColor?: [number, number, number]; // linear RGB 0–1
 };
 
 export type MeshPlan = {

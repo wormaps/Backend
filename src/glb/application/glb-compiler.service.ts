@@ -73,6 +73,10 @@ export class GlbCompilerService {
     for (const materialPlan of input.meshPlan.materials) {
       const material = document.createMaterial(materialPlan.name);
       material.setDoubleSided(materialPlan.role === 'debug');
+      if (materialPlan.baseColor !== undefined) {
+        const [r, g, b] = materialPlan.baseColor;
+        material.setBaseColorFactor([r, g, b, 1.0]);
+      }
       materialNodeMap.set(materialPlan.id, material);
     }
 
@@ -259,32 +263,57 @@ export class GlbCompilerService {
     buffer: Buffer,
     geometry: BuildingMeshGeometry,
   ): Accessor {
-    const footprint = geometry.footprint;
+    const outer = geometry.footprint.outer;
     const baseY = geometry.baseY ?? 0;
-    const height = geometry.height ?? 3;
+    const height = geometry.height ?? 5;
+    const topY = baseY + height;
 
-    const outer = footprint.outer;
     if (outer.length < 3) {
-      return this.createPlaceholderPositions(document, buffer, 'building_massing', { x: outer[0]?.x ?? 0, y: baseY, z: outer[0]?.z ?? 0 });
+      return this.createPlaceholderPositions(document, buffer, 'building_massing', {
+        x: outer[0]?.x ?? 0,
+        y: baseY,
+        z: outer[0]?.z ?? 0,
+      });
     }
 
-    const flatVerts: number[] = [];
+    const flatXZ: number[] = [];
     for (const p of outer) {
-      flatVerts.push(p.x, p.z);
+      flatXZ.push(p.x, p.z);
     }
-
-    const triangles = earcut(flatVerts);
+    const floorTris = earcut(flatXZ);
 
     const positions: number[] = [];
-    for (let i = 0; i < triangles.length; i++) {
-      const idx = triangles[i]!;
-      const p = outer[idx]!;
-      positions.push(p.x, baseY, p.z);
-      positions.push(p.x, baseY + height, p.z);
+
+    // Floor cap
+    for (let i = 0; i < floorTris.length; i += 3) {
+      const a = outer[floorTris[i]!]!;
+      const b = outer[floorTris[i + 1]!]!;
+      const c = outer[floorTris[i + 2]!]!;
+      positions.push(a.x, baseY, a.z, b.x, baseY, b.z, c.x, baseY, c.z);
+    }
+
+    // Roof cap (reversed winding for outward normal)
+    for (let i = 0; i < floorTris.length; i += 3) {
+      const a = outer[floorTris[i]!]!;
+      const b = outer[floorTris[i + 1]!]!;
+      const c = outer[floorTris[i + 2]!]!;
+      positions.push(a.x, topY, a.z, c.x, topY, c.z, b.x, topY, b.z);
+    }
+
+    // Wall quads (two triangles per footprint edge)
+    const n = outer.length;
+    for (let j = 0; j < n; j++) {
+      const p0 = outer[j]!;
+      const p1 = outer[(j + 1) % n]!;
+      // Triangle 1: BL BR TR
+      positions.push(p0.x, baseY, p0.z, p1.x, baseY, p1.z, p1.x, topY, p1.z);
+      // Triangle 2: BL TR TL
+      positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p0.x, topY, p0.z);
     }
 
     const positionsArray = new Float32Array(positions);
-    return document.createAccessor('positions')
+    return document
+      .createAccessor('positions')
       .setArray(positionsArray as TypedArray)
       .setType('VEC3')
       .setBuffer(buffer);
