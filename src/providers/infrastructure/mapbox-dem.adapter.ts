@@ -22,15 +22,9 @@ export class MapboxDemAdapter {
   }
 
   private async decodePng(bytes: Uint8Array): Promise<Uint8Array> {
-    // pngjs is an optional peer dependency — dynamic import so missing module doesn't break build.
-    // Throws on failure so callers (enrichElevation) fall back to baseY=0 rather than -10000.
-    // @ts-expect-error pngjs types may not be installed
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    // pngjs is now a real dependency — throws on failure so callers fall back to baseY=0.
     const { PNG } = await import('pngjs');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const png = PNG.sync.read(Buffer.from(bytes));
-    // Use byteOffset + byteLength to handle Buffer pool slices correctly.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const buf = png.data as Buffer;
     return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
