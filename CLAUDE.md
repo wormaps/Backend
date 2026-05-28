@@ -1,13 +1,12 @@
+Default to using pnpm as package manager, Bun as runtime.
 
-Default to using Bun instead of Node.js.
-
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
+- Use `pnpm install` instead of `npm install`, `yarn install`, or `bun install`
+- Use `pnpm run <script>` instead of `npm run` or `bun run`
+- Use `pnpm test` instead of `npm test` (calls bun test internally)
+- Use `pnpm add <package>` to add dependencies
+- Use `pnpm dlx <package>` instead of `npx` or `bunx`
 - Bun automatically loads .env, so don't use dotenv.
+- Scripts still run via Bun (`bun --hot`, `bun test`) — pnpm is only the package manager.
 
 ## APIs
 
@@ -49,7 +48,6 @@ Bun.serve({
       },
     },
   },
-  // optional websocket support
   websocket: {
     open: (ws) => {
       ws.send("Hello, world!");
@@ -58,7 +56,6 @@ Bun.serve({
       ws.send(message);
     },
     close: (ws) => {
-      // handle close
     }
   },
   development: {
@@ -85,7 +82,6 @@ With the following `frontend.tsx`:
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// import .css files directly and it works
 import './index.css';
 
 const root = createRoot(document.body);

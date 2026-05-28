@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { baselineFixtures, adversarialFixtures } from '../../fixtures/phase2';
+import { baselineFixtures, adversarialFixtures } from '../../fixtures';
 import type { RenderIntent } from '../../packages/contracts/render-intent';
 import type { MaterialPlan, MeshPlanNode } from '../../packages/contracts/mesh-plan';
 import { createWorMapMvpApp } from '../../src/main';

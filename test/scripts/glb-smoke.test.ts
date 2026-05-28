@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { NodeIO } from '@gltf-transform/core';
 import { createWorMapMvpApp } from '../../src/main';
-import { baselineFixtures } from '../../fixtures/phase2';
+import { baselineFixtures } from '../../fixtures';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

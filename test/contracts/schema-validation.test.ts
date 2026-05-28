@@ -13,7 +13,7 @@ import {
   validateProviderBudgetPolicy,
 } from '../../packages/contracts/validate';
 import { SCHEMA_VERSION_SET_V1 } from '../../packages/core/schemas';
-import { snapshot, defaultScope } from '../../fixtures/phase2/shared';
+import { snapshot, defaultScope } from '../../fixtures/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers: minimal valid fixtures for schemas without existing fixtures

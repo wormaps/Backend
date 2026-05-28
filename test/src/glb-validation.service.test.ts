@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { baselineFixtures } from '../../fixtures/phase2';
+import { baselineFixtures } from '../../fixtures';
 import { GlbValidationService } from '../../src/glb/application/glb-validation.service';
 import { createWorMapMvpApp } from '../../src/main';
 

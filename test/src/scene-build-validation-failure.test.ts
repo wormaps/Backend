@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { baselineFixtures } from '../../fixtures/phase2';
+import { baselineFixtures } from '../../fixtures';
 import { BuildManifestFactory } from '../../src/build/application/build-manifest.factory';
 import { SceneBuildOrchestratorService } from '../../src/build/application/scene-build-orchestrator.service';
 import { glbModule } from '../../src/glb/glb.module';

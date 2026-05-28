@@ -5,10 +5,13 @@
   "scripts": {
     "start": "bun run src/main.ts",
     "dev": "bun --hot src/main.ts",
+    "start:debug": "bun --hot src/main.ts",
     "type-check": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun run type-check"
   },
   "devDependencies": {
+    "@nestjs/testing": "^11.1.24",
     "@types/bun": "latest",
     "@types/earcut": "^3.0.0",
     "@types/express": "^5.0.6",
@@ -19,18 +22,19 @@
   },
   "dependencies": {
     "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
     "@gltf-transform/functions": "^4.3.0",
     "@nestjs/common": "^11.1.24",
     "@nestjs/core": "^11.1.24",
     "@nestjs/platform-express": "^11.1.24",
-    "@types/three": "^0.184.0",
+    "@types/three": "^0.184.1",
     "earcut": "^3.0.2",
-    "gltf-validator": "^2.0.0-dev.3.10",
+    "gltf-validator": "2.0.0-dev.3.10",
     "meshoptimizer": "^1.1.1",
     "pngjs": "^7.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "three": "^0.184.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   }
 }
