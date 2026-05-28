@@ -1,5 +1,5 @@
-import type { SourceProvider, SourceSnapshot } from '../../packages/contracts/source-snapshot';
-import type { SceneScope } from '../../packages/contracts/twin-scene-graph';
+import type { SourceProvider, SourceSnapshot } from '../packages/contracts/source-snapshot';
+import type { SceneScope } from '../packages/contracts/twin-scene-graph';
 
 export const defaultScope: SceneScope = {
   center: { lat: 37.4979, lng: 127.0276 },

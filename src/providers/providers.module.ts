@@ -25,12 +25,17 @@ export const providersModule = {
   },
 } as const;
 
-export function validateProviderApiKeys(): void {
+export function validateProviderApiKeys(options?: { strict?: boolean }): void {
   const missing: string[] = [];
   if (!googleApiKey) missing.push('GOOGLE_API_KEY');
   if (!tomtomApiKey) missing.push('TOMTOM_API_KEY');
 
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variable(s): ${missing.join(', ')}`);
+    const message = `Missing required environment variable(s): ${missing.join(', ')}`;
+    if (options?.strict ?? true) {
+      throw new Error(message);
+    }
+    // eslint-disable-next-line no-console
+    console.warn(message);
   }
 }
