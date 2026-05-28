@@ -1,8 +1,8 @@
-import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
-import type { MaterialPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
-import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
-import type { TwinEntity, TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
-import type { MeshGeometry } from '../../../packages/core/geometry';
+import type { MeshPlan } from '../../shared/contracts/mesh-plan';
+import type { MaterialPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
+import type { RenderIntentSet } from '../../shared/contracts/render-intent';
+import type { TwinEntity, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
+import type { MeshGeometry } from '../../shared/core/geometry';
 
 export class MeshPlanBuilderService {
   build(graph: TwinSceneGraph, intentSet: RenderIntentSet): MeshPlan {

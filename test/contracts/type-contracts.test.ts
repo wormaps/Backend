@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { SourceSnapshot } from '../../packages/contracts/source-snapshot';
-import type { RenderIntentSet } from '../../packages/contracts/render-intent';
-import type { SceneBuildManifest } from '../../packages/contracts/manifest';
-import type { TwinSceneGraph } from '../../packages/contracts/twin-scene-graph';
-import { SCHEMA_VERSION_SET_V1 } from '../../packages/core/schemas';
+import type { SourceSnapshot } from '../../src/shared/contracts/source-snapshot';
+import type { RenderIntentSet } from '../../src/shared/contracts/render-intent';
+import type { SceneBuildManifest } from '../../src/shared/contracts/manifest';
+import type { TwinSceneGraph } from '../../src/shared/contracts/twin-scene-graph';
+import { SCHEMA_VERSION_SET_V1 } from '../../src/shared/core/schemas';
 
 describe('public contract shapes', () => {
   it('allows a metadata-only SourceSnapshot without raw payload', () => {

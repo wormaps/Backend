@@ -1,6 +1,6 @@
-import type { SceneBuildManifest } from '../../../packages/contracts/manifest';
-import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
-import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
+import type { SceneBuildManifest } from '../../shared/contracts/manifest';
+import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
+import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
 import type { GlbCompilerService } from '../../glb/application/glb-compiler.service';
 import type { GlbValidationService } from '../../glb/application/glb-validation.service';
 import type { NormalizedEntityBuilderService } from '../../normalization/application/normalized-entity-builder.service';
@@ -13,7 +13,6 @@ import type { TwinGraphBuilderService } from '../../twin/application/twin-graph-
 import { BuildManifestFactory } from './build-manifest.factory';
 import type { SceneBuildRunResult } from './scene-build-run-result';
 import { SceneBuildAggregate } from '../domain/scene-build.aggregate';
-import { BunLogger } from '../../../packages/core/logger';
 
 const buildCoordinateSystem = (scope: SceneScope): SceneBuildManifest['coordinateSystem'] => ({
   source: 'WGS84' as const,
@@ -32,8 +31,7 @@ export type SceneBuildMvpInput = {
 };
 
 export class SceneBuildOrchestratorService {
-  private readonly logger = new BunLogger({ level: 'info', service: 'scene-build-orchestrator' });
-
+  private readonly logger = console;
   constructor(
     private readonly snapshotCollector: SnapshotCollectorService,
     private readonly normalizedEntityBuilder: NormalizedEntityBuilderService,

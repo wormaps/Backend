@@ -1,6 +1,6 @@
-import type { RenderIntent } from '../../../packages/contracts/render-intent';
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { RealityTier, TwinSceneGraphMetadata } from '../../../packages/contracts/twin-scene-graph';
+import type { RenderIntent } from '../../shared/contracts/render-intent';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { RealityTier, TwinSceneGraphMetadata } from '../../shared/contracts/twin-scene-graph';
 
 export class RealityTierResolverService {
   resolveInitial(metadata: TwinSceneGraphMetadata): RealityTier {

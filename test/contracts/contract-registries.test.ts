@@ -5,12 +5,12 @@ import {
   isRegisteredQaIssueCode,
   QA_ISSUE_CODES,
   QA_ISSUE_CODE_PREFIXES,
-} from '../../packages/contracts/qa';
+} from '../../src/shared/contracts/qa';
 import {
   isSceneBuildState,
   SCENE_BUILD_STATES,
-} from '../../packages/contracts/manifest';
-import { SCHEMA_VERSION_SET_V1 } from '../../packages/core/schemas';
+} from '../../src/shared/contracts/manifest';
+import { SCHEMA_VERSION_SET_V1 } from '../../src/shared/core/schemas';
 
 describe('contract registries', () => {
   it('keeps QA issue codes namespace-based', () => {

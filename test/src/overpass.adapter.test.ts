@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { SceneScope } from '../../packages/contracts/twin-scene-graph';
+import type { SceneScope } from '../../src/shared/contracts/twin-scene-graph';
 import { OverpassAdapter, type OverpassElement } from '../../src/providers/infrastructure/overpass.adapter';
 
 class TestOverpassAdapter extends OverpassAdapter {

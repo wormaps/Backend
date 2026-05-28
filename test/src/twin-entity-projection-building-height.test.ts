@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 
 import { TwinEntityProjectionService } from '../../src/twin/application/twin-entity-projection.service';
-import type { NormalizedEntityBundle } from '../../packages/contracts/normalized-entity';
-import type { TwinBuildingEntity } from '../../packages/contracts/twin-scene-graph';
-import type { BuildingMeshGeometry } from '../../packages/core/geometry';
+import type { NormalizedEntityBundle } from '../../src/shared/contracts/normalized-entity';
+import type { TwinBuildingEntity } from '../../src/shared/contracts/twin-scene-graph';
+import type { BuildingMeshGeometry } from '../../src/shared/core/geometry';
 
 function createBuildingEntity(geometry: BuildingMeshGeometry): NormalizedEntityBundle['entities'][number] {
   return {

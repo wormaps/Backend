@@ -1,10 +1,10 @@
-import type { EvidenceGraph } from '../../../packages/contracts/evidence-graph';
-import type { SceneBuildManifest, SceneBuildState } from '../../../packages/contracts/manifest';
-import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
-import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
-import type { RealityTier, TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
+import type { EvidenceGraph } from '../../shared/contracts/evidence-graph';
+import type { SceneBuildManifest, SceneBuildState } from '../../shared/contracts/manifest';
+import type { MeshPlan } from '../../shared/contracts/mesh-plan';
+import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { RenderIntentSet } from '../../shared/contracts/render-intent';
+import type { RealityTier, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
 import type { GlbArtifact } from '../../glb/application/glb-compiler.service';
 import type { GlbValidationResult } from '../../glb/application/glb-validation.service';
 import type { Result } from '../../shared';

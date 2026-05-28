@@ -3,19 +3,18 @@ import { Buffer, Document, NodeIO, type Accessor } from '@gltf-transform/core';
 import { EXTMeshoptCompression } from '@gltf-transform/extensions';
 import earcut from 'earcut';
 
-import type { MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
-import type { QaSummary, WorMapGltfMetadataExport } from '../../../packages/contracts/manifest';
-import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
+import type { MeshPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
+import type { QaSummary, WorMapGltfMetadataExport } from '../../shared/contracts/manifest';
+import type { RealityTier } from '../../shared/contracts/twin-scene-graph';
 import type {
   BuildingMeshGeometry,
   MeshGeometry,
   RoadMeshGeometry,
   WalkwayMeshGeometry,
-} from '../../../packages/core/geometry';
-import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
+} from '../../shared/core/geometry';
+import { SCHEMA_VERSION_SET_V1 } from '../../shared/core/schemas';
 import { GltfMetadataFactory } from './gltf-metadata.factory';
 import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from './glb-artifact-hash';
-import { BunLogger } from '../../../packages/core/logger';
 
 export type GlbArtifact = {
   sceneId: string;
@@ -42,8 +41,7 @@ export type CompileGlbInput = {
 };
 
 export class GlbCompilerService {
-  private readonly logger = new BunLogger({ level: 'info', service: 'glb-compiler' });
-
+  private readonly logger = console;
   constructor(private readonly metadataFactory = new GltfMetadataFactory()) {}
 
   async compile(input: CompileGlbInput): Promise<GlbArtifact> {

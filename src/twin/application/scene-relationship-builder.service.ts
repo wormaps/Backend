@@ -1,4 +1,4 @@
-import type { SceneRelationship, TwinEntity } from '../../../packages/contracts/twin-scene-graph';
+import type { SceneRelationship, TwinEntity } from '../../shared/contracts/twin-scene-graph';
 
 export class SceneRelationshipBuilderService {
   build(entities: TwinEntity[]): SceneRelationship[] {

@@ -1,5 +1,5 @@
-import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
-import type { TwinEntity, TwinEntityType } from '../../../packages/contracts/twin-scene-graph';
+import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
+import type { TwinEntity, TwinEntityType } from '../../shared/contracts/twin-scene-graph';
 
 export class TwinEntityProjectionService {
   project(bundle: NormalizedEntityBundle): TwinEntity[] {

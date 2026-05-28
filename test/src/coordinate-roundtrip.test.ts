@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { wgs84ToEnu, enuToWgs84, roundtripErrorMeters } from '../../packages/core/coordinates';
+import { wgs84ToEnu, enuToWgs84, roundtripErrorMeters } from '../../src/shared/core/coordinates';
 
 const MAX_ROUNDTRIP_ERROR_M = 0.05;
 

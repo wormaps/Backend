@@ -11,8 +11,8 @@ import {
   validateSceneBuildManifest,
   validateSchemaVersionSet,
   validateProviderBudgetPolicy,
-} from '../../packages/contracts/validate';
-import { SCHEMA_VERSION_SET_V1 } from '../../packages/core/schemas';
+} from '../../src/shared/contracts/validate';
+import { SCHEMA_VERSION_SET_V1 } from '../../src/shared/core/schemas';
 import { snapshot, defaultScope } from '../../fixtures/shared';
 
 // ---------------------------------------------------------------------------

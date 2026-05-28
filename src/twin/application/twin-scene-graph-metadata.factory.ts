@@ -1,5 +1,5 @@
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { TwinEntity, TwinSceneGraphMetadata } from '../../../packages/contracts/twin-scene-graph';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { TwinEntity, TwinSceneGraphMetadata } from '../../shared/contracts/twin-scene-graph';
 import type { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
 
 export class TwinSceneGraphMetadataFactory {

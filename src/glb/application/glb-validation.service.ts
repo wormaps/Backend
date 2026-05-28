@@ -1,6 +1,6 @@
-import type { SceneBuildManifest, QaSummary } from '../../../packages/contracts/manifest';
-import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../../packages/contracts/mesh-plan';
-import type { QaIssue } from '../../../packages/contracts/qa';
+import type { SceneBuildManifest, QaSummary } from '../../shared/contracts/manifest';
+import type { MaterialPlan, MeshPlan, MeshPlanNode } from '../../shared/contracts/mesh-plan';
+import type { QaIssue } from '../../shared/contracts/qa';
 import type { GlbArtifact } from './glb-compiler.service';
 import { Document, NodeIO } from '@gltf-transform/core';
 import { createHash } from 'node:crypto';

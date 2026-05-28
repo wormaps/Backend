@@ -1,4 +1,4 @@
-import type { SceneBuildManifest, SceneBuildState } from '../../../packages/contracts/manifest';
+import type { SceneBuildManifest, SceneBuildState } from '../../shared/contracts/manifest';
 
 const ALLOWED_TRANSITIONS: Record<SceneBuildState, SceneBuildState[]> = {
   REQUESTED: ['SNAPSHOT_COLLECTING', 'CANCELLED'],

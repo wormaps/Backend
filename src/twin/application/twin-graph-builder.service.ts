@@ -1,8 +1,8 @@
-import type { EvidenceGraph } from '../../../packages/contracts/evidence-graph';
-import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
-import type { TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
-import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
-import { validateTwinSceneGraph } from '../../../packages/contracts/validate';
+import type { EvidenceGraph } from '../../shared/contracts/evidence-graph';
+import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
+import type { TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
+import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
+import { validateTwinSceneGraph } from '../../shared/contracts/validate';
 import { SceneRelationshipBuilderService } from './scene-relationship-builder.service';
 import { TwinEntityProjectionService } from './twin-entity-projection.service';
 import { TwinGraphValidationService } from './twin-graph-validation.service';

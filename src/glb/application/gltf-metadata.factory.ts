@@ -6,10 +6,10 @@ import type {
   WorMapGltfExtras,
   WorMapGltfMetadataExport,
   WorMapGltfSidecar,
-} from '../../../packages/contracts/manifest';
-import type { GlbMeshSummary } from '../../../packages/contracts/manifest';
-import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
-import type { SchemaVersionSet } from '../../../packages/core/schemas';
+} from '../../shared/contracts/manifest';
+import type { GlbMeshSummary } from '../../shared/contracts/manifest';
+import type { RealityTier } from '../../shared/contracts/twin-scene-graph';
+import type { SchemaVersionSet } from '../../shared/core/schemas';
 
 export type GltfMetadataInput = {
   sceneId: string;

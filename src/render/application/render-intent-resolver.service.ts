@@ -1,5 +1,5 @@
-import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
-import type { TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
+import type { RenderIntentSet } from '../../shared/contracts/render-intent';
+import type { TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
 import type { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
 import type { RenderIntentPolicyService } from './render-intent-policy.service';
 

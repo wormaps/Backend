@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 
 import { baselineFixtures, adversarialFixtures } from '../../fixtures';
-import type { RenderIntent } from '../../packages/contracts/render-intent';
-import type { MaterialPlan, MeshPlanNode } from '../../packages/contracts/mesh-plan';
+import type { RenderIntent } from '../../src/shared/contracts/render-intent';
+import type { MaterialPlan, MeshPlanNode } from '../../src/shared/contracts/mesh-plan';
 import { createWorMapMvpApp } from '../../src/main';
-import type { QaIssue } from '../../packages/contracts/qa';
-import type { SceneRelationship } from '../../packages/contracts/twin-scene-graph';
+import type { QaIssue } from '../../src/shared/contracts/qa';
+import type { SceneRelationship } from '../../src/shared/contracts/twin-scene-graph';
 
 function issueDistribution(issues: QaIssue[]) {
   return issues.reduce<Record<string, number>>((distribution, issue) => {

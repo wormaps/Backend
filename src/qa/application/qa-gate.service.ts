@@ -1,7 +1,7 @@
-import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { RenderIntent, RenderIntentSet } from '../../../packages/contracts/render-intent';
-import type { RealityTier, TwinSceneGraph } from '../../../packages/contracts/twin-scene-graph';
+import type { MeshPlan } from '../../shared/contracts/mesh-plan';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { RenderIntent, RenderIntentSet } from '../../shared/contracts/render-intent';
+import type { RealityTier, TwinSceneGraph } from '../../shared/contracts/twin-scene-graph';
 import type { RealityTierResolverService } from '../../reality/application/reality-tier-resolver.service';
 
 export type QaGateInput = {

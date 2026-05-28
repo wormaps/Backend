@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { RenderIntentSet } from '../../packages/contracts/render-intent';
-import type { TwinSceneGraph } from '../../packages/contracts/twin-scene-graph';
+import type { RenderIntentSet } from '../../src/shared/contracts/render-intent';
+import type { TwinSceneGraph } from '../../src/shared/contracts/twin-scene-graph';
 import { MeshPlanBuilderService } from '../../src/render/application/mesh-plan-builder.service';
 
 function makeGraph(): TwinSceneGraph {

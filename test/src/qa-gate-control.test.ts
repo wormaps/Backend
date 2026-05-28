@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { QaIssue } from '../../packages/contracts/qa';
-import type { RenderIntentSet } from '../../packages/contracts/render-intent';
-import type { TwinSceneGraph } from '../../packages/contracts/twin-scene-graph';
+import type { QaIssue } from '../../src/shared/contracts/qa';
+import type { RenderIntentSet } from '../../src/shared/contracts/render-intent';
+import type { TwinSceneGraph } from '../../src/shared/contracts/twin-scene-graph';
 import { QaGateService } from '../../src/qa/application/qa-gate.service';
 import { RealityTierResolverService } from '../../src/reality/application/reality-tier-resolver.service';
 

@@ -1,10 +1,10 @@
-import type { QaSummary, SceneBuildManifest, SceneBuildState } from '../../../packages/contracts/manifest';
-import type { MeshPlan } from '../../../packages/contracts/mesh-plan';
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { RenderIntentSet } from '../../../packages/contracts/render-intent';
-import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
-import type { RealityTier } from '../../../packages/contracts/twin-scene-graph';
-import { SCHEMA_VERSION_SET_V1 } from '../../../packages/core/schemas';
+import type { QaSummary, SceneBuildManifest, SceneBuildState } from '../../shared/contracts/manifest';
+import type { MeshPlan } from '../../shared/contracts/mesh-plan';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { RenderIntentSet } from '../../shared/contracts/render-intent';
+import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
+import type { RealityTier } from '../../shared/contracts/twin-scene-graph';
+import { SCHEMA_VERSION_SET_V1 } from '../../shared/core/schemas';
 import type { GlbArtifact } from '../../glb/application/glb-compiler.service';
 
 export type BuildManifestInput = {

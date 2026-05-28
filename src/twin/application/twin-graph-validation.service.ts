@@ -1,6 +1,6 @@
-import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { SceneRelationship } from '../../../packages/contracts/twin-scene-graph';
+import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { SceneRelationship } from '../../shared/contracts/twin-scene-graph';
 
 export class TwinGraphValidationService {
   validate(normalizedBundle: NormalizedEntityBundle, relationships: SceneRelationship[]): QaIssue[] {

@@ -1,5 +1,5 @@
-import type { EvidenceGraph } from '../../../packages/contracts/evidence-graph';
-import type { NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
+import type { EvidenceGraph } from '../../shared/contracts/evidence-graph';
+import type { NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
 
 export class EvidenceGraphBuilderService {
   build(normalizedBundle: NormalizedEntityBundle): EvidenceGraph {

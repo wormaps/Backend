@@ -126,7 +126,7 @@ git commit -m "chore: migrate package manager to pnpm, enable NestJS decorator m
 
 > 이 태스크는 **파일 이동만**. import 경로 업데이트는 Task 3에서.
 
-- [ ] **Step 1: src/shared/contracts/ 생성 및 파일 복사**
+- [X] **Step 1: src/shared/contracts/ 생성 및 파일 복사**
 
 ```bash
 cp -r /Users/user/wormapb/packages/contracts/* /Users/user/wormapb/src/shared/contracts/
@@ -155,7 +155,7 @@ src/shared/contracts/
   index.ts
 ```
 
-- [ ] **Step 2: src/shared/core/ 생성 및 파일 복사 (logger/ 제외)**
+- [X] **Step 2: src/shared/core/ 생성 및 파일 복사 (logger/ 제외)**
 
 ```bash
 mkdir -p /Users/user/wormapb/src/shared/core
@@ -177,7 +177,7 @@ export * from './schemas';
 // export * from './logger';  ← 이 줄 있으면 제거
 ```
 
-- [ ] **Step 3: src/shared/index.ts 업데이트**
+- [X] **Step 3: src/shared/index.ts 업데이트**
 
 ```typescript
 // src/shared/index.ts
@@ -210,7 +210,7 @@ grep -r "from '.*packages/" /Users/user/wormapb/src --include="*.ts" -l
 grep -r "from '.*packages/" /Users/user/wormapb/test --include="*.ts" -l
 ```
 
-- [ ] **Step 2: contracts import 경로 변환 규칙**
+- [X] **Step 2: contracts import 경로 변환 규칙**
 
 각 파일에서 `packages/contracts/X` 참조를 상대경로로 변환.
 깊이별 변환 예시:
@@ -223,14 +223,14 @@ grep -r "from '.*packages/" /Users/user/wormapb/test --include="*.ts" -l
 
 패턴: `src/<domain>/application/` 에서 `shared/`까지는 항상 `../../shared/`.
 
-- [ ] **Step 3: core import 경로 변환**
+- [X] **Step 3: core import 경로 변환**
 
 | 파일 위치 | 기존 | 변환 후 |
 |---|---|---|
 | `src/glb/application/*.ts` | `../../../packages/core/geometry` | `../../shared/core/geometry` |
 | `src/render/application/*.ts` | `../../../packages/core/geometry` | `../../shared/core/geometry` |
 
-- [ ] **Step 4: BunLogger import 제거 (교체 없이 제거만)**
+- [X] **Step 4: BunLogger import 제거 (교체 없이 제거만)**
 
 ```bash
 grep -r "BunLogger" /Users/user/wormapb/src --include="*.ts" -l
@@ -246,7 +246,7 @@ import { BunLogger } from '../../shared/core/logger';
 private readonly logger = new BunLogger({ level: 'info', service: 'xxx' });
 ```
 
-- [ ] **Step 5: test/ 파일 contracts/core import 업데이트**
+- [X] **Step 5: test/ 파일 contracts/core import 업데이트**
 
 ```typescript
 // 기존 (test 파일에서)
@@ -255,7 +255,7 @@ import { ... } from '../../packages/contracts/manifest';
 import { ... } from '../../src/shared/contracts/manifest';
 ```
 
-- [ ] **Step 6: type-check 실행하여 누락 경로 확인**
+- [X] **Step 6: type-check 실행하여 누락 경로 확인**
 
 ```bash
 pnpm run type-check 2>&1 | head -50

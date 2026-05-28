@@ -1,5 +1,5 @@
-import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
-import type { QaIssue } from '../../../packages/contracts/qa';
+import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
+import type { QaIssue } from '../../shared/contracts/qa';
 import { err, ok, type Result } from '../../shared';
 
 export type SnapshotCollection = {

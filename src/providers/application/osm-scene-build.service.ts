@@ -2,10 +2,9 @@ import { OverpassAdapter, type OSMEntityData } from '../infrastructure/overpass.
 import { MapboxDemAdapter } from '../infrastructure/mapbox-dem.adapter';
 import type { SceneBuildOrchestratorService } from '../../build/application/scene-build-orchestrator.service';
 import type { SceneBuildRunResult } from '../../build/application/scene-build-run-result';
-import type { SceneScope } from '../../../packages/contracts/twin-scene-graph';
-import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
+import type { SceneScope } from '../../shared/contracts/twin-scene-graph';
+import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
 import { createHash } from 'node:crypto';
-import { BunLogger } from '../../../packages/core/logger';
 
 export type OsmSceneBuildInput = {
   sceneId: string;
@@ -15,8 +14,7 @@ export type OsmSceneBuildInput = {
 };
 
 export class OsmSceneBuildService {
-  private readonly logger = new BunLogger({ level: 'info', service: 'osm-scene-build' });
-
+  private readonly logger = console;
   constructor(
     private readonly overpass: OverpassAdapter,
     private orchestrator?: SceneBuildOrchestratorService,

@@ -1,8 +1,8 @@
-import type { NormalizedEntity, NormalizedEntityBundle } from '../../../packages/contracts/normalized-entity';
-import type { QaIssue } from '../../../packages/contracts/qa';
-import type { SourceSnapshot } from '../../../packages/contracts/source-snapshot';
-import type { TwinEntityType } from '../../../packages/contracts/twin-scene-graph';
-import type { MeshGeometry } from '../../../packages/core/geometry';
+import type { NormalizedEntity, NormalizedEntityBundle } from '../../shared/contracts/normalized-entity';
+import type { QaIssue } from '../../shared/contracts/qa';
+import type { SourceSnapshot } from '../../shared/contracts/source-snapshot';
+import type { TwinEntityType } from '../../shared/contracts/twin-scene-graph';
+import type { MeshGeometry } from '../../shared/core/geometry';
 
 type OSMFeaturePayload = {
   id: string;
