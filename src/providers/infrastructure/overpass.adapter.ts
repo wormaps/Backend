@@ -28,8 +28,9 @@ export type OSMEntityData = {
 @Injectable()
 export class OverpassAdapter {
   private readonly logger = new Logger(OverpassAdapter.name);
+  private readonly apiUrl = 'https://overpass-api.de/api/interpreter';
 
-  constructor(private readonly apiUrl: string = 'https://overpass-api.de/api/interpreter') {}
+  constructor() {}
 
   async queryBuildings(scope: SceneScope): Promise<OSMEntityData[]> {
     const bbox = this.scopeToBbox(scope);

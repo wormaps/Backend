@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { Body, Controller, Get, HttpCode, InternalServerErrorException, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
@@ -34,7 +31,6 @@ export class BuildController {
         '/health': 'Health check',
         '/api/build': 'POST - Build GLB from OSM data',
         '/api': 'GET - This documentation',
-        '/': 'GET - Test page',
       },
       buildEndpoint: {
         method: 'POST',
@@ -108,12 +104,5 @@ export class BuildController {
     res.setHeader('Content-Disposition', `attachment; filename="${latest.sceneId}.glb"`);
     res.setHeader('Content-Length', latest.bytes.byteLength.toString());
     res.status(200).send(Buffer.from(latest.bytes));
-  }
-
-  @Get('/')
-  root(@Res() res: Response) {
-    const html = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8');
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.status(200).send(html);
   }
 }

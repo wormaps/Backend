@@ -17,15 +17,16 @@ export type OsmSceneBuildInput = {
 @Injectable()
 export class OsmSceneBuildService {
   private readonly logger = new Logger(OsmSceneBuildService.name);
+  private orchestrator?: SceneBuildOrchestratorService;
+
   constructor(
     private readonly overpass: OverpassAdapter = new OverpassAdapter(),
-    private orchestrator?: SceneBuildOrchestratorService,
     private readonly dem?: MapboxDemAdapter,
   ) {}
 
   static create(overpass: OverpassAdapter, mapboxToken?: string): OsmSceneBuildService {
-    const dem = mapboxToken ? new MapboxDemAdapter(mapboxToken) : undefined;
-    return new OsmSceneBuildService(overpass, undefined, dem);
+    const dem = mapboxToken ? new MapboxDemAdapter().withToken(mapboxToken) : undefined;
+    return new OsmSceneBuildService(overpass, dem);
   }
 
   setOrchestrator(orchestrator: SceneBuildOrchestratorService): void {

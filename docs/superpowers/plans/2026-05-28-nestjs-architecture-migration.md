@@ -880,7 +880,7 @@ git commit -m "refactor: convert BuildModule to NestJS @Module, absorb QaGateSer
 - Create: `src/api/build.gateway.service.ts` (src/http/에서 이동)
 - Delete: `src/index.html`
 
-- [ ] **Step 1: src/api/ 디렉토리 생성 및 파일 이동**
+- [X] **Step 1: src/api/ 디렉토리 생성 및 파일 이동**
 
 ```bash
 mkdir /Users/user/wormapb/src/api
@@ -888,7 +888,7 @@ cp /Users/user/wormapb/src/http/build.controller.ts /Users/user/wormapb/src/api/
 cp /Users/user/wormapb/src/http/build.gateway.service.ts /Users/user/wormapb/src/api/build.gateway.service.ts
 ```
 
-- [ ] **Step 2: build.gateway.service.ts — NestJS DI로 재작성**
+- [X] **Step 2: build.gateway.service.ts — NestJS DI로 재작성**
 
 현재 `appModule.services.sceneBuildOrchestrator` 수동 참조를 생성자 주입으로 교체:
 
@@ -931,7 +931,7 @@ export class BuildGatewayService {
 
 > 주의: `this.orchestrator.run()`에 전달하는 `SceneBuildMvpInput` 구성 로직은 기존 gateway에서 그대로 복사. lat/lng/radius → scope 변환 로직 유지.
 
-- [ ] **Step 3: build.controller.ts — SPA 라우트 제거 + import 경로 수정**
+- [X] **Step 3: build.controller.ts — SPA 라우트 제거 + import 경로 수정**
 
 ```typescript
 // src/api/build.controller.ts
@@ -977,7 +977,7 @@ export class BuildController {
 }
 ```
 
-- [ ] **Step 4: api.module.ts 생성**
+- [X] **Step 4: api.module.ts 생성**
 
 ```typescript
 // src/api/api.module.ts
@@ -995,13 +995,13 @@ import { BuildGatewayService } from './build.gateway.service';
 export class ApiModule {}
 ```
 
-- [ ] **Step 5: src/index.html 삭제**
+- [X] **Step 5: src/index.html 삭제**
 
 ```bash
 rm /Users/user/wormapb/src/index.html
 ```
 
-- [ ] **Step 6: type-check**
+- [X] **Step 6: type-check**
 
 ```bash
 pnpm run type-check 2>&1 | grep "api\|http\|gateway\|controller" | head -30
@@ -1023,7 +1023,7 @@ git commit -m "refactor: rename http/ to api/, convert to NestJS @Module, remove
 - Modify: `src/main.ts`
 - Delete: `src/core/create-wormap-app.ts` (Bun factory 잔재)
 
-- [ ] **Step 1: app.module.ts 완전 재작성**
+- [X] **Step 1: app.module.ts 완전 재작성**
 
 ```typescript
 // src/app.module.ts
@@ -1037,7 +1037,7 @@ import { ApiModule } from './api/api.module';
 export class AppModule {}
 ```
 
-- [ ] **Step 2: main.ts 재작성**
+- [X] **Step 2: main.ts 재작성**
 
 ```typescript
 // src/main.ts
@@ -1063,13 +1063,13 @@ async function bootstrap(): Promise<void> {
 void bootstrap();
 ```
 
-- [ ] **Step 3: src/core/ 삭제**
+- [X] **Step 3: src/core/ 삭제**
 
 ```bash
 rm -rf /Users/user/wormapb/src/core
 ```
 
-- [ ] **Step 4: 전체 type-check**
+- [X] **Step 4: 전체 type-check**
 
 ```bash
 pnpm run type-check 2>&1 | head -50
@@ -1252,7 +1252,7 @@ describe('scene build — validation failure', () => {
 });
 ```
 
-- [X] **Step 6: 테스트 실행**
+- [ ] **Step 6: 테스트 실행**
 
 ```bash
 pnpm test 2>&1 | tail -30
@@ -1277,7 +1277,7 @@ git commit -m "test: rewrite tests for NestJS DI testing module pattern"
 - Delete: `src/qa/` (build/로 통합)
 - Delete: `src/reality/` (twin/로 통합)
 
-- [ ] **Step 1: 사용하지 않는 디렉토리 삭제**
+- [X] **Step 1: 사용하지 않는 디렉토리 삭제**
 
 ```bash
 rm -rf /Users/user/wormapb/packages
@@ -1286,7 +1286,7 @@ rm -rf /Users/user/wormapb/src/qa
 rm -rf /Users/user/wormapb/src/reality
 ```
 
-- [ ] **Step 2: 남은 BunLogger 참조 없는지 확인**
+- [X] **Step 2: 남은 BunLogger 참조 없는지 확인**
 
 ```bash
 grep -r "BunLogger\|packages/core/logger" /Users/user/wormapb/src --include="*.ts"
@@ -1294,7 +1294,7 @@ grep -r "BunLogger\|packages/core/logger" /Users/user/wormapb/src --include="*.t
 
 결과 없어야 함.
 
-- [ ] **Step 3: packages/ 참조 없는지 확인**
+- [X] **Step 3: packages/ 참조 없는지 확인**
 
 ```bash
 grep -r "from '.*packages/" /Users/user/wormapb/src --include="*.ts"
@@ -1311,7 +1311,7 @@ pnpm run type-check
 
 오류 없어야 함.
 
-- [X] **Step 5: 전체 테스트 실행**
+- [ ] **Step 5: 전체 테스트 실행**
 
 ```bash
 pnpm test
