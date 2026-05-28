@@ -197,7 +197,7 @@ describe('mesh plan builder', () => {
     expect(meshPlan.nodes.map((node) => node.primitive)).toEqual(['building_massing', 'building_windows', 'road', 'poi_marker']);
     expect(meshPlan.nodes.map((node) => node.pivot)).toEqual([
       { x: 1, y: 0, z: 2 },
-      { x: 1, y: 0, z: 2 },
+      { x: 0, y: 0, z: 0 }, // window child node — zero pivot, vertices in world ENU coords
       { x: 5, y: 0, z: 6 },
       { x: 9, y: 0, z: 10 },
     ]);
