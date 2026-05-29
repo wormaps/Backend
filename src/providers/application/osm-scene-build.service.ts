@@ -93,6 +93,8 @@ export class OsmSceneBuildService {
     const walkways = await this.overpass.queryWalkways(input.scope);
     await this.delay(OVERPASS_RATE_LIMIT_MS);
     const terrain = await this.overpass.queryTerrain(input.scope);
+    await this.delay(OVERPASS_RATE_LIMIT_MS);
+    const trees = await this.overpass.queryTrees(input.scope);
 
     // Suppress parent buildings whose footprint is covered by building:parts.
     const filteredBuildings = this.suppressParentsWithParts(buildings, buildingParts);
@@ -107,6 +109,7 @@ export class OsmSceneBuildService {
       terrain,
       input.scope.center,
       (input.scope.radiusMeters ?? 150) * 2.5,
+      trees,
     );
 
     // Sample building colors from satellite imagery (only for entities without explicit colour tag).
@@ -126,8 +129,11 @@ export class OsmSceneBuildService {
     if (terrain.length > 0) {
       snapshots.push(this.makeSnapshot(input, 'terrain', terrain));
     }
+    if (trees.length > 0) {
+      snapshots.push(this.makeSnapshot(input, 'poi', trees));
+    }
 
-    this.logger.log(`OSM Build: buildings=${filteredBuildings.length}+${buildingParts.length}parts roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} snapshots=${snapshots.length}`);
+    this.logger.log(`OSM Build: buildings=${filteredBuildings.length}+${buildingParts.length}parts roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} trees=${trees.length} snapshots=${snapshots.length}`);
 
     const buildInput = {
       sceneId: input.sceneId,
@@ -214,9 +220,15 @@ export class OsmSceneBuildService {
   ): Promise<void> {
     if (!this.satellite || buildings.length === 0) return;
     try {
-      // Collect centroid lat/lng for buildings that have no explicit colour tag.
-      const indices: number[] = [];
+      // Multiple inset samples per building → median → robust against rooftop
+      // fixtures (AC units, skylights) that a single centroid pixel may hit.
+      // Walls are darkened slightly vs the roof-derived colour.
+      const FACADE_DARKEN = 0.82;
+      const INSET_FRAC = 0.55; // pull perimeter samples toward centroid, stay on roof
+      const MAX_SAMPLES = 5;
+
       const points: Array<{ lat: number; lng: number }> = [];
+      const groups: Array<{ index: number; start: number; count: number }> = [];
 
       for (let i = 0; i < buildings.length; i++) {
         const b = buildings[i]!;
@@ -225,23 +237,54 @@ export class OsmSceneBuildService {
           (b.geometry as { footprint?: { outer: Array<{ x: number; z: number }> } })
             .footprint?.outer ?? [];
         if (outer.length === 0) continue;
+
         const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
         const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
-        indices.push(i);
+
+        const start = points.length;
         points.push(this.enuToLatLng(cx, cz, origin));
+
+        const step = Math.max(1, Math.floor(outer.length / (MAX_SAMPLES - 1)));
+        for (let v = 0; v < outer.length && points.length - start < MAX_SAMPLES; v += step) {
+          const p = outer[v]!;
+          const ix = cx + (p.x - cx) * INSET_FRAC;
+          const iz = cz + (p.z - cz) * INSET_FRAC;
+          points.push(this.enuToLatLng(ix, iz, origin));
+        }
+
+        groups.push({ index: i, start, count: points.length - start });
       }
 
       if (points.length === 0) return;
 
       const colors = await this.satellite.sampleColors(points);
 
-      for (let k = 0; k < indices.length; k++) {
-        const [r, g, b] = colors[k] ?? [128, 128, 128];
-        const hex = `#${r!.toString(16).padStart(2, '0')}${g!.toString(16).padStart(2, '0')}${b!.toString(16).padStart(2, '0')}`;
-        buildings[indices[k]!]!.tags['building:colour'] = hex;
+      const median = (vals: number[]): number => {
+        const sorted = [...vals].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0
+          ? Math.round((sorted[mid - 1]! + sorted[mid]!) / 2)
+          : sorted[mid]!;
+      };
+
+      for (const { index, start, count } of groups) {
+        const rs: number[] = [];
+        const gs: number[] = [];
+        const bs: number[] = [];
+        for (let k = 0; k < count; k++) {
+          const [r, g, b] = colors[start + k] ?? [128, 128, 128];
+          rs.push(r!);
+          gs.push(g!);
+          bs.push(b!);
+        }
+        const r = Math.round(median(rs) * FACADE_DARKEN);
+        const g = Math.round(median(gs) * FACADE_DARKEN);
+        const b = Math.round(median(bs) * FACADE_DARKEN);
+        const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        buildings[index]!.tags['building:colour'] = hex;
       }
 
-      this.logger.log(`Satellite colors sampled: ${points.length} buildings`);
+      this.logger.log(`Satellite colors sampled: ${groups.length} buildings (${points.length} pts)`);
     } catch (err) {
       this.logger.warn(`Satellite color enrichment failed: ${String(err)}`);
     }
@@ -288,6 +331,7 @@ export class OsmSceneBuildService {
     terrain: OSMEntityData[],
     origin: { lat: number; lng: number },
     groundHalfSize: number,
+    trees: OSMEntityData[] = [],
   ): Promise<GroundHeightfield | undefined> {
     if (!this.dem) return undefined;
     try {
@@ -341,6 +385,18 @@ export class OsmSceneBuildService {
           latLngs.push(this.enuToLatLng(sample.x, sample.z, origin));
         }
         terrainVertexOffsets.push(vOffsets);
+      }
+
+      // treeOffsets[i] = index in latLngs for trees[i].point, or -1 to skip.
+      const treeOffsets: number[] = [];
+      for (const tree of trees) {
+        const point = (tree.geometry as { point?: { x: number; z: number } }).point;
+        if (point === undefined) {
+          treeOffsets.push(-1);
+          continue;
+        }
+        treeOffsets.push(latLngs.length);
+        latLngs.push(this.enuToLatLng(point.x, point.z, origin));
       }
 
       // Ground heightfield grid — spans the full ground-plane footprint.
@@ -403,6 +459,14 @@ export class OsmSceneBuildService {
         }
       }
 
+      for (let i = 0; i < trees.length; i++) {
+        const offset = treeOffsets[i];
+        if (offset === undefined || offset === -1) continue;
+        const point = (trees[i]!.geometry as { point?: { x: number; y: number; z: number } }).point;
+        if (point === undefined) continue;
+        point.y = (allElevations[offset] ?? centerElevation) - centerElevation;
+      }
+
       const groundHeights = groundOffsets.map(
         (o) => (allElevations[o] ?? centerElevation) - centerElevation,
       );
@@ -412,6 +476,16 @@ export class OsmSceneBuildService {
         rows: GROUND_ROWS,
         heights: groundHeights,
       };
+
+      const sw = this.enuToLatLng(-groundHalfSize, -groundHalfSize, origin);
+      const ne = this.enuToLatLng(groundHalfSize, groundHalfSize, origin);
+      const texture = await this.satellite?.fetchBboxImage({
+        minLat: sw.lat,
+        minLng: sw.lng,
+        maxLat: ne.lat,
+        maxLng: ne.lng,
+      });
+      if (texture !== undefined) heightfield.texture = texture;
 
       this.logger.log(
         `Elevation enriched: buildings=${buildings.length} roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} points=${latLngs.length} centerElev=${centerElevation.toFixed(1)}m ground=${GROUND_COLS}x${GROUND_ROWS}`,

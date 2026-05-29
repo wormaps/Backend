@@ -19,9 +19,17 @@ export function createMaterialNodeMap(
 
     if (materialPlan.role === 'window') {
       material.setDoubleSided(true);
-      material.setBaseColorFactor([0.06, 0.09, 0.14, 1.0]);
-      material.setMetallicFactor(0.85);
-      material.setRoughnessFactor(0.08);
+      material.setBaseColorFactor([1.0, 1.0, 1.0, 1.0]);
+      material.setMetallicFactor(0.6);
+      material.setRoughnessFactor(0.15);
+      material.setEmissiveFactor([0.04, 0.04, 0.05]);
+    }
+
+    if (materialPlan.role === 'poi') {
+      material.setBaseColorFactor([1.0, 1.0, 1.0, 1.0]);
+      material.setMetallicFactor(0.0);
+      material.setRoughnessFactor(0.85);
+      material.setDoubleSided(true);
     }
 
     if (materialPlan.role === 'terrain') {
@@ -45,6 +53,7 @@ export function createMaterialNodeMap(
       material.setBaseColorFactor(roadColor);
       material.setMetallicFactor(0.0);
       material.setRoughnessFactor(0.9);
+      material.setDoubleSided(true);
     }
 
     materialNodeMap.set(materialPlan.id, material);

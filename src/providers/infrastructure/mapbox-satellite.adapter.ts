@@ -14,6 +14,36 @@ export class MapboxSatelliteAdapter {
   private readonly token = process.env.MAPBOX_TOKEN ?? '';
   private readonly tileCache = new Map<string, Uint8Array>();
 
+  /**
+   * Fetch one stitched satellite image covering a lat/lng bbox via the Mapbox
+   * Static Images API. Used to drape real aerial imagery over the ground grid.
+   * Returns raw image bytes + mime type, or undefined when unavailable.
+   */
+  async fetchBboxImage(bbox: {
+    minLat: number;
+    minLng: number;
+    maxLat: number;
+    maxLng: number;
+  }): Promise<{ bytes: Uint8Array; mimeType: string } | undefined> {
+    if (!this.token) return undefined;
+    const size = 1024;
+    const bboxStr = `[${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}]`;
+    const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${bboxStr}/${size}x${size}?access_token=${this.token}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.logger.warn(`Satellite bbox image failed: ${response.status} ${response.statusText}`);
+        return undefined;
+      }
+      const mimeType = response.headers.get('content-type') ?? 'image/jpeg';
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { bytes, mimeType };
+    } catch (err) {
+      this.logger.warn(`Satellite bbox image error: ${String(err)}`);
+      return undefined;
+    }
+  }
+
   async sampleColors(
     points: Array<{ lat: number; lng: number }>,
   ): Promise<SatelliteColor[]> {

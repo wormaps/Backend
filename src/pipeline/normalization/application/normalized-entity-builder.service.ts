@@ -2,7 +2,7 @@ import type { NormalizedEntity, NormalizedEntityBundle } from '../../../shared/c
 import type { QaIssue } from '../../../shared/contracts';
 import type { SourceSnapshot } from '../../../shared/contracts';
 import type { TwinEntityType } from '../../../shared/contracts';
-import type { MeshGeometry } from '../../../shared/core';
+import type { BuildingMeshGeometry, MeshGeometry } from '../../../shared/core';
 import { Injectable, Logger } from '@nestjs/common';
 
 type OSMFeaturePayload = {
@@ -167,6 +167,7 @@ export class NormalizedEntityBuilderService {
           baseY: typeof raw.baseY === 'number' ? raw.baseY : undefined,
           height: typeof raw.height === 'number' ? raw.height : undefined,
           roofRise: typeof raw.roofRise === 'number' ? raw.roofRise : undefined,
+          roofShape: typeof raw.roofShape === 'string' ? (raw.roofShape as BuildingMeshGeometry['roofShape']) : undefined,
         };
       }
       case 'road': {

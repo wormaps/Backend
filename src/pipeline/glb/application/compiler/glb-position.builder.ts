@@ -6,6 +6,7 @@ import type { MeshPlanNode } from '../../../../shared/contracts';
 import type {
   BuildingMeshGeometry,
   MeshGeometry,
+  PoiMeshGeometry,
   RoadMeshGeometry,
   TerrainMeshGeometry,
   WalkwayMeshGeometry,
@@ -125,16 +126,57 @@ function createBuildingPositions(document: Document, buffer: Buffer, geometry: B
   }
 
   const roofRise = geometry.roofRise ?? 0;
-  if (roofRise > 0.1 && outer.length >= 3) {
+  const roofShape = geometry.roofShape ?? 'unknown';
+  if (roofRise > 0.1 && outer.length >= 3 && roofShape !== 'flat' && roofShape !== 'stepped') {
+    const apexY = topY + roofRise;
     const cx = outer.reduce((sum, point) => sum + point.x, 0) / outer.length;
     const cz = outer.reduce((sum, point) => sum + point.z, 0) / outer.length;
-    const apexY = topY + roofRise;
 
-    for (let j = 0; j < n; j++) {
-      const p0 = outer[j]!;
-      const p1 = outer[(j + 1) % n]!;
-      if (ccw) positions.push(p0.x, topY, p0.z, p1.x, topY, p1.z, cx, apexY, cz);
-      else positions.push(p0.x, topY, p0.z, cx, apexY, cz, p1.x, topY, p1.z);
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of outer) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.z < minZ) minZ = p.z;
+      if (p.z > maxZ) maxZ = p.z;
+    }
+    const xPrincipal = maxX - minX >= maxZ - minZ;
+
+    const pushTri = (
+      ax: number, ay: number, az: number,
+      bx: number, by: number, bz: number,
+      ccx: number, ccy: number, ccz: number,
+    ): void => {
+      if (ccw) positions.push(ax, ay, az, bx, by, bz, ccx, ccy, ccz);
+      else positions.push(ax, ay, az, ccx, ccy, ccz, bx, by, bz);
+    };
+
+    if (roofShape === 'gable' || roofShape === 'shed') {
+      // Ridge segment along the principal axis through the centroid.
+      // Gable: both ends at apex. Shed: only the far end raised (single slope).
+      const r0 = xPrincipal ? { x: minX, z: cz } : { x: cx, z: minZ };
+      const r1 = xPrincipal ? { x: maxX, z: cz } : { x: cx, z: maxZ };
+      const r0y = roofShape === 'shed' ? topY : apexY;
+      const r1y = apexY;
+      const ridgeDist = (px: number, pz: number, r: { x: number; z: number }): number =>
+        (px - r.x) * (px - r.x) + (pz - r.z) * (pz - r.z);
+
+      for (let j = 0; j < n; j++) {
+        const p0 = outer[j]!;
+        const p1 = outer[(j + 1) % n]!;
+        const mx = (p0.x + p1.x) / 2;
+        const mz = (p0.z + p1.z) / 2;
+        const useR0 = ridgeDist(mx, mz, r0) <= ridgeDist(mx, mz, r1);
+        const r = useR0 ? r0 : r1;
+        const ry = useR0 ? r0y : r1y;
+        pushTri(p0.x, topY, p0.z, p1.x, topY, p1.z, r.x, ry, r.z);
+      }
+    } else {
+      // hip / pyramidal / unknown — apex over the centroid.
+      for (let j = 0; j < n; j++) {
+        const p0 = outer[j]!;
+        const p1 = outer[(j + 1) % n]!;
+        pushTri(p0.x, topY, p0.z, p1.x, topY, p1.z, cx, apexY, cz);
+      }
     }
   }
 
@@ -253,34 +295,65 @@ function createRoadPositions(
     });
   }
 
-  // Layer separation against terrain/ground/walkways to kill z-fighting.
-  // ground grid: dem-0.05 < terrain: dem+0.05 < walkway: dem+0.10 < road: dem+0.20.
+  // Extruded slab: top driving surface + curb side walls + end caps.
+  // Layering: ground(dem-0.05) < terrain(dem+0.05) < walkway top(dem+0.10) < road top(dem+0.20).
+  // Bottom sits at the centerline DEM height, so the curb wall is `yLift` tall.
   const yLift = geometry.kind === 'walkway' ? 0.1 : 0.2;
 
-  const positions: number[] = [];
+  type V = { x: number; y: number; z: number };
+  const left: V[] = [];
+  const right: V[] = [];
   for (let i = 0; i < centerline.length; i++) {
     const point = centerline[i]!;
-    const prev = i > 0 ? centerline[i - 1] : centerline[i];
-    const next = i < centerline.length - 1 ? centerline[i + 1] : centerline[i];
-    if (prev === undefined || next === undefined) continue;
-
+    const prev = i > 0 ? centerline[i - 1]! : point;
+    const next = i < centerline.length - 1 ? centerline[i + 1]! : point;
     const dx = next.x - prev.x;
     const dz = next.z - prev.z;
-    const len = Math.sqrt(dx * dx + dz * dz);
-
-    if (len < 0.001) {
-      positions.push(point.x - halfWidth, point.y + yLift, point.z, point.x + halfWidth, point.y + yLift, point.z);
-      continue;
-    }
-
-    const nx = dx / len;
-    const nz = dz / len;
-    const px = -nz * halfWidth;
-    const pz = nx * halfWidth;
-
-    positions.push(point.x - px, point.y + yLift, point.z - pz);
-    positions.push(point.x + px, point.y + yLift, point.z + pz);
+    const len = Math.sqrt(dx * dx + dz * dz) || 1;
+    const px = -(dz / len) * halfWidth;
+    const pz = (dx / len) * halfWidth;
+    const topY = point.y + yLift;
+    left.push({ x: point.x - px, y: topY, z: point.z - pz });
+    right.push({ x: point.x + px, y: topY, z: point.z + pz });
   }
+
+  const positions: number[] = [];
+  const tri = (a: V, b: V, c: V): void => {
+    positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  };
+  const lower = (v: V): V => ({ x: v.x, y: v.y - yLift, z: v.z });
+
+  for (let i = 0; i < centerline.length - 1; i++) {
+    const l0 = left[i]!;
+    const r0 = right[i]!;
+    const l1 = left[i + 1]!;
+    const r1 = right[i + 1]!;
+    const lb0 = lower(l0);
+    const rb0 = lower(r0);
+    const lb1 = lower(l1);
+    const rb1 = lower(r1);
+
+    // Top surface (normal up).
+    tri(l0, r0, r1);
+    tri(l0, r1, l1);
+    // Left curb wall.
+    tri(l0, l1, lb1);
+    tri(l0, lb1, lb0);
+    // Right curb wall.
+    tri(r0, rb0, rb1);
+    tri(r0, rb1, r1);
+  }
+
+  // End caps.
+  const lStart = left[0]!;
+  const rStart = right[0]!;
+  tri(lStart, lower(lStart), lower(rStart));
+  tri(lStart, lower(rStart), rStart);
+  const n = centerline.length - 1;
+  const lEnd = left[n]!;
+  const rEnd = right[n]!;
+  tri(rEnd, lower(rEnd), lower(lEnd));
+  tri(rEnd, lower(lEnd), lEnd);
 
   return document
     .createAccessor('positions')
@@ -317,6 +390,66 @@ function createTerrainPositions(document: Document, buffer: Buffer, geometry: Te
   return document.createAccessor('terrain-positions').setArray(positions as TypedArray).setType('VEC3').setBuffer(buffer);
 }
 
+/**
+ * Simple tree: square trunk prism + octahedron canopy. Two-tone via COLOR_0.
+ * Built in local space (centred at 0,0,0); the node's pivot translation places
+ * it at the POI point, so positions must NOT include the absolute point coords.
+ */
+function createTreePositions(document: Document, buffer: Buffer, _geometry: PoiMeshGeometry): Accessor {
+  const TRUNK_H = 1.6;
+  const TRUNK_R = 0.22;
+  const CANOPY_R = 1.9;
+  const CANOPY_H = 3.6;
+  const trunkTop = TRUNK_H;
+  const canopyCenterY = trunkTop + CANOPY_H / 2;
+  const hy = CANOPY_H / 2;
+
+  const positions: number[] = [];
+  const tri = (
+    ax: number, ay: number, az: number,
+    bx: number, by: number, bz: number,
+    cx: number, cy: number, cz: number,
+  ): void => {
+    positions.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+  };
+
+  // Trunk — 4 walls (each 2 triangles).
+  const corners = [
+    { dx: -TRUNK_R, dz: -TRUNK_R },
+    { dx: TRUNK_R, dz: -TRUNK_R },
+    { dx: TRUNK_R, dz: TRUNK_R },
+    { dx: -TRUNK_R, dz: TRUNK_R },
+  ];
+  for (let i = 0; i < 4; i++) {
+    const a = corners[i]!;
+    const b = corners[(i + 1) % 4]!;
+    tri(a.dx, 0, a.dz, b.dx, trunkTop, b.dz, b.dx, 0, b.dz);
+    tri(a.dx, 0, a.dz, a.dx, trunkTop, a.dz, b.dx, trunkTop, b.dz);
+  }
+
+  // Canopy — octahedron around (0, canopyCenterY, 0).
+  const T = { x: 0, y: canopyCenterY + hy, z: 0 };
+  const B = { x: 0, y: canopyCenterY - hy, z: 0 };
+  const ring = [
+    { x: CANOPY_R, z: 0 },
+    { x: 0, z: CANOPY_R },
+    { x: -CANOPY_R, z: 0 },
+    { x: 0, z: -CANOPY_R },
+  ];
+  for (let i = 0; i < 4; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % 4]!;
+    tri(T.x, T.y, T.z, p.x, canopyCenterY, p.z, q.x, canopyCenterY, q.z);
+    tri(B.x, B.y, B.z, q.x, canopyCenterY, q.z, p.x, canopyCenterY, p.z);
+  }
+
+  return document
+    .createAccessor('tree-positions')
+    .setArray(new Float32Array(positions) as TypedArray)
+    .setType('VEC3')
+    .setBuffer(buffer);
+}
+
 function createPositionsFromGeometry(
   document: Document,
   buffer: Buffer,
@@ -334,6 +467,8 @@ function createPositionsFromGeometry(
       return createRoadPositions(document, buffer, geometry);
     case 'terrain':
       return createTerrainPositions(document, buffer, geometry);
+    case 'poi':
+      return createTreePositions(document, buffer, geometry);
     default:
       return createPlaceholderPositions(document, buffer, type, pivot);
   }

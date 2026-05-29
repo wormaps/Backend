@@ -9,6 +9,8 @@ export const BuildingMeshGeometrySchema = z.object({
   height: z.number().optional(),
   /** Hip/pyramid roof height above topY. 0 = flat. */
   roofRise: z.number().optional(),
+  /** OSM roof:shape mapped to a renderer-supported form. */
+  roofShape: z.enum(['flat', 'gable', 'hip', 'shed', 'stepped', 'unknown']).optional(),
 });
 
 export type BuildingMeshGeometry = z.infer<typeof BuildingMeshGeometrySchema>;

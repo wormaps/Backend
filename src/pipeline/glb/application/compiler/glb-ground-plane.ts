@@ -13,6 +13,8 @@ export type GroundHeightfield = {
   cols: number;
   rows: number;
   heights: number[];
+  /** Optional satellite aerial image draped over the grid (baseColorTexture). */
+  texture?: { bytes: Uint8Array; mimeType: string };
 };
 
 export function estimateSceneBaseY(meshPlan: MeshPlan): number {
@@ -141,8 +143,9 @@ function addGroundGrid(
       normals[i * 3 + 1] = ny / len;
       normals[i * 3 + 2] = nz / len;
 
+      // V flipped: grid row 0 = south edge = bottom of the satellite image.
       texcoords[i * 2] = c / (cols - 1);
-      texcoords[i * 2 + 1] = r / (rows - 1);
+      texcoords[i * 2 + 1] = 1 - r / (rows - 1);
     }
   }
 
@@ -170,9 +173,18 @@ function addGroundGrid(
   const uvAcc = document.createAccessor('ground-uv').setArray(texcoords as TypedArray).setType('VEC2').setBuffer(buffer);
 
   const material = document.createMaterial('ground');
-  material.setBaseColorFactor([0.08, 0.08, 0.09, 1.0]);
   material.setMetallicFactor(0.0);
   material.setRoughnessFactor(0.95);
+  if (hf.texture !== undefined) {
+    const texture = document
+      .createTexture('ground-satellite')
+      .setImage(hf.texture.bytes)
+      .setMimeType(hf.texture.mimeType);
+    material.setBaseColorTexture(texture);
+    material.setBaseColorFactor([1.0, 1.0, 1.0, 1.0]);
+  } else {
+    material.setBaseColorFactor([0.08, 0.08, 0.09, 1.0]);
+  }
 
   const primitive = document.createPrimitive();
   primitive.setAttribute('POSITION', posAcc);

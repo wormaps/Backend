@@ -41,7 +41,7 @@ export class RenderIntentPolicyService {
     }
 
     if (entity.type === 'poi') {
-      return this.intent(entity, 'placeholder', 'L1', ['POI_MARKER_PLACEHOLDER']);
+      return this.intent(entity, 'massing', 'L1', ['POI_TREE_RENDERED']);
     }
 
     return this.intent(entity, 'massing', 'L0', ['MVP_MASSING_ONLY']);

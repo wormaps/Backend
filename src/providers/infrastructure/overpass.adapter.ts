@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { SceneScope } from '../../shared/contracts';
-import { wgs84ToEnu, type LatLng } from '../../shared/core';
+import { wgs84ToEnu, type LatLng, type RoofShape } from '../../shared/core';
 
 export type OverpassElement = {
   type: 'node' | 'way' | 'relation';
@@ -89,6 +89,15 @@ export class OverpassAdapter {
     const query = `[out:json][timeout:25];(node["natural"](${bbox});node["landuse"](${bbox});way["natural"](${bbox});way["landuse"](${bbox}););out geom;`;
     const elements = await this.executeQuery(query);
     return elements.map((el) => this.toEntityData(el, 'terrain', scope.center));
+  }
+
+  async queryTrees(scope: SceneScope): Promise<OSMEntityData[]> {
+    const bbox = this.scopeToBbox(scope);
+    const query = `[out:json][timeout:25];(node["natural"="tree"](${bbox}););out geom;`;
+    const elements = await this.executeQuery(query);
+    return elements
+      .filter((el) => el.type === 'node' && typeof el.lat === 'number' && typeof el.lon === 'number')
+      .map((el) => this.toEntityData(el, 'poi', scope.center));
   }
 
   async queryBuildingParts(scope: SceneScope): Promise<OSMEntityData[]> {
@@ -228,8 +237,9 @@ export class OverpassAdapter {
           element.tags?.['building:levels'],
           buildingTag,
         );
-        const roofRise = this.inferRoofRise(buildingTag, height, coords);
-        geometry = { footprint: { outer: coords }, baseY: 0, height, roofRise };
+        const roofShape = this.mapRoofShape(element.tags?.['roof:shape']);
+        const roofRise = this.inferRoofRise(buildingTag, height, coords, roofShape, element.tags?.['roof:height']);
+        geometry = { footprint: { outer: coords }, baseY: 0, height, roofRise, roofShape };
         break;
       }
       case 'road': {
@@ -364,15 +374,12 @@ export class OverpassAdapter {
     buildingTag: string | undefined,
     height: number,
     coords: Array<{ x: number; z: number }>,
+    roofShape: RoofShape,
+    roofHeightTag: string | undefined,
   ): number {
-    const flatRoofTypes = new Set([
-      'commercial', 'office', 'retail', 'industrial', 'warehouse',
-      'apartments', 'hotel', 'hospital', 'university', 'school',
-      'transportation', 'stadium', 'sports_hall',
-    ]);
-    if (flatRoofTypes.has(buildingTag ?? '')) return 0;
+    // Flat roofs never rise, regardless of building type.
+    if (roofShape === 'flat' || roofShape === 'stepped') return 0;
 
-    // Compute approximate minimum dimension of the footprint bounding box.
     if (coords.length < 3) return 0;
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const p of coords) {
@@ -383,7 +390,51 @@ export class OverpassAdapter {
     }
     const minDim = Math.min(maxX - minX, maxZ - minZ);
 
+    // Explicit roof:height tag wins when present.
+    const tagged = roofHeightTag !== undefined ? Number.parseFloat(roofHeightTag) : NaN;
+    if (Number.isFinite(tagged) && tagged > 0) {
+      return Math.min(tagged, minDim * 0.6);
+    }
+
+    // Pitched shapes get a rise; unknown shape falls back to building-type heuristic.
+    if (roofShape === 'gable' || roofShape === 'hip' || roofShape === 'shed') {
+      return Math.min(minDim * 0.4, height * 0.5);
+    }
+
+    const flatRoofTypes = new Set([
+      'commercial', 'office', 'retail', 'industrial', 'warehouse',
+      'apartments', 'hotel', 'hospital', 'university', 'school',
+      'transportation', 'stadium', 'sports_hall',
+    ]);
+    if (flatRoofTypes.has(buildingTag ?? '')) return 0;
+
     // Roof rise ≈ 30% of narrowest dimension, capped at 25% of wall height.
     return Math.min(minDim * 0.30, height * 0.25);
+  }
+
+  private mapRoofShape(raw: string | undefined): RoofShape {
+    switch ((raw ?? '').toLowerCase()) {
+      case 'flat':
+        return 'flat';
+      case 'gabled':
+      case 'gambrel':
+      case 'round':
+        return 'gable';
+      case 'hipped':
+      case 'half-hipped':
+      case 'pyramidal':
+      case 'dome':
+      case 'conical':
+        return 'hip';
+      case 'skillion':
+      case 'lean_to':
+      case 'mono_pitch':
+        return 'shed';
+      case 'sawtooth':
+      case 'terrace':
+        return 'stepped';
+      default:
+        return 'unknown';
+    }
   }
 }

@@ -7,7 +7,7 @@ import type { QaSummary, WorMapGltfMetadataExport } from '../../../../shared/con
 import type { RealityTier } from '../../../../shared/contracts';
 import { SCHEMA_VERSION_SET_V1 } from '../../../../shared/core';
 import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from '../artifact/glb-artifact-hash';
-import { createIndices, createNormals, createTexcoords } from './glb-attributes.builder';
+import { createBuildingAO, createIndices, createNormals, createTexcoords, createTreeColors, createWindowColors } from './glb-attributes.builder';
 import { createPositions } from './glb-position.builder';
 import { addGroundPlane, estimateSceneBaseY } from './glb-ground-plane';
 import type { GroundHeightfield } from './glb-ground-plane';
@@ -79,6 +79,13 @@ export class GlbCompilerService {
       primitive.setIndices(indices);
       primitive.setAttribute('NORMAL', normals);
       primitive.setAttribute('TEXCOORD_0', texcoords);
+      if (meshNode.primitive === 'building_windows') {
+        primitive.setAttribute('COLOR_0', createWindowColors(document, buffer, positions));
+      } else if (meshNode.primitive === 'poi_marker') {
+        primitive.setAttribute('COLOR_0', createTreeColors(document, buffer, positions));
+      } else if (meshNode.primitive === 'building_massing') {
+        primitive.setAttribute('COLOR_0', createBuildingAO(document, buffer, positions));
+      }
       primitive.setMode(4);
 
       const material = materialNodeMap.get(meshNode.materialId);
