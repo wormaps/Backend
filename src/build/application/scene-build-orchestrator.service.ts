@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { SourceSnapshot } from '../../shared/contracts';
 import type { SceneScope } from '../../shared/contracts';
 import { GlbCompilerService } from '../../pipeline/glb/application';
+import type { GroundHeightfield } from '../../pipeline/glb/application';
 import { GlbValidationService } from '../../pipeline/glb/application';
 import { NormalizedEntityBuilderService } from '../../pipeline/normalization/application';
 import { SnapshotCollectorService } from '../../providers/application';
@@ -28,6 +29,7 @@ export type SceneBuildMvpInput = {
   snapshotBundleId: string;
   scope: SceneScope;
   snapshots: SourceSnapshot[];
+  groundHeightfield?: GroundHeightfield;
 };
 
 @Injectable()
@@ -212,6 +214,7 @@ export class SceneBuildOrchestratorService {
       finalTier: qaResult.finalTier,
       qaSummary: summarizeQa(qaResult.issues),
       groundRadius: (input.scope.radiusMeters ?? 150) * 2.5,
+      groundHeightfield: input.groundHeightfield,
     });
     const manifestCandidate = this.manifestFactory.create({
       sceneId: input.sceneId,

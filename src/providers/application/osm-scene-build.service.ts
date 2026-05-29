@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, MapboxSatelliteAdapter, type OSMEntityData } from '../infrastructure';
 import { MapboxDemAdapter } from '../infrastructure';
 import type { SceneBuildRunResult } from '../../build/application';
+import type { GroundHeightfield } from '../../pipeline/glb/application';
 import type { SceneScope } from '../../shared/contracts';
 import type { SourceSnapshot, SourceProvider } from '../../shared/contracts';
 import { createHash } from 'node:crypto';
@@ -44,6 +45,7 @@ type SceneBuildOrchestrator = {
     snapshotBundleId: string;
     scope: SceneScope;
     snapshots: SourceSnapshot[];
+    groundHeightfield?: GroundHeightfield;
   }): Promise<SceneBuildRunResult>;
 };
 
@@ -98,7 +100,14 @@ export class OsmSceneBuildService {
 
     // Enrich all geometry with DEM elevation in one batch (single tile fetch).
     // buildingParts enriched separately — their baseY is architectural offset, DEM adds on top.
-    await this.enrichElevation(allBuildingEntities, roads, walkways, terrain, input.scope.center);
+    const groundHeightfield = await this.enrichElevation(
+      allBuildingEntities,
+      roads,
+      walkways,
+      terrain,
+      input.scope.center,
+      (input.scope.radiusMeters ?? 150) * 2.5,
+    );
 
     // Sample building colors from satellite imagery (only for entities without explicit colour tag).
     await this.enrichBuildingColorsFromSatellite(allBuildingEntities, input.scope.center);
@@ -126,6 +135,7 @@ export class OsmSceneBuildService {
       snapshotBundleId: input.snapshotBundleId,
       scope: input.scope,
       snapshots,
+      groundHeightfield,
     };
 
     const result = await this.orchestrator.run(buildInput);
@@ -277,8 +287,9 @@ export class OsmSceneBuildService {
     walkways: OSMEntityData[],
     terrain: OSMEntityData[],
     origin: { lat: number; lng: number },
-  ): Promise<void> {
-    if (!this.dem) return;
+    groundHalfSize: number,
+  ): Promise<GroundHeightfield | undefined> {
+    if (!this.dem) return undefined;
     try {
       // -----------------------------------------------------------------------
       // Phase 1: collect all query points as flat lat/lng array.
@@ -332,7 +343,20 @@ export class OsmSceneBuildService {
         terrainVertexOffsets.push(vOffsets);
       }
 
-      if (latLngs.length === 1) return; // only origin — no entities to enrich
+      // Ground heightfield grid — spans the full ground-plane footprint.
+      const GROUND_COLS = 33;
+      const GROUND_ROWS = 33;
+      const groundOffsets: number[] = [];
+      for (let r = 0; r < GROUND_ROWS; r++) {
+        for (let c = 0; c < GROUND_COLS; c++) {
+          const gx = -groundHalfSize + (2 * groundHalfSize) * (c / (GROUND_COLS - 1));
+          const gz = -groundHalfSize + (2 * groundHalfSize) * (r / (GROUND_ROWS - 1));
+          groundOffsets.push(latLngs.length);
+          latLngs.push(this.enuToLatLng(gx, gz, origin));
+        }
+      }
+
+      if (latLngs.length === 1) return undefined; // only origin — nothing to sample
 
       // -----------------------------------------------------------------------
       // Phase 2: single DEM batch query (multi-tile aware).
@@ -379,11 +403,23 @@ export class OsmSceneBuildService {
         }
       }
 
-      this.logger.log(
-        `Elevation enriched: buildings=${buildings.length} roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} points=${latLngs.length} centerElev=${centerElevation.toFixed(1)}m`,
+      const groundHeights = groundOffsets.map(
+        (o) => (allElevations[o] ?? centerElevation) - centerElevation,
       );
+      const heightfield: GroundHeightfield = {
+        halfSize: groundHalfSize,
+        cols: GROUND_COLS,
+        rows: GROUND_ROWS,
+        heights: groundHeights,
+      };
+
+      this.logger.log(
+        `Elevation enriched: buildings=${buildings.length} roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} points=${latLngs.length} centerElev=${centerElevation.toFixed(1)}m ground=${GROUND_COLS}x${GROUND_ROWS}`,
+      );
+      return heightfield;
     } catch (err) {
       this.logger.warn(`Elevation enrichment failed; using y=0: ${String(err)}`);
+      return undefined;
     }
   }
 

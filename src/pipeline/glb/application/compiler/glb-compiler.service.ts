@@ -10,6 +10,7 @@ import { computeCanonicalGlbArtifactHash, GLB_HASH_PLACEHOLDER } from '../artifa
 import { createIndices, createNormals, createTexcoords } from './glb-attributes.builder';
 import { createPositions } from './glb-position.builder';
 import { addGroundPlane, estimateSceneBaseY } from './glb-ground-plane';
+import type { GroundHeightfield } from './glb-ground-plane';
 import { createMaterialNodeMap } from './glb-material.factory';
 import { summarizeMeshSummary } from './glb-mesh-summary';
 import { GltfMetadataFactory } from '../metadata/gltf-metadata.factory';
@@ -38,6 +39,8 @@ export type CompileGlbInput = {
   qaSummary: QaSummary;
   /** Half-size of ground plane quad in metres. Defaults to 300. */
   groundRadius?: number;
+  /** DEM-sampled ground surface. When present, replaces the flat quad. */
+  groundHeightfield?: GroundHeightfield;
 };
 
 @Injectable()
@@ -108,7 +111,13 @@ export class GlbCompilerService {
     }
 
     const sceneBaseY = estimateSceneBaseY(input.meshPlan);
-    const groundNode = addGroundPlane(document, buffer as Buffer, input.groundRadius ?? 300, sceneBaseY - 0.02);
+    const groundNode = addGroundPlane(
+      document,
+      buffer as Buffer,
+      input.groundRadius ?? 300,
+      input.groundHeightfield ? -0.05 : sceneBaseY - 0.02,
+      input.groundHeightfield,
+    );
     scene.addChild(groundNode);
 
     root.setDefaultScene(scene);
