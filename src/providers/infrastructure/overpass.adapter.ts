@@ -91,6 +91,15 @@ export class OverpassAdapter {
     return elements.map((el) => this.toEntityData(el, 'terrain', scope.center));
   }
 
+  async queryBuildingParts(scope: SceneScope): Promise<OSMEntityData[]> {
+    const bbox = this.scopeToBbox(scope);
+    const query = `[out:json][timeout:25];(way["building:part"](${bbox}););out geom;`;
+    const elements = await this.executeQuery(query);
+    return elements
+      .filter((el) => el.type === 'way' && el.geometry && el.geometry.length >= 3)
+      .map((el) => this.toBuildingPartEntity(el, scope.center));
+  }
+
   async queryAll(scope: SceneScope): Promise<OSMEntityData[]> {
     // Overpass API is sensitive to concurrent requests; run sequentially to avoid 429.
     const buildings = await this.queryBuildings(scope);
@@ -163,6 +172,44 @@ export class OverpassAdapter {
       }
     }
     throw lastError ?? new Error('Overpass API request failed after retries');
+  }
+
+  private inferPartMinHeight(tags: Record<string, string>): number {
+    const h = this.parseHeight(tags['min_height']);
+    if (h !== undefined) return h;
+    const lvl = this.parseLevels(tags['min_level']);
+    if (lvl !== undefined) return lvl * 3.5;
+    return 0;
+  }
+
+  private inferPartTotalHeight(tags: Record<string, string>, minHeight: number): number {
+    const explicit = this.parseHeight(tags['height'] ?? tags['max_height']);
+    if (explicit !== undefined && explicit > minHeight) return explicit;
+    // building:levels = count of levels in this part → add to base
+    const partLevels = this.parseLevels(tags['building:levels']);
+    if (partLevels !== undefined) return minHeight + partLevels * 3.5;
+    // max_level = absolute storey index → compute relative to min_level
+    const maxLvl = this.parseLevels(tags['max_level']);
+    if (maxLvl !== undefined) {
+      const minLvl = this.parseLevels(tags['min_level']) ?? 0;
+      return minHeight + Math.max(1, maxLvl - minLvl) * 3.5;
+    }
+    return minHeight + 8;
+  }
+
+  private toBuildingPartEntity(element: OverpassElement, origin: LatLng): OSMEntityData {
+    const tags = element.tags ?? {};
+    const minHeight = this.inferPartMinHeight(tags);
+    const totalHeight = this.inferPartTotalHeight(tags, minHeight);
+    const partHeight = Math.max(1, totalHeight - minHeight);
+    const coords = this.toLocalCoordinates(element, origin);
+    return {
+      provider: 'osm',
+      entityType: 'building',
+      geometry: { footprint: { outer: coords }, baseY: minHeight, height: partHeight, roofRise: 0 },
+      tags,
+      id: `osm:way:${element.id}:part`,
+    };
   }
 
   private toEntityData(

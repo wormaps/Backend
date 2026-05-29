@@ -83,6 +83,8 @@ export class OsmSceneBuildService {
     const { lat, lng } = input.scope.center;
     const buildings = await this.queryBuildings(input.scope, lat, lng);
     await this.delay(OVERPASS_RATE_LIMIT_MS);
+    const buildingParts = await this.overpass.queryBuildingParts(input.scope);
+    await this.delay(OVERPASS_RATE_LIMIT_MS);
     const roads = await this.overpass.queryRoads(input.scope);
     await this.delay(OVERPASS_RATE_LIMIT_MS);
     const walkways = await this.overpass.queryWalkways(input.scope);
@@ -90,13 +92,14 @@ export class OsmSceneBuildService {
     const terrain = await this.overpass.queryTerrain(input.scope);
 
     // Enrich all geometry with DEM elevation in one batch (single tile fetch).
-    await this.enrichElevation(buildings, roads, walkways, input.scope.center);
+    // buildingParts enriched separately — their baseY is architectural offset, DEM adds on top.
+    const allBuildingEntities = [...buildings, ...buildingParts];
+    await this.enrichElevation(allBuildingEntities, roads, walkways, input.scope.center);
 
     const snapshots: SourceSnapshot[] = [];
-    const allCount = buildings.length + roads.length + walkways.length + terrain.length;
 
-    if (buildings.length > 0) {
-      snapshots.push(this.makeSnapshot(input, 'building', buildings));
+    if (allBuildingEntities.length > 0) {
+      snapshots.push(this.makeSnapshot(input, 'building', allBuildingEntities));
     }
     if (roads.length > 0) {
       snapshots.push(this.makeSnapshot(input, 'road', roads));
@@ -108,7 +111,7 @@ export class OsmSceneBuildService {
       snapshots.push(this.makeSnapshot(input, 'terrain', terrain));
     }
 
-    this.logger.log(`OSM Build: ${allCount} entities across ${snapshots.length} snapshot(s)`);
+    this.logger.log(`OSM Build: buildings=${allBuildingEntities.length}(parts=${buildingParts.length}) roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} snapshots=${snapshots.length}`);
 
     const buildInput = {
       sceneId: input.sceneId,
@@ -258,7 +261,9 @@ export class OsmSceneBuildService {
         const offset = buildingOffsets[i];
         if (offset === undefined || offset === -1) continue;
         const absElev = allElevations[offset] ?? 0;
-        (buildings[i]!.geometry as { baseY?: number }).baseY = absElev - centerElevation;
+        const demRelative = absElev - centerElevation;
+        const archBase = (buildings[i]!.geometry as { baseY?: number }).baseY ?? 0;
+        (buildings[i]!.geometry as { baseY?: number }).baseY = demRelative + archBase;
       }
 
       const roadAndWalkways = [...roads, ...walkways];

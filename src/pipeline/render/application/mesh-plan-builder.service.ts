@@ -161,8 +161,40 @@ export class MeshPlanBuilderService {
     return 'residential';
   }
 
+  private parseHexColor(hex: string): [number, number, number] | null {
+    const s = hex.trim().replace(/^#/, '');
+    if (s.length !== 6 && s.length !== 3) return null;
+    const full = s.length === 3 ? s[0]!+s[0]!+s[1]!+s[1]!+s[2]!+s[2]! : s;
+    const n = parseInt(full, 16);
+    if (isNaN(n)) return null;
+    return [
+      this.srgbToLinear(((n >> 16) & 0xff) / 255),
+      this.srgbToLinear(((n >> 8) & 0xff) / 255),
+      this.srgbToLinear((n & 0xff) / 255),
+    ];
+  }
+
+  private materialColorBias(material: string): { hue: number; sat: number; light: number } | null {
+    const map: Record<string, { hue: number; sat: number; light: number }> = {
+      brick:    { hue: 0.05, sat: 0.35, light: 0.42 },
+      concrete: { hue: 0.10, sat: 0.08, light: 0.48 },
+      glass:    { hue: 0.57, sat: 0.18, light: 0.52 },
+      metal:    { hue: 0.56, sat: 0.10, light: 0.55 },
+      stone:    { hue: 0.09, sat: 0.12, light: 0.44 },
+      tile:     { hue: 0.06, sat: 0.22, light: 0.46 },
+    };
+    return map[material] ?? null;
+  }
+
   /** Floor-tier + entity-ID seeded color. Linear sRGB output. */
   private deriveBuildingColor(entityId: string, tags: string[]): [number, number, number] {
+    // Use explicit OSM colour tag if available.
+    const colourTag = tags.find((t) => t.startsWith('osm:building:colour='));
+    if (colourTag) {
+      const parsed = this.parseHexColor(colourTag.slice('osm:building:colour='.length));
+      if (parsed) return parsed;
+    }
+
     // Extract floor count from V-World/OSM tags for tier classification.
     const levelsTag = tags.find((t) => t.startsWith('osm:building:levels='));
     const floors = levelsTag ? parseInt(levelsTag.slice('osm:building:levels='.length), 10) : 0;
@@ -192,6 +224,18 @@ export class MeshPlanBuilderService {
     } else {
       // Unknown / 1F: vary widely (mix of uses)
       baseHue = (norm * 0.30 + 0.04) % 1; baseSat = 0.20 + norm * 0.14; baseLight = 0.40 + norm * 0.18;
+    }
+
+    // Apply material bias if available (overrides tier defaults for hue/sat/light).
+    const materialTag = tags.find((t) => t.startsWith('osm:building:material='));
+    if (materialTag) {
+      const mat = materialTag.slice('osm:building:material='.length).toLowerCase();
+      const bias = this.materialColorBias(mat);
+      if (bias) {
+        baseHue = bias.hue + (norm - 0.5) * 0.06;
+        baseSat = bias.sat + (norm - 0.5) * 0.06;
+        baseLight = bias.light + (norm - 0.5) * 0.08;
+      }
     }
 
     const hue = ((baseHue) % 1 + 1) % 1;
@@ -241,15 +285,24 @@ export class MeshPlanBuilderService {
     }
   }
 
+  private roadHalfWidthFromTags(tags: string[]): number {
+    const type = this.extractHighwayType(tags);
+    const widths: Record<string, number> = {
+      motorway: 7, primary: 5, secondary: 4, tertiary: 3,
+      residential: 2.5, service: 1.5, footway: 0.75,
+    };
+    return widths[type] ?? 2.5;
+  }
+
   private resolveGeometry(entity: TwinEntity): MeshGeometry | undefined {
     switch (entity.type) {
       case 'building':
         return { kind: 'building', ...entity.geometry };
       case 'road':
       case 'traffic_flow':
-        return { kind: 'road', ...entity.geometry };
+        return { kind: 'road', ...entity.geometry, width: this.roadHalfWidthFromTags(entity.tags) };
       case 'walkway':
-        return { kind: 'walkway', ...entity.geometry };
+        return { kind: 'walkway', ...entity.geometry, width: 0.75 };
       case 'terrain':
         return { kind: 'terrain', ...entity.geometry };
       case 'poi':

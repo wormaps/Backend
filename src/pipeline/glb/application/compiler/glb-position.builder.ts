@@ -274,8 +274,8 @@ function createRoadPositions(
     const px = -nz * halfWidth;
     const pz = nx * halfWidth;
 
-    positions.push(point.x - px, point.y + 0.08, point.z - pz);
-    positions.push(point.x + px, point.y + 0.08, point.z + pz);
+    positions.push(point.x - px, point.y + 0.15, point.z - pz);
+    positions.push(point.x + px, point.y + 0.15, point.z + pz);
   }
 
   return document
