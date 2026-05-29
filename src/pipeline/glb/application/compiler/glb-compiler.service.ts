@@ -14,6 +14,8 @@ import type { GroundHeightfield } from './glb-ground-plane';
 import { createMaterialNodeMap } from './glb-material.factory';
 import { summarizeMeshSummary } from './glb-mesh-summary';
 import { GltfMetadataFactory } from '../metadata/gltf-metadata.factory';
+import type { GooglePhotorealTile } from '../../../../providers/infrastructure';
+import { GoogleTilesMergeService } from './google-tiles-merge.service';
 
 export type GlbArtifact = {
   sceneId: string;
@@ -41,13 +43,18 @@ export type CompileGlbInput = {
   groundRadius?: number;
   /** DEM-sampled ground surface. When present, replaces the flat quad. */
   groundHeightfield?: GroundHeightfield;
+  photorealTiles?: GooglePhotorealTile[];
+  scopeCenter: { lat: number; lng: number };
 };
 
 @Injectable()
 export class GlbCompilerService {
   private readonly logger = new Logger(GlbCompilerService.name);
 
-  constructor(private readonly metadataFactory: GltfMetadataFactory) {}
+  constructor(
+    private readonly metadataFactory: GltfMetadataFactory,
+    private readonly googleTilesMerge: GoogleTilesMergeService,
+  ) {}
 
   async compile(input: CompileGlbInput): Promise<GlbArtifact> {
     this.logger.log(
@@ -126,6 +133,15 @@ export class GlbCompilerService {
       input.groundHeightfield,
     );
     scene.addChild(groundNode);
+
+    if ((input.photorealTiles?.length ?? 0) > 0) {
+      await this.googleTilesMerge.merge({
+        document,
+        sceneRoot: scene,
+        tiles: input.photorealTiles ?? [],
+        scopeCenter: input.scopeCenter,
+      });
+    }
 
     root.setDefaultScene(scene);
 

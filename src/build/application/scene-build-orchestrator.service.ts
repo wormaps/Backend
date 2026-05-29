@@ -4,6 +4,7 @@ import type { SceneScope } from '../../shared/contracts';
 import { GlbCompilerService } from '../../pipeline/glb/application';
 import type { GroundHeightfield } from '../../pipeline/glb/application';
 import { GlbValidationService } from '../../pipeline/glb/application';
+import type { GooglePhotorealTile } from '../../providers/infrastructure';
 import { NormalizedEntityBuilderService } from '../../pipeline/normalization/application';
 import { SnapshotCollectorService } from '../../providers/application';
 import { QaGateService } from './qa-gate.service';
@@ -30,6 +31,7 @@ export type SceneBuildMvpInput = {
   scope: SceneScope;
   snapshots: SourceSnapshot[];
   groundHeightfield?: GroundHeightfield;
+  photorealTiles?: GooglePhotorealTile[];
 };
 
 @Injectable()
@@ -215,6 +217,8 @@ export class SceneBuildOrchestratorService {
       qaSummary: summarizeQa(qaResult.issues),
       groundRadius: (input.scope.radiusMeters ?? 150) * 2.5,
       groundHeightfield: input.groundHeightfield,
+      photorealTiles: input.photorealTiles,
+      scopeCenter: input.scope.center,
     });
     const manifestCandidate = this.manifestFactory.create({
       sceneId: input.sceneId,

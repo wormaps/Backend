@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, MapboxSatelliteAdapter, type OSMEntityData } from '../infrastructure';
+import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, MapboxSatelliteAdapter, Google3dTilesAdapter, type OSMEntityData, type GooglePhotorealTile } from '../infrastructure';
 import { MapboxDemAdapter } from '../infrastructure';
 import type { SceneBuildRunResult } from '../../build/application';
 import type { GroundHeightfield } from '../../pipeline/glb/application';
@@ -34,7 +34,14 @@ const PROVIDER_COMPLIANCE = {
     retentionPolicy: 'ephemeral',
     policyVersion: '1.0.0',
   },
-} satisfies Record<'osm' | 'vworld' | 'mapbox', ComplianceInfo>;
+  google_3dtiles: {
+    provider: 'google_3dtiles',
+    attributionRequired: true,
+    attributionText: 'Google Photorealistic 3D Tiles',
+    retentionPolicy: 'ephemeral',
+    policyVersion: '1.0.0',
+  },
+} satisfies Record<'osm' | 'vworld' | 'mapbox' | 'google_3dtiles', ComplianceInfo>;
 
 // Injection token — avoids circular import with build/application.
 export const SCENE_BUILD_ORCHESTRATOR = Symbol('SCENE_BUILD_ORCHESTRATOR');
@@ -77,6 +84,7 @@ export class OsmSceneBuildService {
     @Optional() private readonly satellite: MapboxSatelliteAdapter | undefined,
     @Optional() private readonly vworld: VWorldBuildingAdapter | undefined,
     @Optional() private readonly mapboxBuildings: MapboxBuildingsAdapter | undefined,
+    @Optional() private readonly google3dTiles: Google3dTilesAdapter | undefined,
     @Inject(SCENE_BUILD_ORCHESTRATOR)
     private readonly orchestrator: SceneBuildOrchestrator,
   ) {}
@@ -116,6 +124,7 @@ export class OsmSceneBuildService {
     await this.enrichBuildingColorsFromSatellite(allBuildingEntities, input.scope.center);
 
     const snapshots: SourceSnapshot[] = [];
+    let photorealTiles: GooglePhotorealTile[] = [];
 
     if (allBuildingEntities.length > 0) {
       snapshots.push(this.makeSnapshot(input, 'building', allBuildingEntities));
@@ -132,6 +141,21 @@ export class OsmSceneBuildService {
     if (trees.length > 0) {
       snapshots.push(this.makeSnapshot(input, 'poi', trees));
     }
+    if (this.google3dTiles) {
+      try {
+        photorealTiles = await this.google3dTiles.fetchPhotorealTiles({
+          scope: input.scope,
+          maxGeometricError: this.resolvePhotorealGeometricError(input.scope.radiusMeters ?? 150),
+          maxTiles: 96,
+          maxDepth: 18,
+        });
+        if (photorealTiles.length > 0) {
+          snapshots.push(this.makeGoogleTilesSnapshot(input, photorealTiles));
+        }
+      } catch (err) {
+        this.logger.warn(`Google 3D Tiles skipped: ${String(err)}`);
+      }
+    }
 
     this.logger.log(`OSM Build: buildings=${filteredBuildings.length}+${buildingParts.length}parts roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} trees=${trees.length} snapshots=${snapshots.length}`);
 
@@ -142,6 +166,7 @@ export class OsmSceneBuildService {
       scope: input.scope,
       snapshots,
       groundHeightfield,
+      photorealTiles,
     };
 
     const result = await this.orchestrator.run(buildInput);
@@ -212,6 +237,41 @@ export class OsmSceneBuildService {
       status: 'success',
       compliance: PROVIDER_COMPLIANCE[provider] ?? PROVIDER_COMPLIANCE['osm']!,
     };
+  }
+
+  private makeGoogleTilesSnapshot(
+    input: OsmSceneBuildInput,
+    tiles: GooglePhotorealTile[],
+  ): SourceSnapshot {
+    const payload = JSON.stringify({
+      tileCount: tiles.length,
+      uris: tiles.slice(0, 32).map((t) => t.uri),
+      geometricErrorRange: {
+        min: Math.min(...tiles.map((t) => t.geometricError)),
+        max: Math.max(...tiles.map((t) => t.geometricError)),
+      },
+    });
+    const responseHash = `sha256:${createHash('sha256').update(payload).digest('hex')}`;
+    return {
+      id: `snapshot:google_3dtiles:photoreal:${input.snapshotBundleId}`,
+      provider: 'google_3dtiles',
+      sceneId: input.sceneId,
+      requestedAt: new Date().toISOString(),
+      queryHash: `sha256:${createHash('sha256').update(`google_3dtiles:${input.scope.center.lat}:${input.scope.center.lng}:${input.scope.radiusMeters ?? 150}`).digest('hex')}`,
+      responseHash,
+      storageMode: 'metadata_only',
+      payloadRef: payload,
+      payloadSchemaVersion: 'google-3dtiles.v1',
+      status: 'success',
+      compliance: PROVIDER_COMPLIANCE.google_3dtiles,
+    };
+  }
+
+  private resolvePhotorealGeometricError(radiusMeters: number): number {
+    if (radiusMeters <= 120) return 8;
+    if (radiusMeters <= 250) return 16;
+    if (radiusMeters <= 500) return 28;
+    return 40;
   }
 
   private async enrichBuildingColorsFromSatellite(

@@ -8,6 +8,7 @@ import type { QaIssue } from '../quality/qa';
 
 export const SourceProviderSchema = z.enum([
   'google_places',
+  'google_3dtiles',
   'osm',
   'open_meteo',
   'tomtom',

@@ -2,6 +2,7 @@ import type { QaIssue } from '../quality/qa';
 
 export type SourceProvider =
   | 'google_places'
+  | 'google_3dtiles'
   | 'osm'
   | 'open_meteo'
   | 'tomtom'
