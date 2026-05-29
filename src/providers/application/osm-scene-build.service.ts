@@ -91,10 +91,13 @@ export class OsmSceneBuildService {
     await this.delay(OVERPASS_RATE_LIMIT_MS);
     const terrain = await this.overpass.queryTerrain(input.scope);
 
+    // Suppress parent buildings whose footprint is covered by building:parts.
+    const filteredBuildings = this.suppressParentsWithParts(buildings, buildingParts);
+    const allBuildingEntities = [...filteredBuildings, ...buildingParts];
+
     // Enrich all geometry with DEM elevation in one batch (single tile fetch).
     // buildingParts enriched separately — their baseY is architectural offset, DEM adds on top.
-    const allBuildingEntities = [...buildings, ...buildingParts];
-    await this.enrichElevation(allBuildingEntities, roads, walkways, input.scope.center);
+    await this.enrichElevation(allBuildingEntities, roads, walkways, terrain, input.scope.center);
 
     const snapshots: SourceSnapshot[] = [];
 
@@ -111,7 +114,7 @@ export class OsmSceneBuildService {
       snapshots.push(this.makeSnapshot(input, 'terrain', terrain));
     }
 
-    this.logger.log(`OSM Build: buildings=${allBuildingEntities.length}(parts=${buildingParts.length}) roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} snapshots=${snapshots.length}`);
+    this.logger.log(`OSM Build: buildings=${filteredBuildings.length}+${buildingParts.length}parts roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} snapshots=${snapshots.length}`);
 
     const buildInput = {
       sceneId: input.sceneId,
@@ -191,11 +194,36 @@ export class OsmSceneBuildService {
     };
   }
 
+  private suppressParentsWithParts(
+    parents: OSMEntityData[],
+    parts: OSMEntityData[],
+  ): OSMEntityData[] {
+    if (parts.length === 0) return parents;
+    type XZ = { x: number; z: number };
+    const partCentroids: XZ[] = parts.flatMap((p) => {
+      const outer = (p.geometry as { footprint?: { outer: XZ[] } }).footprint?.outer ?? [];
+      if (outer.length === 0) return [];
+      const cx = outer.reduce((s, v) => s + v.x, 0) / outer.length;
+      const cz = outer.reduce((s, v) => s + v.z, 0) / outer.length;
+      return [{ x: cx, z: cz }];
+    });
+    return parents.filter((parent) => {
+      const outer = (parent.geometry as { footprint?: { outer: XZ[] } }).footprint?.outer ?? [];
+      if (outer.length < 3) return true;
+      const minX = outer.reduce((m, v) => Math.min(m, v.x), Infinity);
+      const maxX = outer.reduce((m, v) => Math.max(m, v.x), -Infinity);
+      const minZ = outer.reduce((m, v) => Math.min(m, v.z), Infinity);
+      const maxZ = outer.reduce((m, v) => Math.max(m, v.z), -Infinity);
+      return !partCentroids.some((c) => c.x >= minX && c.x <= maxX && c.z >= minZ && c.z <= maxZ);
+    });
+  }
+
   /**
    * Apply DEM elevation to all entities in one batched fetch (multi-tile aware).
    * - Buildings: centroid elevation → baseY (relative to scene centre).
    *   Buildings with empty footprints are skipped (baseY stays undefined → y=0 fallback).
    * - Roads / walkways: every centerline vertex.y → relative elevation.
+   * - Terrain: every sample point.y → relative elevation.
    *
    * Uses index-based mapping (no per-point closures) to reduce GC pressure.
    * The DEM adapter handles tile boundaries automatically.
@@ -204,6 +232,7 @@ export class OsmSceneBuildService {
     buildings: OSMEntityData[],
     roads: OSMEntityData[],
     walkways: OSMEntityData[],
+    terrain: OSMEntityData[],
     origin: { lat: number; lng: number },
   ): Promise<void> {
     if (!this.dem) return;
@@ -246,6 +275,20 @@ export class OsmSceneBuildService {
         roadVertexOffsets.push(vOffsets);
       }
 
+      // terrainVertexOffsets[t][v] = index in latLngs for terrain[t].samples[v].
+      const terrainVertexOffsets: number[][] = [];
+      for (const entity of terrain) {
+        const samples =
+          (entity.geometry as { samples?: Array<{ x: number; y: number; z: number }> })
+            .samples ?? [];
+        const vOffsets: number[] = [];
+        for (const sample of samples) {
+          vOffsets.push(latLngs.length);
+          latLngs.push(this.enuToLatLng(sample.x, sample.z, origin));
+        }
+        terrainVertexOffsets.push(vOffsets);
+      }
+
       if (latLngs.length === 1) return; // only origin — no entities to enrich
 
       // -----------------------------------------------------------------------
@@ -280,8 +323,21 @@ export class OsmSceneBuildService {
         }
       }
 
+      for (let t = 0; t < terrain.length; t++) {
+        const vOffsets = terrainVertexOffsets[t] ?? [];
+        const samples =
+          (terrain[t]!.geometry as { samples?: Array<{ x: number; y: number; z: number }> })
+            .samples ?? [];
+        for (let v = 0; v < samples.length; v++) {
+          const offset = vOffsets[v];
+          if (offset === undefined) continue;
+          const absElev = allElevations[offset] ?? 0;
+          samples[v]!.y = absElev - centerElevation;
+        }
+      }
+
       this.logger.log(
-        `Elevation enriched: buildings=${buildings.length} roads=${roads.length} walkways=${walkways.length} points=${latLngs.length} centerElev=${centerElevation.toFixed(1)}m`,
+        `Elevation enriched: buildings=${buildings.length} roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} points=${latLngs.length} centerElev=${centerElevation.toFixed(1)}m`,
       );
     } catch (err) {
       this.logger.warn(`Elevation enrichment failed; using y=0: ${String(err)}`);

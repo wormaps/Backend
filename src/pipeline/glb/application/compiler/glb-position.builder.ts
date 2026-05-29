@@ -299,12 +299,11 @@ function createTerrainPositions(document: Document, buffer: Buffer, geometry: Te
     return createPlaceholderPositions(document, buffer, 'terrain', point);
   }
 
-  const avgY = samples.reduce((sum, sample) => sum + sample.y, 0) / samples.length;
   const positions = new Float32Array(triIndices.length * 3);
   for (let i = 0; i < triIndices.length; i++) {
     const sample = samples[triIndices[i]!] ?? samples[0]!;
     positions[i * 3] = sample.x;
-    positions[i * 3 + 1] = avgY;
+    positions[i * 3 + 1] = sample.y;
     positions[i * 3 + 2] = sample.z;
   }
 
