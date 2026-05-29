@@ -63,6 +63,10 @@ function createBuildingPositions(document: Document, buffer: Buffer, geometry: B
   const baseY = geometry.baseY ?? 0;
   const height = geometry.height ?? 5;
   const topY = baseY + height;
+  // Embed the base below the (coarse) ground grid so the building/ground seam
+  // is hidden even when DEM interpolation leaves a small mismatch.
+  const EMBED = 1.0;
+  const bottomY = baseY - EMBED;
 
   if (outer.length < 3) {
     return createPlaceholderPositions(document, buffer, 'building_massing', {
@@ -100,8 +104,8 @@ function createBuildingPositions(document: Document, buffer: Buffer, geometry: B
     const a = allVerts[floorTris[i]!]!;
     const b = allVerts[floorTris[i + 1]!]!;
     const c = allVerts[floorTris[i + 2]!]!;
-    if (ccw) positions.push(a.x, baseY, a.z, b.x, baseY, b.z, c.x, baseY, c.z);
-    else positions.push(a.x, baseY, a.z, c.x, baseY, c.z, b.x, baseY, b.z);
+    if (ccw) positions.push(a.x, bottomY, a.z, b.x, bottomY, b.z, c.x, bottomY, c.z);
+    else positions.push(a.x, bottomY, a.z, c.x, bottomY, c.z, b.x, bottomY, b.z);
   }
 
   for (let i = 0; i < floorTris.length; i += 3) {
@@ -117,11 +121,11 @@ function createBuildingPositions(document: Document, buffer: Buffer, geometry: B
     const p0 = outer[j]!;
     const p1 = outer[(j + 1) % n]!;
     if (ccw) {
-      positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p1.x, baseY, p1.z);
-      positions.push(p0.x, baseY, p0.z, p0.x, topY, p0.z, p1.x, topY, p1.z);
+      positions.push(p0.x, bottomY, p0.z, p1.x, topY, p1.z, p1.x, bottomY, p1.z);
+      positions.push(p0.x, bottomY, p0.z, p0.x, topY, p0.z, p1.x, topY, p1.z);
     } else {
-      positions.push(p0.x, baseY, p0.z, p1.x, baseY, p1.z, p1.x, topY, p1.z);
-      positions.push(p0.x, baseY, p0.z, p1.x, topY, p1.z, p0.x, topY, p0.z);
+      positions.push(p0.x, bottomY, p0.z, p1.x, bottomY, p1.z, p1.x, topY, p1.z);
+      positions.push(p0.x, bottomY, p0.z, p1.x, topY, p1.z, p0.x, topY, p0.z);
     }
   }
 
@@ -395,11 +399,19 @@ function createTerrainPositions(document: Document, buffer: Buffer, geometry: Te
  * Built in local space (centred at 0,0,0); the node's pivot translation places
  * it at the POI point, so positions must NOT include the absolute point coords.
  */
-function createTreePositions(document: Document, buffer: Buffer, _geometry: PoiMeshGeometry): Accessor {
-  const TRUNK_H = 1.6;
-  const TRUNK_R = 0.22;
-  const CANOPY_R = 1.9;
-  const CANOPY_H = 3.6;
+function createTreePositions(document: Document, buffer: Buffer, geometry: PoiMeshGeometry): Accessor {
+  // Per-tree deterministic variance from the point coords so a stand of trees
+  // is not visually identical.
+  const { x, z } = geometry.point;
+  const raw = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  const rnd = raw - Math.floor(raw); // 0..1
+  const scale = 0.7 + rnd * 0.8; // 0.7x .. 1.5x
+  const lean = (rnd - 0.5) * 0.6; // slight canopy offset
+
+  const TRUNK_H = 1.6 * scale;
+  const TRUNK_R = 0.22 * (0.8 + rnd * 0.4);
+  const CANOPY_R = 1.9 * scale;
+  const CANOPY_H = 3.6 * scale;
   const trunkTop = TRUNK_H;
   const canopyCenterY = trunkTop + CANOPY_H / 2;
   const hy = CANOPY_H / 2;
@@ -427,14 +439,15 @@ function createTreePositions(document: Document, buffer: Buffer, _geometry: PoiM
     tri(a.dx, 0, a.dz, a.dx, trunkTop, a.dz, b.dx, trunkTop, b.dz);
   }
 
-  // Canopy — octahedron around (0, canopyCenterY, 0).
-  const T = { x: 0, y: canopyCenterY + hy, z: 0 };
-  const B = { x: 0, y: canopyCenterY - hy, z: 0 };
+  // Canopy — octahedron around (lean, canopyCenterY, 0), offset off trunk axis.
+  const cx = lean * CANOPY_R;
+  const T = { x: cx, y: canopyCenterY + hy, z: 0 };
+  const B = { x: cx, y: canopyCenterY - hy, z: 0 };
   const ring = [
-    { x: CANOPY_R, z: 0 },
-    { x: 0, z: CANOPY_R },
-    { x: -CANOPY_R, z: 0 },
-    { x: 0, z: -CANOPY_R },
+    { x: cx + CANOPY_R, z: 0 },
+    { x: cx, z: CANOPY_R },
+    { x: cx - CANOPY_R, z: 0 },
+    { x: cx, z: -CANOPY_R },
   ];
   for (let i = 0; i < 4; i++) {
     const p = ring[i]!;

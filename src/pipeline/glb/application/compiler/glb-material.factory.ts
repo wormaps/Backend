@@ -17,6 +17,14 @@ export function createMaterialNodeMap(
       material.setBaseColorFactor([r, g, b, 1.0]);
     }
 
+    if (materialPlan.role === 'building') {
+      // Double-sided so walls never cull to invisible when footprint winding
+      // is inconsistent — fixes see-through buildings in material preview.
+      material.setDoubleSided(true);
+      material.setMetallicFactor(0.0);
+      material.setRoughnessFactor(0.9);
+    }
+
     if (materialPlan.role === 'window') {
       material.setDoubleSided(true);
       material.setBaseColorFactor([1.0, 1.0, 1.0, 1.0]);
