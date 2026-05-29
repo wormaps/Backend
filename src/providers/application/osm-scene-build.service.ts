@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, type OSMEntityData } from '../infrastructure';
+import { OverpassAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter, MapboxSatelliteAdapter, type OSMEntityData } from '../infrastructure';
 import { MapboxDemAdapter } from '../infrastructure';
 import type { SceneBuildRunResult } from '../../build/application';
 import type { SceneScope } from '../../shared/contracts';
@@ -72,6 +72,7 @@ export class OsmSceneBuildService {
   constructor(
     private readonly overpass: OverpassAdapter,
     @Optional() private readonly dem: MapboxDemAdapter | undefined,
+    @Optional() private readonly satellite: MapboxSatelliteAdapter | undefined,
     @Optional() private readonly vworld: VWorldBuildingAdapter | undefined,
     @Optional() private readonly mapboxBuildings: MapboxBuildingsAdapter | undefined,
     @Inject(SCENE_BUILD_ORCHESTRATOR)
@@ -98,6 +99,9 @@ export class OsmSceneBuildService {
     // Enrich all geometry with DEM elevation in one batch (single tile fetch).
     // buildingParts enriched separately — their baseY is architectural offset, DEM adds on top.
     await this.enrichElevation(allBuildingEntities, roads, walkways, terrain, input.scope.center);
+
+    // Sample building colors from satellite imagery (only for entities without explicit colour tag).
+    await this.enrichBuildingColorsFromSatellite(allBuildingEntities, input.scope.center);
 
     const snapshots: SourceSnapshot[] = [];
 
@@ -192,6 +196,45 @@ export class OsmSceneBuildService {
       status: 'success',
       compliance: PROVIDER_COMPLIANCE[provider] ?? PROVIDER_COMPLIANCE['osm']!,
     };
+  }
+
+  private async enrichBuildingColorsFromSatellite(
+    buildings: OSMEntityData[],
+    origin: { lat: number; lng: number },
+  ): Promise<void> {
+    if (!this.satellite || buildings.length === 0) return;
+    try {
+      // Collect centroid lat/lng for buildings that have no explicit colour tag.
+      const indices: number[] = [];
+      const points: Array<{ lat: number; lng: number }> = [];
+
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i]!;
+        if (b.tags['building:colour']) continue; // respect explicit OSM tag
+        const outer =
+          (b.geometry as { footprint?: { outer: Array<{ x: number; z: number }> } })
+            .footprint?.outer ?? [];
+        if (outer.length === 0) continue;
+        const cx = outer.reduce((s, p) => s + p.x, 0) / outer.length;
+        const cz = outer.reduce((s, p) => s + p.z, 0) / outer.length;
+        indices.push(i);
+        points.push(this.enuToLatLng(cx, cz, origin));
+      }
+
+      if (points.length === 0) return;
+
+      const colors = await this.satellite.sampleColors(points);
+
+      for (let k = 0; k < indices.length; k++) {
+        const [r, g, b] = colors[k] ?? [128, 128, 128];
+        const hex = `#${r!.toString(16).padStart(2, '0')}${g!.toString(16).padStart(2, '0')}${b!.toString(16).padStart(2, '0')}`;
+        buildings[indices[k]!]!.tags['building:colour'] = hex;
+      }
+
+      this.logger.log(`Satellite colors sampled: ${points.length} buildings`);
+    } catch (err) {
+      this.logger.warn(`Satellite color enrichment failed: ${String(err)}`);
+    }
   }
 
   private suppressParentsWithParts(

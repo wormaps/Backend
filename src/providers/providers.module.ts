@@ -4,7 +4,7 @@ import { BuildModule } from '../build';
 import { SceneBuildOrchestratorService } from '../build/application/scene-build-orchestrator.service';
 import { SnapshotCollectorService } from './application';
 import { OsmSceneBuildService, SCENE_BUILD_ORCHESTRATOR } from './application';
-import { OverpassAdapter, MapboxDemAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter } from './infrastructure';
+import { OverpassAdapter, MapboxDemAdapter, MapboxSatelliteAdapter, VWorldBuildingAdapter, MapboxBuildingsAdapter } from './infrastructure';
 
 @Module({
   imports: [forwardRef(() => BuildModule)],
@@ -13,6 +13,7 @@ import { OverpassAdapter, MapboxDemAdapter, VWorldBuildingAdapter, MapboxBuildin
     OsmSceneBuildService,
     OverpassAdapter,
     MapboxDemAdapter,
+    MapboxSatelliteAdapter,
     VWorldBuildingAdapter,
     MapboxBuildingsAdapter,
     // Binds the injection token to the concrete orchestrator (from BuildModule via forwardRef).
