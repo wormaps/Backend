@@ -164,7 +164,7 @@ function createWindowPositions(document: Document, buffer: Buffer, geometry: Bui
   const n = outer.length;
   let windowQuadCount = 0;
 
-  const INSET = 0.08;
+  const INSET = 0.25;
   const SIDE_MARGIN = 0.6;
   const WIN_SPACING = 2.5;
   const WIN_WIDTH = 1.2;
@@ -253,6 +253,10 @@ function createRoadPositions(
     });
   }
 
+  // Layer separation against terrain/ground/walkways to kill z-fighting.
+  // ground grid: dem-0.05 < terrain: dem+0.05 < walkway: dem+0.10 < road: dem+0.20.
+  const yLift = geometry.kind === 'walkway' ? 0.1 : 0.2;
+
   const positions: number[] = [];
   for (let i = 0; i < centerline.length; i++) {
     const point = centerline[i]!;
@@ -265,7 +269,7 @@ function createRoadPositions(
     const len = Math.sqrt(dx * dx + dz * dz);
 
     if (len < 0.001) {
-      positions.push(point.x - halfWidth, point.y, point.z, point.x + halfWidth, point.y, point.z);
+      positions.push(point.x - halfWidth, point.y + yLift, point.z, point.x + halfWidth, point.y + yLift, point.z);
       continue;
     }
 
@@ -274,8 +278,8 @@ function createRoadPositions(
     const px = -nz * halfWidth;
     const pz = nx * halfWidth;
 
-    positions.push(point.x - px, point.y + 0.15, point.z - pz);
-    positions.push(point.x + px, point.y + 0.15, point.z + pz);
+    positions.push(point.x - px, point.y + yLift, point.z - pz);
+    positions.push(point.x + px, point.y + yLift, point.z + pz);
   }
 
   return document
@@ -299,11 +303,14 @@ function createTerrainPositions(document: Document, buffer: Buffer, geometry: Te
     return createPlaceholderPositions(document, buffer, 'terrain', point);
   }
 
+  // Lift landuse polygons just above the DEM ground grid (at dem-0.05) so the
+  // two opaque surfaces do not z-fight where they share the same footprint.
+  const TERRAIN_LIFT = 0.05;
   const positions = new Float32Array(triIndices.length * 3);
   for (let i = 0; i < triIndices.length; i++) {
     const sample = samples[triIndices[i]!] ?? samples[0]!;
     positions[i * 3] = sample.x;
-    positions[i * 3 + 1] = sample.y;
+    positions[i * 3 + 1] = sample.y + TERRAIN_LIFT;
     positions[i * 3 + 2] = sample.z;
   }
 
