@@ -126,38 +126,49 @@ export class OsmSceneBuildService {
     const snapshots: SourceSnapshot[] = [];
     let photorealTiles: GooglePhotorealTile[] = [];
 
-    if (allBuildingEntities.length > 0) {
-      snapshots.push(this.makeSnapshot(input, 'building', allBuildingEntities));
-    }
-    if (roads.length > 0) {
-      snapshots.push(this.makeSnapshot(input, 'road', roads));
-    }
-    if (walkways.length > 0) {
-      snapshots.push(this.makeSnapshot(input, 'walkway', walkways));
-    }
-    if (terrain.length > 0) {
-      snapshots.push(this.makeSnapshot(input, 'terrain', terrain));
-    }
-    if (trees.length > 0) {
-      snapshots.push(this.makeSnapshot(input, 'poi', trees));
-    }
+    // Fetch Google photoreal first. When it succeeds, it becomes the ENTIRE
+    // scene (Google Earth style): procedural OSM buildings/roads/terrain and
+    // the satellite ground plane are dropped, leaving only the photoreal mesh.
     if (this.google3dTiles) {
       try {
         photorealTiles = await this.google3dTiles.fetchPhotorealTiles({
           scope: input.scope,
           maxGeometricError: this.resolvePhotorealGeometricError(input.scope.radiusMeters ?? 150),
-          maxTiles: 96,
-          maxDepth: 18,
+          maxTiles: 16,
+          // Google photoreal LOD descends slowly per level (GE ~1027→514→256…);
+          // street-level tiles sit ~20+ levels deep behind nested tilesets.
+          // visitedTilesets + maxTiles bound cost.
+          maxDepth: 32,
         });
-        if (photorealTiles.length > 0) {
-          snapshots.push(this.makeGoogleTilesSnapshot(input, photorealTiles));
-        }
       } catch (err) {
         this.logger.warn(`Google 3D Tiles skipped: ${String(err)}`);
       }
     }
 
-    this.logger.log(`OSM Build: buildings=${filteredBuildings.length}+${buildingParts.length}parts roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} trees=${trees.length} snapshots=${snapshots.length}`);
+    const photorealOnly = photorealTiles.length > 0;
+
+    if (photorealOnly) {
+      snapshots.push(this.makeGoogleTilesSnapshot(input, photorealTiles));
+    } else {
+      // Procedural fallback (no photoreal coverage for this scope).
+      if (allBuildingEntities.length > 0) {
+        snapshots.push(this.makeSnapshot(input, 'building', allBuildingEntities));
+      }
+      if (roads.length > 0) {
+        snapshots.push(this.makeSnapshot(input, 'road', roads));
+      }
+      if (walkways.length > 0) {
+        snapshots.push(this.makeSnapshot(input, 'walkway', walkways));
+      }
+      if (terrain.length > 0) {
+        snapshots.push(this.makeSnapshot(input, 'terrain', terrain));
+      }
+      if (trees.length > 0) {
+        snapshots.push(this.makeSnapshot(input, 'poi', trees));
+      }
+    }
+
+    this.logger.log(`OSM Build: photorealOnly=${photorealOnly} photorealTiles=${photorealTiles.length} buildings=${filteredBuildings.length}+${buildingParts.length}parts roads=${roads.length} walkways=${walkways.length} terrain=${terrain.length} trees=${trees.length} snapshots=${snapshots.length}`);
 
     const buildInput = {
       sceneId: input.sceneId,
@@ -165,7 +176,8 @@ export class OsmSceneBuildService {
       snapshotBundleId: input.snapshotBundleId,
       scope: input.scope,
       snapshots,
-      groundHeightfield,
+      // Photoreal carries its own terrain → drop the satellite ground plane.
+      groundHeightfield: photorealOnly ? undefined : groundHeightfield,
       photorealTiles,
     };
 
@@ -268,10 +280,12 @@ export class OsmSceneBuildService {
   }
 
   private resolvePhotorealGeometricError(radiusMeters: number): number {
-    if (radiusMeters <= 120) return 8;
-    if (radiusMeters <= 250) return 16;
-    if (radiusMeters <= 500) return 28;
-    return 40;
+    // Lower geometricError = finer photoreal mesh (buildings stand up rather
+    // than reading as a flat 20m slab). GE 8 is near Google Earth street-level
+    // detail; maxDepth=32 reaches it (~depth 24).
+    if (radiusMeters <= 250) return 8;
+    if (radiusMeters <= 500) return 16;
+    return 32;
   }
 
   private async enrichBuildingColorsFromSatellite(

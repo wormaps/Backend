@@ -1,5 +1,6 @@
 import { Buffer, Document, NodeIO } from '@gltf-transform/core';
-import { EXTMeshoptCompression } from '@gltf-transform/extensions';
+import { EXTMeshoptCompression, KHRMaterialsUnlit } from '@gltf-transform/extensions';
+import { unpartition } from '@gltf-transform/functions';
 import { Injectable, Logger } from '@nestjs/common';
 
 import type { MeshPlan } from '../../../../shared/contracts';
@@ -145,6 +146,14 @@ export class GlbCompilerService {
 
     root.setDefaultScene(scene);
 
+    this.logger.log(
+      `GLB pre-consolidation sceneId=${input.meshPlan.sceneId} buffers=${root.listBuffers().length} meshes=${root.listMeshes().length} materials=${root.listMaterials().length} nodes=${root.listNodes().length}`,
+    );
+    await document.transform(unpartition());
+    this.logger.log(
+      `GLB post-consolidation sceneId=${input.meshPlan.sceneId} buffers=${root.listBuffers().length} meshes=${root.listMeshes().length} materials=${root.listMaterials().length} nodes=${root.listNodes().length}`,
+    );
+
     const meshSummary = summarizeMeshSummary(input.meshPlan);
     const placeholderMetadata = this.metadataFactory.create({
       sceneId: input.meshPlan.sceneId,
@@ -161,7 +170,7 @@ export class GlbCompilerService {
     root.setExtras({ worMap: placeholderMetadata.extras.value.worMap });
 
     const io = new NodeIO();
-    io.registerExtensions([EXTMeshoptCompression]);
+    io.registerExtensions([EXTMeshoptCompression, KHRMaterialsUnlit]);
     await io.init();
 
     const placeholderBytes = await io.writeBinary(document);

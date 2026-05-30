@@ -247,6 +247,9 @@ export class SceneBuildOrchestratorService {
       this.logger.error('GLB validation failed', {
         sceneId: input.sceneId,
         validationIssueCount: glbValidation.issues.length,
+        issues: glbValidation.issues
+          .filter((issue) => issue.severity === 'critical' || issue.action === 'fail_build')
+          .map((issue) => ({ code: issue.code, message: issue.message, metric: issue.metric, threshold: issue.threshold })),
       });
       build.transitionTo('FAILED');
       const manifest = this.manifestFactory.create({
